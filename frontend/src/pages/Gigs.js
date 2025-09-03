@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Container, 
   Grid,
@@ -19,6 +19,8 @@ import {
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
+import { formatPayment, getPaymentValue } from '../utils/currency';
 import AddIcon from '@mui/icons-material/Add';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -29,6 +31,8 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 const Gigs = () => {
   const { isAuthenticated } = useAuth();
   const [showFilters, setShowFilters] = useState(false);
+  const [gigs, setGigs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     location: '',
     date: '',
@@ -44,59 +48,21 @@ const Gigs = () => {
   const instruments = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals"];
   const genres = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk"];
   
-  // Mock data for prototype
-  const gigs = useMemo(() => [
-    {
-      id: '1',
-      title: 'Guitarist Needed for Wedding',
-      venue: 'Kensington Gardens',
-      location: 'London',
-      date: '2023-12-15',
-      payment: '£350',
-      instruments: ['Guitar'],
-      genres: ['Classical', 'Pop']
-    },
-    {
-      id: '2',
-      title: 'Jazz Band for Corporate Event',
-      venue: 'The Midland Hotel',
-      location: 'Manchester',
-      date: '2023-11-20',
-      payment: '£1500',
-      instruments: ['Piano', 'Saxophone', 'Drums', 'Bass'],
-      genres: ['Jazz']
-    },
-    {
-      id: '3',
-      title: 'Rock Drummer for Studio Session',
-      venue: 'Abbey Road Studios',
-      location: 'London',
-      date: '2023-11-05',
-      payment: '£300',
-      instruments: ['Drums'],
-      genres: ['Rock', 'Alternative']
-    },
-    {
-      id: '4',
-      title: 'String Quartet for Gallery Opening',
-      venue: 'Kelvingrove Art Gallery',
-      location: 'Glasgow',
-      date: '2023-12-03',
-      payment: '£800',
-      instruments: ['Violin', 'Viola', 'Cello'],
-      genres: ['Classical']
-    },
-    {
-      id: '5',
-      title: 'DJ for University Ball',
-      venue: 'Cardiff University',
-      location: 'Cardiff',
-      date: '2023-11-25',
-      payment: '£450',
-      instruments: ['DJ Equipment'],
-      genres: ['Electronic', 'Pop', 'Hip-Hop']
-    }
-  ], []);
+  // Fetch gigs from backend
+  useEffect(() => {
+    const fetchGigs = async () => {
+      try {
+        const response = await axios.get('/api/gigs');
+        setGigs(response.data);
+      } catch (error) {
+        console.error('Error fetching gigs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGigs();
+  }, []);
 
   // Use useMemo to memoize the filtered gigs
   const filteredGigs = useMemo(() => {
@@ -121,7 +87,7 @@ const Gigs = () => {
 
     // Filter by fee range
     result = result.filter(gig => {
-      const gigFee = parseInt(gig.payment.replace('£', '').replace(',', ''));
+      const gigFee = getPaymentValue(gig.payment);
       return gigFee >= filters.minFee && gigFee <= filters.maxFee;
     });
 
@@ -145,9 +111,9 @@ const Gigs = () => {
     } else if (sort === 'dateDesc') {
       result.sort((a, b) => new Date(b.date) - new Date(a.date));
     } else if (sort === 'feeAsc') {
-      result.sort((a, b) => parseInt(a.payment.replace('£', '').replace(',', '')) - parseInt(b.payment.replace('£', '').replace(',', '')));
+      result.sort((a, b) => getPaymentValue(a.payment) - getPaymentValue(b.payment));
     } else if (sort === 'feeDesc') {
-      result.sort((a, b) => parseInt(b.payment.replace('£', '').replace(',', '')) - parseInt(a.payment.replace('£', '').replace(',', '')));
+      result.sort((a, b) => getPaymentValue(b.payment) - getPaymentValue(a.payment));
     }
 
     return result;
@@ -350,10 +316,21 @@ const Gigs = () => {
         </Paper>
       )}
       
-      <Grid container spacing={3}>
+      {loading ? (
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
+              <Typography variant="h6" color="text.secondary">
+                Loading gigs...
+              </Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+      ) : (
+        <Grid container spacing={3}>
         {filteredGigs.length > 0 ? (
           filteredGigs.map((gig) => (
-            <Grid item xs={12} md={6} lg={4} key={gig.id}>
+            <Grid item xs={12} md={6} lg={4} key={gig._id}>
               <Card 
               sx={{ 
                 height: '100%', 
@@ -385,13 +362,13 @@ const Gigs = () => {
               <CardContent sx={{ 
                 flexGrow: 1, 
                 p: 3,
-                filter: !isAuthenticated ? 'blur(4px)' : 'none',
+                filter: !isAuthenticated ? 'blur(3px)' : 'none',
                 transition: 'filter 0.3s ease'
               }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                   <PaymentIcon sx={{ mr: 1, color: '#1a365d' }} />
                   <Typography variant="body1" fontWeight="bold">
-                    {gig.payment}
+                    {formatPayment(gig.payment)}
                   </Typography>
                 </Box>
                 
@@ -446,60 +423,16 @@ const Gigs = () => {
                 </Box>
               </CardContent>
               
-              {/* Overlay for non-authenticated users */}
-              {!isAuthenticated && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: '80px', // Start below the title header
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    bgcolor: 'rgba(255, 255, 255, 0.9)',
-                    borderBottomLeftRadius: 8,
-                    borderBottomRightRadius: 8,
-                    zIndex: 1
-                  }}
-                >
-                  <Box sx={{ textAlign: 'center', p: 3 }}>
-                    <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: '#1a365d' }}>
-                      Sign in to see details
-                    </Typography>
-                    <Button
-                      variant="contained"
-                      component={Link}
-                      to="/login?redirect=/gigs"
-                      sx={{
-                        bgcolor: '#1a365d',
-                        '&:hover': {
-                          bgcolor: '#2c5282'
-                        },
-                        borderRadius: 2,
-                        px: 3,
-                        py: 1
-                      }}
-                    >
-                      Sign In
-                    </Button>
-                  </Box>
-                </Box>
-              )}
-              
               <CardActions sx={{ 
                 p: 2, 
-                pt: 0,
-                filter: !isAuthenticated ? 'blur(2px)' : 'none',
-                transition: 'filter 0.3s ease'
+                pt: 0
               }}>
                 <Button
                   size="medium"
                   variant="contained"
                   fullWidth
                   component={Link}
-                  to={isAuthenticated ? `/gigs/${gig.id}` : `/login?redirect=/gigs/${gig.id}`}
+                  to={isAuthenticated ? `/gigs/${gig._id}` : `/login?redirect=/gigs/${gig._id}`}
                   sx={{
                     borderRadius: 2,
                     bgcolor: '#1a365d',
@@ -510,27 +443,6 @@ const Gigs = () => {
                 >
                   View Details
                 </Button>
-                   <Button 
-                     size="small" 
-                     variant="contained"
-                     // Conditionally redirect to login if not logged in
-                     component={isAuthenticated ? Link : 'button'} 
-                     to={isAuthenticated ? `/apply/${gig.id}` : `/login?redirect=/apply/${gig.id}`}
-                   sx={{ 
-                       bgcolor: '#1a365d',
-                       '&:hover': { bgcolor: '#1a365d' },
-                       color: 'white',
-                       borderRadius: 2,
-                       px: 3,
-                       py: 1.5,
-                       fontSize: '0.8rem',
-                       textTransform: 'none',
-                       fontWeight: 'bold',
-                       boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
-                     }}
-                   >
-                     Apply
-                   </Button>
               </CardActions>
             </Card>
           </Grid>
@@ -551,7 +463,8 @@ const Gigs = () => {
             </Paper>
           </Grid>
         )}
-      </Grid>
+        </Grid>
+      )}
     </Container>
   );
 };

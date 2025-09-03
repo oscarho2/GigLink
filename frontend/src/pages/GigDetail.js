@@ -1,4 +1,6 @@
 import { Container, Typography, Paper, Box, Chip, Button, Grid, Avatar, CircularProgress, Alert, Dialog, DialogTitle, DialogContent, DialogContentText, TextField, DialogActions } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -10,6 +12,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
+import { formatPayment } from '../utils/currency';
 
 const GigDetail = () => {
   const { id } = useParams();
@@ -23,6 +26,8 @@ const GigDetail = () => {
   const [applicationMessage, setApplicationMessage] = useState('');
   const [applyStatus, setApplyStatus] = useState('');
   const [messageSent, setMessageSent] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState('');
 
   useEffect(() => {
     const fetchGig = async () => {
@@ -65,7 +70,7 @@ const GigDetail = () => {
       const config = {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'x-auth-token': token
         }
       };
       const body = { recipient: gig.user._id, content: applicationMessage };
@@ -75,6 +80,33 @@ const GigDetail = () => {
     } catch (err) {
       console.error(err);
       setApplyStatus('error');
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setOpenDeleteDialog(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setOpenDeleteDialog(false);
+    setDeleteStatus('');
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      const config = {
+        headers: {
+          'x-auth-token': token
+        }
+      };
+      await axios.delete(`http://localhost:5001/api/gigs/${id}`, config);
+      setDeleteStatus('success');
+      setTimeout(() => {
+        navigate('/gigs');
+      }, 1500);
+    } catch (err) {
+      console.error(err);
+      setDeleteStatus('error');
     }
   };
 
@@ -206,7 +238,7 @@ const GigDetail = () => {
                     </Typography>
                   </Box>
                   <Typography variant="h6" fontWeight="bold" sx={{ ml: 4 }}>
-                    {gig.payment}
+                    {formatPayment(gig.payment)}
                   </Typography>
                 </Box>
               </Paper>
@@ -216,7 +248,7 @@ const GigDetail = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                     <MusicNoteIcon color="primary" sx={{ mr: 1 }} />
                     <Typography variant="body1" fontWeight="medium">
-                      Instruments Needed
+                      Instruments
                     </Typography>
                   </Box>
                   <Box sx={{ ml: 4 }}>
@@ -263,7 +295,7 @@ const GigDetail = () => {
             </Grid>
           </Grid>
           
-          <Box sx={{ mt: 5, display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ mt: 5, display: 'flex', justifyContent: 'center', gap: 2 }}>
             {!isPoster && (
               <Button 
                 variant="contained" 
@@ -288,22 +320,66 @@ const GigDetail = () => {
               </Button>
             )}
             {isPoster && (
-              <Button
-                variant="contained"
-                size="large"
-                disabled
-                sx={{
-                  py: 1.5,
-                  px: 5,
-                  borderRadius: 2,
-                  fontSize: '1.1rem',
-                  fontWeight: 'bold',
-                  bgcolor: '#cccccc',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                }}
-              >
-                You Posted This Gig
-              </Button>
+              <>
+                <Button
+                  variant="contained"
+                  size="large"
+                  disabled
+                  sx={{
+                    py: 1.5,
+                    px: 5,
+                    borderRadius: 2,
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    bgcolor: '#cccccc',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  }}
+                >
+                  You Posted This Gig
+                </Button>
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={() => navigate(`/gigs/${id}/edit`)}
+                  startIcon={<EditIcon />}
+                  sx={{
+                    py: 1.5,
+                    px: 4,
+                    borderRadius: 2,
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    bgcolor: '#2563eb',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    '&:hover': {
+                      bgcolor: '#1d4ed8',
+                      boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
+                    }
+                  }}
+                >
+                  Edit Gig
+                </Button>
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={handleDeleteClick}
+                  startIcon={<DeleteIcon />}
+                  sx={{
+                    py: 1.5,
+                    px: 4,
+                    borderRadius: 2,
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    bgcolor: '#dc2626',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    '&:hover': {
+                      bgcolor: '#b91c1c',
+                      boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
+                    }
+                  }}
+                >
+                  Delete Gig
+                </Button>
+              </>
             )}
           </Box>
         </Box>
@@ -342,6 +418,29 @@ const GigDetail = () => {
           {applyStatus === '' && (
             <Button onClick={handleSendMessage} variant="contained" color="primary">
               Send Application
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openDeleteDialog} onClose={handleCloseDeleteDialog}>
+        <DialogTitle>Delete Gig</DialogTitle>
+        <DialogContent>
+          {deleteStatus === 'success' ? (
+            <Alert severity="success">Gig deleted successfully! Redirecting...</Alert>
+          ) : deleteStatus === 'error' ? (
+            <Alert severity="error">Failed to delete gig. Please try again.</Alert>
+          ) : (
+            <DialogContentText>
+              Are you sure you want to delete this gig? This action cannot be undone.
+            </DialogContentText>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
+          {deleteStatus === '' && (
+            <Button onClick={handleConfirmDelete} variant="contained" color="error">
+              Delete
             </Button>
           )}
         </DialogActions>

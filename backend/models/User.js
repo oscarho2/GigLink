@@ -48,6 +48,10 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  profileCompleted: {
+    type: Boolean,
+    default: false
+  },
   date: {
     type: Date,
     default: Date.now

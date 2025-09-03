@@ -7,6 +7,10 @@ import Link from '@mui/material/Link';
 import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import Alert from '@mui/material/Alert';
@@ -20,6 +24,9 @@ const Register = () => {
     password2: ''
   });
   const [error, setError] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword2, setShowPassword2] = useState(false);
   const { register, isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -35,16 +42,46 @@ const Register = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const validatePassword = (password) => {
+    const minLength = password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[@$!%*?&]/.test(password);
+    
+    return minLength && hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar;
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
+    
+    // Client-side validation
+    if (name.trim().length < 2) {
+      setError('Name must be at least 2 characters long');
+      return;
+    }
+    
+    if (!/^[a-zA-Z\s]+$/.test(name.trim())) {
+      setError('Name can only contain letters and spaces');
+      return;
+    }
+    
+    if (!validatePassword(password)) {
+      setError('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)');
+      return;
+    }
+    
     if (password !== password2) {
       setError('Passwords do not match');
-    } else {
-      const result = await register({ name, email, password });
-      if (result.error) {
-        setError(result.error[0].msg);
-      }
+      return;
     }
+    
+    const result = await register({ name, email, password });
+     if (result && result.success) {
+       navigate('/profile-setup');
+     } else if (result.error) {
+       setError(result.error[0].msg);
+     }
   };
 
   return (
@@ -101,11 +138,24 @@ const Register = () => {
                 fullWidth
                 name="password"
                 label="Password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 id="password"
                 autoComplete="new-password"
                 value={password}
                 onChange={onChange}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -114,10 +164,23 @@ const Register = () => {
                 fullWidth
                 name="password2"
                 label="Confirm Password"
-                type="password"
+                type={showPassword2 ? 'text' : 'password'}
                 id="password2"
                 value={password2}
                 onChange={onChange}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={() => setShowPassword2(!showPassword2)}
+                        edge="end"
+                      >
+                        {showPassword2 ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
           </Grid>
