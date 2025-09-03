@@ -21,10 +21,11 @@ const Profile = () => {
           // Fetch specific user's profile by ID (public route)
           const profileRes = await axios.get(`http://localhost:5001/api/profiles/user/${id}`);
           profileData = profileRes.data;
-          setIsOwnProfile(user && user._id === id);
+          // Consider both _id and id in user object
+          setIsOwnProfile(!!user && (user._id === id || user.id === id));
         } else {
           // Fetch current user's profile (private route)
-          if (!user || !user._id) {
+          if (!user || !(user._id || user.id)) {
             setLoading(false);
             return;
           }

@@ -23,7 +23,6 @@ import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import WorkIcon from '@mui/icons-material/Work';
-import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -349,59 +348,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
           
-          {/* Videos */}
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">
-                  <VideoLibraryIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-                  My Videos
-                </Typography>
-                <Button
-                  component={RouterLink}
-                  to="/edit-profile"
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  size="small"
-                >
-                  Add Video
-                </Button>
-              </Box>
-              
-              <Divider sx={{ mb: 2 }} />
-              
-              {profile?.videos && profile.videos.length > 0 ? (
-                <Grid container spacing={2}>
-                  {profile.videos.map((video, index) => (
-                    <Grid item xs={12} sm={6} key={index}>
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Typography variant="subtitle1">{video.title}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {video.description}
-                          </Typography>
-                          <Box sx={{ mt: 1 }}>
-                            <Button
-                              href={video.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              size="small"
-                            >
-                              Watch Video
-                            </Button>
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                  You haven't added any videos yet.
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
+
         </Grid>
       </Grid>
 
