@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { Link as RouterLink, Navigate } from 'react-router-dom';
+import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom';
 import Container from '@mui/material/Container';
 import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
@@ -25,18 +25,24 @@ import AddIcon from '@mui/icons-material/Add';
 import WorkIcon from '@mui/icons-material/Work';
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import WarningIcon from '@mui/icons-material/Warning';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
 const Dashboard = () => {
   const { user, isAuthenticated, loading: authLoading, token } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogStep, setDeleteDialogStep] = useState(0); // 0: closed, 1: first warning, 2: second warning, 3: final confirmation
   const [confirmationText, setConfirmationText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [gigToDelete, setGigToDelete] = useState(null);
+  const [gigDeleteDialogOpen, setGigDeleteDialogOpen] = useState(false);
+  const [gigDeleteConfirmation, setGigDeleteConfirmation] = useState('');
+  const [gigDeleteError, setGigDeleteError] = useState('');
 
   const handleDeleteAccount = () => {
     setDeleteDialogStep(1);
@@ -72,6 +78,44 @@ const Dashboard = () => {
     }
   };
 
+  const handleGigDeleteClick = (gig) => {
+    setGigToDelete(gig);
+    setGigDeleteDialogOpen(true);
+    setGigDeleteConfirmation('');
+    setGigDeleteError('');
+  };
+
+  const handleCloseGigDeleteDialog = () => {
+    setGigDeleteDialogOpen(false);
+    setGigToDelete(null);
+    setGigDeleteConfirmation('');
+    setGigDeleteError('');
+  };
+
+  const handleConfirmGigDelete = async () => {
+    if (gigDeleteConfirmation !== gigToDelete?.title) {
+      setGigDeleteError('Please type the gig title exactly as shown.');
+      return;
+    }
+
+    try {
+      await axios.delete(`http://localhost:5001/api/gigs/${gigToDelete._id}`, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      // Remove the deleted gig from the local state
+      setGigs(gigs.filter(gig => gig._id !== gigToDelete._id));
+      handleCloseGigDeleteDialog();
+    } catch (err) {
+      console.error('Error deleting gig:', err);
+      setGigDeleteError(err.response?.data?.msg || 'Failed to delete gig');
+    }
+  };
+
+  const handleEditGig = (gigId) => {
+    navigate(`/gigs/${gigId}/edit`);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       if (!user || !user.id) {
@@ -91,7 +135,9 @@ const Dashboard = () => {
         const gigsRes = await axios.get('http://localhost:5001/api/gigs', {
           headers: { 'x-auth-token': token }
         });
-        const userGigs = gigsRes.data.filter(gig => gig.user._id === user.id);
+        const userGigs = gigsRes.data.filter(gig => 
+          gig.user && user.id && (gig.user._id === user.id || gig.user._id.toString() === user.id.toString())
+        );
         setGigs(userGigs);
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -218,34 +264,71 @@ const Dashboard = () => {
                   {gigs.map(gig => (
                     <ListItem
                       key={gig._id}
-                      component={RouterLink}
-                      to={`/gigs/${gig._id}`}
                       sx={{
                         border: '1px solid',
                         borderColor: 'divider',
                         borderRadius: 1,
                         mb: 1,
-                        textDecoration: 'none',
-                        color: 'inherit'
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
                       }}
                     >
-                      <ListItemText
-                        primary={gig.title}
-                        secondary={
-                          <>
-                            <Typography component="span" variant="body2" color="text.primary">
-                              {gig.venue} - {gig.location}
-                            </Typography>
-                            <br />
-                            {new Date(gig.date).toLocaleDateString()} at {gig.time}
-                          </>
-                        }
-                      />
-                      <Chip
-                        label={gig.isFilled ? 'Filled' : 'Open'}
-                        color={gig.isFilled ? 'default' : 'success'}
-                        size="small"
-                      />
+                      <Box 
+                        component={RouterLink}
+                        to={`/gigs/${gig._id}`}
+                        sx={{ 
+                          textDecoration: 'none', 
+                          color: 'inherit',
+                          flex: 1,
+                          mr: 2
+                        }}
+                      >
+                        <ListItemText
+                          primary={gig.title}
+                          secondary={
+                            <>
+                              <Typography component="span" variant="body2" color="text.primary">
+                                {gig.venue} - {gig.location}
+                              </Typography>
+                              <br />
+                              {new Date(gig.date).toLocaleDateString()} at {gig.time}
+                            </>
+                          }
+                        />
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip
+                          label={gig.isFilled ? 'Filled' : 'Open'}
+                          color={gig.isFilled ? 'default' : 'success'}
+                          size="small"
+                        />
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<EditIcon />}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleEditGig(gig._id);
+                          }}
+                          sx={{ minWidth: 'auto', px: 1 }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          startIcon={<DeleteIcon />}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleGigDeleteClick(gig);
+                          }}
+                          sx={{ minWidth: 'auto', px: 1 }}
+                        >
+                          Delete
+                        </Button>
+                      </Box>
                     </ListItem>
                   ))}
                 </List>
@@ -432,6 +515,53 @@ const Dashboard = () => {
             disabled={confirmationText !== 'DELETE MY ACCOUNT' || isDeleting}
           >
             {isDeleting ? 'Deleting...' : 'DELETE MY ACCOUNT'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Gig Delete Confirmation Dialog */}
+      <Dialog open={gigDeleteDialogOpen} onClose={handleCloseGigDeleteDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <DeleteIcon color="error" />
+          Delete Gig
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Typography variant="body1" fontWeight="bold">
+              This action cannot be undone
+            </Typography>
+          </Alert>
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to delete the gig "{gigToDelete?.title}"?
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            To confirm, please type the gig title exactly as shown:
+          </Typography>
+          <Typography variant="h6" sx={{ my: 2, p: 1, bgcolor: 'grey.100', borderRadius: 1, fontFamily: 'monospace' }}>
+            {gigToDelete?.title}
+          </Typography>
+          <TextField
+            fullWidth
+            label="Type the gig title above"
+            value={gigDeleteConfirmation}
+            onChange={(e) => setGigDeleteConfirmation(e.target.value)}
+            placeholder={gigToDelete?.title}
+            sx={{ mt: 2 }}
+            error={gigDeleteError !== ''}
+            helperText={gigDeleteError || (gigDeleteConfirmation !== '' && gigDeleteConfirmation !== gigToDelete?.title ? 'Title must match exactly' : '')}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseGigDeleteDialog} color="primary">
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmGigDelete} 
+            color="error" 
+            variant="contained"
+            disabled={gigDeleteConfirmation !== gigToDelete?.title}
+          >
+            Delete Gig
           </Button>
         </DialogActions>
       </Dialog>
