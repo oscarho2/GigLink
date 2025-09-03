@@ -85,6 +85,7 @@ router.put('/me', auth, async (req, res) => {
     
     // Update user fields if provided
     const userUpdateFields = {};
+    if (req.body.name) userUpdateFields.name = req.body.name;
     if (bio) userUpdateFields.bio = bio;
     if (location) userUpdateFields.location = location;
     if (instruments) userUpdateFields.instruments = instruments;
