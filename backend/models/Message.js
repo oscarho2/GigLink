@@ -13,14 +13,36 @@ const MessageSchema = new mongoose.Schema({
   },
   content: {
     type: String,
-    required: true,
+    required: function() {
+      return this.messageType !== 'file';
+    },
     trim: true,
     maxlength: 1000
   },
   messageType: {
     type: String,
-    enum: ['text', 'gig_application', 'system'],
+    enum: ['text', 'gig_application', 'system', 'file'],
     default: 'text'
+  },
+  attachment: {
+    filename: {
+      type: String
+    },
+    originalName: {
+      type: String
+    },
+    mimeType: {
+      type: String
+    },
+    size: {
+      type: Number
+    },
+    path: {
+      type: String
+    },
+    url: {
+      type: String
+    }
   },
   conversationId: {
     type: String,

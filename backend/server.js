@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const gigRoutes = require('./routes/gigs');
 const messageRoutes = require('./routes/messages');
 const profileRoutes = require('./routes/profiles');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -21,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/gigs', gigRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/profiles', profileRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Default route
 app.get('/', (req, res) => {
