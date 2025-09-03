@@ -315,13 +315,25 @@ const Discover = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Discover Musicians
-      </Typography>
-      <Typography variant="h6" component="p" gutterBottom color="text.secondary" sx={{ mb: 4 }}>
-        Connect with talented musicians for your next collaboration
-      </Typography>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Header */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          p: 4, 
+          mb: 4, 
+          borderRadius: 3,
+          background: 'linear-gradient(to right, #2c5282, #1a365d)',
+          color: 'white'
+        }}
+      >
+        <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+          Discover Musicians
+        </Typography>
+        <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+          Connect with talented musicians for your next collaboration
+        </Typography>
+      </Paper>
 
       {/* Search Bar */}
       <Paper elevation={1} sx={{ p: 2, mb: 4 }}>

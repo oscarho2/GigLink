@@ -85,28 +85,43 @@ const Register = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
+    <Container component="main" maxWidth="xs" sx={{ px: { xs: 2, sm: 3 } }}>
       <Box
         sx={{
-          marginTop: 8,
+          marginTop: { xs: 4, sm: 8 },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          minHeight: { xs: 'calc(100vh - 120px)', sm: 'auto' },
+          justifyContent: { xs: 'center', sm: 'flex-start' }
         }}
       >
-        <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
-          <LockOutlinedIcon />
+        <Avatar sx={{ 
+          m: { xs: 1, sm: 1 }, 
+          bgcolor: 'secondary.main',
+          width: { xs: 48, sm: 40 },
+          height: { xs: 48, sm: 40 }
+        }}>
+          <LockOutlinedIcon sx={{ fontSize: { xs: '1.5rem', sm: '1.25rem' } }} />
         </Avatar>
-        <Typography component="h1" variant="h5">
+        <Typography 
+          component="h1" 
+          variant="h5"
+          sx={{
+            fontSize: { xs: '1.5rem', sm: '1.5rem' },
+            fontWeight: 500,
+            mb: { xs: 2, sm: 1 }
+          }}
+        >
           Sign up
         </Typography>
         {error && (
-          <Alert severity="error" sx={{ width: '100%', mt: 2 }}>
+          <Alert severity="error" sx={{ width: '100%', mt: 2, fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
             {error}
           </Alert>
         )}
-        <Box component="form" onSubmit={onSubmit} noValidate sx={{ mt: 3, py: 4 }}>
-          <Grid container spacing={2}>
+        <Box component="form" onSubmit={onSubmit} noValidate sx={{ mt: { xs: 2, sm: 3 }, width: '100%' }}>
+          <Grid container spacing={{ xs: 2, sm: 2 }}>
             <Grid item xs={12}>
               <TextField
                 autoComplete="name"
@@ -118,6 +133,15 @@ const Register = () => {
                 autoFocus
                 value={name}
                 onChange={onChange}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    minHeight: { xs: 56, sm: 56 },
+                    fontSize: { xs: '1rem', sm: '1rem' }
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontSize: { xs: '1rem', sm: '1rem' }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -130,6 +154,15 @@ const Register = () => {
                 autoComplete="email"
                 value={email}
                 onChange={onChange}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    minHeight: { xs: 56, sm: 56 },
+                    fontSize: { xs: '1rem', sm: '1rem' }
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontSize: { xs: '1rem', sm: '1rem' }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -143,6 +176,15 @@ const Register = () => {
                 autoComplete="new-password"
                 value={password}
                 onChange={onChange}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    minHeight: { xs: 56, sm: 56 },
+                    fontSize: { xs: '1rem', sm: '1rem' }
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontSize: { xs: '1rem', sm: '1rem' }
+                  }
+                }}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -150,6 +192,12 @@ const Register = () => {
                         aria-label="toggle password visibility"
                         onClick={() => setShowPassword(!showPassword)}
                         edge="end"
+                        sx={{
+                          p: { xs: 1.5, sm: 1 },
+                          '& .MuiSvgIcon-root': {
+                            fontSize: { xs: '1.25rem', sm: '1.25rem' }
+                          }
+                        }}
                       >
                         {showPassword ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -168,6 +216,15 @@ const Register = () => {
                 id="password2"
                 value={password2}
                 onChange={onChange}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    minHeight: { xs: 56, sm: 56 },
+                    fontSize: { xs: '1rem', sm: '1rem' }
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontSize: { xs: '1rem', sm: '1rem' }
+                  }
+                }}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -175,6 +232,12 @@ const Register = () => {
                         aria-label="toggle password visibility"
                         onClick={() => setShowPassword2(!showPassword2)}
                         edge="end"
+                        sx={{
+                          p: { xs: 1.5, sm: 1 },
+                          '& .MuiSvgIcon-root': {
+                            fontSize: { xs: '1.25rem', sm: '1.25rem' }
+                          }
+                        }}
                       >
                         {showPassword2 ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -188,13 +251,33 @@ const Register = () => {
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+            sx={{ 
+              mt: { xs: 3, sm: 3 }, 
+              mb: { xs: 3, sm: 2 },
+              minHeight: { xs: 48, sm: 42 },
+              fontSize: { xs: '1rem', sm: '0.875rem' },
+              fontWeight: 600,
+              borderRadius: { xs: 2, sm: 1 },
+              py: { xs: 1.5, sm: 1 }
+            }}
           >
             Sign Up
           </Button>
-          <Grid container justifyContent="flex-end">
+          <Grid container justifyContent="center">
             <Grid item>
-              <Link component={RouterLink} to="/login" variant="body2">
+              <Link 
+                component={RouterLink} 
+                to="/login" 
+                variant="body2"
+                sx={{
+                  fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                  display: 'block',
+                  textAlign: 'center',
+                  py: { xs: 1, sm: 0 },
+                  minHeight: { xs: 44, sm: 'auto' },
+                  lineHeight: { xs: '44px', sm: 'normal' }
+                }}
+              >
                 Already have an account? Sign in
               </Link>
             </Grid>

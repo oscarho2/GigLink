@@ -25,6 +25,10 @@ const Navbar = () => {
     setAnchorElNav(null);
   };
 
+  const handleMenuItemClick = () => {
+    setAnchorElNav(null);
+  };
+
   const guestLinks = (
     <>
       <Button
@@ -102,7 +106,7 @@ const Navbar = () => {
   return (
     <AppBar position="static" sx={{ bgcolor: '#1a365d', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
       <Container maxWidth="lg">
-        <Toolbar disableGutters>
+        <Toolbar disableGutters sx={{ minHeight: { xs: 56, sm: 64 } }}>
           <MusicNoteIcon sx={{ display: { xs: 'none', md: 'flex' }, mr: 1 }} />
           <Typography
             variant="h6"
@@ -125,13 +129,24 @@ const Navbar = () => {
           <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
             <IconButton
               size="large"
-              aria-label="account of current user"
+              aria-label="navigation menu"
               aria-controls="menu-appbar"
               aria-haspopup="true"
               onClick={handleOpenNavMenu}
               color="inherit"
+              sx={{
+                p: { xs: 2, sm: 1.5 },
+                minWidth: 48,
+                minHeight: 48,
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.1)'
+                },
+                '&:active': {
+                  bgcolor: 'rgba(255, 255, 255, 0.2)'
+                }
+              }}
             >
-              <MenuIcon />
+              <MenuIcon sx={{ fontSize: { xs: 32, sm: 28 } }} />
             </IconButton>
             <Menu
               id="menu-appbar"
@@ -149,25 +164,74 @@ const Navbar = () => {
               onClose={handleCloseNavMenu}
               sx={{
                 display: { xs: 'block', md: 'none' },
+                '& .MuiPaper-root': {
+                  minWidth: { xs: 250, sm: 220 },
+                  mt: 1,
+                  borderRadius: 2,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                  bgcolor: '#ffffff',
+                  border: '1px solid rgba(0,0,0,0.08)'
+                },
+                '& .MuiMenuItem-root': {
+                  minHeight: { xs: 56, sm: 48 },
+                  px: { xs: 4, sm: 3 },
+                  py: { xs: 2, sm: 1.5 },
+                  fontSize: { xs: '1.1rem', sm: '1rem' },
+                  fontWeight: 500,
+                  borderRadius: 1,
+                  mx: 1,
+                  my: 0.5,
+                  '&:hover': {
+                    bgcolor: 'rgba(26, 54, 93, 0.08)',
+                    transform: 'translateX(4px)',
+                    transition: 'all 0.2s ease'
+                  },
+                  '&:active': {
+                    bgcolor: 'rgba(26, 54, 93, 0.12)'
+                  }
+                }
               }}
             >
-              <MenuItem onClick={handleCloseNavMenu} component={RouterLink} to="/gigs">
-                <Typography textAlign="center">Gigs</Typography>
+              <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/gigs">
+                <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🎵 Gigs</Typography>
               </MenuItem>
-              <MenuItem onClick={handleCloseNavMenu} component={RouterLink} to="/discover">
-                <Typography textAlign="center">Discover</Typography>
+              <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/discover">
+                <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🔍 Discover</Typography>
               </MenuItem>
               {isAuthenticated && (
-                <MenuItem onClick={handleCloseNavMenu} component={RouterLink} to="/messages">
-                  <Typography textAlign="center">Messages</Typography>
-                </MenuItem>
+                <>
+                  <Box sx={{ borderTop: '1px solid rgba(0,0,0,0.08)', my: 1, mx: 2 }} />
+                  <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/dashboard">
+                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>📊 Dashboard</Typography>
+                  </MenuItem>
+                  <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/messages">
+                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>💬 Messages</Typography>
+                  </MenuItem>
+                  <Box sx={{ borderTop: '1px solid rgba(0,0,0,0.08)', my: 1, mx: 2 }} />
+                  <MenuItem onClick={() => { handleMenuItemClick(); logout(); }}>
+                    <Typography textAlign="left" sx={{ width: '100%', color: '#dc2626', fontWeight: 600 }}>🚪 Logout</Typography>
+                  </MenuItem>
+                </>
+              )}
+              {!isAuthenticated && (
+                <>
+                  <Box sx={{ borderTop: '1px solid rgba(0,0,0,0.08)', my: 1, mx: 2 }} />
+                  <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/login">
+                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d', fontWeight: 600 }}>🔐 Login</Typography>
+                  </MenuItem>
+                </>
               )}
             </Menu>
           </Box>
           
-          <MusicNoteIcon sx={{ display: { xs: 'flex', md: 'none' }, mr: 1 }} />
+          <MusicNoteIcon sx={{ 
+            display: { xs: 'flex', md: 'none' }, 
+            mr: { xs: 1.5, sm: 1 }, 
+            fontSize: { xs: 28, sm: 24 },
+            color: 'white'
+          }} />
           <Typography
-            variant="h5"
+            variant="h6"
             noWrap
             component={RouterLink}
             to="/"
@@ -177,9 +241,17 @@ const Navbar = () => {
               flexGrow: 1,
               fontFamily: 'monospace',
               fontWeight: 700,
-              letterSpacing: '.3rem',
+              letterSpacing: { xs: '.15rem', sm: '.2rem' },
               color: 'inherit',
               textDecoration: 'none',
+              fontSize: { xs: '1.2rem', sm: '1.25rem' },
+              py: { xs: 1, sm: 0.5 },
+              '&:hover': {
+                color: 'rgba(255, 255, 255, 0.9)'
+              },
+              '&:active': {
+                color: 'rgba(255, 255, 255, 0.8)'
+              }
             }}
           >
             GigLink
@@ -222,7 +294,12 @@ const Navbar = () => {
             </Button>
           </Box>
 
-          <Box sx={{ flexGrow: 0, display: 'flex' }}>
+          <Box sx={{ 
+            flexGrow: 0, 
+            display: { xs: 'none', md: 'flex' },
+            alignItems: 'center',
+            gap: 1
+          }}>
             {isAuthenticated ? authLinks : guestLinks}
           </Box>
         </Toolbar>

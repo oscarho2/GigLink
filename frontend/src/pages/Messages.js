@@ -220,32 +220,77 @@ const Messages = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
+    <Container 
+      maxWidth="lg" 
+      sx={{ 
+        py: { xs: 1, sm: 4 },
+        px: { xs: 1, sm: 3 }
+      }}
+    >
+      <Typography 
+        variant="h4" 
+        gutterBottom 
+        sx={{ 
+          mb: { xs: 2, sm: 3 },
+          fontSize: { xs: '1.75rem', sm: '2.125rem' },
+          px: { xs: 1, sm: 0 }
+        }}
+      >
         Messages
       </Typography>
       
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mb: 2,
+            mx: { xs: 1, sm: 0 },
+            fontSize: { xs: '0.875rem', sm: '0.875rem' }
+          }} 
+          onClose={() => setError(null)}
+        >
           {error}
         </Alert>
       )}
       
-      <Paper elevation={3} sx={{ height: '75vh', display: 'flex' }}>
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          height: { xs: 'calc(100vh - 120px)', sm: '75vh' },
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          mx: { xs: 1, sm: 0 }
+        }}
+      >
         {/* Conversations Sidebar */}
-        <Box sx={{ width: 350, borderRight: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column' }}>
+        <Box 
+          sx={{ 
+            width: { xs: '100%', md: 350 },
+            height: { xs: '40%', md: 'auto' },
+            borderRight: { xs: 'none', md: '1px solid #e0e0e0' },
+            borderBottom: { xs: '1px solid #e0e0e0', md: 'none' },
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
           {/* Search Bar */}
-          <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+          <Box sx={{ p: { xs: 1.5, sm: 2 }, borderBottom: '1px solid #e0e0e0' }}>
             <TextField
               fullWidth
               size="small"
               placeholder="Search conversations..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{
+                '& .MuiInputBase-root': {
+                  minHeight: { xs: 44, sm: 40 },
+                  fontSize: { xs: '1rem', sm: '0.875rem' }
+                }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon />
+                    <SearchIcon sx={{ fontSize: { xs: '1.25rem', sm: '1rem' } }} />
                   </InputAdornment>
                 )
               }}
@@ -273,8 +318,13 @@ const Messages = () => {
                   onClick={() => handleConversationSelect(conversation)}
                   sx={{
                     borderBottom: '1px solid #f5f5f5',
+                    py: { xs: 1.5, sm: 1 },
+                    px: { xs: 2, sm: 2 },
+                    minHeight: { xs: 72, sm: 64 },
                     '&:hover': { bgcolor: 'grey.50' },
-                    '&.Mui-selected': { bgcolor: 'primary.light', '&:hover': { bgcolor: 'primary.light' } }
+                    '&.Mui-selected': { bgcolor: 'primary.light', '&:hover': { bgcolor: 'primary.light' } },
+                    '&:active': { bgcolor: 'primary.main', transform: 'scale(0.98)' },
+                    transition: 'all 0.1s ease'
                   }}
                 >
                   <ListItemAvatar>
@@ -282,8 +332,22 @@ const Messages = () => {
                       badgeContent={conversation.unreadCount}
                       color="error"
                       invisible={conversation.unreadCount === 0}
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          fontSize: { xs: '0.75rem', sm: '0.75rem' },
+                          minWidth: { xs: 20, sm: 20 },
+                          height: { xs: 20, sm: 20 }
+                        }
+                      }}
                     >
-                      <Avatar src={conversation.user.avatar}>
+                      <Avatar 
+                        src={conversation.user.avatar}
+                        sx={{
+                          width: { xs: 48, sm: 40 },
+                          height: { xs: 48, sm: 40 },
+                          fontSize: { xs: '1.25rem', sm: '1rem' }
+                        }}
+                      >
                         {conversation.user.name.charAt(0).toUpperCase()}
                       </Avatar>
                     </Badge>
@@ -291,16 +355,30 @@ const Messages = () => {
                   <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: conversation.unreadCount > 0 ? 600 : 400 }}>
+                        <Typography 
+                          variant="subtitle1" 
+                          sx={{ 
+                            fontWeight: conversation.unreadCount > 0 ? 600 : 400,
+                            fontSize: { xs: '1rem', sm: '0.875rem' },
+                            lineHeight: { xs: 1.4, sm: 1.43 }
+                          }}
+                        >
                           {conversation.user.name}
                         </Typography>
-                        <Typography variant="caption" color="textSecondary">
+                        <Typography 
+                          variant="caption" 
+                          color="textSecondary"
+                          sx={{
+                            fontSize: { xs: '0.75rem', sm: '0.75rem' },
+                            lineHeight: { xs: 1.2, sm: 1.66 }
+                          }}
+                        >
                           {formatMessageTime(conversation.lastMessage.createdAt)}
                         </Typography>
                       </Box>
                     }
                     secondary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
                         <Typography
                           variant="body2"
                           color="textSecondary"
@@ -309,14 +387,25 @@ const Messages = () => {
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                             flex: 1,
-                            fontWeight: conversation.unreadCount > 0 ? 500 : 400
+                            fontWeight: conversation.unreadCount > 0 ? 500 : 400,
+                            fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                            lineHeight: { xs: 1.3, sm: 1.43 }
                           }}
                         >
                           {conversation.lastMessage.sender._id === user.id ? 'You: ' : ''}
                           {conversation.lastMessage.content}
                         </Typography>
                         {conversation.lastMessage.messageType === 'gig_application' && (
-                          <Chip label="Gig" size="small" color="primary" variant="outlined" />
+                          <Chip 
+                            label="Gig" 
+                            size="small" 
+                            color="primary" 
+                            variant="outlined"
+                            sx={{
+                              fontSize: { xs: '0.6875rem', sm: '0.75rem' },
+                              height: { xs: 20, sm: 24 }
+                            }}
+                          />
                         )}
                       </Box>
                     }
@@ -328,29 +417,71 @@ const Messages = () => {
         </Box>
         
         {/* Message Thread */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box 
+          sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column',
+            height: { xs: '60%', md: 'auto' }
+          }}
+        >
           {selectedConversation ? (
             <>
               {/* Message Header */}
-              <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', bgcolor: 'grey.50' }}>
+              <Box 
+                sx={{ 
+                  p: { xs: 1.5, sm: 2 }, 
+                  borderBottom: '1px solid #e0e0e0', 
+                  bgcolor: 'grey.50',
+                  minHeight: { xs: 60, sm: 'auto' }
+                }}
+              >
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Avatar src={selectedConversation.user.avatar} sx={{ mr: 2 }}>
+                  <Avatar 
+                    src={selectedConversation.user.avatar} 
+                    sx={{ 
+                      mr: { xs: 1.5, sm: 2 },
+                      width: { xs: 40, sm: 40 },
+                      height: { xs: 40, sm: 40 },
+                      fontSize: { xs: '1rem', sm: '1rem' }
+                    }}
+                  >
                     {selectedConversation.user.name.charAt(0).toUpperCase()}
                   </Avatar>
-                  <Typography variant="h6">
+                  <Typography 
+                    variant="h6"
+                    sx={{
+                      fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                      fontWeight: 500
+                    }}
+                  >
                     {selectedConversation.user.name}
                   </Typography>
                 </Box>
               </Box>
               
               {/* Messages */}
-              <Box sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column' }}>
+              <Box 
+                sx={{ 
+                  flex: 1, 
+                  overflow: 'auto', 
+                  p: { xs: 1, sm: 2 }, 
+                  display: 'flex', 
+                  flexDirection: 'column'
+                }}
+              >
                 {hasMoreMessages && (
-                  <Box sx={{ textAlign: 'center', mb: 2 }}>
+                  <Box sx={{ textAlign: 'center', mb: { xs: 1.5, sm: 2 } }}>
                     <Button
                       onClick={loadMoreMessages}
                       disabled={loadingMoreMessages}
                       size="small"
+                      sx={{
+                        minHeight: { xs: 40, sm: 32 },
+                        fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                        px: { xs: 2, sm: 1.5 },
+                        py: { xs: 1, sm: 0.5 }
+                      }}
                     >
                       {loadingMoreMessages ? <CircularProgress size={20} /> : 'Load older messages'}
                     </Button>
@@ -365,38 +496,56 @@ const Messages = () => {
                       sx={{
                         display: 'flex',
                         justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
-                        mb: 2,
+                        mb: { xs: 1.5, sm: 2 },
                         alignItems: 'flex-end'
                       }}
                     >
                       {!isOwnMessage && (
                         <Avatar
                           src={message.sender.avatar}
-                          sx={{ mr: 1, width: 32, height: 32 }}
+                          sx={{ 
+                            mr: { xs: 0.75, sm: 1 }, 
+                            width: { xs: 28, sm: 32 }, 
+                            height: { xs: 28, sm: 32 },
+                            fontSize: { xs: '0.875rem', sm: '1rem' }
+                          }}
                         >
                           {message.sender.name.charAt(0).toUpperCase()}
                         </Avatar>
                       )}
                       
-                      <Box sx={{ maxWidth: '70%' }}>
+                      <Box sx={{ maxWidth: { xs: '80%', sm: '70%' } }}>
                         <Paper
                           elevation={1}
                           sx={{
-                            p: 2,
+                            p: { xs: 1.5, sm: 2 },
                             bgcolor: isOwnMessage ? 'primary.main' : 'grey.100',
                             color: isOwnMessage ? 'white' : 'text.primary',
-                            borderRadius: 2,
+                            borderRadius: { xs: 1.5, sm: 2 },
                             position: 'relative'
                           }}
                         >
-                          <Typography variant="body1">
+                          <Typography 
+                            variant="body1"
+                            sx={{
+                              fontSize: { xs: '0.875rem', sm: '1rem' },
+                              lineHeight: { xs: 1.4, sm: 1.5 }
+                            }}
+                          >
                             {message.content}
                           </Typography>
                           
                           {isOwnMessage && (
                             <IconButton
                               size="small"
-                              sx={{ position: 'absolute', top: 4, right: 4, color: 'inherit' }}
+                              sx={{ 
+                                position: 'absolute', 
+                                top: { xs: 2, sm: 4 }, 
+                                right: { xs: 2, sm: 4 }, 
+                                color: 'inherit',
+                                minWidth: { xs: 32, sm: 'auto' },
+                                minHeight: { xs: 32, sm: 'auto' }
+                              }}
                               onClick={(e) => {
                                 setAnchorEl(e.currentTarget);
                                 setSelectedMessageId(message._id);
@@ -411,14 +560,22 @@ const Messages = () => {
                           variant="caption"
                           sx={{
                             display: 'block',
-                            mt: 0.5,
+                            mt: { xs: 0.25, sm: 0.5 },
                             textAlign: isOwnMessage ? 'right' : 'left',
-                            color: 'text.secondary'
+                            color: 'text.secondary',
+                            fontSize: { xs: '0.6875rem', sm: '0.75rem' }
                           }}
                         >
                           {moment(message.createdAt).format('MMM DD, HH:mm')}
                           {message.read && isOwnMessage && (
-                            <Typography component="span" variant="caption" sx={{ ml: 1 }}>
+                            <Typography 
+                              component="span" 
+                              variant="caption" 
+                              sx={{ 
+                                ml: 1,
+                                fontSize: { xs: '0.6875rem', sm: '0.75rem' }
+                              }}
+                            >
                               • Read
                             </Typography>
                           )}
@@ -428,7 +585,12 @@ const Messages = () => {
                       {isOwnMessage && (
                         <Avatar
                           src={user.avatar}
-                          sx={{ ml: 1, width: 32, height: 32 }}
+                          sx={{ 
+                            ml: { xs: 0.75, sm: 1 }, 
+                            width: { xs: 28, sm: 32 }, 
+                            height: { xs: 28, sm: 32 },
+                            fontSize: { xs: '0.875rem', sm: '1rem' }
+                          }}
                         >
                           {user.name.charAt(0).toUpperCase()}
                         </Avatar>
@@ -439,8 +601,15 @@ const Messages = () => {
               </Box>
               
               {/* Message Input */}
-              <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0', bgcolor: 'grey.50' }}>
-                <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box 
+                sx={{ 
+                  p: { xs: 1.5, sm: 2 }, 
+                  borderTop: '1px solid #e0e0e0', 
+                  bgcolor: 'grey.50',
+                  minHeight: { xs: 70, sm: 'auto' }
+                }}
+              >
+                <Box sx={{ display: 'flex', gap: { xs: 1, sm: 1 } }}>
                   <TextField
                     fullWidth
                     placeholder="Type a message..."
@@ -457,12 +626,27 @@ const Messages = () => {
                     multiline
                     maxRows={4}
                     disabled={sendingMessage}
+                    sx={{
+                      '& .MuiInputBase-root': {
+                        minHeight: { xs: 44, sm: 40 },
+                        fontSize: { xs: '1rem', sm: '0.875rem' },
+                        padding: { xs: '8px 12px', sm: '6px 12px' }
+                      },
+                      '& .MuiInputBase-input': {
+                        padding: 0
+                      }
+                    }}
                   />
                   <Button
                     variant="contained"
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim() || sendingMessage}
-                    sx={{ minWidth: 'auto', px: 2 }}
+                    sx={{ 
+                      minWidth: { xs: 48, sm: 'auto' }, 
+                      px: { xs: 1.5, sm: 2 },
+                      minHeight: { xs: 44, sm: 40 },
+                      borderRadius: { xs: 1.5, sm: 1 }
+                    }}
                   >
                     {sendingMessage ? <CircularProgress size={20} /> : <SendIcon />}
                   </Button>
@@ -470,13 +654,41 @@ const Messages = () => {
               </Box>
             </>
           ) : (
-            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box 
+              sx={{ 
+                flex: 1, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                p: { xs: 2, sm: 0 }
+              }}
+            >
               <Box sx={{ textAlign: 'center' }}>
-                <PersonIcon sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
-                <Typography variant="h6" color="textSecondary" gutterBottom>
+                <PersonIcon 
+                  sx={{ 
+                    fontSize: { xs: 48, sm: 64 }, 
+                    color: 'grey.300', 
+                    mb: { xs: 1.5, sm: 2 } 
+                  }} 
+                />
+                <Typography 
+                  variant="h6" 
+                  color="textSecondary" 
+                  gutterBottom
+                  sx={{
+                    fontSize: { xs: '1.125rem', sm: '1.25rem' }
+                  }}
+                >
                   Select a conversation
                 </Typography>
-                <Typography variant="body2" color="textSecondary">
+                <Typography 
+                  variant="body2" 
+                  color="textSecondary"
+                  sx={{
+                    fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                    px: { xs: 2, sm: 0 }
+                  }}
+                >
                   Choose a conversation from the sidebar to start messaging
                 </Typography>
               </Box>
