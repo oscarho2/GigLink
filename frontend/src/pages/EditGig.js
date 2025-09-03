@@ -9,7 +9,6 @@ import {
   Grid,
   Alert,
   Autocomplete,
-  Chip,
   InputAdornment,
   CircularProgress,
   Box
@@ -156,8 +155,6 @@ function EditGig() {
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Typography variant="h4" gutterBottom>Edit Gig</Typography>
       <Paper elevation={3} sx={{ p: 3 }}>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12}>
@@ -192,7 +189,8 @@ function EditGig() {
                 }}
                 inputProps={{
                   min: 0,
-                  step: "0.01"
+                  step: "0.01",
+                  onWheel: (e) => e.target.blur()
                 }}
                 sx={{
                   '& input[type=number]': {
@@ -246,13 +244,25 @@ function EditGig() {
             <Grid item xs={12}>
               <TextField fullWidth label="Requirements (Optional)" name="requirements" multiline rows={3} value={formData.requirements} onChange={handleChange} variant="outlined" placeholder="Any specific requirements or qualifications needed..." />
             </Grid>
+            
+            {error && (
+              <Grid item xs={12}>
+                <Alert severity="error">{error}</Alert>
+              </Grid>
+            )}
+            {success && (
+              <Grid item xs={12}>
+                <Alert severity="success">{success}</Alert>
+              </Grid>
+            )}
+            
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
                 <Button variant="outlined" onClick={() => navigate('/dashboard')}>
                   Cancel
                 </Button>
-                <Button type="submit" variant="contained" disabled={loading}>
-                    {loading ? 'Updating...' : 'Update Gig'}
+                <Button type="submit" variant="contained" disabled={submitting}>
+                    {submitting ? 'Updating...' : 'Update Gig'}
                 </Button>
               </Box>
             </Grid>

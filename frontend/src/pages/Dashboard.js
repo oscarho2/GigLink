@@ -118,8 +118,8 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user || !user.id) {
-        console.log('Dashboard - No authenticated user, skipping data fetch');
+      if (!user || (!user.id && !user._id)) {
+        console.log('Dashboard - No authenticated user (id/_id missing), skipping data fetch');
         setLoading(false);
         return;
       }
@@ -135,9 +135,18 @@ const Dashboard = () => {
         const gigsRes = await axios.get('http://localhost:5001/api/gigs', {
           headers: { 'x-auth-token': token }
         });
-        const userGigs = gigsRes.data.filter(gig => 
-          gig.user && user.id && (gig.user._id === user.id || gig.user._id.toString() === user.id.toString())
-        );
+        
+        const currentUserId = (user.id || user._id)?.toString();
+        const userGigs = gigsRes.data.filter(gig => {
+          if (!gig.user || !currentUserId) return false;
+          
+          // Handle both populated user object and string ID
+          const gigUserId = typeof gig.user === 'object' && gig.user !== null 
+            ? (gig.user._id || gig.user.id || gig.user)
+            : gig.user;
+          
+          return gigUserId?.toString() === currentUserId;
+        });
         setGigs(userGigs);
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -259,11 +268,11 @@ const Dashboard = () => {
               
               <Divider sx={{ mb: 2 }} />
               
-              {gigs.length > 0 ? (
+              {Array.isArray(gigs) && gigs.length ? (
                 <List>
                   {gigs.map(gig => (
                     <ListItem
-                      key={gig._id}
+                      key={gig._id || gig.id}
                       sx={{
                         border: '1px solid',
                         borderColor: 'divider',

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Paper, TextField, Button, Grid, Alert, Autocomplete, Chip, InputAdornment } from '@mui/material';
+import { Container, Typography, Paper, TextField, Button, Grid, Alert, Autocomplete, InputAdornment, Box } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -124,7 +124,8 @@ const CreateGig = () => {
                 }}
                 inputProps={{
                   min: 0,
-                  step: "0.01"
+                  step: "0.01",
+                  onWheel: (e) => e.target.blur()
                 }}
                 sx={{
                   '& input[type=number]': {
@@ -141,61 +142,51 @@ const CreateGig = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <Autocomplete
                 multiple
                 options={instrumentOptions}
                 value={formData.instruments}
                 onChange={handleInstrumentsChange}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
-                    <Chip variant="outlined" label={option} {...getTagProps({ index })} />
-                  ))
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    variant="outlined"
-                    label="Instruments"
-                    placeholder="Select instruments"
-                  />
-                )}
+                renderInput={(params) => <TextField {...params} label="Instruments" variant="outlined" />}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <Autocomplete
                 multiple
                 options={genreOptions}
                 value={formData.genres}
                 onChange={handleGenresChange}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
-                    <Chip variant="outlined" label={option} {...getTagProps({ index })} />
-                  ))
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    variant="outlined"
-                    label="Genres"
-                    placeholder="Select genres"
-                  />
-                )}
+                renderInput={(params) => <TextField {...params} label="Genres" variant="outlined" />}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth multiline rows={4} label="Description" name="description" value={formData.description} onChange={handleChange} variant="outlined" required />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth multiline rows={2} label="Requirements" name="requirements" value={formData.requirements} onChange={handleChange} variant="outlined" />
+              <TextField fullWidth label="Requirements (Optional)" name="requirements" multiline rows={3} value={formData.requirements} onChange={handleChange} variant="outlined" placeholder="Any specific requirements or qualifications needed..." />
             </Grid>
-
+            
+            {error && (
+              <Grid item xs={12}>
+                <Alert severity="error">{error}</Alert>
+              </Grid>
+            )}
+            {submissionMessage && (
+              <Grid item xs={12}>
+                <Alert severity={error ? "error" : "success"}>{submissionMessage}</Alert>
+              </Grid>
+            )}
+            
             <Grid item xs={12}>
-              {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-              {submissionMessage && <Alert severity={error ? "error" : "success"} sx={{ mb: 2 }}>{submissionMessage}</Alert>}
-              <Button type="submit" fullWidth variant="contained" color="primary" sx={{ mt: 2 }}>
-                Post Gig
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
+                <Button variant="outlined" onClick={() => navigate('/dashboard')}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="contained" color="primary">
+                  Post Gig
+                </Button>
+              </Box>
             </Grid>
           </Grid>
         </form>
