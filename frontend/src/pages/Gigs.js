@@ -370,62 +370,69 @@ const Gigs = () => {
                 filter: !isAuthenticated ? 'blur(3px)' : 'none',
                 transition: 'filter 0.3s ease'
               }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                  <PaymentIcon sx={{ mr: 1, color: '#1a365d' }} />
-                  <Typography variant="body1" fontWeight="bold">
-                    {formatPayment(gig.payment)}
-                  </Typography>
-                </Box>
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <CalendarTodayIcon sx={{ mr: 1, color: '#1a365d' }} />
+                      <Typography variant="body1" fontWeight="bold">
+                        {new Date(gig.date).toLocaleDateString('en-GB')}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <PaymentIcon sx={{ mr: 1, color: '#1a365d' }} />
+                      <Typography variant="body1" fontWeight="bold">
+                        {formatPayment(gig.payment)}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <LocationOnIcon sx={{ mr: 1, color: '#1a365d' }} />
+                      <Typography variant="body1">
+                        {gig.venue}, {gig.location}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
                 
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <CalendarTodayIcon sx={{ mr: 1, color: '#1a365d' }} />
-                  <Typography variant="body1">
-                    {new Date(gig.date).toLocaleDateString('en-GB')}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <LocationOnIcon sx={{ mr: 1, color: '#1a365d' }} />
-                  <Typography variant="body1">
-                    {gig.venue}, {gig.location}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <MusicNoteIcon sx={{ mr: 1, color: '#1a365d' }} />
-                    <Typography variant="subtitle1" fontWeight="medium">Instruments</Typography>
-                  </Box>
-                  <Box sx={{ ml: 4 }}>
-                    {gig.instruments.map((instrument, index) => (
-                      <Chip 
-                        key={index} 
-                        label={instrument} 
-                        size="small" 
-                        variant="outlined"
-                        sx={{ mr: 0.5, mb: 0.5, borderColor: '#1a365d', color: '#1a365d' }} 
-                      />
-                    ))}
-                  </Box>
-                </Box>
-                
-                <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <MusicNoteIcon sx={{ mr: 1, color: '#1a365d' }} />
-                    <Typography variant="subtitle1" fontWeight="medium">Genres</Typography>
-                  </Box>
-                  <Box sx={{ ml: 4 }}>
-                    {gig.genres.map((genre, index) => (
-                      <Chip 
-                        key={index} 
-                        label={genre} 
-                        size="small"
-                        variant="outlined"
-                        sx={{ mr: 0.5, mb: 0.5, borderColor: '#1a365d', color: '#1a365d' }} 
-                      />
-                    ))}
-                  </Box>
-                </Box>
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <MusicNoteIcon sx={{ mr: 1, color: '#1a365d' }} />
+                      <Typography variant="subtitle1" fontWeight="medium">Instruments</Typography>
+                    </Box>
+                    <Box sx={{ ml: 4 }}>
+                      {gig.instruments.map((instrument, index) => (
+                        <Chip 
+                          key={index} 
+                          label={instrument} 
+                          size="small" 
+                          variant="outlined"
+                          sx={{ mr: 0.5, mb: 0.5, borderColor: '#1a365d', color: '#1a365d' }} 
+                        />
+                      ))}
+                    </Box>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <MusicNoteIcon sx={{ mr: 1, color: '#1a365d' }} />
+                      <Typography variant="subtitle1" fontWeight="medium">Genres</Typography>
+                    </Box>
+                    <Box sx={{ ml: 4 }}>
+                      {gig.genres.map((genre, index) => (
+                        <Chip 
+                          key={index} 
+                          label={genre} 
+                          size="small"
+                          variant="outlined"
+                          sx={{ mr: 0.5, mb: 0.5, borderColor: '#1a365d', color: '#1a365d' }} 
+                        />
+                      ))}
+                    </Box>
+                  </Grid>
+                </Grid>
               </CardContent>
               
               <CardActions sx={{ 

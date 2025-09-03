@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button } from '@mui/material';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
@@ -82,7 +83,7 @@ const Profile = () => {
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
+      <Paper elevation={3} sx={{ p: 3, mb: 4, maxHeight: '600px', overflow: 'auto' }}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Avatar
@@ -109,7 +110,7 @@ const Profile = () => {
           
           <Grid item xs={12} md={8}>
             <Typography variant="h6" gutterBottom>Bio</Typography>
-            <Typography paragraph>{profile.bio}</Typography>
+            <Typography paragraph sx={{ whiteSpace: 'pre-wrap' }}>{profile.bio}</Typography>
             
             <Typography variant="h6" gutterBottom>Instruments</Typography>
             <Box sx={{ mb: 2 }}>
