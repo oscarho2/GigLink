@@ -29,7 +29,8 @@ const MusicianCard = memo(({ musician, user }) => {
   return (
     <Card 
       sx={{ 
-        height: '100%', 
+        height: '100%',
+        maxHeight: '500px',
         display: 'flex', 
         flexDirection: 'column',
         transition: 'transform 0.2s, box-shadow 0.2s',
@@ -73,54 +74,99 @@ const MusicianCard = memo(({ musician, user }) => {
         <Divider sx={{ mb: 2 }} />
 
         {/* Bio */}
-        <Typography variant="body2" color="text.secondary" paragraph sx={{ textAlign: 'center', mb: 2 }}>
+        <Typography 
+          variant="body2" 
+          color="text.secondary" 
+          paragraph 
+          sx={{ 
+            textAlign: 'center', 
+            mb: 2, 
+            whiteSpace: 'pre-wrap',
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxHeight: '4.5em',
+            lineHeight: '1.5em'
+          }}
+        >
           {musician.bio || 'Professional musician available for collaborations'}
         </Typography>
 
-        {/* Experience & Availability */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <WorkIcon sx={{ mr: 0.5, color: 'primary.main', fontSize: '1rem' }} />
-            <Typography variant="caption" color="text.secondary">
-              {musician.experience || 'Beginner'}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <StarIcon sx={{ mr: 0.5, color: 'secondary.main', fontSize: '1rem' }} />
-            <Typography variant="caption" color="text.secondary">
-              {musician.availability || 'Available'}
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* Skills */}
-        {musician.skills && musician.skills.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-              <MusicNoteIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
-              Skills
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              {musician.skills.slice(0, 3).map((skill, index) => (
-                <Chip
-                  key={index}
-                  label={skill}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                />
-              ))}
-              {musician.skills.length > 3 && (
-                <Chip
-                  label={`+${musician.skills.length - 3} more`}
-                  size="small"
-                  variant="outlined"
-                />
+        {/* Skills - Two Column Layout */}
+        {((musician.user?.instruments && musician.user.instruments.length > 0) || 
+          (musician.user?.genres && musician.user.genres.length > 0)) && (
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            {/* Left Half - Instruments */}
+            <Grid item xs={12} sm={6}>
+              {musician.user?.instruments && musician.user.instruments.length > 0 && (
+                <>
+                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                    <MusicNoteIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
+                    Instruments
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {musician.user.instruments.slice(0, 3).map((instrument, index) => (
+                      <Chip
+                        key={`instrument-${index}`}
+                        label={instrument}
+                        size="small"
+                        color="primary"
+                        variant="filled"
+                      />
+                    ))}
+                    {musician.user.instruments.length > 3 && (
+                      <Chip
+                        label={`+${musician.user.instruments.length - 3} more`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
+                </>
               )}
-            </Box>
-          </Box>
+            </Grid>
+
+            {/* Right Half - Genres */}
+            <Grid item xs={12} sm={6}>
+              {musician.user?.genres && musician.user.genres.length > 0 && (
+                <>
+                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                    <MusicNoteIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
+                    Genres
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {musician.user.genres.slice(0, 3).map((genre, index) => (
+                      <Chip
+                        key={`genre-${index}`}
+                        label={genre}
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                      />
+                    ))}
+                    {musician.user.genres.length > 3 && (
+                      <Chip
+                        label={`+${musician.user.genres.length - 3} more`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
+                </>
+              )}
+            </Grid>
+          </Grid>
         )}
 
+        {/* Experience */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <WorkIcon sx={{ mr: 0.5, color: 'primary.main', fontSize: '1rem' }} />
+          <Typography variant="caption" color="text.secondary">
+            {musician.experience || 'Beginner'}
+          </Typography>
+        </Box>
 
       </CardContent>
       
