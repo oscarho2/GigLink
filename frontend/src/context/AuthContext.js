@@ -30,7 +30,12 @@ export const AuthProvider = ({ children }) => {
           
           setToken(storedToken);
           setIsAuthenticated(true);
-          setUser(res.data);
+          // Normalize user object to match login response format
+          setUser({
+            id: res.data._id,
+            name: res.data.name,
+            email: res.data.email
+          });
         } catch (err) {
           console.error('Token verification failed:', err);
           // Remove invalid token
