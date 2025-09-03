@@ -177,7 +177,7 @@ const Dashboard = () => {
       
       <Grid container spacing={4}>
         {/* Profile Summary */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={6} lg={4}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
@@ -246,7 +246,7 @@ const Dashboard = () => {
         </Grid>
         
         {/* Gigs */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} md={6} lg={8}>
           <Card sx={{ mb: 4 }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>

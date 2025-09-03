@@ -52,7 +52,7 @@ const Gigs = () => {
   useEffect(() => {
     const fetchGigs = async () => {
       try {
-        const response = await axios.get('/api/gigs');
+        const response = await axios.get('http://localhost:5001/api/gigs');
         setGigs(response.data);
       } catch (error) {
         console.error('Error fetching gigs:', error);
@@ -335,10 +335,11 @@ const Gigs = () => {
         <Grid container spacing={3}>
         {filteredGigs.length > 0 ? (
           filteredGigs.map((gig) => (
-            <Grid item xs={12} md={6} lg={4} key={gig._id}>
+            <Grid item xs={12} sm={6} md={4} key={gig._id}>
               <Card 
               sx={{ 
-                height: '100%', 
+                height: '100%',
+                maxHeight: '500px',
                 display: 'flex', 
                 flexDirection: 'column',
                 borderRadius: 2,
@@ -373,23 +374,27 @@ const Gigs = () => {
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                   <Grid item xs={12} sm={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <CalendarTodayIcon sx={{ mr: 1, color: '#1a365d' }} />
-                      <Typography variant="body1" fontWeight="bold">
-                        {new Date(gig.date).toLocaleDateString('en-GB')}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <PaymentIcon sx={{ mr: 1, color: '#1a365d' }} />
                       <Typography variant="body1" fontWeight="bold">
                         {formatPayment(gig.payment)}
                       </Typography>
                     </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <CalendarTodayIcon sx={{ mr: 1, color: '#1a365d' }} />
+                      <Typography variant="body1" fontWeight="bold">
+                        {new Date(gig.date).toLocaleDateString('en-GB')}
+                      </Typography>
+                    </Box>
                   </Grid>
                   
                   <Grid item xs={12} sm={6}>
+                    {/* Right column intentionally left empty */}
+                  </Grid>
+                  
+                  <Grid item xs={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <LocationOnIcon sx={{ mr: 1, color: '#1a365d' }} />
-                      <Typography variant="body1">
+                      <Typography variant="body1" fontWeight="bold">
                         {gig.venue}, {gig.location}
                       </Typography>
                     </Box>
