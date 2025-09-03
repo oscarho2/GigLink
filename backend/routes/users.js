@@ -3,7 +3,7 @@ const router = express.Router();
 const { check, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const mockDB = require('../utils/mockDatabase');
+const Profile = require('../models/Profile');
 
 // @route   POST api/users
 // @desc    Register a user
@@ -40,59 +40,28 @@ router.post(
       const normalizedEmail = email.toLowerCase().trim();
       
       // Check if user exists
-      let existingUser;
-      try {
-        // Try MongoDB first
-        existingUser = await User.findOne({ email: normalizedEmail });
-      } catch (mongoErr) {
-        // Fallback to mock database
-        existingUser = await mockDB.findUserByEmail(normalizedEmail);
-      }
+      const existingUser = await User.findOne({ email: normalizedEmail });
       
       if (existingUser) {
         return res.status(400).json({ errors: [{ msg: 'User already exists' }] });
       }
 
       // Create new user
-      let user;
-      try {
-        // Try MongoDB first
-        user = new User({
-          name: name.trim(),
-          email: normalizedEmail,
-          password
-        });
-        await user.save();
-      } catch (mongoErr) {
-        // Fallback to mock database
-        user = await mockDB.createUser({
-          name: name.trim(),
-          email: normalizedEmail,
-          password
-        });
-      }
+      const user = new User({
+        name: name.trim(),
+        email: normalizedEmail,
+        password
+      });
+      await user.save();
 
       // Create default profile for new user
       try {
-        const defaultProfile = {
-          _id: user.id,
-          user: {
-            _id: user.id,
-            name: user.name,
-            avatar: '',
-            location: 'Location not specified'
-          },
-          bio: `Welcome to GigLink! I'm ${user.name} and I'm excited to connect with fellow musicians.`,
+        const defaultProfile = new Profile({
+          user: user._id,
           skills: [],
-          experience: 'Beginner',
-          hourlyRate: 50,
-          availability: 'Available',
-          portfolio: [],
           videos: []
-        };
-        
-        // Add profile to mock database for immediate availability
-        await mockDB.createProfile(defaultProfile);
+        });
+        await defaultProfile.save();
       } catch (profileErr) {
         console.error('Error creating default profile:', profileErr);
         // Don't fail registration if profile creation fails

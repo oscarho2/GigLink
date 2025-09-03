@@ -21,10 +21,10 @@ const Profile = () => {
           // Fetch specific user's profile by ID (public route)
           const profileRes = await axios.get(`http://localhost:5001/api/profiles/user/${id}`);
           profileData = profileRes.data;
-          setIsOwnProfile(user && user.id === id);
+          setIsOwnProfile(user && user._id === id);
         } else {
           // Fetch current user's profile (private route)
-          if (!user || !user.id) {
+          if (!user || !user._id) {
             setLoading(false);
             return;
           }
@@ -54,20 +54,7 @@ const Profile = () => {
         setProfile(transformedProfile);
       } catch (err) {
         console.error('Error fetching profile:', err);
-        // Fallback to mock data if profile fetch fails
-        setProfile({
-          name: user?.name || 'Jane Doe',
-          avatar: user?.avatar || '',
-          bio: 'Professional musician and event organizer with years of experience in the music industry.',
-          location: user?.location || 'Location not specified',
-          instruments: user?.instruments || ['Piano', 'Guitar'],
-          genres: user?.genres || ['Rock', 'Jazz', 'Blues'],
-          experience: 'Senior',
-          videos: [
-            { title: 'Live at Jazz Club', url: 'https://youtube.com/watch?v=123' },
-            { title: 'Studio Session', url: 'https://youtube.com/watch?v=456' }
-          ]
-        });
+        setProfile(null);
       } finally {
         setLoading(false);
       }

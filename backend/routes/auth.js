@@ -4,26 +4,13 @@ const jwt = require('jsonwebtoken');
 const { check, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
-const mockDB = require('../utils/mockDatabase');
 
 // @route   GET api/auth
 // @desc    Get authenticated user
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
-    let user;
-    try {
-      // Try MongoDB first
-      user = await User.findById(req.user.id).select('-password');
-    } catch (mongoErr) {
-      // Fallback to mock database
-      user = await mockDB.findUserById(req.user.id);
-      if (user) {
-        // Remove password from response
-        const { password, ...userWithoutPassword } = user;
-        user = userWithoutPassword;
-      }
-    }
+    const user = await User.findById(req.user.id).select('-password');
     
     if (!user) {
       return res.status(404).json({ msg: 'User not found' });
@@ -65,21 +52,11 @@ router.post(
       const normalizedEmail = email.toLowerCase().trim();
       
       // Check if user exists
-      let user;
+      const user = await User.findOne({ email: normalizedEmail });
       let isMatch = false;
       
-      try {
-        // Try MongoDB first
-        user = await User.findOne({ email: normalizedEmail });
-        if (user) {
-          isMatch = await user.comparePassword(password);
-        }
-      } catch (mongoErr) {
-        // Fallback to mock database
-        user = await mockDB.findUserByEmail(normalizedEmail);
-        if (user) {
-          isMatch = await mockDB.comparePassword(password, user.password);
-        }
+      if (user) {
+        isMatch = await user.comparePassword(password);
       }
       
       if (!user) {

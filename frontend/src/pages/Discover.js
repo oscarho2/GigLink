@@ -39,7 +39,11 @@ const MusicianCard = memo(({ musician, user }) => {
         }
       }}
     >
-      <CardContent sx={{ flexGrow: 1 }}>
+      <CardContent sx={{ 
+        flexGrow: 1,
+        filter: !user ? 'blur(3px)' : 'none',
+        transition: 'filter 0.3s ease'
+      }}>
         {/* Profile Header */}
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
           <Avatar
@@ -201,12 +205,15 @@ const Discover = () => {
     setSearchTerm(event.target.value);
   }, []);
 
-  // Memoized filtered musicians
+  // Memoized filtered musicians (including current user)
   const filteredMusicians = useMemo(() => {
-    if (!searchTerm.trim()) return musicians;
+    // Include all musicians, including current user
+    const allMusicians = musicians;
+    
+    if (!searchTerm.trim()) return allMusicians;
     
     const term = searchTerm.toLowerCase();
-    return musicians.filter(musician =>
+    return allMusicians.filter(musician =>
       musician.user.name.toLowerCase().includes(term) ||
       (musician.skills && musician.skills.some(skill => skill.toLowerCase().includes(term))) ||
       (musician.instruments && musician.instruments.some(instrument => instrument.toLowerCase().includes(term))) ||

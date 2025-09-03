@@ -114,6 +114,31 @@
       "portfolio": [],
       "videos": [],
       "createdAt": "2025-09-02T23:53:30.432Z"
+    },
+    {
+      "_id": "68b7af04435c93ca33518893",
+      "user": {
+        "_id": "68b7af04435c93ca33518893",
+        "name": "Oscar Ho",
+        "avatar": "",
+        "location": "London",
+        "instruments": [
+          "Bass"
+        ],
+        "genres": [
+          "Jazz"
+        ]
+      },
+      "bio": "Experienced jazz double bass player",
+      "skills": [
+        "Bass"
+      ],
+      "experience": "Professional",
+      "hourlyRate": 50,
+      "availability": "Available",
+      "portfolio": [],
+      "videos": [],
+      "createdAt": "2025-09-03T02:59:16.908Z"
     }
   ],
   "nextId": 13
