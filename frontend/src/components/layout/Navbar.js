@@ -12,10 +12,13 @@ import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import AuthContext from '../../context/AuthContext';
+import LinksManagement from '../LinksManagement';
+import NotificationBadge from '../NotificationBadge';
 
 const Navbar = () => {
   const { isAuthenticated, logout } = useContext(AuthContext);
   const [anchorElNav, setAnchorElNav] = useState(null);
+  const [showLinksManagement, setShowLinksManagement] = useState(false);
 
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
@@ -84,12 +87,26 @@ const Navbar = () => {
       >
         Messages
       </Button>
-
-
+      <Button
+        onClick={() => setShowLinksManagement(true)}
+        sx={{ 
+          my: 2, 
+          color: 'white', 
+          display: 'block', 
+          mx: 1,
+          bgcolor: '#1a365d',
+          '&:hover': {
+            bgcolor: '#2c5282'
+          }
+        }}
+      >
+        Links
+      </Button>
     </>
   );
 
   return (
+    <>
     <AppBar position="static" sx={{ bgcolor: '#1a365d', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
       <Container maxWidth="lg">
         <Toolbar disableGutters sx={{ minHeight: { xs: 56, sm: 64 } }}>
@@ -193,7 +210,9 @@ const Navbar = () => {
                   <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/messages">
                     <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>💬 Messages</Typography>
                   </MenuItem>
-
+                  <MenuItem onClick={() => { handleMenuItemClick(); setShowLinksManagement(true); }}>
+                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🔗 Links</Typography>
+                  </MenuItem>
                 </>
               )}
               {!isAuthenticated && (
@@ -283,11 +302,19 @@ const Navbar = () => {
             alignItems: 'center',
             gap: 1
           }}>
+            {isAuthenticated && <NotificationBadge />}
             {isAuthenticated ? authLinks : guestLinks}
           </Box>
         </Toolbar>
       </Container>
     </AppBar>
+    
+    {/* Links Management Dialog */}
+    <LinksManagement
+      open={showLinksManagement}
+      onClose={() => setShowLinksManagement(false)}
+    />
+    </>
   );
 };
 

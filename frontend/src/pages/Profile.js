@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button } from '@mui/material';
+import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button, Alert, Snackbar } from '@mui/material';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
@@ -12,6 +16,10 @@ const Profile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [friendStatus, setFriendStatus] = useState(null); // 'none', 'pending', 'friends', 'received'
+  const [linkId, setLinkId] = useState(null);
+  const [userRole, setUserRole] = useState(null); // 'requester' or 'recipient'
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -64,6 +72,193 @@ const Profile = () => {
 
     fetchProfile();
   }, [user, token, id]);
+
+  // Check friend status when viewing another user's profile
+  useEffect(() => {
+    const checkFriendStatus = async () => {
+      if (!user || !id || isOwnProfile) return;
+      
+      try {
+        const response = await axios.get(`/api/links/status/${id}`, {
+          headers: { 'x-auth-token': token }
+        });
+        const { status, linkId: responseLink, role } = response.data;
+        setFriendStatus(status);
+        setLinkId(responseLink);
+        setUserRole(role);
+        
+        // Map backend status to frontend status
+        if (status === 'pending') {
+          setFriendStatus(role === 'requester' ? 'pending' : 'received');
+        } else if (status === 'accepted') {
+          setFriendStatus('friends');
+        } else {
+          setFriendStatus('none');
+        }
+      } catch (err) {
+        console.error('Error checking friend status:', err);
+        setFriendStatus('none');
+      }
+    };
+
+    checkFriendStatus();
+  }, [user, token, id, isOwnProfile]);
+
+  const handleSendFriendRequest = async () => {
+    try {
+      await axios.post('/api/links/request', 
+        { recipientId: id },
+        { headers: { 'x-auth-token': token } }
+      );
+      setFriendStatus('pending');
+      setSnackbar({ open: true, message: 'Link request sent!', severity: 'success' });
+    } catch (err) {
+      console.error('Error sending friend request:', err);
+      setSnackbar({ open: true, message: 'Failed to send link request', severity: 'error' });
+    }
+  };
+
+  const handleAcceptFriendRequest = async () => {
+    try {
+      if (!linkId) {
+        setSnackbar({ open: true, message: 'Link ID not found', severity: 'error' });
+        return;
+      }
+      await axios.put(`/api/links/accept/${linkId}`, {}, {
+        headers: { 'x-auth-token': token }
+      });
+      setFriendStatus('friends');
+      setSnackbar({ open: true, message: 'Link request accepted!', severity: 'success' });
+    } catch (err) {
+      console.error('Error accepting friend request:', err);
+      setSnackbar({ open: true, message: 'Failed to accept link request', severity: 'error' });
+    }
+  };
+
+  const handleDeclineFriendRequest = async () => {
+    try {
+      if (!linkId) {
+        setSnackbar({ open: true, message: 'Link ID not found', severity: 'error' });
+        return;
+      }
+      await axios.put(`/api/links/decline/${linkId}`, {}, {
+        headers: { 'x-auth-token': token }
+      });
+      setFriendStatus('none');
+      setLinkId(null);
+      setSnackbar({ open: true, message: 'Link request declined', severity: 'info' });
+    } catch (err) {
+      console.error('Error declining friend request:', err);
+      setSnackbar({ open: true, message: 'Failed to decline link request', severity: 'error' });
+    }
+  };
+
+  const handleRemoveFriend = async () => {
+    try {
+      if (!linkId) {
+        setSnackbar({ open: true, message: 'Link ID not found', severity: 'error' });
+        return;
+      }
+      await axios.delete(`/api/links/${linkId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      setFriendStatus('none');
+      setLinkId(null);
+      setSnackbar({ open: true, message: 'Link removed', severity: 'info' });
+    } catch (err) {
+      console.error('Error removing friend:', err);
+      setSnackbar({ open: true, message: 'Failed to remove link', severity: 'error' });
+    }
+  };
+
+  const renderFriendButton = () => {
+    if (!user || !id) return null;
+
+    switch (friendStatus) {
+      case 'friends':
+        return (
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<PersonRemoveIcon />}
+            onClick={handleRemoveFriend}
+            size="small"
+            sx={{
+              minHeight: { xs: 40, sm: 32 },
+              fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+              px: { xs: 2, sm: 1.5 }
+            }}
+          >
+             Remove Link
+           </Button>
+        );
+      case 'pending':
+        return (
+          <Button
+            variant="outlined"
+            disabled
+            startIcon={<HourglassEmptyIcon />}
+            size="small"
+            sx={{
+              minHeight: { xs: 40, sm: 32 },
+              fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+              px: { xs: 2, sm: 1.5 }
+            }}
+          >
+            Request Sent
+          </Button>
+        );
+      case 'received':
+        return (
+          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<CheckCircleIcon />}
+              onClick={handleAcceptFriendRequest}
+              size="small"
+              sx={{
+                minHeight: { xs: 40, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                px: { xs: 2, sm: 1.5 }
+              }}
+            >
+              Accept
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={handleDeclineFriendRequest}
+              size="small"
+              sx={{
+                minHeight: { xs: 40, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                px: { xs: 2, sm: 1.5 }
+              }}
+            >
+              Decline
+            </Button>
+          </Box>
+        );
+      case 'none':
+      default:
+        return (
+          <Button
+            variant="contained"
+            startIcon={<PersonAddIcon />}
+            onClick={handleSendFriendRequest}
+            size="small"
+            sx={{
+              minHeight: { xs: 40, sm: 32 },
+              fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+              px: { xs: 2, sm: 1.5 }
+            }}
+          >
+             Add Link
+           </Button>
+        );
+    }
+  };
 
   if (loading) {
     return (
@@ -143,7 +338,7 @@ const Profile = () => {
             >
               {profile.location}
             </Typography>
-            {isOwnProfile && (
+            {isOwnProfile ? (
               <Button
                 component={RouterLink}
                 to="/edit-profile"
@@ -158,6 +353,10 @@ const Profile = () => {
               >
                 Edit Profile
               </Button>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
+                {renderFriendButton()}
+              </Box>
             )}
           </Grid>
           
@@ -329,6 +528,20 @@ const Profile = () => {
           </Grid>
         ))}
       </Grid>
+      
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

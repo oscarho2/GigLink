@@ -30,6 +30,11 @@ import LockIcon from '@mui/icons-material/Lock';
 import LogoutIcon from '@mui/icons-material/Logout';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import PeopleIcon from '@mui/icons-material/People';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import SearchIcon from '@mui/icons-material/Search';
 import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import AuthContext from '../context/AuthContext';
@@ -62,6 +67,12 @@ const Dashboard = () => {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  // Links state
+  const [friends, setFriends] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
+  const [linksLoading, setLinksLoading] = useState(true);
 
   const handleDeleteAccount = () => {
     setDeleteDialogStep(1);
@@ -146,6 +157,78 @@ const Dashboard = () => {
     }
   };
 
+  // Links handlers
+  const fetchLinksData = async () => {
+    try {
+      setLinksLoading(true);
+      const [friendsRes, pendingRes, sentRes] = await Promise.all([
+        axios.get('/api/links/friends', { headers: { 'x-auth-token': token } }),
+        axios.get('/api/links/requests/pending', { headers: { 'x-auth-token': token } }),
+        axios.get('/api/links/requests/sent', { headers: { 'x-auth-token': token } })
+      ]);
+      
+      // Transform backend response to match frontend expectations
+      const transformedFriends = (friendsRes.data.friends || []).map(item => ({
+        _id: item.friend.id,
+        name: item.friend.name,
+        email: item.friend.email,
+        avatar: item.friend.avatar,
+        linkId: item.linkId
+      }));
+      
+      const transformedPending = (pendingRes.data.requests || []).map(item => ({
+        _id: item.linkId,
+        requester: item.requester
+      }));
+      
+      const transformedSent = (sentRes.data.requests || []).map(item => ({
+        _id: item.linkId,
+        recipient: item.recipient
+      }));
+      
+      setFriends(transformedFriends);
+      setPendingRequests(transformedPending);
+      setSentRequests(transformedSent);
+    } catch (err) {
+      console.error('Error fetching links data:', err);
+    } finally {
+      setLinksLoading(false);
+    }
+  };
+
+  const handleAcceptRequest = async (linkId) => {
+    try {
+      await axios.put(`/api/links/accept/${linkId}`, {}, {
+        headers: { 'x-auth-token': token }
+      });
+      fetchLinksData(); // Refresh data
+    } catch (err) {
+      console.error('Error accepting request:', err);
+    }
+  };
+
+  const handleDeclineRequest = async (linkId) => {
+    try {
+      await axios.put(`/api/links/decline/${linkId}`, {}, {
+        headers: { 'x-auth-token': token }
+      });
+      fetchLinksData(); // Refresh data
+    } catch (err) {
+      console.error('Error declining request:', err);
+    }
+  };
+
+  const handleRemoveLink = async (linkId) => {
+    try {
+      await axios.delete(`/api/links/${linkId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      fetchLinksData(); // Refresh data
+    } catch (err) {
+      console.error('Error removing link:', err);
+    }
+  };
+
   const handleGigDeleteClick = (gig) => {
     setGigToDelete(gig);
     setGigDeleteDialogOpen(true);
@@ -216,6 +299,9 @@ const Dashboard = () => {
           return gigUserId?.toString() === currentUserId;
         });
         setGigs(userGigs);
+        
+        // Fetch links data
+        await fetchLinksData();
       } catch (err) {
         console.error('Error fetching data:', err);
       } finally {
@@ -539,6 +625,166 @@ const Dashboard = () => {
             </CardContent>
           </Card>
           
+          {/* Links Section */}
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">
+                  <PeopleIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+                  Links
+                </Typography>
+              </Box>
+              
+              <Divider sx={{ mb: 2 }} />
+              
+              {linksLoading ? (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                  Loading links...
+                </Typography>
+              ) : (
+                <>
+                  {/* Pending Friend Requests */}
+                  {pendingRequests.length > 0 && (
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PersonAddIcon fontSize="small" />
+                        Pending Requests ({pendingRequests.length})
+                      </Typography>
+                      <List>
+                        {pendingRequests.map(request => (
+                          <ListItem
+                            key={request._id}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              mb: 1,
+                              p: 2
+                            }}
+                          >
+                            <Avatar
+                              src={request.requester?.avatar}
+                              alt={request.requester?.name}
+                              sx={{ mr: 2 }}
+                            />
+                            <ListItemText
+                              primary={request.requester?.name}
+                              secondary={request.requester?.email}
+                            />
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <IconButton
+                                onClick={() => handleAcceptRequest(request._id)}
+                                color="success"
+                                size="small"
+                              >
+                                <CheckCircleIcon />
+                              </IconButton>
+                              <IconButton
+                                onClick={() => handleDeclineRequest(request._id)}
+                                color="error"
+                                size="small"
+                              >
+                                <CancelIcon />
+                              </IconButton>
+                            </Box>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+                  
+                  {/* Current Friends */}
+                  {friends.length > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PeopleIcon fontSize="small" />
+                        Friends ({friends.length})
+                      </Typography>
+                      <List>
+                        {friends.map(friend => (
+                          <ListItem
+                            key={friend._id}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              mb: 1,
+                              p: 2
+                            }}
+                          >
+                            <Avatar
+                              src={friend.avatar}
+                              alt={friend.name}
+                              sx={{ mr: 2 }}
+                            />
+                            <ListItemText
+                              primary={friend.name}
+                              secondary={friend.email}
+                            />
+                            <IconButton
+                              onClick={() => handleRemoveLink(friend.linkId)}
+                              color="error"
+                              size="small"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+                  
+                  {/* Sent Requests */}
+                  {sentRequests.length > 0 && (
+                    <Box>
+                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <SearchIcon fontSize="small" />
+                        Sent Requests ({sentRequests.length})
+                      </Typography>
+                      <List>
+                        {sentRequests.map(request => (
+                          <ListItem
+                            key={request._id}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              mb: 1,
+                              p: 2
+                            }}
+                          >
+                            <Avatar
+                              src={request.recipient?.avatar}
+                              alt={request.recipient?.name}
+                              sx={{ mr: 2 }}
+                            />
+                            <ListItemText
+                              primary={request.recipient?.name}
+                              secondary="Request pending..."
+                            />
+                            <IconButton
+                              onClick={() => handleRemoveLink(request._id)}
+                              color="error"
+                              size="small"
+                            >
+                              <CancelIcon />
+                            </IconButton>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+                  
+                  {/* No Links Message */}
+                  {friends.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && (
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                      No links yet. Start connecting with other musicians!
+                    </Typography>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
 
         </Grid>
       </Grid>

@@ -9,6 +9,7 @@ const messageRoutes = require('./routes/messages');
 const profileRoutes = require('./routes/profiles');
 const uploadRoutes = require('./routes/upload');
 const groupRoutes = require('./routes/groups');
+const linkRoutes = require('./routes/links');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -25,6 +26,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/profiles', profileRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/links', linkRoutes);
 
 // Default route
 app.get('/', (req, res) => {
