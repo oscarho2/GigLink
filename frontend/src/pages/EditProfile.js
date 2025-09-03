@@ -118,7 +118,7 @@ const EditProfile = () => {
         console.log('Profile updated:', response.data);
         // Redirect to user's specific profile page after 2 seconds
         setTimeout(() => {
-          navigate(`/profile/${user.id}`);
+          navigate(`/profile/${user._id || user.id}`);
         }, 2000);
       }
     } catch (error) {

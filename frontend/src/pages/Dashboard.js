@@ -12,13 +12,20 @@ import Divider from '@mui/material/Divider';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
-
+import ListItemButton from '@mui/material/ListItemButton';
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
+import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import WorkIcon from '@mui/icons-material/Work';
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import DeleteIcon from '@mui/icons-material/Delete';
+import WarningIcon from '@mui/icons-material/Warning';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
@@ -27,33 +34,41 @@ const Dashboard = () => {
   const [profile, setProfile] = useState(null);
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleteDialogStep, setDeleteDialogStep] = useState(0); // 0: closed, 1: first warning, 2: second warning, 3: final confirmation
+  const [confirmationText, setConfirmationText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDeleteProfile = async () => {
-    console.log('Delete button clicked');
-    console.log('User:', user);
-    console.log('Token:', token);
-    console.log('Is authenticated:', isAuthenticated);
-    
-    if (window.confirm('Are you sure you want to delete your profile? This action cannot be undone.')) {
-      try {
-        console.log('Making delete request to:', 'http://localhost:5001/api/profiles/me');
-        console.log('With headers:', { 'x-auth-token': token });
-        
-        const response = await axios.delete('http://localhost:5001/api/profiles/me', {
-          headers: { 'x-auth-token': token }
-        });
-        
-        console.log('Delete response:', response);
-        alert('Profile deleted successfully. You will be redirected to the home page.');
-        // Redirect to home page after successful deletion
-        window.location.href = '/';
-      } catch (err) {
-        console.error('Error deleting profile:', err);
-        console.error('Error response:', err.response);
-        console.error('Error status:', err.response?.status);
-        console.error('Error data:', err.response?.data);
-        alert(`Failed to delete profile: ${err.response?.data?.msg || err.message}`);
-      }
+  const handleDeleteAccount = () => {
+    setDeleteDialogStep(1);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogStep(0);
+    setConfirmationText('');
+    setIsDeleting(false);
+  };
+
+  const handleNextStep = () => {
+    setDeleteDialogStep(deleteDialogStep + 1);
+  };
+
+  const handleFinalDelete = async () => {
+    if (confirmationText !== 'DELETE MY ACCOUNT') {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await axios.delete('http://localhost:5001/api/profiles/me', {
+        headers: { 'x-auth-token': token }
+      });
+      
+      alert('Account and all data deleted successfully. You will be redirected to the home page.');
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Error deleting account:', err);
+      alert(`Failed to delete account: ${err.response?.data?.msg || err.message}`);
+      setIsDeleting(false);
     }
   };
 
@@ -164,13 +179,13 @@ const Dashboard = () => {
                 View Profile
               </Button>
               <Button
-                onClick={handleDeleteProfile}
+                onClick={handleDeleteAccount}
                 fullWidth
                 variant="contained"
                 color="error"
                 startIcon={<DeleteIcon />}
               >
-                Delete Profile
+                Delete Account
               </Button>
             </CardActions>
           </Card>
@@ -297,6 +312,129 @@ const Dashboard = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Multi-step Delete Account Dialog */}
+      {/* Step 1: Initial Warning */}
+      <Dialog open={deleteDialogStep === 1} onClose={handleCloseDeleteDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningIcon color="warning" />
+          Delete Account?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to delete your account? This action will:
+          </Typography>
+          <Box component="ul" sx={{ mt: 2, pl: 2 }}>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              Permanently delete your profile and personal information
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              Remove all your posted gigs
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              Delete all your messages and conversations
+            </Typography>
+            <Typography component="li" variant="body2">
+              Remove you from any gig applications
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleNextStep} color="warning" variant="outlined">
+            Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Step 2: Final Warning */}
+      <Dialog open={deleteDialogStep === 2} onClose={handleCloseDeleteDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningIcon color="error" />
+          Final Warning
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <Typography variant="body1" fontWeight="bold">
+              This action is IRREVERSIBLE!
+            </Typography>
+          </Alert>
+          <Typography variant="body1" gutterBottom>
+            Once you delete your account:
+          </Typography>
+          <Box component="ul" sx={{ mt: 2, pl: 2 }}>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              <strong>All your data will be permanently lost</strong>
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              <strong>You cannot recover your account or any information</strong>
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              <strong>Other users will no longer be able to contact you</strong>
+            </Typography>
+            <Typography component="li" variant="body2">
+              <strong>You will need to create a new account to use GigLink again</strong>
+            </Typography>
+          </Box>
+          <Typography variant="body1" sx={{ mt: 2, fontWeight: 'bold' }}>
+            Are you absolutely certain you want to proceed?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleNextStep} color="error" variant="outlined">
+            Yes, I Understand
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Step 3: Confirmation Text Input */}
+      <Dialog open={deleteDialogStep === 3} onClose={handleCloseDeleteDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningIcon color="error" />
+          Confirm Account Deletion
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 3 }}>
+            <Typography variant="body1" fontWeight="bold">
+              LAST CHANCE TO CANCEL
+            </Typography>
+          </Alert>
+          <Typography variant="body1" gutterBottom>
+            To confirm the deletion of your account and all associated data, please type:
+          </Typography>
+          <Typography variant="h6" sx={{ my: 2, p: 1, bgcolor: 'grey.100', borderRadius: 1, fontFamily: 'monospace' }}>
+            DELETE MY ACCOUNT
+          </Typography>
+          <TextField
+            fullWidth
+            label="Type the confirmation text above"
+            value={confirmationText}
+            onChange={(e) => setConfirmationText(e.target.value)}
+            placeholder="DELETE MY ACCOUNT"
+            sx={{ mt: 2 }}
+            error={confirmationText !== '' && confirmationText !== 'DELETE MY ACCOUNT'}
+            helperText={confirmationText !== '' && confirmationText !== 'DELETE MY ACCOUNT' ? 'Text must match exactly' : ''}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog} color="primary">
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleFinalDelete} 
+            color="error" 
+            variant="contained"
+            disabled={confirmationText !== 'DELETE MY ACCOUNT' || isDeleting}
+          >
+            {isDeleting ? 'Deleting...' : 'DELETE MY ACCOUNT'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
