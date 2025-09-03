@@ -4,12 +4,15 @@ const User = require('./models/User');
 const Profile = require('./models/Profile');
 const Message = require('./models/Message');
 
-// Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/giglink', {
+// Load environment variables
+require('dotenv').config();
+
+// Connect to MongoDB Atlas
+mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('Connected to MongoDB'))
+.then(() => console.log('Connected to MongoDB Atlas'))
 .catch(err => console.error('MongoDB connection error:', err));
 
 async function createTestData() {
@@ -62,13 +65,7 @@ async function createTestData() {
     if (!oscarProfile) {
       const profile = new Profile({
         user: oscarUser._id,
-        skills: oscarUser.instruments,
-        genres: oscarUser.genres,
-        location: oscarUser.location,
-        bio: oscarUser.bio,
-        experience: oscarUser.experience,
-        isAvailableForGigs: oscarUser.isAvailableForGigs,
-        profileCompleted: oscarUser.profileCompleted
+        skills: oscarUser.instruments
       });
       await profile.save();
       console.log('✅ Oscar profile created');
@@ -78,13 +75,7 @@ async function createTestData() {
     if (!janeProfile) {
       const profile = new Profile({
         user: janeUser._id,
-        skills: janeUser.instruments,
-        genres: janeUser.genres,
-        location: janeUser.location,
-        bio: janeUser.bio,
-        experience: janeUser.experience,
-        isAvailableForGigs: janeUser.isAvailableForGigs,
-        profileCompleted: janeUser.profileCompleted
+        skills: janeUser.instruments
       });
       await profile.save();
       console.log('✅ Jane profile created');
@@ -93,34 +84,38 @@ async function createTestData() {
     // Create test messages
     const existingMessages = await Message.countDocuments();
     if (existingMessages === 0) {
+      // Generate conversationId for Jane and Oscar
+      const userIds = [janeUser._id.toString(), oscarUser._id.toString()].sort();
+      const conversationId = userIds.join('_');
+      
       const messages = [
         {
           sender: janeUser._id,
           recipient: oscarUser._id,
           content: 'Hi Oscar! I saw your profile and I\'m interested in collaborating on some jazz pieces. Are you available for a session next week?',
           messageType: 'text',
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
+          conversationId: conversationId
         },
         {
           sender: oscarUser._id,
           recipient: janeUser._id,
           content: 'Hi Jane! That sounds great. I\'d love to collaborate. What kind of jazz pieces are you thinking about?',
           messageType: 'text',
-          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) // 1 day ago
+          conversationId: conversationId
         },
         {
           sender: janeUser._id,
           recipient: oscarUser._id,
           content: 'I was thinking some modern jazz standards, maybe some Bill Evans or Keith Jarrett style pieces. Do you have experience with those?',
           messageType: 'text',
-          createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000) // 12 hours ago
+          conversationId: conversationId
         },
         {
           sender: oscarUser._id,
           recipient: janeUser._id,
           content: 'Absolutely! I love Bill Evans. Let\'s set up a time to meet and discuss the details.',
           messageType: 'text',
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
+          conversationId: conversationId
         }
       ];
 

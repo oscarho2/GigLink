@@ -24,8 +24,14 @@ const MessageSchema = new mongoose.Schema({
   },
   conversationId: {
     type: String,
-    required: true,
-    index: true
+    index: true,
+    default: function() {
+      if (this.sender && this.recipient) {
+        const userIds = [this.sender.toString(), this.recipient.toString()].sort();
+        return userIds.join('_');
+      }
+      return undefined;
+    }
   },
   read: {
     type: Boolean,
