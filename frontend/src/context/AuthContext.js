@@ -11,12 +11,37 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(false); // Set to false for prototype
+  const [loading, setLoading] = useState(true); // Set to true initially
+  const [hasLoggedOut, setHasLoggedOut] = useState(false); // Track manual logout
 
-  // For prototype, we'll skip the actual API calls
+  // Initialize authentication state on app load
   useEffect(() => {
-    // Simulate loading user data
-    setLoading(false);
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem('token');
+      const hasManuallyLoggedOut = localStorage.getItem('hasLoggedOut') === 'true';
+      
+      if (storedToken && !hasManuallyLoggedOut) {
+        try {
+          // Set auth token in axios headers
+          axios.defaults.headers.common['x-auth-token'] = storedToken;
+          
+          // Verify token with backend
+          const res = await axios.get('/api/auth');
+          
+          setToken(storedToken);
+          setIsAuthenticated(true);
+          setUser(res.data);
+        } catch (err) {
+          console.error('Token verification failed:', err);
+          // Remove invalid token
+          localStorage.removeItem('token');
+          delete axios.defaults.headers.common['x-auth-token'];
+        }
+      }
+      setLoading(false);
+    };
+    
+    initializeAuth();
   }, []);
 
   // Set auth token in headers
@@ -30,53 +55,70 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Register user - Mock implementation for prototype
+  // Register user
   const register = async (formData) => {
     try {
-      // Mock successful registration
-      const mockToken = 'mock-jwt-token';
-      setToken(mockToken);
+      const config = {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const body = JSON.stringify(formData);
+      const res = await axios.post('/api/users', body, config);
+      
+      localStorage.removeItem('hasLoggedOut'); // Clear logout flag on registration
+      setHasLoggedOut(false);
+      setToken(res.data.token);
       setIsAuthenticated(true);
-      setUser({
-        id: '1',
-        name: formData.name,
-        email: formData.email,
-        avatar: '',
-      });
-      localStorage.setItem('token', mockToken);
-      return true;
+      setUser(res.data.user);
+      setAuthToken(res.data.token);
+      
+      // Return success to allow component to handle redirect
+      return { success: true };
     } catch (err) {
-      return { error: err.response.data.errors };
+      console.error('Registration error:', err);
+      return { error: err.response?.data?.errors || [{ msg: 'Registration failed' }] };
     }
   };
 
-  // Login user - Mock implementation for prototype
+  // Login user
   const login = async (formData, redirectPath = null) => {
     try {
-      // Mock successful login
-      const mockToken = 'mock-jwt-token';
-      setToken(mockToken);
+      const config = {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const body = JSON.stringify(formData);
+      const res = await axios.post('/api/auth', body, config);
+      
+      localStorage.removeItem('hasLoggedOut'); // Clear logout flag on manual login
+      setHasLoggedOut(false);
+      setToken(res.data.token);
       setIsAuthenticated(true);
-      setUser({
-        id: '1',
-        name: 'Demo User',
-        email: formData.email,
-        avatar: '',
-      });
-      localStorage.setItem('token', mockToken);
+      setUser(res.data.user);
+      setAuthToken(res.data.token);
       if (redirectPath) {
         localStorage.setItem('redirectPath', redirectPath);
       }
       return true;
     } catch (err) {
-      return { error: err.response.data.errors };
+      console.error('Login error:', err);
+      return { 
+        error: err.response?.data?.errors || [{ msg: 'Login failed' }],
+        type: err.response?.data?.type
+      };
     }
   };
 
   // Logout user
   const logout = () => {
-    localStorage.removeItem('token');
+    setAuthToken(null); // This will remove token from localStorage and axios headers
     localStorage.removeItem('redirectPath'); // Clear any stored redirect path
+    localStorage.setItem('hasLoggedOut', 'true'); // Mark that user has manually logged out
+    setHasLoggedOut(true);
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);

@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, Navigate } from 'react-router-dom';
 import Container from '@mui/material/Container';
 import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
@@ -22,21 +22,31 @@ import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
 const Dashboard = () => {
-  const { user } = useContext(AuthContext);
+  const { user, isAuthenticated, loading: authLoading, token } = useContext(AuthContext);
   const [profile, setProfile] = useState(null);
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user || !user.id) {
+        console.log('Dashboard - No authenticated user, skipping data fetch');
+        setLoading(false);
+        return;
+      }
+      
       try {
         // Fetch profile data
-        const profileRes = await axios.get('/api/profiles/me');
+        const profileRes = await axios.get('http://localhost:5001/api/profiles/me', {
+          headers: { 'x-auth-token': token }
+        });
         setProfile(profileRes.data);
         
         // Fetch user's gigs
-        const gigsRes = await axios.get('/api/gigs');
-        const userGigs = gigsRes.data.filter(gig => gig.user === user._id);
+        const gigsRes = await axios.get('http://localhost:5001/api/gigs', {
+          headers: { 'x-auth-token': token }
+        });
+        const userGigs = gigsRes.data.filter(gig => gig.user._id === user.id);
         setGigs(userGigs);
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -48,12 +58,16 @@ const Dashboard = () => {
     fetchData();
   }, [user]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <Container>
         <Typography>Loading...</Typography>
       </Container>
     );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
 
   return (
@@ -110,7 +124,15 @@ const Dashboard = () => {
                 </Box>
               )}
             </CardContent>
-            <CardActions>
+            <CardActions sx={{ flexDirection: 'column', gap: 1 }}>
+              <Button
+                component={RouterLink}
+                to={`/profile/${user?.id}`}
+                fullWidth
+                variant="outlined"
+              >
+                View Profile
+              </Button>
               <Button
                 component={RouterLink}
                 to="/edit-profile"

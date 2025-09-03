@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { Box } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
 
@@ -15,10 +16,12 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
+import ProfileSetup from './pages/ProfileSetup';
 import Discover from './pages/Discover';
 import Gigs from './pages/Gigs';
 import GigDetail from './pages/GigDetail';
 import CreateGig from './pages/CreateGig';
+import EditGig from './pages/EditGig';
 import Messages from './pages/Messages';
 import NotFound from './pages/NotFound';
 
@@ -65,22 +68,34 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Router>
-          <Navbar />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile/:id" element={<Profile />} />
-            <Route path="/edit-profile" element={<EditProfile />} />
-            <Route path="/discover" element={<Discover />} />
-            <Route path="/gigs" element={<Gigs />} />
-            <Route path="/gigs/:id" element={<GigDetail />} />
-            <Route path="/create-gig" element={<CreateGig />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <Footer />
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: '100vh'
+            }}
+          >
+            <Navbar />
+            <Box sx={{ flex: 1 }}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/profile/:id" element={<Profile />} />
+                <Route path="/edit-profile" element={<EditProfile />} />
+                <Route path="/profile-setup" element={<ProfileSetup />} />
+                <Route path="/discover" element={<Discover />} />
+                <Route path="/gigs" element={<Gigs />} />
+                <Route path="/gigs/:id" element={<GigDetail />} />
+                <Route path="/gigs/:id/edit" element={<EditGig />} />
+                <Route path="/create-gig" element={<CreateGig />} />
+                <Route path="/messages" element={<Messages />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Box>
+            <Footer />
+          </Box>
         </Router>
       </ThemeProvider>
     </AuthProvider>

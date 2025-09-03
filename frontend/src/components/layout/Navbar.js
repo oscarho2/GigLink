@@ -30,7 +30,16 @@ const Navbar = () => {
       <Button
         component={RouterLink}
         to="/login"
-        sx={{ my: 2, color: 'white', display: 'block', mx: 1 }}
+        sx={{ 
+          my: 2, 
+          color: 'white', 
+          display: 'block', 
+          mx: 1,
+          bgcolor: '#1a365d',
+          '&:hover': {
+            bgcolor: '#2c5282'
+          }
+        }}
       >
         Login
       </Button>
@@ -42,14 +51,32 @@ const Navbar = () => {
       <Button
         component={RouterLink}
         to="/dashboard"
-        sx={{ my: 2, color: 'white', display: 'block', mx: 1 }}
+        sx={{ 
+          my: 2, 
+          color: 'white', 
+          display: 'block', 
+          mx: 1,
+          bgcolor: '#1a365d',
+          '&:hover': {
+            bgcolor: '#2c5282'
+          }
+        }}
       >
         Dashboard
       </Button>
       <Button
         component={RouterLink}
         to="/messages"
-        sx={{ my: 2, color: 'white', display: 'block', mx: 1 }}
+        sx={{ 
+          my: 2, 
+          color: 'white', 
+          display: 'block', 
+          mx: 1,
+          bgcolor: '#1a365d',
+          '&:hover': {
+            bgcolor: '#2c5282'
+          }
+        }}
       >
         Messages
       </Button>
@@ -60,9 +87,9 @@ const Navbar = () => {
           color: 'white',
           display: 'block',
           ml: 1,
-          bgcolor: '#475569',
+          bgcolor: '#1a365d',
           '&:hover': {
-            bgcolor: '#334155'
+            bgcolor: '#2c5282'
           }
         }}
       >
@@ -165,14 +192,31 @@ const Navbar = () => {
             <Button
               component={RouterLink}
               to="/gigs"
-              sx={{ my: 2, color: 'white', display: 'block', mr: 1 }}
+              sx={{ 
+                my: 2, 
+                color: 'white', 
+                display: 'block', 
+                mr: 1,
+                bgcolor: '#1a365d',
+                '&:hover': {
+                  bgcolor: '#2c5282'
+                }
+              }}
             >
               Gigs
             </Button>
             <Button
               component={RouterLink}
               to="/discover"
-              sx={{ my: 2, color: 'white', display: 'block' }}
+              sx={{ 
+                my: 2, 
+                color: 'white', 
+                display: 'block',
+                bgcolor: '#1a365d',
+                '&:hover': {
+                  bgcolor: '#2c5282'
+                }
+              }}
             >
               Discover
             </Button>

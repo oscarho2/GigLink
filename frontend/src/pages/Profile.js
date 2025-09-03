@@ -1,21 +1,96 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button } from '@mui/material';
+import { Link as RouterLink, useParams } from 'react-router-dom';
+import EditIcon from '@mui/icons-material/Edit';
+import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 
 const Profile = () => {
-  // Mock data for prototype
-  const profile = {
-    name: 'Jane Doe',
-    avatar: '',
-    bio: 'Professional guitarist with 10 years of experience in rock and jazz.',
-    location: 'New York, NY',
-    instruments: ['Guitar', 'Piano', 'Vocals'],
-    genres: ['Rock', 'Jazz', 'Blues'],
-    experience: '10 years',
-    videos: [
-      { title: 'Live at Jazz Club', url: 'https://youtube.com/watch?v=123' },
-      { title: 'Studio Session', url: 'https://youtube.com/watch?v=456' }
-    ]
-  };
+  const { user, token } = useAuth();
+  const { id } = useParams(); // Get user ID from URL params
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        let profileData;
+        
+        if (id) {
+          // Fetch specific user's profile by ID (public route)
+          const profileRes = await axios.get(`http://localhost:5001/api/profiles/user/${id}`);
+          profileData = profileRes.data;
+          setIsOwnProfile(user && user.id === id);
+        } else {
+          // Fetch current user's profile (private route)
+          if (!user || !user.id) {
+            setLoading(false);
+            return;
+          }
+          
+          const profileRes = await axios.get('http://localhost:5001/api/profiles/me', {
+            headers: { 'x-auth-token': token }
+          });
+          profileData = profileRes.data;
+          setIsOwnProfile(true);
+        }
+        
+        // Transform backend data to match UI expectations
+        const transformedProfile = {
+          name: profileData.user?.name || user?.name || 'User',
+          avatar: profileData.user?.avatar || user?.avatar || '',
+          bio: profileData.bio || 'Professional musician and event organizer with years of experience in the music industry.',
+          location: profileData.user?.location || 'Location not specified',
+          instruments: profileData.user?.instruments || profileData.skills?.filter(skill => ['Piano', 'Guitar', 'Vocals', 'Drums', 'Bass', 'Violin', 'Saxophone'].includes(skill)) || ['Piano', 'Guitar'],
+          genres: profileData.user?.genres || ['Rock', 'Jazz', 'Blues'],
+          experience: profileData.experience || 'Senior',
+          videos: profileData.videos || [
+            { title: 'Live at Jazz Club', url: 'https://youtube.com/watch?v=123' },
+            { title: 'Studio Session', url: 'https://youtube.com/watch?v=456' }
+          ]
+        };
+        
+        setProfile(transformedProfile);
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+        // Fallback to mock data if profile fetch fails
+        setProfile({
+          name: user?.name || 'Jane Doe',
+          avatar: user?.avatar || '',
+          bio: 'Professional musician and event organizer with years of experience in the music industry.',
+          location: user?.location || 'Location not specified',
+          instruments: user?.instruments || ['Piano', 'Guitar'],
+          genres: user?.genres || ['Rock', 'Jazz', 'Blues'],
+          experience: 'Senior',
+          videos: [
+            { title: 'Live at Jazz Club', url: 'https://youtube.com/watch?v=123' },
+            { title: 'Studio Session', url: 'https://youtube.com/watch?v=456' }
+          ]
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user, token, id]);
+
+  if (loading) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Typography>Loading...</Typography>
+      </Container>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Typography>Profile not found</Typography>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -30,7 +105,18 @@ const Profile = () => {
               {profile.name.charAt(0)}
             </Avatar>
             <Typography variant="h5" gutterBottom>{profile.name}</Typography>
-            <Typography variant="body2" color="textSecondary">{profile.location}</Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>{profile.location}</Typography>
+            {isOwnProfile && (
+              <Button
+                component={RouterLink}
+                to="/edit-profile"
+                variant="contained"
+                startIcon={<EditIcon />}
+                size="small"
+              >
+                Edit Profile
+              </Button>
+            )}
           </Grid>
           
           <Grid item xs={12} md={8}>
