@@ -6,40 +6,18 @@ import {
   Typography,
   TextField,
   Button,
-  Box,
   Grid,
-  Chip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  OutlinedInput,
   Alert,
+  Autocomplete,
+  Chip,
+  InputAdornment,
   CircularProgress,
-  InputAdornment
+  Box
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 
-const ITEM_HEIGHT = 48;
-const ITEM_PADDING_TOP = 8;
-const MenuProps = {
-  PaperProps: {
-    style: {
-      maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
-      width: 250,
-    },
-  },
-};
-
-const instrumentOptions = [
-  'Guitar', 'Bass', 'Drums', 'Piano', 'Keyboard', 'Violin', 'Viola', 'Cello',
-  'Saxophone', 'Trumpet', 'Trombone', 'Flute', 'Clarinet', 'Vocals', 'DJ Equipment'
-];
-
-const genreOptions = [
-  'Rock', 'Pop', 'Jazz', 'Classical', 'Electronic', 'Hip-Hop', 'R&B',
-  'Country', 'Folk', 'Blues', 'Reggae', 'Alternative', 'Indie', 'Metal'
-];
+const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
+const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
 
 function EditGig() {
   const { id } = useParams();
@@ -77,8 +55,13 @@ function EditGig() {
       if (response.ok) {
         const gig = await response.json();
         
-        // Check if user owns this gig
-        if (gig.user._id !== user?.id) {
+        // Check if user owns this gig (handle both user.id and user._id, and gig.user as object or string)
+        const currentUserId = (user?.id || user?._id)?.toString();
+        const gigOwnerId = (typeof gig.user === 'object' && gig.user !== null)
+          ? (gig.user._id || gig.user.id || gig.user)?.toString()
+          : gig.user?.toString();
+
+        if (!currentUserId || !gigOwnerId || gigOwnerId !== currentUserId) {
           setError('You are not authorized to edit this gig');
           setLoading(false);
           return;
@@ -107,18 +90,15 @@ function EditGig() {
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleMultiSelectChange = (event, fieldName) => {
-    const value = typeof event.target.value === 'string' ? event.target.value.split(',') : event.target.value;
-    setFormData({
-      ...formData,
-      [fieldName]: value
-    });
+  const handleInstrumentsChange = (event, newValue) => {
+    setFormData({ ...formData, instruments: newValue });
+  };
+
+  const handleGenresChange = (event, newValue) => {
+    setFormData({ ...formData, genres: newValue });
   };
 
   const handleSubmit = async (e) => {
@@ -173,77 +153,31 @@ function EditGig() {
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Edit Gig
-        </Typography>
-        
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <Typography variant="h4" gutterBottom>Edit Gig</Typography>
+      <Paper elevation={3} sx={{ p: 3 }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-        
-        <Box component="form" onSubmit={handleSubmit}>
-          <Grid container spacing={3}>
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={2}>
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Gig Title"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                required
-              />
+              <TextField fullWidth label="Title" name="title" value={formData.title} onChange={handleChange} variant="outlined" required />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Venue" name="venue" value={formData.venue} onChange={handleChange} variant="outlined" required />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Location" name="location" value={formData.location} onChange={handleChange} variant="outlined" required />
             </Grid>
             
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Venue"
-                name="venue"
-                value={formData.venue}
-                onChange={handleChange}
-                required
-              />
+              <TextField fullWidth label="Date" name="date" type="date" InputLabelProps={{ shrink: true }} value={formData.date} onChange={handleChange} variant="outlined" required />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Time" name="time" type="time" InputLabelProps={{ shrink: true }} value={formData.time} onChange={handleChange} variant="outlined" required />
             </Grid>
             
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Location"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                required
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Date"
-                name="date"
-                type="date"
-                value={formData.date}
-                onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
-                required
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Time"
-                name="time"
-                type="time"
-                value={formData.time}
-                onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
-                required
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="Payment"
@@ -251,6 +185,7 @@ function EditGig() {
                 type="number"
                 value={formData.payment}
                 onChange={handleChange}
+                variant="outlined"
                 required
                 InputProps={{
                   startAdornment: <InputAdornment position="start">£</InputAdornment>,
@@ -259,59 +194,39 @@ function EditGig() {
                   min: 0,
                   step: "0.01"
                 }}
+                sx={{
+                  '& input[type=number]': {
+                    '-moz-appearance': 'textfield',
+                  },
+                  '& input[type=number]::-webkit-outer-spin-button': {
+                    '-webkit-appearance': 'none',
+                    margin: 0,
+                  },
+                  '& input[type=number]::-webkit-inner-spin-button': {
+                    '-webkit-appearance': 'none',
+                    margin: 0,
+                  },
+                }}
               />
             </Grid>
             
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Instruments Needed</InputLabel>
-                <Select
-                  multiple
-                  value={formData.instruments}
-                  onChange={(e) => handleMultiSelectChange(e, 'instruments')}
-                  input={<OutlinedInput label="Instruments Needed" />}
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.map((value) => (
-                        <Chip key={value} label={value} size="small" />
-                      ))}
-                    </Box>
-                  )}
-                  MenuProps={MenuProps}
-                >
-                  {instrumentOptions.map((instrument) => (
-                    <MenuItem key={instrument} value={instrument}>
-                      {instrument}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            
             <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Genres</InputLabel>
-                <Select
-                  multiple
-                  value={formData.genres}
-                  onChange={(e) => handleMultiSelectChange(e, 'genres')}
-                  input={<OutlinedInput label="Genres" />}
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.map((value) => (
-                        <Chip key={value} label={value} size="small" />
-                      ))}
-                    </Box>
-                  )}
-                  MenuProps={MenuProps}
-                >
-                  {genreOptions.map((genre) => (
-                    <MenuItem key={genre} value={genre}>
-                      {genre}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                multiple
+                options={instrumentOptions}
+                value={formData.instruments}
+                onChange={handleInstrumentsChange}
+                renderInput={(params) => <TextField {...params} label="Instruments" variant="outlined" />}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Autocomplete
+                multiple
+                options={genreOptions}
+                value={formData.genres}
+                onChange={handleGenresChange}
+                renderInput={(params) => <TextField {...params} label="Genres" variant="outlined" />}
+              />
             </Grid>
             
             <Grid item xs={12}>
@@ -323,44 +238,26 @@ function EditGig() {
                 onChange={handleChange}
                 multiline
                 rows={4}
+                variant="outlined"
                 required
               />
             </Grid>
             
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Requirements"
-                name="requirements"
-                value={formData.requirements}
-                onChange={handleChange}
-                multiline
-                rows={3}
-                placeholder="Any specific requirements or qualifications needed..."
-              />
+              <TextField fullWidth label="Requirements (Optional)" name="requirements" multiline rows={3} value={formData.requirements} onChange={handleChange} variant="outlined" placeholder="Any specific requirements or qualifications needed..." />
             </Grid>
-            
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => navigate(`/gigs/${id}`)}
-                  disabled={submitting}
-                >
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
+                <Button variant="outlined" onClick={() => navigate('/dashboard')}>
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  disabled={submitting}
-                  startIcon={submitting ? <CircularProgress size={20} /> : null}
-                >
-                  {submitting ? 'Updating...' : 'Update Gig'}
+                <Button type="submit" variant="contained" disabled={loading}>
+                    {loading ? 'Updating...' : 'Update Gig'}
                 </Button>
               </Box>
             </Grid>
           </Grid>
-        </Box>
+        </form>
       </Paper>
     </Container>
   );

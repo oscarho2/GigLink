@@ -30,17 +30,30 @@ app.get('/', (req, res) => {
 // Connect to MongoDB
 const connectDB = async () => {
   try {
+    // First try Atlas connection
     const conn = await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
       socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
     });
-    console.log(`MongoDB connected successfully: ${conn.connection.host}`);
+    console.log(`MongoDB Atlas connected successfully: ${conn.connection.host}`);
   } catch (err) {
-    console.error('MongoDB connection error:', err.message);
-    console.log('Continuing without MongoDB connection for demonstration...');
-    // Don't exit the process, continue running for demo purposes
+    console.error('MongoDB Atlas connection error:', err.message);
+    console.log('Attempting to connect to local MongoDB...');
+    
+    try {
+      // Fallback to local MongoDB
+      const localConn = await mongoose.connect('mongodb://localhost:27017/giglink', {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        serverSelectionTimeoutMS: 3000,
+      });
+      console.log(`Local MongoDB connected successfully: ${localConn.connection.host}`);
+    } catch (localErr) {
+      console.error('Local MongoDB connection also failed:', localErr.message);
+      console.log('Running without database connection - authentication will not work');
+    }
   }
 };
 

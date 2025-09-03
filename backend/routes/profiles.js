@@ -242,11 +242,11 @@ router.post('/videos', auth, async (req, res) => {
 });
 
 // @route   DELETE api/profiles/me
-// @desc    Delete current user's profile
+// @desc    Delete current user's account and all related data
 // @access  Private
 router.delete('/me', auth, async (req, res) => {
   try {
-    console.log('DELETE /me route hit');
+    console.log('DELETE /me route hit - deleting entire account');
     console.log('req.user:', req.user);
     console.log('req.user.id:', req.user?.id);
     
@@ -254,18 +254,54 @@ router.delete('/me', auth, async (req, res) => {
       return res.status(400).json({ msg: 'User ID not found in token' });
     }
     
-    // Find and delete the profile
-    const profile = await Profile.findOneAndDelete({ user: req.user.id });
+    const userId = req.user.id;
     
-    console.log('Profile found and deleted:', profile);
+    // Import required models
+    const Gig = require('../models/Gig');
+    const Message = require('../models/Message');
     
-    if (!profile) {
-      return res.status(400).json({ msg: 'Profile not found' });
+    // Delete all user-related data
+    // 1. Delete user's profile
+    const profile = await Profile.findOneAndDelete({ user: userId });
+    console.log('Profile deleted:', profile ? 'Yes' : 'No profile found');
+    
+    // 2. Delete user's gigs
+    const gigsResult = await Gig.deleteMany({ user: userId });
+    console.log('Gigs deleted:', gigsResult.deletedCount);
+    
+    // 3. Delete messages where user is sender or recipient
+    const messagesResult = await Message.deleteMany({
+      $or: [{ sender: userId }, { recipient: userId }]
+    });
+    console.log('Messages deleted:', messagesResult.deletedCount);
+    
+    // 4. Remove user from gig applicants
+    const gigApplicantsResult = await Gig.updateMany(
+      { 'applicants.user': userId },
+      { $pull: { applicants: { user: userId } } }
+    );
+    console.log('Removed from gig applications:', gigApplicantsResult.modifiedCount);
+    
+    // 5. Finally, delete the user account
+    const user = await User.findByIdAndDelete(userId);
+    console.log('User account deleted:', user ? 'Yes' : 'No user found');
+    
+    if (!user) {
+      return res.status(400).json({ msg: 'User account not found' });
     }
     
-    res.json({ msg: 'Profile deleted successfully' });
+    res.json({ 
+      msg: 'Account and all related data deleted successfully',
+      deletedData: {
+        profile: !!profile,
+        gigs: gigsResult.deletedCount,
+        messages: messagesResult.deletedCount,
+        gigApplications: gigApplicantsResult.modifiedCount,
+        user: !!user
+      }
+    });
   } catch (err) {
-    console.error('Delete profile error:', err.message);
+    console.error('Delete account error:', err.message);
     console.error('Full error:', err);
     res.status(500).send('Server Error');
   }

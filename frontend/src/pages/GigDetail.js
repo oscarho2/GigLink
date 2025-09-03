@@ -32,7 +32,7 @@ const GigDetail = () => {
   useEffect(() => {
     const fetchGig = async () => {
       try {
-        const res = await axios.get(`http://localhost:5001/api/gigs/${id}`);
+        const res = await axios.get(`/api/gigs/${id}`);
         setGig(res.data);
       } catch (err) {
         console.error(err);
@@ -74,7 +74,7 @@ const GigDetail = () => {
         }
       };
       const body = { recipient: gig.user._id, content: applicationMessage };
-      await axios.post('http://localhost:5001/api/messages', body, config);
+      await axios.post('/api/messages', body, config);
       setApplyStatus('success');
       setMessageSent(true);
     } catch (err) {
@@ -99,7 +99,7 @@ const GigDetail = () => {
           'x-auth-token': token
         }
       };
-      await axios.delete(`http://localhost:5001/api/gigs/${id}`, config);
+      await axios.delete(`/api/gigs/${id}`, config);
       setDeleteStatus('success');
       setTimeout(() => {
         navigate('/gigs');
@@ -135,7 +135,21 @@ const GigDetail = () => {
     );
   }
 
-  const isPoster = user && user.id === gig.user._id;
+  // Check ownership - handle both populated and unpopulated user field
+   const currentUserId = (user?.id || user?._id) ? (user.id || user._id).toString() : null;
+   let gigOwnerId = null;
+   
+   if (typeof gig.user === 'string') {
+     // User field is just an ID string
+     gigOwnerId = gig.user;
+   } else if (gig.user && typeof gig.user === 'object') {
+     // User field is populated object with _id
+     gigOwnerId = gig.user._id;
+   }
+   
+   const isPoster = !!(currentUserId && gigOwnerId && currentUserId === gigOwnerId.toString());
+   
+   // Ownership check complete
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
