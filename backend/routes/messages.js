@@ -42,7 +42,8 @@ router.post('/', [
     });
     
     const message = await newMessage.save();
-    await message.populate(['sender', 'recipient'], 'name avatar');
+    await message.populate('sender', 'name avatar');
+    await message.populate('recipient', 'name avatar');
     
     res.status(201).json(message);
   } catch (err) {

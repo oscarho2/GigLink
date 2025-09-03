@@ -294,15 +294,17 @@ const Dashboard = () => {
             </CardContent>
             <CardActions sx={{ 
               flexDirection: { xs: 'column', sm: 'row' },
-              gap: 1
+              gap: { xs: 1.5, sm: 2 },
+              p: { xs: 2, sm: 2 }
             }}>
               <Button
                 component={RouterLink}
-                to={`/profile/${user?._id}`}
+                to={`/profile/${user?.id}`}
                 variant="outlined"
                 sx={{ 
-                  minHeight: { xs: 44, sm: 36 },
-                  flex: { xs: 1, sm: 'none' }
+                  minHeight: { xs: 48, sm: 40 },
+                  flex: { xs: 1, sm: 1 },
+                  fontWeight: 500
                 }}
               >
                 View Profile
@@ -312,8 +314,9 @@ const Dashboard = () => {
                 to="/edit-profile"
                 variant="contained"
                 sx={{ 
-                  minHeight: { xs: 44, sm: 36 },
-                  flex: { xs: 1, sm: 'none' }
+                  minHeight: { xs: 48, sm: 40 },
+                  flex: { xs: 1, sm: 1 },
+                  fontWeight: 500
                 }}
               >
                 Edit Profile
@@ -331,23 +334,33 @@ const Dashboard = () => {
                 Manage your account security and preferences
               </Typography>
             </CardContent>
-            <CardActions sx={{ flexDirection: 'column', gap: 1 }}>
+            <CardActions sx={{ 
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 1.5, sm: 2 },
+              p: { xs: 2, sm: 2 }
+            }}>
               <Button
                 onClick={handleChangePassword}
-                fullWidth
                 variant="outlined"
                 startIcon={<LockIcon />}
-                sx={{ minHeight: { xs: 44, sm: 36 } }}
+                sx={{ 
+                  minHeight: { xs: 48, sm: 40 },
+                  flex: { xs: 1, sm: 1 },
+                  fontWeight: 500
+                }}
               >
                 Change Password
               </Button>
               <Button
                 onClick={handleDeleteAccount}
-                fullWidth
                 variant="contained"
                 color="error"
                 startIcon={<DeleteIcon />}
-                sx={{ minHeight: { xs: 44, sm: 36 } }}
+                sx={{ 
+                  minHeight: { xs: 48, sm: 40 },
+                  flex: { xs: 1, sm: 1 },
+                  fontWeight: 500
+                }}
               >
                 Delete Account
               </Button>
