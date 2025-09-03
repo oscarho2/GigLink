@@ -55,6 +55,7 @@ const GigDetail = () => {
     if (!isAuthenticated) {
       navigate('/login?redirect=/gig/' + id);
     } else {
+      setApplicationMessage("Hi, I'm available for this gig and would love to be considered. Please let me know if you'd like to discuss further.");
       setOpenApplyDialog(true);
     }
   };
