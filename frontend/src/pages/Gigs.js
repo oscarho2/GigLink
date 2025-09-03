@@ -37,7 +37,7 @@ const Gigs = () => {
     location: '',
     date: '',
     minFee: 0,
-    maxFee: 2000,
+    maxFee: Infinity,
     instrument: '',
     genre: ''
   });
@@ -88,7 +88,7 @@ const Gigs = () => {
     // Filter by fee range
     result = result.filter(gig => {
       const gigFee = getPaymentValue(gig.payment);
-      return gigFee >= filters.minFee && gigFee <= filters.maxFee;
+      return gigFee >= filters.minFee && (filters.maxFee === Infinity || gigFee <= filters.maxFee);
     });
 
     // Filter by instrument
@@ -121,10 +121,10 @@ const Gigs = () => {
   
   // Handle filter changes
   const handleFilterChange = (name, value) => {
-    setFilters({
-      ...filters,
-      [name]: value
-    });
+    setFilters((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
   
   // Reset filters
@@ -132,7 +132,7 @@ const Gigs = () => {
     setFilters({
       location: '',
       minFee: 0,
-      maxFee: 2000,
+      maxFee: Infinity,
       date: '',
       instrument: '',
       genre: ''
@@ -246,19 +246,24 @@ const Gigs = () => {
             {/* Fee Range Filter */}
             <Grid item xs={12} sm={6} md={4}>
               <Typography id="fee-range-slider" gutterBottom>
-                Fee Range: £{filters.minFee} - £{filters.maxFee}
+                Fee Range: £{filters.minFee} - {filters.maxFee === Infinity ? '£2000+' : `£${filters.maxFee}`}
               </Typography>
               <Slider
-                value={[filters.minFee, filters.maxFee]}
+                value={[filters.minFee, filters.maxFee === Infinity ? 2000 : filters.maxFee]}
                 onChange={(e, newValue) => {
                   handleFilterChange('minFee', newValue[0]);
-                  handleFilterChange('maxFee', newValue[1]);
+                  handleFilterChange('maxFee', newValue[1] === 2000 ? Infinity : newValue[1]);
                 }}
                 valueLabelDisplay="auto"
+                valueLabelFormat={(value, index) => {
+                  if (index === 1 && filters.maxFee === Infinity) return '£2000+';
+                  return `£${value}`;
+                }}
                 min={0}
                 max={2000}
                 step={50}
                 sx={{ color: '#1a365d' }}
+                disableSwap
               />
             </Grid>
             
