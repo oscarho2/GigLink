@@ -25,7 +25,10 @@ import {
   Search as SearchIcon,
   MoreVert as MoreVertIcon,
   Delete as DeleteIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  AttachFile as AttachFileIcon,
+  Close as CloseIcon,
+  InsertDriveFile as FileIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +49,8 @@ const Messages = () => {
   const [page, setPage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -116,12 +121,84 @@ const Messages = () => {
     }
   }, [selectedConversation, fetchMessages]);
 
+  // Handle file selection
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File size must be less than 10MB');
+        return;
+      }
+      
+      // Validate file type
+      const allowedTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf', 'application/msword', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/plain', 'text/csv',
+        'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed'
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        setError('File type not supported. Please select an image, document, or archive file.');
+        return;
+      }
+      
+      setSelectedFile(file);
+      setError(null);
+    }
+  };
+  
+  // Remove selected file
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+  };
+  
+  // Upload file
+  const uploadFile = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const config = {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'x-auth-token': token
+      }
+    };
+    
+    const res = await axios.post('/api/upload', formData, config);
+    return res.data;
+  };
+  
   // Send message
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation || sendingMessage) return;
+    if ((!newMessage.trim() && !selectedFile) || !selectedConversation || sendingMessage) return;
     
     try {
       setSendingMessage(true);
+      setUploadingFile(!!selectedFile);
+      
+      let messageData = {
+        recipient: selectedConversation.user._id,
+        messageType: selectedFile ? 'file' : 'text'
+      };
+      
+      // Handle file upload
+      if (selectedFile) {
+        const uploadedFile = await uploadFile(selectedFile);
+        messageData.attachment = uploadedFile;
+        if (newMessage.trim()) {
+          messageData.content = newMessage.trim();
+        }
+      } else {
+        messageData.content = newMessage.trim();
+      }
+      
       const config = {
         headers: {
           'Content-Type': 'application/json',
@@ -129,17 +206,12 @@ const Messages = () => {
         }
       };
       
-      const body = {
-        recipient: selectedConversation.user._id,
-        content: newMessage.trim(),
-        messageType: 'text'
-      };
-      
-      const res = await axios.post('/api/messages', body, config);
+      const res = await axios.post('/api/messages', messageData, config);
       
       // Add new message to the list
       setMessages(prev => [...prev, res.data]);
       setNewMessage('');
+      setSelectedFile(null);
       
       // Update conversations list
       fetchConversations();
@@ -150,6 +222,7 @@ const Messages = () => {
       setError('Failed to send message. Please try again.');
     } finally {
       setSendingMessage(false);
+      setUploadingFile(false);
     }
   };
 
@@ -500,20 +573,6 @@ const Messages = () => {
                         alignItems: 'flex-end'
                       }}
                     >
-                      {!isOwnMessage && (
-                        <Avatar
-                          src={message.sender.avatar}
-                          sx={{ 
-                            mr: { xs: 0.75, sm: 1 }, 
-                            width: { xs: 28, sm: 32 }, 
-                            height: { xs: 28, sm: 32 },
-                            fontSize: { xs: '0.875rem', sm: '1rem' }
-                          }}
-                        >
-                          {message.sender.name.charAt(0).toUpperCase()}
-                        </Avatar>
-                      )}
-                      
                       <Box sx={{ maxWidth: { xs: '80%', sm: '70%' } }}>
                         <Paper
                           elevation={1}
@@ -525,15 +584,64 @@ const Messages = () => {
                             position: 'relative'
                           }}
                         >
-                          <Typography 
-                            variant="body1"
-                            sx={{
-                              fontSize: { xs: '0.875rem', sm: '1rem' },
-                              lineHeight: { xs: 1.4, sm: 1.5 }
-                            }}
-                          >
-                            {message.content}
-                          </Typography>
+                          {/* File Attachment */}
+                          {message.messageType === 'file' && message.attachment && (
+                            <Box sx={{ mb: message.content ? 1 : 0 }}>
+                              <Box 
+                                sx={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  gap: 1,
+                                  p: 1,
+                                  bgcolor: isOwnMessage ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                                  borderRadius: 1,
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => {
+                                  // Open file in new tab
+                                  window.open(message.attachment.url, '_blank');
+                                }}
+                              >
+                                <FileIcon sx={{ fontSize: 20 }} />
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                      fontWeight: 500,
+                                      fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    {message.attachment.originalName}
+                                  </Typography>
+                                  <Typography 
+                                    variant="caption" 
+                                    sx={{ 
+                                      opacity: 0.8,
+                                      fontSize: { xs: '0.6875rem', sm: '0.75rem' }
+                                    }}
+                                  >
+                                    {(message.attachment.size / 1024 / 1024).toFixed(2)} MB
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Box>
+                          )}
+                          
+                          {/* Text Content */}
+                          {message.content && (
+                            <Typography 
+                              variant="body1"
+                              sx={{
+                                fontSize: { xs: '0.875rem', sm: '1rem' },
+                                lineHeight: { xs: 1.4, sm: 1.5 }
+                              }}
+                            >
+                              {message.content}
+                            </Typography>
+                          )}
                           
                           {isOwnMessage && (
                             <IconButton
@@ -581,20 +689,6 @@ const Messages = () => {
                           )}
                         </Typography>
                       </Box>
-                      
-                      {isOwnMessage && (
-                        <Avatar
-                          src={user.avatar}
-                          sx={{ 
-                            ml: { xs: 0.75, sm: 1 }, 
-                            width: { xs: 28, sm: 32 }, 
-                            height: { xs: 28, sm: 32 },
-                            fontSize: { xs: '0.875rem', sm: '1rem' }
-                          }}
-                        >
-                          {user.name.charAt(0).toUpperCase()}
-                        </Avatar>
-                      )}
                     </Box>
                   );
                 })}
@@ -609,10 +703,62 @@ const Messages = () => {
                   minHeight: { xs: 70, sm: 'auto' }
                 }}
               >
+                {/* File Preview */}
+                {selectedFile && (
+                  <Box 
+                    sx={{ 
+                      mb: 2, 
+                      p: 1.5, 
+                      bgcolor: 'background.paper', 
+                      borderRadius: 1, 
+                      border: '1px solid #e0e0e0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}
+                  >
+                    <FileIcon color="primary" />
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {selectedFile.name}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </Typography>
+                    </Box>
+                    <IconButton 
+                      size="small" 
+                      onClick={handleRemoveFile}
+                      disabled={sendingMessage}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                )}
+                
                 <Box sx={{ display: 'flex', gap: { xs: 1, sm: 1 } }}>
+                  <input
+                    type="file"
+                    id="file-upload"
+                    style={{ display: 'none' }}
+                    onChange={handleFileSelect}
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z"
+                  />
+                  <IconButton
+                    component="label"
+                    htmlFor="file-upload"
+                    disabled={sendingMessage}
+                    sx={{
+                      minWidth: { xs: 44, sm: 40 },
+                      minHeight: { xs: 44, sm: 40 },
+                      borderRadius: { xs: 1.5, sm: 1 }
+                    }}
+                  >
+                    <AttachFileIcon />
+                  </IconButton>
                   <TextField
                     fullWidth
-                    placeholder="Type a message..."
+                    placeholder={selectedFile ? "Add a caption (optional)..." : "Type a message..."}
                     variant="outlined"
                     size="small"
                     value={newMessage}
@@ -640,7 +786,7 @@ const Messages = () => {
                   <Button
                     variant="contained"
                     onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || sendingMessage}
+                    disabled={(!newMessage.trim() && !selectedFile) || sendingMessage}
                     sx={{ 
                       minWidth: { xs: 48, sm: 'auto' }, 
                       px: { xs: 1.5, sm: 2 },
@@ -648,9 +794,22 @@ const Messages = () => {
                       borderRadius: { xs: 1.5, sm: 1 }
                     }}
                   >
-                    {sendingMessage ? <CircularProgress size={20} /> : <SendIcon />}
+                    {sendingMessage ? (
+                      <CircularProgress size={20} />
+                    ) : (
+                      <SendIcon />
+                    )}
                   </Button>
                 </Box>
+                
+                {uploadingFile && (
+                  <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={16} />
+                    <Typography variant="caption" color="textSecondary">
+                      Uploading file...
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             </>
           ) : (

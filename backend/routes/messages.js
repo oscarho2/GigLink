@@ -11,8 +11,25 @@ const User = require('../models/User');
 router.post('/', [
   auth,
   body('recipient', 'Recipient is required').notEmpty(),
-  body('content', 'Message content is required').notEmpty().isLength({ min: 1, max: 1000 }),
-  body('messageType', 'Invalid message type').optional().isIn(['text', 'gig_application', 'system'])
+  body('content').custom((value, { req }) => {
+    // Content is required for non-file messages
+    if (req.body.messageType !== 'file' && (!value || value.trim().length === 0)) {
+      throw new Error('Message content is required');
+    }
+    // Content length validation for text messages
+    if (value && value.length > 1000) {
+      throw new Error('Message content cannot exceed 1000 characters');
+    }
+    return true;
+  }),
+  body('messageType', 'Invalid message type').optional().isIn(['text', 'gig_application', 'system', 'file']),
+  body('attachment').custom((value, { req }) => {
+    // Attachment is required for file messages
+    if (req.body.messageType === 'file' && !value) {
+      throw new Error('Attachment is required for file messages');
+    }
+    return true;
+  })
 ], async (req, res) => {
   try {
     // Check for validation errors
@@ -21,7 +38,7 @@ router.post('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { recipient, content, messageType = 'text' } = req.body;
+    const { recipient, content, messageType = 'text', attachment } = req.body;
     
     // Prevent sending message to self
     if (recipient === req.user.id) {
@@ -34,12 +51,24 @@ router.post('/', [
       return res.status(404).json({ msg: 'Recipient not found' });
     }
     
-    const newMessage = new Message({
+    // Prepare message data
+    const messageData = {
       sender: req.user.id,
       recipient,
-      content: content.trim(),
       messageType
-    });
+    };
+    
+    // Add content for non-file messages
+    if (messageType !== 'file' && content) {
+      messageData.content = content.trim();
+    }
+    
+    // Add attachment for file messages
+    if (messageType === 'file' && attachment) {
+      messageData.attachment = attachment;
+    }
+    
+    const newMessage = new Message(messageData);
     
     const message = await newMessage.save();
     await message.populate('sender', 'name avatar');
