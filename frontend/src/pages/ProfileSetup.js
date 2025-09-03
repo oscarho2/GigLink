@@ -73,7 +73,7 @@ const ProfileSetup = () => {
     try {
       // First try to create a new profile
       try {
-        await axios.post('http://localhost:5001/api/profiles', {
+        await axios.post('/api/profiles', {
           bio: formData.bio,
           skills: formData.instruments,
           availability: formData.availability,
@@ -86,7 +86,7 @@ const ProfileSetup = () => {
       } catch (createError) {
         // If profile already exists, update it instead
         if (createError.response?.status === 400 || createError.response?.data?.message?.includes('already exists')) {
-          await axios.put('http://localhost:5001/api/profiles/me', {
+          await axios.put('/api/profiles/me', {
             bio: formData.bio,
             skills: formData.instruments,
             availability: formData.availability,

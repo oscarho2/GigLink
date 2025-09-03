@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { check, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
+const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
 
@@ -97,6 +98,66 @@ router.post(
       );
     } catch (err) {
       console.error(err.message);
+      res.status(500).send('Server error');
+    }
+  }
+);
+
+// @route   PUT api/users/change-password
+// @desc    Change user password
+// @access  Private
+router.put(
+  '/change-password',
+  [
+    auth,
+    check('currentPassword', 'Current password is required')
+      .not().isEmpty(),
+    check('newPassword', 'New password must be at least 8 characters long')
+      .isLength({ min: 8 })
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+      .withMessage('New password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
+    check('confirmPassword', 'Password confirmation is required')
+      .not().isEmpty()
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    try {
+      // Check if new password and confirmation match
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({ errors: [{ msg: 'New password and confirmation do not match' }] });
+      }
+
+      // Get user from database
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({ errors: [{ msg: 'User not found' }] });
+      }
+
+      // Verify current password
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ errors: [{ msg: 'Current password is incorrect' }] });
+      }
+
+      // Check if new password is different from current password
+      const isSamePassword = await user.comparePassword(newPassword);
+      if (isSamePassword) {
+        return res.status(400).json({ errors: [{ msg: 'New password must be different from current password' }] });
+      }
+
+      // Update password (the pre-save hook will hash it)
+      user.password = newPassword;
+      await user.save();
+
+      res.json({ msg: 'Password changed successfully' });
+    } catch (err) {
+      console.error('Change password error:', err.message);
       res.status(500).send('Server error');
     }
   }
