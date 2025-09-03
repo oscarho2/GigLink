@@ -18,7 +18,10 @@ import {
   Chip,
   InputAdornment,
   Menu,
-  MenuItem
+  MenuItem,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -32,7 +35,9 @@ import {
   Group as GroupIcon,
   Add as AddIcon,
   Info as InfoIcon,
-  ExitToApp as ExitToAppIcon
+  ExitToApp as ExitToAppIcon,
+  People as PeopleIcon,
+  Favorite as FavoriteIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -59,6 +64,8 @@ const Messages = () => {
   const [firstUnreadMessageId, setFirstUnreadMessageId] = useState(null);
   const [showGroupManagement, setShowGroupManagement] = useState(false);
   const [groups, setGroups] = useState([]);
+  const [friends, setFriends] = useState([]);
+  const [showFriendsOnly, setShowFriendsOnly] = useState(false);
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const firstUnreadRef = useRef(null);
@@ -77,6 +84,20 @@ const Messages = () => {
       firstUnreadRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
+
+  // Fetch friends
+  const fetchFriends = useCallback(async () => {
+    if (!token) return;
+    
+    try {
+      const res = await axios.get('/api/links/friends', {
+        headers: { 'x-auth-token': token }
+      });
+      setFriends(res.data.map(friend => friend._id));
+    } catch (err) {
+      console.error('Error fetching friends:', err);
+    }
+  }, [token]);
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -191,7 +212,8 @@ const Messages = () => {
   // Load initial data
   useEffect(() => {
     fetchConversations();
-  }, [fetchConversations]);
+    fetchFriends();
+  }, [fetchConversations, fetchFriends]);
 
   // Auto-select the most recent conversation when conversations are loaded
   useEffect(() => {
@@ -387,13 +409,21 @@ const Messages = () => {
     }
   };
 
-  // Filter conversations based on search
+  // Filter conversations based on search and friend status
   const filteredConversations = conversations.filter(conv => {
-    if (conv.isGroup) {
-      return conv.groupName.toLowerCase().includes(searchTerm.toLowerCase());
-    } else {
-      return conv.user.name.toLowerCase().includes(searchTerm.toLowerCase());
+    // Search filter
+    const matchesSearch = conv.isGroup 
+      ? conv.groupName.toLowerCase().includes(searchTerm.toLowerCase())
+      : conv.user.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    // Friend filter (only apply to direct messages, not groups)
+    if (showFriendsOnly && !conv.isGroup) {
+      return friends.includes(conv.user._id);
     }
+    
+    return true;
   });
 
   // Format message time
@@ -511,6 +541,32 @@ const Messages = () => {
                 <AddIcon sx={{ fontSize: { xs: '1.25rem', sm: '1rem' } }} />
               </IconButton>
             </Box>
+            
+            {/* Friends Filter Toggle */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+              <ToggleButtonGroup
+                value={showFriendsOnly ? 'friends' : 'all'}
+                exclusive
+                onChange={(e, newValue) => setShowFriendsOnly(newValue === 'friends')}
+                size="small"
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                    px: { xs: 1.5, sm: 2 },
+                    py: { xs: 0.5, sm: 0.75 }
+                  }
+                }}
+              >
+                <ToggleButton value="all">
+                  <PeopleIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
+                  All
+                </ToggleButton>
+                <ToggleButton value="friends">
+                  <FavoriteIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
+                  Friends Only
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
           </Box>
           
           {/* Conversations List */}
@@ -576,17 +632,30 @@ const Messages = () => {
                   </ListItemAvatar>
                   <ListItemText
                     primary={
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography 
-                          variant="subtitle1" 
-                          sx={{ 
-                            fontWeight: conversation.unreadCount > 0 ? 600 : 400,
-                            fontSize: { xs: '1rem', sm: '0.875rem' },
-                            lineHeight: { xs: 1.4, sm: 1.43 }
-                          }}
-                        >
-                          {conversation.isGroup ? conversation.groupName : conversation.user.name}
-                        </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography 
+                            variant="subtitle1" 
+                            sx={{ 
+                              fontWeight: conversation.unreadCount > 0 ? 600 : 400,
+                              fontSize: { xs: '1rem', sm: '0.875rem' },
+                              color: conversation.unreadCount > 0 ? 'text.primary' : 'text.secondary'
+                            }}
+                          >
+                            {conversation.isGroup ? conversation.groupName : conversation.user.name}
+                          </Typography>
+                          {!conversation.isGroup && friends.includes(conversation.user._id) && (
+                            <Tooltip title="Friend">
+                              <FavoriteIcon 
+                                sx={{ 
+                                  fontSize: { xs: '0.875rem', sm: '0.75rem' }, 
+                                  color: 'error.main',
+                                  ml: 0.5
+                                }} 
+                              />
+                            </Tooltip>
+                          )}
+                        </Box>
                         <Typography 
                           variant="caption" 
                           color="textSecondary"

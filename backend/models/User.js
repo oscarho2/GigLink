@@ -58,6 +58,26 @@ const UserSchema = new mongoose.Schema({
   }
 });
 
+// Virtual for getting user's friends
+UserSchema.virtual('friends', {
+  ref: 'Link',
+  localField: '_id',
+  foreignField: 'requester',
+  match: { status: 'accepted' }
+});
+
+// Virtual for getting user's friend requests
+UserSchema.virtual('friendRequests', {
+  ref: 'Link',
+  localField: '_id',
+  foreignField: 'recipient',
+  match: { status: 'pending' }
+});
+
+// Ensure virtual fields are serialized
+UserSchema.set('toJSON', { virtuals: true });
+UserSchema.set('toObject', { virtuals: true });
+
 // Hash password before saving
 UserSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
