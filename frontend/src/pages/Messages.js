@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Container,
   Typography,
@@ -51,6 +51,25 @@ const Messages = () => {
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [firstUnreadMessageId, setFirstUnreadMessageId] = useState(null);
+  const messagesContainerRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const firstUnreadRef = useRef(null);
+
+  // Scroll to bottom of messages
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      // Instant scroll to bottom without animation
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  // Scroll to first unread message
+  const scrollToFirstUnread = () => {
+    if (firstUnreadRef.current && messagesContainerRef.current) {
+      firstUnreadRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -71,7 +90,31 @@ const Messages = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, token]);
+  }, [token]);
+
+  // Mark messages as read
+  const markMessagesAsRead = useCallback(async (conversationUserId) => {
+    if (!conversationUserId || !token) return;
+    
+    try {
+      await axios.put(`/api/messages/mark-read/${conversationUserId}`, {}, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      // Update local state to mark messages as read
+      setMessages(prev => prev.map(msg => 
+        msg.recipient._id === user.id ? { ...msg, read: true } : msg
+      ));
+      
+      // Clear first unread message ID
+      setFirstUnreadMessageId(null);
+      
+      // Update conversations to reflect read status
+      fetchConversations();
+    } catch (err) {
+      console.error('Error marking messages as read:', err);
+    }
+  }, [token, user.id, fetchConversations]);
 
   // Fetch messages for selected conversation
   const fetchMessages = useCallback(async (userId, pageNum = 1, append = false) => {
@@ -80,6 +123,7 @@ const Messages = () => {
     try {
       if (!append) {
         setMessages([]);
+        setFirstUnreadMessageId(null);
       } else {
         setLoadingMoreMessages(true);
       }
@@ -96,6 +140,14 @@ const Messages = () => {
         setMessages(prev => [...newMessages, ...prev]);
       } else {
         setMessages(newMessages);
+        
+        // Find first unread message (that's not sent by current user)
+        const firstUnread = newMessages.find(msg => 
+          !msg.read && msg.recipient._id === user.id
+        );
+        if (firstUnread) {
+          setFirstUnreadMessageId(firstUnread._id);
+        }
       }
       
       setHasMoreMessages(pagination.hasMore);
@@ -105,14 +157,23 @@ const Messages = () => {
       console.error('Error fetching messages:', err);
       setError('Failed to load messages. Please try again.');
     } finally {
-      setLoadingMoreMessages(false);
+      if (append) {
+        setLoadingMoreMessages(false);
+      }
     }
-  }, [token]);
+  }, [token, user.id]);
 
   // Load initial data
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
+
+  // Auto-select the most recent conversation when conversations are loaded
+  useEffect(() => {
+    if (conversations.length > 0 && !selectedConversation) {
+      setSelectedConversation(conversations[0]);
+    }
+  }, [conversations, selectedConversation]);
 
   // Load messages when conversation is selected
   useEffect(() => {
@@ -120,6 +181,31 @@ const Messages = () => {
       fetchMessages(selectedConversation.user._id);
     }
   }, [selectedConversation, fetchMessages]);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      if (firstUnreadMessageId) {
+        // Scroll to first unread message
+        setTimeout(() => scrollToFirstUnread(), 100);
+      } else {
+        // Scroll to bottom if no unread messages
+        scrollToBottom();
+      }
+    }
+  }, [messages, firstUnreadMessageId]);
+
+  // Mark messages as read when viewing conversation
+  useEffect(() => {
+    if (selectedConversation && messages.length > 0 && firstUnreadMessageId) {
+      // Mark messages as read after a short delay to ensure user sees them
+      const timer = setTimeout(() => {
+        markMessagesAsRead(selectedConversation);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [selectedConversation, messages, firstUnreadMessageId, markMessagesAsRead]);
 
   // Handle file selection
   const handleFileSelect = (event) => {
@@ -213,8 +299,8 @@ const Messages = () => {
       setNewMessage('');
       setSelectedFile(null);
       
-      // Update conversations list
-      fetchConversations();
+      // Scroll to bottom to show the new message
+      scrollToBottom();
       
       setError(null);
     } catch (err) {
@@ -395,9 +481,7 @@ const Messages = () => {
                     px: { xs: 2, sm: 2 },
                     minHeight: { xs: 72, sm: 64 },
                     '&:hover': { bgcolor: 'grey.50' },
-                    '&.Mui-selected': { bgcolor: 'primary.light', '&:hover': { bgcolor: 'primary.light' } },
-                    '&:active': { bgcolor: 'primary.main', transform: 'scale(0.98)' },
-                    transition: 'all 0.1s ease'
+                    '&.Mui-selected': { bgcolor: 'primary.light', '&:hover': { bgcolor: 'primary.light' } }
                   }}
                 >
                   <ListItemAvatar>
@@ -535,12 +619,14 @@ const Messages = () => {
               
               {/* Messages */}
               <Box 
+                ref={messagesContainerRef}
                 sx={{ 
                   flex: 1, 
                   overflow: 'auto', 
                   p: { xs: 1, sm: 2 }, 
                   display: 'flex', 
-                  flexDirection: 'column'
+                  flexDirection: 'column',
+                  scrollBehavior: 'auto'
                 }}
               >
                 {hasMoreMessages && (
@@ -561,23 +647,59 @@ const Messages = () => {
                   </Box>
                 )}
                 
-                {messages.map((message) => {
+                {messages.map((message, index) => {
                   const isOwnMessage = message.sender._id === user.id;
+                  const isFirstUnread = message._id === firstUnreadMessageId;
+                  
                   return (
-                    <Box
-                      key={message._id}
-                      sx={{
-                        display: 'flex',
-                        justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
-                        mb: { xs: 1.5, sm: 2 },
-                        alignItems: 'flex-end'
-                      }}
-                    >
-                      <Box sx={{ maxWidth: { xs: '80%', sm: '70%' } }}>
+                    <React.Fragment key={message._id}>
+                      {/* Unread messages separator */}
+                      {isFirstUnread && (
+                        <Box
+                          ref={firstUnreadRef}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            my: 2,
+                            '&::before, &::after': {
+                              content: '""',
+                              flex: 1,
+                              height: '1px',
+                              backgroundColor: 'error.main'
+                            }
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              px: 2,
+                              py: 0.5,
+                              backgroundColor: 'error.main',
+                              color: 'white',
+                              borderRadius: 1,
+                              fontSize: '0.75rem',
+                              fontWeight: 500
+                            }}
+                          >
+                            New messages
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      <Box
+                         sx={{
+                           display: 'flex',
+                           justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
+                           mb: { xs: 1.5, sm: 2 },
+                           alignItems: 'flex-end'
+                         }}
+                       >
+                         <Box sx={{ maxWidth: { xs: '80%', sm: '70%' } }}>
                         <Paper
                           elevation={1}
                           sx={{
                             p: { xs: 1.5, sm: 2 },
+                            pr: isOwnMessage ? { xs: 5, sm: 6 } : { xs: 1.5, sm: 2 },
                             bgcolor: isOwnMessage ? 'primary.main' : 'grey.100',
                             color: isOwnMessage ? 'white' : 'text.primary',
                             borderRadius: { xs: 1.5, sm: 2 },
@@ -652,7 +774,8 @@ const Messages = () => {
                                 right: { xs: 2, sm: 4 }, 
                                 color: 'inherit',
                                 minWidth: { xs: 32, sm: 'auto' },
-                                minHeight: { xs: 32, sm: 'auto' }
+                                minHeight: { xs: 32, sm: 'auto' },
+                                p: { xs: 1, sm: 0.5 }
                               }}
                               onClick={(e) => {
                                 setAnchorEl(e.currentTarget);
@@ -688,10 +811,12 @@ const Messages = () => {
                             </Typography>
                           )}
                         </Typography>
+                        </Box>
                       </Box>
-                    </Box>
+                    </React.Fragment>
                   );
                 })}
+                <div ref={messagesEndRef} />
               </Box>
               
               {/* Message Input */}
