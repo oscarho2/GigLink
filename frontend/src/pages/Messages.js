@@ -28,11 +28,16 @@ import {
   Person as PersonIcon,
   AttachFile as AttachFileIcon,
   Close as CloseIcon,
-  InsertDriveFile as FileIcon
+  InsertDriveFile as FileIcon,
+  Group as GroupIcon,
+  Add as AddIcon,
+  Info as InfoIcon,
+  ExitToApp as ExitToAppIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import moment from 'moment';
+import GroupManagement from '../components/GroupManagement';
 
 const Messages = () => {
   const { user, token } = useAuth();
@@ -52,6 +57,8 @@ const Messages = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [firstUnreadMessageId, setFirstUnreadMessageId] = useState(null);
+  const [showGroupManagement, setShowGroupManagement] = useState(false);
+  const [groups, setGroups] = useState([]);
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const firstUnreadRef = useRef(null);
@@ -93,17 +100,25 @@ const Messages = () => {
   }, [token]);
 
   // Mark messages as read
-  const markMessagesAsRead = useCallback(async (conversationUserId) => {
-    if (!conversationUserId || !token) return;
+  const markMessagesAsRead = useCallback(async (conversation) => {
+    if (!conversation || !token) return;
     
     try {
-      await axios.put(`/api/messages/mark-read/${conversationUserId}`, {}, {
-        headers: { 'x-auth-token': token }
-      });
+      if (conversation.isGroup) {
+        // Mark group messages as read
+        await axios.put(`/api/messages/mark-read-group/${conversation.groupId}`, {}, {
+          headers: { 'x-auth-token': token }
+        });
+      } else {
+        // Mark direct messages as read
+        await axios.put(`/api/messages/mark-read/${conversation.user._id}`, {}, {
+          headers: { 'x-auth-token': token }
+        });
+      }
       
       // Update local state to mark messages as read
       setMessages(prev => prev.map(msg => 
-        msg.recipient._id === user.id ? { ...msg, read: true } : msg
+        (conversation.isGroup || msg.recipient?._id === user.id) ? { ...msg, read: true } : msg
       ));
       
       // Clear first unread message ID
@@ -117,8 +132,8 @@ const Messages = () => {
   }, [token, user.id, fetchConversations]);
 
   // Fetch messages for selected conversation
-  const fetchMessages = useCallback(async (userId, pageNum = 1, append = false) => {
-    if (!userId || !token) return;
+  const fetchMessages = useCallback(async (conversation, pageNum = 1, append = false) => {
+    if (!conversation || !token) return;
     
     try {
       if (!append) {
@@ -133,7 +148,13 @@ const Messages = () => {
         params: { page: pageNum, limit: 50 }
       };
       
-      const res = await axios.get(`/api/messages/conversation/${userId}`, config);
+      let res;
+      if (conversation.isGroup) {
+        res = await axios.get(`/api/messages/group/${conversation.groupId}`, config);
+      } else {
+        res = await axios.get(`/api/messages/conversation/${conversation.user._id}`, config);
+      }
+      
       const { messages: newMessages, pagination } = res.data;
       
       if (append) {
@@ -142,15 +163,19 @@ const Messages = () => {
         setMessages(newMessages);
         
         // Find first unread message (that's not sent by current user)
-        const firstUnread = newMessages.find(msg => 
-          !msg.read && msg.recipient._id === user.id
-        );
+        const firstUnread = newMessages.find(msg => {
+          if (conversation.isGroup) {
+            return !msg.read && msg.sender._id !== user.id;
+          } else {
+            return !msg.read && msg.recipient?._id === user.id;
+          }
+        });
         if (firstUnread) {
           setFirstUnreadMessageId(firstUnread._id);
         }
       }
       
-      setHasMoreMessages(pagination.hasMore);
+      setHasMoreMessages(pagination?.hasMore || false);
       setPage(pageNum);
       setError(null);
     } catch (err) {
@@ -200,7 +225,7 @@ const Messages = () => {
     if (selectedConversation && messages.length > 0 && firstUnreadMessageId) {
       // Mark messages as read after a short delay to ensure user sees them
       const timer = setTimeout(() => {
-        markMessagesAsRead(selectedConversation);
+        markMessagesAsRead(selectedConversation.user._id);
       }, 2000);
       
       return () => clearTimeout(timer);
@@ -270,9 +295,15 @@ const Messages = () => {
       setUploadingFile(!!selectedFile);
       
       let messageData = {
-        recipient: selectedConversation.user._id,
         messageType: selectedFile ? 'file' : 'text'
       };
+      
+      // Set recipient or groupId based on conversation type
+      if (selectedConversation.isGroup) {
+        messageData.groupId = selectedConversation.groupId;
+      } else {
+        messageData.recipient = selectedConversation.user._id;
+      }
       
       // Handle file upload
       if (selectedFile) {
@@ -316,13 +347,20 @@ const Messages = () => {
   const handleConversationSelect = (conversation) => {
     setSelectedConversation(conversation);
     setPage(1);
+    fetchMessages(conversation);
   };
 
   // Load more messages
   const loadMoreMessages = () => {
     if (selectedConversation && hasMoreMessages && !loadingMoreMessages) {
-      fetchMessages(selectedConversation.user._id, page + 1, true);
+      fetchMessages(selectedConversation, page + 1, true);
     }
+  };
+
+  // Handle group creation
+  const handleGroupCreated = (newGroup) => {
+    fetchConversations(); // Refresh conversations to include new group
+    setShowGroupManagement(false);
   };
 
   // Delete message
@@ -350,9 +388,13 @@ const Messages = () => {
   };
 
   // Filter conversations based on search
-  const filteredConversations = conversations.filter(conv =>
-    conv.user.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredConversations = conversations.filter(conv => {
+    if (conv.isGroup) {
+      return conv.groupName.toLowerCase().includes(searchTerm.toLowerCase());
+    } else {
+      return conv.user.name.toLowerCase().includes(searchTerm.toLowerCase());
+    }
+  });
 
   // Format message time
   const formatMessageTime = (timestamp) => {
@@ -432,28 +474,43 @@ const Messages = () => {
             flexDirection: 'column'
           }}
         >
-          {/* Search Bar */}
+          {/* Search Bar and Create Group */}
           <Box sx={{ p: { xs: 1.5, sm: 2 }, borderBottom: '1px solid #e0e0e0' }}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Search conversations..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{
-                '& .MuiInputBase-root': {
-                  minHeight: { xs: 44, sm: 40 },
-                  fontSize: { xs: '1rem', sm: '0.875rem' }
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ fontSize: { xs: '1.25rem', sm: '1rem' } }} />
-                  </InputAdornment>
-                )
-              }}
-            />
+            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search conversations..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    minHeight: { xs: 44, sm: 40 },
+                    fontSize: { xs: '1rem', sm: '0.875rem' }
+                  }
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ fontSize: { xs: '1.25rem', sm: '1rem' } }} />
+                    </InputAdornment>
+                  )
+                }}
+              />
+              <IconButton
+                onClick={() => setShowGroupManagement(true)}
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  width: { xs: 44, sm: 40 },
+                  height: { xs: 44, sm: 40 }
+                }}
+                title="Create Group"
+              >
+                <AddIcon sx={{ fontSize: { xs: '1.25rem', sm: '1rem' } }} />
+              </IconButton>
+            </Box>
           </Box>
           
           {/* Conversations List */}
@@ -473,7 +530,11 @@ const Messages = () => {
                 <ListItem
                   key={conversation._id}
                   button
-                  selected={selectedConversation && conversation.user._id === selectedConversation.user._id}
+                  selected={selectedConversation && (
+                    conversation.isGroup 
+                      ? conversation.groupId === selectedConversation.groupId
+                      : conversation.user._id === selectedConversation.user._id
+                  )}
                   onClick={() => handleConversationSelect(conversation)}
                   sx={{
                     borderBottom: '1px solid #f5f5f5',
@@ -498,14 +559,18 @@ const Messages = () => {
                       }}
                     >
                       <Avatar 
-                        src={conversation.user.avatar}
+                        src={conversation.isGroup ? conversation.groupAvatar : conversation.user.avatar}
                         sx={{
                           width: { xs: 48, sm: 40 },
                           height: { xs: 48, sm: 40 },
-                          fontSize: { xs: '1.25rem', sm: '1rem' }
+                          fontSize: { xs: '1.25rem', sm: '1rem' },
+                          bgcolor: conversation.isGroup ? 'primary.main' : 'grey.400'
                         }}
                       >
-                        {conversation.user.name.charAt(0).toUpperCase()}
+                        {conversation.isGroup 
+                          ? <GroupIcon sx={{ fontSize: { xs: '1.5rem', sm: '1.25rem' } }} />
+                          : conversation.user.name.charAt(0).toUpperCase()
+                        }
                       </Avatar>
                     </Badge>
                   </ListItemAvatar>
@@ -520,7 +585,7 @@ const Messages = () => {
                             lineHeight: { xs: 1.4, sm: 1.43 }
                           }}
                         >
-                          {conversation.user.name}
+                          {conversation.isGroup ? conversation.groupName : conversation.user.name}
                         </Typography>
                         <Typography 
                           variant="caption" 
@@ -549,7 +614,12 @@ const Messages = () => {
                             lineHeight: { xs: 1.3, sm: 1.43 }
                           }}
                         >
-                          {conversation.lastMessage.sender._id === user.id ? 'You: ' : ''}
+                          {conversation.lastMessage.sender._id === user.id 
+                            ? 'You: ' 
+                            : conversation.isGroup 
+                              ? `${conversation.lastMessage.sender.name}: `
+                              : ''
+                          }
                           {conversation.lastMessage.content}
                         </Typography>
                         {conversation.lastMessage.messageType === 'gig_application' && (
@@ -593,27 +663,53 @@ const Messages = () => {
                   minHeight: { xs: 60, sm: 'auto' }
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Avatar 
-                    src={selectedConversation.user.avatar} 
-                    sx={{ 
-                      mr: { xs: 1.5, sm: 2 },
-                      width: { xs: 40, sm: 40 },
-                      height: { xs: 40, sm: 40 },
-                      fontSize: { xs: '1rem', sm: '1rem' }
-                    }}
-                  >
-                    {selectedConversation.user.name.charAt(0).toUpperCase()}
-                  </Avatar>
-                  <Typography 
-                    variant="h6"
-                    sx={{
-                      fontSize: { xs: '1.125rem', sm: '1.25rem' },
-                      fontWeight: 500
-                    }}
-                  >
-                    {selectedConversation.user.name}
-                  </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Avatar 
+                      src={selectedConversation.isGroup ? selectedConversation.groupAvatar : selectedConversation.user.avatar} 
+                      sx={{ 
+                        mr: { xs: 1.5, sm: 2 },
+                        width: { xs: 40, sm: 40 },
+                        height: { xs: 40, sm: 40 },
+                        fontSize: { xs: '1rem', sm: '1rem' },
+                        bgcolor: selectedConversation.isGroup ? 'primary.main' : 'grey.400'
+                      }}
+                    >
+                      {selectedConversation.isGroup 
+                        ? <GroupIcon sx={{ fontSize: '1.25rem' }} />
+                        : selectedConversation.user.name.charAt(0).toUpperCase()
+                      }
+                    </Avatar>
+                    <Box>
+                      <Typography 
+                        variant="h6"
+                        sx={{
+                          fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                          fontWeight: 500
+                        }}
+                      >
+                        {selectedConversation.isGroup ? selectedConversation.groupName : selectedConversation.user.name}
+                      </Typography>
+                      {selectedConversation.isGroup && (
+                        <Typography 
+                          variant="caption" 
+                          color="textSecondary"
+                          sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' } }}
+                        >
+                          {selectedConversation.memberCount} members
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                  {selectedConversation.isGroup && (
+                    <IconButton
+                      size="small"
+                      sx={{ color: 'text.secondary' }}
+                      title="Group Info"
+                    >
+                      <InfoIcon />
+                    </IconButton>
+                  )}
                 </Box>
               </Box>
               
@@ -998,6 +1094,15 @@ const Messages = () => {
           Delete Message
         </MenuItem>
       </Menu>
+      
+      {/* Group Management Dialog */}
+      {showGroupManagement && (
+        <GroupManagement
+          open={showGroupManagement}
+          onClose={() => setShowGroupManagement(false)}
+          onGroupCreated={handleGroupCreated}
+        />
+      )}
     </Container>
   );
 };

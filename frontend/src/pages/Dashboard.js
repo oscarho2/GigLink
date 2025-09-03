@@ -27,6 +27,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import WarningIcon from '@mui/icons-material/Warning';
 import LockIcon from '@mui/icons-material/Lock';
+import LogoutIcon from '@mui/icons-material/Logout';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -35,7 +36,7 @@ import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
 const Dashboard = () => {
-  const { user, isAuthenticated, loading: authLoading, token } = useContext(AuthContext);
+  const { user, isAuthenticated, loading: authLoading, token, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [gigs, setGigs] = useState([]);
@@ -335,34 +336,54 @@ const Dashboard = () => {
               </Typography>
             </CardContent>
             <CardActions sx={{ 
-              flexDirection: { xs: 'column', sm: 'row' },
+              flexDirection: 'column',
               gap: { xs: 1.5, sm: 2 },
               p: { xs: 2, sm: 2 }
             }}>
+              <Box sx={{ 
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: { xs: 1.5, sm: 2 },
+                width: '100%'
+              }}>
+                <Button
+                  onClick={handleChangePassword}
+                  variant="outlined"
+                  startIcon={<LockIcon />}
+                  sx={{ 
+                    minHeight: { xs: 48, sm: 40 },
+                    flex: { xs: 1, sm: 1 },
+                    fontWeight: 500
+                  }}
+                >
+                  Change Password
+                </Button>
+                <Button
+                  onClick={handleDeleteAccount}
+                  variant="contained"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  sx={{ 
+                    minHeight: { xs: 48, sm: 40 },
+                    flex: { xs: 1, sm: 1 },
+                    fontWeight: 500
+                  }}
+                >
+                  Delete Account
+                </Button>
+              </Box>
               <Button
-                onClick={handleChangePassword}
-                variant="outlined"
-                startIcon={<LockIcon />}
-                sx={{ 
-                  minHeight: { xs: 48, sm: 40 },
-                  flex: { xs: 1, sm: 1 },
-                  fontWeight: 500
-                }}
-              >
-                Change Password
-              </Button>
-              <Button
-                onClick={handleDeleteAccount}
+                onClick={logout}
                 variant="contained"
-                color="error"
-                startIcon={<DeleteIcon />}
+                color="warning"
+                startIcon={<LogoutIcon />}
                 sx={{ 
                   minHeight: { xs: 48, sm: 40 },
-                  flex: { xs: 1, sm: 1 },
+                  width: '100%',
                   fontWeight: 500
                 }}
               >
-                Delete Account
+                Logout
               </Button>
             </CardActions>
           </Card>
