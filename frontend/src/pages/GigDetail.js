@@ -74,7 +74,18 @@ const GigDetail = () => {
           'x-auth-token': token
         }
       };
-      const body = { recipient: gig.user._id, content: applicationMessage };
+      const body = {
+        recipient: gig.user._id,
+        content: applicationMessage,
+        messageType: 'gig_application',
+        gigApplication: {
+          gigId: gig._id,
+          gigTitle: gig.title,
+          gigVenue: gig.venue,
+          gigDate: new Date(gig.date),
+          gigPayment: parseFloat(gig.payment)
+        }
+      };
       await axios.post('/api/messages', body, config);
       setApplyStatus('success');
       setMessageSent(true);

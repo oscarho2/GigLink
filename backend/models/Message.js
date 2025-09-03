@@ -9,7 +9,14 @@ const MessageSchema = new mongoose.Schema({
   recipient: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: function() {
+      return !this.groupId; // recipient is required only for direct messages
+    }
+  },
+  groupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    required: false
   },
   content: {
     type: String,
@@ -44,11 +51,38 @@ const MessageSchema = new mongoose.Schema({
       type: String
     }
   },
+  gigApplication: {
+    gigId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Gig'
+    },
+    gigTitle: {
+      type: String
+    },
+    gigVenue: {
+      type: String
+    },
+    gigDate: {
+      type: Date
+    },
+    gigPayment: {
+      type: Number
+    },
+    applicationStatus: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected'],
+      default: 'pending'
+    }
+  },
   conversationId: {
     type: String,
     index: true,
     default: function() {
-      if (this.sender && this.recipient) {
+      if (this.groupId) {
+        // For group messages, use the groupId as conversationId
+        return `group_${this.groupId.toString()}`;
+      } else if (this.sender && this.recipient) {
+        // For direct messages, use sorted user IDs
         const userIds = [this.sender.toString(), this.recipient.toString()].sort();
         return userIds.join('_');
       }
@@ -79,10 +113,12 @@ const MessageSchema = new mongoose.Schema({
   }
 });
 
-// Create compound indexes for better query performance
+// Create indexes for better query performance
 MessageSchema.index({ sender: 1, recipient: 1, createdAt: -1 });
 MessageSchema.index({ conversationId: 1, createdAt: -1 });
 MessageSchema.index({ recipient: 1, read: 1 });
+MessageSchema.index({ groupId: 1, createdAt: -1 });
+MessageSchema.index({ sender: 1, groupId: 1 });
 
 // Pre-save middleware to update timestamps and generate conversationId
 MessageSchema.pre('save', function(next) {
@@ -120,12 +156,29 @@ MessageSchema.statics.getConversation = function(userId1, userId2, limit = 50, s
   .skip(skip);
 };
 
-// Static method to get all conversations for a user
+// Static method to get group conversation messages
+MessageSchema.statics.getGroupConversation = function(groupId, limit = 50, skip = 0) {
+  return this.find({
+    groupId: new mongoose.Types.ObjectId(groupId),
+    isDeleted: false
+  })
+  .populate('sender', 'name avatar')
+  .populate('groupId', 'name avatar members')
+  .sort({ createdAt: -1 })
+  .limit(limit)
+  .skip(skip);
+};
+
+// Static method to get all conversations for a user (both direct and group)
 MessageSchema.statics.getUserConversations = function(userId) {
   return this.aggregate([
     {
       $match: {
-        $or: [{ sender: new mongoose.Types.ObjectId(userId) }, { recipient: new mongoose.Types.ObjectId(userId) }],
+        $or: [
+          { sender: new mongoose.Types.ObjectId(userId) }, 
+          { recipient: new mongoose.Types.ObjectId(userId) },
+          { groupId: { $exists: true } }
+        ],
         isDeleted: false
       }
     },
@@ -166,6 +219,14 @@ MessageSchema.statics.getUserConversations = function(userId) {
         localField: 'lastMessage.recipient',
         foreignField: '_id',
         as: 'recipientInfo'
+      }
+    },
+    {
+      $lookup: {
+        from: 'groups',
+        localField: 'lastMessage.groupId',
+        foreignField: '_id',
+        as: 'groupInfo'
       }
     },
     {

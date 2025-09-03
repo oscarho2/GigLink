@@ -84,21 +84,7 @@ const Navbar = () => {
       >
         Messages
       </Button>
-      <Button
-        onClick={logout}
-        sx={{ 
-          my: 2,
-          color: 'white',
-          display: 'block',
-          ml: 1,
-          bgcolor: '#1a365d',
-          '&:hover': {
-            bgcolor: '#2c5282'
-          }
-        }}
-      >
-        Logout
-      </Button>
+
 
     </>
   );
@@ -207,10 +193,7 @@ const Navbar = () => {
                   <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/messages">
                     <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>💬 Messages</Typography>
                   </MenuItem>
-                  <Box sx={{ borderTop: '1px solid rgba(0,0,0,0.08)', my: 1, mx: 2 }} />
-                  <MenuItem onClick={() => { handleMenuItemClick(); logout(); }}>
-                    <Typography textAlign="left" sx={{ width: '100%', color: '#dc2626', fontWeight: 600 }}>🚪 Logout</Typography>
-                  </MenuItem>
+
                 </>
               )}
               {!isAuthenticated && (
