@@ -294,7 +294,7 @@ const Dashboard = () => {
             <CardActions sx={{ flexDirection: 'column', gap: 1 }}>
               <Button
                 component={RouterLink}
-                to={`/profile/${user?._id}`}
+                to={`/profile/${user?.id}`}
                 fullWidth
                 variant="outlined"
               >
