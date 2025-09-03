@@ -140,34 +140,77 @@ const Gigs = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container 
+      maxWidth="lg" 
+      sx={{ 
+        py: { xs: 2, sm: 4 },
+        px: { xs: 1, sm: 3 }
+      }}
+    >
       <Paper 
           elevation={0} 
           sx={{ 
-            p: 4, 
-            mb: 4, 
-            borderRadius: 3,
+            p: { xs: 2, sm: 3, md: 4 }, 
+            mb: { xs: 2, sm: 3, md: 4 }, 
+            borderRadius: { xs: 2, sm: 3 },
             background: 'linear-gradient(to right, #2c5282, #1a365d)',
             color: 'white'
           }}
         >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography variant="h4" component="h1" fontWeight="bold">UK Gig Opportunities</Typography>
-            <Typography variant="subtitle1" sx={{ mt: 1, opacity: 0.9 }}>
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', md: 'row' },
+            justifyContent: 'space-between', 
+            alignItems: { xs: 'flex-start', md: 'center' },
+            gap: { xs: 2, md: 0 }
+          }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography 
+              variant="h4" 
+              component="h1" 
+              fontWeight="bold"
+              sx={{
+                fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' },
+                lineHeight: { xs: 1.2, sm: 1.3 }
+              }}
+            >
+              UK Gig Opportunities
+            </Typography>
+            <Typography 
+              variant="subtitle1" 
+              sx={{ 
+                mt: 1, 
+                opacity: 0.9,
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+                lineHeight: { xs: 1.4, sm: 1.5 }
+              }}
+            >
               Find the perfect musical gig across the United Kingdom
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'row', sm: 'row' },
+              gap: { xs: 1.5, sm: 2 },
+              width: { xs: '100%', md: 'auto' },
+              justifyContent: { xs: 'stretch', md: 'flex-end' }
+            }}
+          >
             <Button 
               variant="contained" 
               onClick={() => setShowFilters(!showFilters)}
               startIcon={<FilterListIcon />} 
               sx={{ 
-                py: 1.2,
-                px: 3,
+                py: { xs: 1, sm: 1.2 },
+                px: { xs: 2, sm: 3 },
                 borderRadius: 2,
                 fontWeight: 'bold',
+                fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+                minHeight: { xs: 40, sm: 44 },
+                flex: { xs: 1, md: 'none' },
                 bgcolor: '#1a365d',
                 '&:hover': {
                   bgcolor: '#2c5282'
@@ -182,10 +225,13 @@ const Gigs = () => {
               to={isAuthenticated ? "/create-gig" : "/login?redirect=/create-gig"}
               startIcon={<AddIcon />}
               sx={{ 
-                py: 1.2,
-                px: 3,
+                py: { xs: 1, sm: 1.2 },
+                px: { xs: 2, sm: 3 },
                 borderRadius: 2,
                 fontWeight: 'bold',
+                fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+                minHeight: { xs: 40, sm: 44 },
+                flex: { xs: 1, md: 'none' },
                 bgcolor: '#64748b',
                 '&:hover': {
                   bgcolor: '#475569'
@@ -200,19 +246,49 @@ const Gigs = () => {
       
       {/* Filter Section */}
       {showFilters && (
-        <Paper sx={{ p: 3, mb: 4, borderRadius: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" fontWeight="bold">Filter Gigs</Typography>
+        <Paper 
+          sx={{ 
+            p: { xs: 2, sm: 3 }, 
+            mb: { xs: 2, sm: 3, md: 4 }, 
+            borderRadius: 2 
+          }}
+        >
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between', 
+              alignItems: { xs: 'flex-start', sm: 'center' }, 
+              mb: { xs: 2, sm: 2 },
+              gap: { xs: 1.5, sm: 0 }
+            }}
+          >
+            <Typography 
+              variant="h6" 
+              fontWeight="bold"
+              sx={{
+                fontSize: { xs: '1.125rem', sm: '1.25rem' }
+              }}
+            >
+              Filter Gigs
+            </Typography>
             <Button 
               variant="outlined" 
               onClick={resetFilters}
-              sx={{ color: '#1a365d', borderColor: '#1a365d' }}
+              sx={{ 
+                color: '#1a365d', 
+                borderColor: '#1a365d',
+                fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+                minHeight: { xs: 36, sm: 40 },
+                px: { xs: 2, sm: 3 },
+                alignSelf: { xs: 'stretch', sm: 'auto' }
+              }}
             >
               Reset Filters
             </Button>
           </Box>
           
-          <Grid container spacing={3}>
+          <Grid container spacing={{ xs: 2, sm: 3 }}>
               {/* Location Filter */}
               <Grid item xs={12} sm={6} md={4}>
               <FormControl fullWidth>
@@ -322,66 +398,98 @@ const Gigs = () => {
       )}
       
       {loading ? (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           <Grid item xs={12}>
-            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
-              <Typography variant="h6" color="text.secondary">
+            <Paper 
+              sx={{ 
+                p: { xs: 3, sm: 4 }, 
+                textAlign: 'center', 
+                borderRadius: 2 
+              }}
+            >
+              <Typography 
+                variant="h6" 
+                color="text.secondary"
+                sx={{
+                  fontSize: { xs: '1.125rem', sm: '1.25rem' }
+                }}
+              >
                 Loading gigs...
               </Typography>
             </Paper>
           </Grid>
         </Grid>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
         {filteredGigs.length > 0 ? (
           filteredGigs.map((gig) => (
             <Grid item xs={12} sm={6} md={4} key={gig._id}>
               <Card 
               sx={{ 
                 height: '100%',
-                maxHeight: '500px',
+                maxHeight: { xs: 'none', sm: '500px' },
                 display: 'flex', 
                 flexDirection: 'column',
-                borderRadius: 2,
+                borderRadius: { xs: 1.5, sm: 2 },
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                 transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
                 position: 'relative',
                 '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 12px 20px rgba(0,0,0,0.15)',
+                  transform: { xs: 'none', sm: 'translateY(-4px)' },
+                  boxShadow: { xs: '0 4px 12px rgba(0,0,0,0.1)', sm: '0 12px 20px rgba(0,0,0,0.15)' },
                 }
               }}
             >
               <Box sx={{ 
                 bgcolor: '#1a365d', 
                 color: 'white', 
-                p: 2, 
-                borderTopLeftRadius: 8, 
-                borderTopRightRadius: 8,
+                p: { xs: 1.5, sm: 2 }, 
+                borderTopLeftRadius: { xs: 6, sm: 8 }, 
+                borderTopRightRadius: { xs: 6, sm: 8 },
                 zIndex: 2,
                 position: 'relative'
               }}>
-                <Typography variant="h5" component="h2" fontWeight="bold">
+                <Typography 
+                  variant="h5" 
+                  component="h2" 
+                  fontWeight="bold"
+                  sx={{
+                    fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                    lineHeight: { xs: 1.3, sm: 1.4 }
+                  }}
+                >
                   {gig.title}
                 </Typography>
               </Box>
               <CardContent sx={{ 
                 flexGrow: 1, 
-                p: 3,
+                p: { xs: 2, sm: 3 },
                 filter: !isAuthenticated ? 'blur(3px)' : 'none',
                 transition: 'filter 0.3s ease'
               }}>
-                <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
                   <Grid item xs={12} sm={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <PaymentIcon sx={{ mr: 1, color: '#1a365d' }} />
-                      <Typography variant="body1" fontWeight="bold">
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                      <PaymentIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
+                      <Typography 
+                        variant="body1" 
+                        fontWeight="bold"
+                        sx={{
+                          fontSize: { xs: '0.875rem', sm: '1rem' }
+                        }}
+                      >
                         {formatPayment(gig.payment)}
                       </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <CalendarTodayIcon sx={{ mr: 1, color: '#1a365d' }} />
-                      <Typography variant="body1" fontWeight="bold">
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                      <CalendarTodayIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
+                      <Typography 
+                        variant="body1" 
+                        fontWeight="bold"
+                        sx={{
+                          fontSize: { xs: '0.875rem', sm: '1rem' }
+                        }}
+                      >
                         {new Date(gig.date).toLocaleDateString('en-GB')}
                       </Typography>
                     </Box>
@@ -393,46 +501,82 @@ const Gigs = () => {
                   
                   <Grid item xs={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <LocationOnIcon sx={{ mr: 1, color: '#1a365d' }} />
-                      <Typography variant="body1" fontWeight="bold">
+                      <LocationOnIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
+                      <Typography 
+                        variant="body1" 
+                        fontWeight="bold"
+                        sx={{
+                          fontSize: { xs: '0.875rem', sm: '1rem' }
+                        }}
+                      >
                         {gig.venue}, {gig.location}
                       </Typography>
                     </Box>
                   </Grid>
                 </Grid>
                 
-                <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
                   <Grid item xs={12} sm={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <MusicNoteIcon sx={{ mr: 1, color: '#1a365d' }} />
-                      <Typography variant="subtitle1" fontWeight="medium">Instruments</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 0.75, sm: 1 } }}>
+                      <MusicNoteIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.125rem', sm: '1.25rem' } }} />
+                      <Typography 
+                        variant="subtitle1" 
+                        fontWeight="medium"
+                        sx={{
+                          fontSize: { xs: '0.875rem', sm: '1rem' }
+                        }}
+                      >
+                        Instruments
+                      </Typography>
                     </Box>
-                    <Box sx={{ ml: 4 }}>
+                    <Box sx={{ ml: { xs: 3, sm: 4 } }}>
                       {gig.instruments.map((instrument, index) => (
                         <Chip 
                           key={index} 
                           label={instrument} 
                           size="small" 
                           variant="outlined"
-                          sx={{ mr: 0.5, mb: 0.5, borderColor: '#1a365d', color: '#1a365d' }} 
+                          sx={{ 
+                            mr: { xs: 0.5, sm: 0.5 }, 
+                            mb: { xs: 0.5, sm: 0.5 }, 
+                            borderColor: '#1a365d', 
+                            color: '#1a365d',
+                            fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                            height: { xs: 24, sm: 28 }
+                          }} 
                         />
                       ))}
                     </Box>
                   </Grid>
                   
                   <Grid item xs={12} sm={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <MusicNoteIcon sx={{ mr: 1, color: '#1a365d' }} />
-                      <Typography variant="subtitle1" fontWeight="medium">Genres</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 0.75, sm: 1 } }}>
+                      <MusicNoteIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.125rem', sm: '1.25rem' } }} />
+                      <Typography 
+                        variant="subtitle1" 
+                        fontWeight="medium"
+                        sx={{
+                          fontSize: { xs: '0.875rem', sm: '1rem' }
+                        }}
+                      >
+                        Genres
+                      </Typography>
                     </Box>
-                    <Box sx={{ ml: 4 }}>
+                    <Box sx={{ ml: { xs: 3, sm: 4 } }}>
                       {gig.genres.map((genre, index) => (
                         <Chip 
                           key={index} 
                           label={genre} 
                           size="small"
                           variant="outlined"
-                          sx={{ mr: 0.5, mb: 0.5, borderColor: '#1a365d', color: '#1a365d' }} 
+                          sx={{ 
+                            mr: { xs: 0.5, sm: 0.5 }, 
+                            mb: { xs: 0.5, sm: 0.5 }, 
+                            borderColor: '#1a365d', 
+                            color: '#1a365d',
+                            fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                            height: { xs: 24, sm: 28 }
+                          }} 
                         />
                       ))}
                     </Box>
@@ -441,7 +585,7 @@ const Gigs = () => {
               </CardContent>
               
               <CardActions sx={{ 
-                p: 2, 
+                p: { xs: 1.5, sm: 2 }, 
                 pt: 0
               }}>
                 <Button
@@ -453,6 +597,9 @@ const Gigs = () => {
                   sx={{
                     borderRadius: 2,
                     bgcolor: '#1a365d',
+                    fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                    minHeight: { xs: 40, sm: 44 },
+                    fontWeight: 'bold',
                     '&:hover': {
                       bgcolor: '#2c5282'
                     }
@@ -466,8 +613,21 @@ const Gigs = () => {
           ))
         ) : (
           <Grid item xs={12}>
-            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
-              <Typography variant="h6" color="text.secondary">
+            <Paper 
+              sx={{ 
+                p: { xs: 3, sm: 4 }, 
+                textAlign: 'center', 
+                borderRadius: 2 
+              }}
+            >
+              <Typography 
+                variant="h6" 
+                color="text.secondary"
+                sx={{
+                  fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                  mb: { xs: 2, sm: 3 }
+                }}
+              >
                 No gigs found matching your filters
               </Typography>
               <Button 

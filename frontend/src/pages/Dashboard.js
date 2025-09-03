@@ -244,9 +244,10 @@ const Dashboard = () => {
       </Typography>
       
       <Grid container spacing={4}>
-        {/* Profile Summary */}
+        {/* Left Column - Profile and Account Settings */}
         <Grid item xs={12} md={6} lg={4}>
-          <Card>
+          {/* Profile Summary */}
+          <Card sx={{ mb: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
                 <Avatar
@@ -254,12 +255,12 @@ const Dashboard = () => {
                   alt={user?.name}
                   sx={{ width: 100, height: 100, mb: 2 }}
                 />
-                <Typography variant="h5">{user?.name}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="h5" sx={{ textAlign: 'center' }}>{user?.name}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', wordBreak: 'break-word' }}>
                   {user?.email}
                 </Typography>
                 {user?.location && (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
                     {user?.location}
                   </Typography>
                 )}
@@ -291,20 +292,52 @@ const Dashboard = () => {
                 </Box>
               )}
             </CardContent>
-            <CardActions sx={{ flexDirection: 'column', gap: 1 }}>
+            <CardActions sx={{ 
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 1
+            }}>
               <Button
                 component={RouterLink}
-                to={`/profile/${user?.id}`}
-                fullWidth
+                to={`/profile/${user?._id}`}
                 variant="outlined"
+                sx={{ 
+                  minHeight: { xs: 44, sm: 36 },
+                  flex: { xs: 1, sm: 'none' }
+                }}
               >
                 View Profile
               </Button>
+              <Button
+                component={RouterLink}
+                to="/edit-profile"
+                variant="contained"
+                sx={{ 
+                  minHeight: { xs: 44, sm: 36 },
+                  flex: { xs: 1, sm: 'none' }
+                }}
+              >
+                Edit Profile
+              </Button>
+            </CardActions>
+          </Card>
+          
+          {/* Account Management */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" component="h2" gutterBottom>
+                Account Settings
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Manage your account security and preferences
+              </Typography>
+            </CardContent>
+            <CardActions sx={{ flexDirection: 'column', gap: 1 }}>
               <Button
                 onClick={handleChangePassword}
                 fullWidth
                 variant="outlined"
                 startIcon={<LockIcon />}
+                sx={{ minHeight: { xs: 44, sm: 36 } }}
               >
                 Change Password
               </Button>
@@ -314,6 +347,7 @@ const Dashboard = () => {
                 variant="contained"
                 color="error"
                 startIcon={<DeleteIcon />}
+                sx={{ minHeight: { xs: 44, sm: 36 } }}
               >
                 Delete Account
               </Button>
@@ -321,7 +355,7 @@ const Dashboard = () => {
           </Card>
         </Grid>
         
-        {/* Gigs */}
+        {/* Right Column - Gigs */}
         <Grid item xs={12} md={6} lg={8}>
           <Card sx={{ mb: 4 }}>
             <CardContent>
@@ -355,7 +389,14 @@ const Dashboard = () => {
                         mb: 1,
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between'
+                        justifyContent: 'space-between',
+                        p: 2,
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                          transform: 'translateY(-1px)',
+                          boxShadow: 2
+                        },
+                        transition: 'all 0.2s ease-in-out'
                       }}
                     >
                       <Box 
@@ -365,59 +406,99 @@ const Dashboard = () => {
                           textDecoration: 'none', 
                           color: 'inherit',
                           flex: 1,
-                          mr: 2
+                          mr: 2,
+                          minWidth: 0
                         }}
                       >
                         <ListItemText
-                          primary={gig.title}
+                          primary={
+                            <Typography 
+                              variant="h6" 
+                              sx={{ 
+                                fontWeight: 600,
+                                lineHeight: 1.3,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {gig.title}
+                            </Typography>
+                          }
                           secondary={
                             <>
-                              <Typography component="span" variant="body2" color="text.primary">
+                              <Typography 
+                                component="span" 
+                                variant="body2" 
+                                color="text.primary"
+                                sx={{
+                                  display: 'block',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
                                 {gig.venue} - {gig.location}
                               </Typography>
-                              <br />
-                              {new Date(gig.date).toLocaleDateString()} at {gig.time}
+                              <Typography 
+                                variant="body2" 
+                                color="text.secondary"
+                                sx={{
+                                  mt: 0.5
+                                }}
+                              >
+                                {new Date(gig.date).toLocaleDateString()} at {gig.time}
+                              </Typography>
                             </>
                           }
                         />
                       </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        minWidth: 'fit-content'
+                      }}>
                         <Chip
                           label={gig.isFilled ? 'Filled' : 'Open'}
                           color={gig.isFilled ? 'default' : 'success'}
                           size="small"
                         />
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<EditIcon />}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleEditGig(gig._id);
-                          }}
-                          sx={{ minWidth: 'auto', px: 1 }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          startIcon={<DeleteIcon />}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleGigDeleteClick(gig);
-                          }}
-                          sx={{ minWidth: 'auto', px: 1 }}
-                        >
-                          Delete
-                        </Button>
+                        <Box sx={{ 
+                          display: 'flex', 
+                          gap: 1
+                        }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<EditIcon />}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleEditGig(gig._id);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            startIcon={<DeleteIcon />}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleGigDeleteClick(gig);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </Box>
                       </Box>
                     </ListItem>
                   ))}
                 </List>
               ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
                   You haven't posted any gigs yet.
                 </Typography>
               )}

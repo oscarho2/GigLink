@@ -122,16 +122,42 @@ const GigDetail = () => {
 
   if (error) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Alert severity="error">{error}</Alert>
+      <Container 
+        maxWidth="md" 
+        sx={{ 
+          py: { xs: 2, sm: 4 },
+          px: { xs: 1, sm: 3 }
+        }}
+      >
+        <Alert 
+          severity="error"
+          sx={{
+            fontSize: { xs: '0.875rem', sm: '1rem' }
+          }}
+        >
+          {error}
+        </Alert>
       </Container>
     );
   }
 
   if (!gig) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Alert severity="info">Gig not found.</Alert>
+      <Container 
+        maxWidth="md" 
+        sx={{ 
+          py: { xs: 2, sm: 4 },
+          px: { xs: 1, sm: 3 }
+        }}
+      >
+        <Alert 
+          severity="info"
+          sx={{
+            fontSize: { xs: '0.875rem', sm: '1rem' }
+          }}
+        >
+          Gig not found.
+        </Alert>
       </Container>
     );
   }
@@ -153,64 +179,142 @@ const GigDetail = () => {
    // Ownership check complete
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container 
+      maxWidth="md" 
+      sx={{ 
+        py: { xs: 2, sm: 4 },
+        px: { xs: 1, sm: 3 }
+      }}
+    >
       <Paper 
         elevation={0} 
         sx={{
-          borderRadius: 3, 
+          borderRadius: { xs: 2, sm: 3 }, 
           overflow: 'hidden',
           boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
         }}
       >
         <Box 
           sx={{
-            p: 4, 
+            p: { xs: 2.5, sm: 3, md: 4 }, 
             background: 'linear-gradient(to right, #334155, #1e293b)',
             color: 'white'
           }}
         >
-          <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            fontWeight="bold" 
+            gutterBottom
+            sx={{
+              fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' },
+              lineHeight: { xs: 1.2, sm: 1.3 }
+            }}
+          >
             {gig.title}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-            <LocationOnIcon sx={{ mr: 1 }} />
-            <Typography variant="h6">
+          <Box sx={{ display: 'flex', alignItems: 'center', mt: { xs: 1.5, sm: 2 } }}>
+            <LocationOnIcon sx={{ mr: 1, fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
+            <Typography 
+              variant="h6"
+              sx={{
+                fontSize: { xs: '1rem', sm: '1.125rem', md: '1.25rem' }
+              }}
+            >
               {gig.venue}, {gig.location}
             </Typography>
           </Box>
         </Box>
         
-        <Box sx={{ p: 4 }}>
-          <Grid container spacing={4}>
+        <Box sx={{ p: { xs: 2.5, sm: 3, md: 4 } }}>
+          <Grid container spacing={{ xs: 3, sm: 4 }}>
             <Grid item xs={12} md={8}>
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h5" component="h2" fontWeight="bold" gutterBottom>
+              <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+                <Typography 
+                  variant="h5" 
+                  component="h2" 
+                  fontWeight="bold" 
+                  gutterBottom
+                  sx={{
+                    fontSize: { xs: '1.375rem', sm: '1.5rem' }
+                  }}
+                >
                   Description
                 </Typography>
-                <Typography variant="body1" paragraph sx={{ lineHeight: 1.7 }}>
+                <Typography 
+                  variant="body1" 
+                  paragraph 
+                  sx={{ 
+                    lineHeight: 1.7,
+                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                  }}
+                >
                   {gig.description}
                 </Typography>
               </Box>
               
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h5" component="h2" fontWeight="bold" gutterBottom>
+              <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+                <Typography 
+                  variant="h5" 
+                  component="h2" 
+                  fontWeight="bold" 
+                  gutterBottom
+                  sx={{
+                    fontSize: { xs: '1.375rem', sm: '1.5rem' }
+                  }}
+                >
                   Requirements
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', mt: 1 }}>
-                  <AssignmentIcon color="primary" sx={{ mr: 2, mt: 0.5 }} />
-                  <Typography variant="body1" sx={{ lineHeight: 1.7 }}>
+                  <AssignmentIcon 
+                    color="primary" 
+                    sx={{ 
+                      mr: { xs: 1.5, sm: 2 }, 
+                      mt: 0.5,
+                      fontSize: { xs: '1.25rem', sm: '1.5rem' }
+                    }} 
+                  />
+                  <Typography 
+                    variant="body1" 
+                    sx={{ 
+                      lineHeight: 1.7,
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }}
+                  >
                     {gig.requirements}
                   </Typography>
                 </Box>
               </Box>
               
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h5" component="h2" fontWeight="bold" gutterBottom>
+              <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+                <Typography 
+                  variant="h5" 
+                  component="h2" 
+                  fontWeight="bold" 
+                  gutterBottom
+                  sx={{
+                    fontSize: { xs: '1.375rem', sm: '1.5rem' }
+                  }}
+                >
                   Posted By
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                  <Avatar sx={{ mr: 2 }}>{gig.user.name.charAt(0)}</Avatar>
-                  <Typography variant="body1">
+                  <Avatar 
+                    sx={{ 
+                      mr: { xs: 1.5, sm: 2 },
+                      width: { xs: 36, sm: 40 },
+                      height: { xs: 36, sm: 40 },
+                      fontSize: { xs: '1rem', sm: '1.125rem' }
+                    }}
+                  >
+                    {gig.user.name.charAt(0)}
+                  </Avatar>
+                  <Typography 
+                    variant="body1"
+                    sx={{
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }}
+                  >
                     <Link to={`/profile/${gig.user._id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                       {gig.user.name}
                     </Link>
@@ -220,62 +324,146 @@ const GigDetail = () => {
             </Grid>
             
             <Grid item xs={12} md={4}>
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 2, bgcolor: '#f5f5f5', mb: 3 }}>
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <CalendarTodayIcon color="primary" sx={{ mr: 1 }} />
-                    <Typography variant="body1" fontWeight="medium">
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: { xs: 2.5, sm: 3 }, 
+                  borderRadius: { xs: 1.5, sm: 2 }, 
+                  bgcolor: '#f5f5f5', 
+                  mb: { xs: 2.5, sm: 3 } 
+                }}
+              >
+                <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                    <CalendarTodayIcon 
+                      color="primary" 
+                      sx={{ 
+                        mr: 1,
+                        fontSize: { xs: '1.125rem', sm: '1.25rem' }
+                      }} 
+                    />
+                    <Typography 
+                      variant="body1" 
+                      fontWeight="medium"
+                      sx={{
+                        fontSize: { xs: '0.875rem', sm: '1rem' }
+                      }}
+                    >
                       Date
                     </Typography>
                   </Box>
-                  <Typography variant="body1" sx={{ ml: 4 }}>
+                  <Typography 
+                    variant="body1" 
+                    sx={{ 
+                      ml: { xs: 3.5, sm: 4 },
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }}
+                  >
                     {new Date(gig.date).toLocaleDateString()}
                   </Typography>
                 </Box>
                 
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <AccessTimeIcon color="primary" sx={{ mr: 1 }} />
-                    <Typography variant="body1" fontWeight="medium">
+                <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                    <AccessTimeIcon 
+                      color="primary" 
+                      sx={{ 
+                        mr: 1,
+                        fontSize: { xs: '1.125rem', sm: '1.25rem' }
+                      }} 
+                    />
+                    <Typography 
+                      variant="body1" 
+                      fontWeight="medium"
+                      sx={{
+                        fontSize: { xs: '0.875rem', sm: '1rem' }
+                      }}
+                    >
                       Time
                     </Typography>
                   </Box>
-                  <Typography variant="body1" sx={{ ml: 4 }}>
+                  <Typography 
+                    variant="body1" 
+                    sx={{ 
+                      ml: { xs: 3.5, sm: 4 },
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }}
+                  >
                     {gig.time}
                   </Typography>
                 </Box>
                 
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <PaymentIcon color="primary" sx={{ mr: 1 }} />
-                    <Typography variant="body1" fontWeight="medium">
+                <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                    <PaymentIcon 
+                      color="primary" 
+                      sx={{ 
+                        mr: 1,
+                        fontSize: { xs: '1.125rem', sm: '1.25rem' }
+                      }} 
+                    />
+                    <Typography 
+                      variant="body1" 
+                      fontWeight="medium"
+                      sx={{
+                        fontSize: { xs: '0.875rem', sm: '1rem' }
+                      }}
+                    >
                       Payment
                     </Typography>
                   </Box>
-                  <Typography variant="h6" fontWeight="bold" sx={{ ml: 4 }}>
+                  <Typography 
+                    variant="h6" 
+                    fontWeight="bold" 
+                    sx={{ 
+                      ml: { xs: 3.5, sm: 4 },
+                      fontSize: { xs: '1rem', sm: '1.125rem' }
+                    }}
+                  >
                     {formatPayment(gig.payment)}
                   </Typography>
                 </Box>
               </Paper>
               
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 2, bgcolor: '#f5f5f5' }}>
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <MusicNoteIcon color="primary" sx={{ mr: 1 }} />
-                    <Typography variant="body1" fontWeight="medium">
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: { xs: 2.5, sm: 3 }, 
+                  borderRadius: { xs: 1.5, sm: 2 }, 
+                  bgcolor: '#f5f5f5' 
+                }}
+              >
+                <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                    <MusicNoteIcon 
+                      color="primary" 
+                      sx={{ 
+                        mr: 1,
+                        fontSize: { xs: '1.125rem', sm: '1.25rem' }
+                      }} 
+                    />
+                    <Typography 
+                      variant="body1" 
+                      fontWeight="medium"
+                      sx={{
+                        fontSize: { xs: '0.875rem', sm: '1rem' }
+                      }}
+                    >
                       Instruments
                     </Typography>
                   </Box>
-                  <Box sx={{ ml: 4 }}>
+                  <Box sx={{ ml: { xs: 3.5, sm: 4 } }}>
                     {gig.instruments.map((instrument, index) => (
                       <Chip 
                         key={index} 
                         label={instrument} 
                         sx={{
-                          mr: 1, 
-                          mb: 1,
+                          mr: { xs: 0.75, sm: 1 }, 
+                          mb: { xs: 0.75, sm: 1 },
                           borderColor: '#64748b',
-                          color: '#334155'
+                          color: '#334155',
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                          height: { xs: 28, sm: 32 }
                         }} 
                         variant="outlined"
                       />
@@ -284,22 +472,36 @@ const GigDetail = () => {
                 </Box>
                 
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <MusicNoteIcon color="primary" sx={{ mr: 1 }} />
-                    <Typography variant="body1" fontWeight="medium">
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                    <MusicNoteIcon 
+                      color="primary" 
+                      sx={{ 
+                        mr: 1,
+                        fontSize: { xs: '1.125rem', sm: '1.25rem' }
+                      }} 
+                    />
+                    <Typography 
+                      variant="body1" 
+                      fontWeight="medium"
+                      sx={{
+                        fontSize: { xs: '0.875rem', sm: '1rem' }
+                      }}
+                    >
                       Genres
                     </Typography>
                   </Box>
-                  <Box sx={{ ml: 4 }}>
+                  <Box sx={{ ml: { xs: 3.5, sm: 4 } }}>
                     {gig.genres.map((genre, index) => (
                       <Chip 
                         key={index} 
                         label={genre} 
                         sx={{
-                          mr: 1, 
-                          mb: 1,
+                          mr: { xs: 0.75, sm: 1 }, 
+                          mb: { xs: 0.75, sm: 1 },
                           borderColor: '#64748b',
-                          color: '#475569'
+                          color: '#475569',
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                          height: { xs: 28, sm: 32 }
                         }} 
                         variant="outlined"
                       />
@@ -310,20 +512,31 @@ const GigDetail = () => {
             </Grid>
           </Grid>
           
-          <Box sx={{ mt: 5, display: 'flex', justifyContent: 'center', gap: 2 }}>
+          <Box 
+            sx={{ 
+              mt: { xs: 3, sm: 4, md: 5 }, 
+              display: 'flex', 
+              justifyContent: 'center', 
+              gap: { xs: 1.5, sm: 2 },
+              flexDirection: { xs: 'column', sm: 'row' },
+              alignItems: 'center'
+            }}
+          >
             {!isPoster && (
               <Button 
                 variant="contained" 
                 size="large"
                 onClick={handleApplyClick}
                 sx={{
-                  py: 1.5, 
-                  px: 5, 
+                  py: { xs: 1.25, sm: 1.5 }, 
+                  px: { xs: 3, sm: 4, md: 5 }, 
                   borderRadius: 2,
-                  fontSize: '1.1rem',
+                  fontSize: { xs: '1rem', sm: '1.1rem' },
                   fontWeight: 'bold',
                   bgcolor: '#475569',
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  width: { xs: '100%', sm: 'auto' },
+                  minHeight: { xs: 48, sm: 'auto' },
                   '&:hover': {
                     bgcolor: '#334155',
                     boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
@@ -341,13 +554,15 @@ const GigDetail = () => {
                   size="large"
                   disabled
                   sx={{
-                    py: 1.5,
-                    px: 5,
+                    py: { xs: 1.25, sm: 1.5 },
+                    px: { xs: 3, sm: 4, md: 5 },
                     borderRadius: 2,
-                    fontSize: '1.1rem',
+                    fontSize: { xs: '1rem', sm: '1.1rem' },
                     fontWeight: 'bold',
                     bgcolor: '#cccccc',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    width: { xs: '100%', sm: 'auto' },
+                    minHeight: { xs: 48, sm: 'auto' }
                   }}
                 >
                   You Posted This Gig
@@ -356,15 +571,17 @@ const GigDetail = () => {
                   variant="contained"
                   size="large"
                   onClick={() => navigate(`/gigs/${id}/edit`)}
-                  startIcon={<EditIcon />}
+                  startIcon={<EditIcon sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }} />}
                   sx={{
-                    py: 1.5,
-                    px: 4,
+                    py: { xs: 1.25, sm: 1.5 },
+                    px: { xs: 3, sm: 4 },
                     borderRadius: 2,
-                    fontSize: '1.1rem',
+                    fontSize: { xs: '1rem', sm: '1.1rem' },
                     fontWeight: 'bold',
                     bgcolor: '#2563eb',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    width: { xs: '100%', sm: 'auto' },
+                    minHeight: { xs: 48, sm: 'auto' },
                     '&:hover': {
                       bgcolor: '#1d4ed8',
                       boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
@@ -377,15 +594,17 @@ const GigDetail = () => {
                   variant="contained"
                   size="large"
                   onClick={handleDeleteClick}
-                  startIcon={<DeleteIcon />}
+                  startIcon={<DeleteIcon sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }} />}
                   sx={{
-                    py: 1.5,
-                    px: 4,
+                    py: { xs: 1.25, sm: 1.5 },
+                    px: { xs: 3, sm: 4 },
                     borderRadius: 2,
-                    fontSize: '1.1rem',
+                    fontSize: { xs: '1rem', sm: '1.1rem' },
                     fontWeight: 'bold',
                     bgcolor: '#dc2626',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    width: { xs: '100%', sm: 'auto' },
+                    minHeight: { xs: 48, sm: 'auto' },
                     '&:hover': {
                       bgcolor: '#b91c1c',
                       boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',

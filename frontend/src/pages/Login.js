@@ -59,19 +59,34 @@ const Login = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
+    <Container component="main" maxWidth="xs" sx={{ px: { xs: 2, sm: 3 } }}>
       <Box
         sx={{
-          marginTop: 8,
+          marginTop: { xs: 4, sm: 8 },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          minHeight: { xs: 'calc(100vh - 120px)', sm: 'auto' },
+          justifyContent: { xs: 'center', sm: 'flex-start' }
         }}
       >
-        <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
-          <LockOutlinedIcon />
+        <Avatar sx={{ 
+          m: { xs: 1, sm: 1 }, 
+          bgcolor: 'secondary.main',
+          width: { xs: 48, sm: 40 },
+          height: { xs: 48, sm: 40 }
+        }}>
+          <LockOutlinedIcon sx={{ fontSize: { xs: '1.5rem', sm: '1.25rem' } }} />
         </Avatar>
-        <Typography component="h1" variant="h5">
+        <Typography 
+          component="h1" 
+          variant="h5"
+          sx={{
+            fontSize: { xs: '1.5rem', sm: '1.5rem' },
+            fontWeight: 500,
+            mb: { xs: 2, sm: 1 }
+          }}
+        >
           Sign in
         </Typography>
         {error && (
@@ -92,7 +107,12 @@ const Login = () => {
             )}
           </Alert>
         )}
-        <Box component="form" onSubmit={onSubmit} noValidate sx={{ mt: 1, py: 4 }}>
+        <Box component="form" onSubmit={onSubmit} noValidate sx={{ mt: { xs: 2, sm: 1 }, width: '100%' }}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2, fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
+              {error}
+            </Alert>
+          )}
           <TextField
             margin="normal"
             required
@@ -104,6 +124,15 @@ const Login = () => {
             autoFocus
             value={email}
             onChange={onChange}
+            sx={{
+              '& .MuiInputBase-root': {
+                minHeight: { xs: 56, sm: 56 },
+                fontSize: { xs: '1rem', sm: '1rem' }
+              },
+              '& .MuiInputLabel-root': {
+                fontSize: { xs: '1rem', sm: '1rem' }
+              }
+            }}
           />
           <TextField
             margin="normal"
@@ -116,6 +145,15 @@ const Login = () => {
             autoComplete="current-password"
             value={password}
             onChange={onChange}
+            sx={{
+              '& .MuiInputBase-root': {
+                minHeight: { xs: 56, sm: 56 },
+                fontSize: { xs: '1rem', sm: '1rem' }
+              },
+              '& .MuiInputLabel-root': {
+                fontSize: { xs: '1rem', sm: '1rem' }
+              }
+            }}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
@@ -123,6 +161,12 @@ const Login = () => {
                     aria-label="toggle password visibility"
                     onClick={() => setShowPassword(!showPassword)}
                     edge="end"
+                    sx={{
+                      p: { xs: 1.5, sm: 1 },
+                      '& .MuiSvgIcon-root': {
+                        fontSize: { xs: '1.25rem', sm: '1.25rem' }
+                      }
+                    }}
                   >
                     {showPassword ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
@@ -134,14 +178,50 @@ const Login = () => {
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+            sx={{ 
+              mt: { xs: 3, sm: 3 }, 
+              mb: { xs: 3, sm: 2 },
+              minHeight: { xs: 48, sm: 42 },
+              fontSize: { xs: '1rem', sm: '0.875rem' },
+              fontWeight: 600,
+              borderRadius: { xs: 2, sm: 1 },
+              py: { xs: 1.5, sm: 1 }
+            }}
           >
             Sign In
           </Button>
-          <Grid container justifyContent="flex-end">
-            <Grid item>
-              <Link component={RouterLink} to="/register" variant="body2">
-                {"Join Now"}
+          <Grid container spacing={{ xs: 2, sm: 0 }} sx={{ flexDirection: { xs: 'column', sm: 'row' } }}>
+            <Grid item xs={12} sm>
+              <Link 
+                href="#" 
+                variant="body2"
+                sx={{
+                  fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                  display: 'block',
+                  textAlign: { xs: 'center', sm: 'left' },
+                  py: { xs: 1, sm: 0 },
+                  minHeight: { xs: 44, sm: 'auto' },
+                  lineHeight: { xs: '44px', sm: 'normal' }
+                }}
+              >
+                Forgot password?
+              </Link>
+            </Grid>
+            <Grid item xs={12} sm="auto">
+              <Link 
+                component={RouterLink} 
+                to="/register" 
+                variant="body2"
+                sx={{
+                  fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                  display: 'block',
+                  textAlign: { xs: 'center', sm: 'right' },
+                  py: { xs: 1, sm: 0 },
+                  minHeight: { xs: 44, sm: 'auto' },
+                  lineHeight: { xs: '44px', sm: 'normal' }
+                }}
+              >
+                {"Don't have an account? Sign Up"}
               </Link>
             </Grid>
           </Grid>
