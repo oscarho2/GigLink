@@ -57,7 +57,7 @@ const EditProfile = () => {
       
       try {
         // Fetch profile data from backend
-        const profileRes = await axios.get('http://localhost:5001/api/profiles/me', {
+        const profileRes = await axios.get('/api/profiles/me', {
           headers: { 'x-auth-token': token }
         });
         const profileData = profileRes.data;

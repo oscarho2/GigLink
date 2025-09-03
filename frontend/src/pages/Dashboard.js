@@ -26,6 +26,11 @@ import WorkIcon from '@mui/icons-material/Work';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import WarningIcon from '@mui/icons-material/Warning';
+import LockIcon from '@mui/icons-material/Lock';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import InputAdornment from '@mui/material/InputAdornment';
+import IconButton from '@mui/material/IconButton';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
@@ -42,6 +47,20 @@ const Dashboard = () => {
   const [gigDeleteDialogOpen, setGigDeleteDialogOpen] = useState(false);
   const [gigDeleteConfirmation, setGigDeleteConfirmation] = useState('');
   const [gigDeleteError, setGigDeleteError] = useState('');
+  
+  // Change password state
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const handleDeleteAccount = () => {
     setDeleteDialogStep(1);
@@ -64,7 +83,7 @@ const Dashboard = () => {
 
     setIsDeleting(true);
     try {
-      const response = await axios.delete('http://localhost:5001/api/profiles/me', {
+      const response = await axios.delete('/api/profiles/me', {
         headers: { 'x-auth-token': token }
       });
       
@@ -74,6 +93,55 @@ const Dashboard = () => {
       console.error('Error deleting account:', err);
       alert(`Failed to delete account: ${err.response?.data?.msg || err.message}`);
       setIsDeleting(false);
+    }
+  };
+
+  // Change password handlers
+  const handleChangePassword = () => {
+    setChangePasswordOpen(true);
+    setPasswordError('');
+    setPasswordSuccess('');
+  };
+
+  const handleCloseChangePassword = () => {
+    setChangePasswordOpen(false);
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setPasswordError('');
+    setPasswordSuccess('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+  };
+
+  const handlePasswordChange = (e) => {
+    setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
+    setPasswordError('');
+  };
+
+  const handleSubmitPasswordChange = async (e) => {
+    e.preventDefault();
+    setIsChangingPassword(true);
+    setPasswordError('');
+
+    try {
+      const response = await axios.put('/api/users/change-password', passwordData, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      setPasswordSuccess('Password changed successfully!');
+      setTimeout(() => {
+        handleCloseChangePassword();
+      }, 2000);
+    } catch (err) {
+      console.error('Error changing password:', err);
+      const errorMsg = err.response?.data?.errors?.[0]?.msg || 'Failed to change password';
+      setPasswordError(errorMsg);
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -98,7 +166,7 @@ const Dashboard = () => {
     }
 
     try {
-      await axios.delete(`http://localhost:5001/api/gigs/${gigToDelete._id}`, {
+      await axios.delete(`/api/gigs/${gigToDelete._id}`, {
         headers: { 'x-auth-token': token }
       });
       
@@ -125,13 +193,13 @@ const Dashboard = () => {
       
       try {
         // Fetch profile data
-        const profileRes = await axios.get('http://localhost:5001/api/profiles/me', {
+        const profileRes = await axios.get('/api/profiles/me', {
           headers: { 'x-auth-token': token }
         });
         setProfile(profileRes.data);
         
         // Fetch user's gigs
-        const gigsRes = await axios.get('http://localhost:5001/api/gigs', {
+        const gigsRes = await axios.get('/api/gigs', {
           headers: { 'x-auth-token': token }
         });
         
@@ -231,6 +299,14 @@ const Dashboard = () => {
                 variant="outlined"
               >
                 View Profile
+              </Button>
+              <Button
+                onClick={handleChangePassword}
+                fullWidth
+                variant="outlined"
+                startIcon={<LockIcon />}
+              >
+                Change Password
               </Button>
               <Button
                 onClick={handleDeleteAccount}
@@ -473,6 +549,111 @@ const Dashboard = () => {
             {isDeleting ? 'Deleting...' : 'DELETE MY ACCOUNT'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={changePasswordOpen} onClose={handleCloseChangePassword} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <LockIcon color="primary" />
+          Change Password
+        </DialogTitle>
+        <form onSubmit={handleSubmitPasswordChange}>
+          <DialogContent>
+            {passwordError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {passwordError}
+              </Alert>
+            )}
+            {passwordSuccess && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {passwordSuccess}
+              </Alert>
+            )}
+            <TextField
+              fullWidth
+              margin="normal"
+              name="currentPassword"
+              label="Current Password"
+              type={showCurrentPassword ? 'text' : 'password'}
+              value={passwordData.currentPassword}
+              onChange={handlePasswordChange}
+              required
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      edge="end"
+                    >
+                      {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              name="newPassword"
+              label="New Password"
+              type={showNewPassword ? 'text' : 'password'}
+              value={passwordData.newPassword}
+              onChange={handlePasswordChange}
+              required
+              helperText="Must contain at least 8 characters with uppercase, lowercase, number, and special character"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      edge="end"
+                    >
+                      {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              name="confirmPassword"
+              label="Confirm New Password"
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={passwordData.confirmPassword}
+              onChange={handlePasswordChange}
+              required
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      edge="end"
+                    >
+                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseChangePassword} color="primary">
+              Cancel
+            </Button>
+            <Button 
+              type="submit"
+              color="primary" 
+              variant="contained"
+              disabled={isChangingPassword || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+            >
+              {isChangingPassword ? 'Changing...' : 'Change Password'}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
 
       {/* Gig Delete Confirmation Dialog */}

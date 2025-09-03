@@ -20,7 +20,7 @@ const Profile = () => {
         
         if (id) {
           // Fetch specific user's profile by ID (public route)
-          const profileRes = await axios.get(`http://localhost:5001/api/profiles/user/${id}`);
+          const profileRes = await axios.get(`/api/profiles/user/${id}`);
           profileData = profileRes.data;
           // Consider both _id and id in user object
           setIsOwnProfile(!!user && (user._id === id || user.id === id));
@@ -31,7 +31,7 @@ const Profile = () => {
             return;
           }
           
-          const profileRes = await axios.get('http://localhost:5001/api/profiles/me', {
+          const profileRes = await axios.get('/api/profiles/me', {
             headers: { 'x-auth-token': token }
           });
           profileData = profileRes.data;
