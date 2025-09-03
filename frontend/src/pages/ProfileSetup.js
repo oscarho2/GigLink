@@ -20,7 +20,6 @@ const ProfileSetup = () => {
     instruments: [],
     genres: [],
     experience: 'Beginner',
-    hourlyRate: 50,
     availability: 'Available'
   });
   const [error, setError] = useState('');
@@ -72,25 +71,41 @@ const ProfileSetup = () => {
     setError('');
 
     try {
-      // Update the user's profile
-      await axios.put('http://localhost:5001/api/profiles/me', {
-        bio: formData.bio,
-        skills: formData.instruments,
-        experience: formData.experience,
-        hourlyRate: parseInt(formData.hourlyRate),
-        availability: formData.availability,
-        location: formData.location,
-        instruments: formData.instruments,
-        genres: formData.genres
-      }, {
-        headers: { 'x-auth-token': token }
-      });
+      // First try to create a new profile
+      try {
+        await axios.post('http://localhost:5001/api/profiles', {
+          bio: formData.bio,
+          skills: formData.instruments,
+          availability: formData.availability,
+          location: formData.location,
+          instruments: formData.instruments,
+          genres: formData.genres
+        }, {
+          headers: { 'x-auth-token': token }
+        });
+      } catch (createError) {
+        // If profile already exists, update it instead
+        if (createError.response?.status === 400 || createError.response?.data?.message?.includes('already exists')) {
+          await axios.put('http://localhost:5001/api/profiles/me', {
+            bio: formData.bio,
+            skills: formData.instruments,
+            availability: formData.availability,
+            location: formData.location,
+            instruments: formData.instruments,
+            genres: formData.genres
+          }, {
+            headers: { 'x-auth-token': token }
+          });
+        } else {
+          throw createError;
+        }
+      }
 
       // Redirect to profile page
       navigate('/profile');
     } catch (err) {
-      console.error('Error updating profile:', err);
-      setError(err.response?.data?.message || 'Failed to update profile. Please try again.');
+      console.error('Error creating/updating profile:', err);
+      setError(err.response?.data?.message || 'Failed to create profile. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -118,7 +133,7 @@ const ProfileSetup = () => {
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
-                placeholder="e.g., New York, NY"
+                placeholder="e.g., London"
                 required
               />
             </Grid>
@@ -193,17 +208,7 @@ const ProfileSetup = () => {
                 )}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Hourly Rate (£)"
-                name="hourlyRate"
-                type="number"
-                value={formData.hourlyRate}
-                onChange={handleChange}
-                inputProps={{ min: 0 }}
-              />
-            </Grid>
+
           </Grid>
         );
       case 2:
@@ -231,8 +236,7 @@ const ProfileSetup = () => {
                 <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Experience:</Typography>
                 <Typography variant="body2" gutterBottom>{formData.experience}</Typography>
                 
-                <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Hourly Rate:</Typography>
-                <Typography variant="body2">£{formData.hourlyRate}</Typography>
+
               </Paper>
             </Grid>
           </Grid>

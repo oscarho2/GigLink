@@ -12,12 +12,13 @@ import Divider from '@mui/material/Divider';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
-import ListItemAvatar from '@mui/material/ListItemAvatar';
+
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
 import AddIcon from '@mui/icons-material/Add';
 import WorkIcon from '@mui/icons-material/Work';
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
+import DeleteIcon from '@mui/icons-material/Delete';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
@@ -26,6 +27,35 @@ const Dashboard = () => {
   const [profile, setProfile] = useState(null);
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const handleDeleteProfile = async () => {
+    console.log('Delete button clicked');
+    console.log('User:', user);
+    console.log('Token:', token);
+    console.log('Is authenticated:', isAuthenticated);
+    
+    if (window.confirm('Are you sure you want to delete your profile? This action cannot be undone.')) {
+      try {
+        console.log('Making delete request to:', 'http://localhost:5001/api/profiles/me');
+        console.log('With headers:', { 'x-auth-token': token });
+        
+        const response = await axios.delete('http://localhost:5001/api/profiles/me', {
+          headers: { 'x-auth-token': token }
+        });
+        
+        console.log('Delete response:', response);
+        alert('Profile deleted successfully. You will be redirected to the home page.');
+        // Redirect to home page after successful deletion
+        window.location.href = '/';
+      } catch (err) {
+        console.error('Error deleting profile:', err);
+        console.error('Error response:', err.response);
+        console.error('Error status:', err.response?.status);
+        console.error('Error data:', err.response?.data);
+        alert(`Failed to delete profile: ${err.response?.data?.msg || err.message}`);
+      }
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,7 +86,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [user]);
+  }, [user, token]);
 
   if (authLoading || loading) {
     return (
@@ -127,19 +157,20 @@ const Dashboard = () => {
             <CardActions sx={{ flexDirection: 'column', gap: 1 }}>
               <Button
                 component={RouterLink}
-                to={`/profile/${user?.id}`}
+                to={`/profile/${user?._id}`}
                 fullWidth
                 variant="outlined"
               >
                 View Profile
               </Button>
               <Button
-                component={RouterLink}
-                to="/edit-profile"
+                onClick={handleDeleteProfile}
                 fullWidth
                 variant="contained"
+                color="error"
+                startIcon={<DeleteIcon />}
               >
-                Edit Profile
+                Delete Profile
               </Button>
             </CardActions>
           </Card>

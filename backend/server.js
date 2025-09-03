@@ -27,16 +27,24 @@ app.get('/', (req, res) => {
   res.send('GigLink API is running');
 });
 
-// // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('MongoDB connected successfully'))
-.catch(err => {
-  console.error('MongoDB connection error:', err);
-  console.log('Continuing without MongoDB connection for demonstration...');
-  // Don't exit the process, continue running for demo purposes
-});
+// Connect to MongoDB
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+    });
+    console.log(`MongoDB connected successfully: ${conn.connection.host}`);
+  } catch (err) {
+    console.error('MongoDB connection error:', err.message);
+    console.log('Continuing without MongoDB connection for demonstration...');
+    // Don't exit the process, continue running for demo purposes
+  }
+};
+
+// Initialize MongoDB connection
+connectDB();
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

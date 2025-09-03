@@ -3,130 +3,39 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
-const mockDB = require('../utils/mockDatabase');
-
-// Mock data for profiles - Oscar Ho and test users
-const mockProfiles = [
-  {
-    _id: '2',
-    user: {
-      _id: '2',
-      name: 'Oscar Ho',
-      avatar: '',
-      location: 'London, UK'
-    },
-    bio: 'Professional musician and event organizer with years of experience in the music industry.',
-    skills: ['Music Production', 'Event Management', 'Piano', 'Guitar'],
-    experience: 'Senior',
-    hourlyRate: 80,
-    availability: 'Part-time',
-    portfolio: [
-      {
-        title: 'Wedding Music Services',
-        description: 'Provided live music for over 50 weddings',
-        technologies: ['Piano', 'Guitar', 'Sound Engineering'],
-        link: 'https://oscarho.co.uk'
-      }
-    ],
-    videos: []
-  },
-  {
-    _id: '7',
-    user: {
-      _id: '7',
-      name: 'Test One',
-      avatar: '',
-      location: 'Brighton, UK'
-    },
-    bio: 'Acoustic guitarist specializing in folk and contemporary music.',
-    skills: ['Guitar', 'Vocals', 'Songwriting'],
-    experience: 'Intermediate',
-    hourlyRate: 50,
-    availability: 'Part-time',
-    portfolio: [],
-    videos: []
-  },
-  {
-    _id: '8',
-    user: {
-      _id: '8',
-      name: 'Test Two',
-      avatar: '',
-      location: 'Edinburgh, UK'
-    },
-    bio: 'Professional pianist with expertise in jazz and classical music.',
-    skills: ['Piano', 'Music Theory', 'Composition'],
-    experience: 'Senior',
-    hourlyRate: 70,
-    availability: 'Full-time',
-    portfolio: [],
-    videos: []
-  },
-  {
-    _id: '9',
-    user: {
-      _id: '9',
-      name: 'Test Three',
-      avatar: '',
-      location: 'Birmingham, UK'
-    },
-    bio: 'Experienced drummer with a passion for indie and rock music.',
-    skills: ['Drums', 'Percussion', 'Music Production'],
-    experience: 'Intermediate',
-    hourlyRate: 60,
-    availability: 'Part-time',
-    portfolio: [],
-    videos: []
-  },
-  {
-    _id: '10',
-    user: {
-      _id: '10',
-      name: 'Test Four',
-      avatar: '',
-      location: 'Liverpool, UK'
-    },
-    bio: 'Classically trained violinist with experience in weddings and events.',
-    skills: ['Violin', 'Classical Music', 'Chamber Music'],
-    experience: 'Senior',
-    hourlyRate: 75,
-    availability: 'Part-time',
-    portfolio: [],
-    videos: []
-  },
-  {
-    _id: '11',
-    user: {
-      _id: '11',
-      name: 'Test Five',
-      avatar: '',
-      location: 'Bristol, UK'
-    },
-    bio: 'Funk and soul bass player with a strong groove and professional experience.',
-    skills: ['Bass Guitar', 'Funk', 'Soul', 'Jazz'],
-    experience: 'Senior',
-    hourlyRate: 65,
-    availability: 'Full-time',
-    portfolio: [],
-    videos: []
-  }
-];
 
 // @route   GET api/profiles/me
 // @desc    Get current user's profile
 // @access  Private
 router.get('/me', auth, async (req, res) => {
   try {
-    console.log('Looking for profile with user ID:', req.user.id);
-    console.log('Available profiles:', mockProfiles.map(p => ({ id: p.user._id, name: p.user.name })));
-    
-    const profile = mockProfiles.find(p => p.user._id === req.user.id || p.user._id === String(req.user.id));
+    const profile = await Profile.findOne({ user: req.user.id }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'experience', 'isAvailableForGigs']);
     
     if (!profile) {
       return res.status(400).json({ msg: 'Profile not found for this user' });
     }
     
-    res.json(profile);
+    // Transform profile to match frontend expectations
+    const transformedProfile = {
+      _id: profile._id,
+      user: {
+        _id: profile.user._id,
+        name: profile.user.name,
+        avatar: profile.user.avatar || '',
+        location: profile.user.location || 'Location not specified',
+        instruments: profile.user.instruments || [],
+        genres: profile.user.genres || []
+      },
+      bio: profile.user.bio || 'No bio available',
+      skills: profile.skills || profile.user.instruments || [],
+      experience: profile.user.experience || 'Not specified',
+      hourlyRate: 60, // Default rate
+      availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
+      portfolio: [],
+      videos: profile.videos || []
+    };
+    
+    res.json(transformedProfile);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -170,72 +79,65 @@ router.post('/', auth, async (req, res) => {
 // @desc    Update current user's profile
 // @access  Private
 router.put('/me', auth, async (req, res) => {
-  console.log('PUT /api/profiles/me called');
-  console.log('Request body:', req.body);
-  console.log('User ID from token:', req.user.id);
   try {
     const userId = req.user.id;
     const { bio, skills, experience, hourlyRate, availability, location, instruments, genres } = req.body;
     
-    // Find the profile in mock data first
-    let profileIndex = mockProfiles.findIndex(profile => profile.user._id === userId);
-    let updatedProfile;
+    // Update user fields if provided
+    const userUpdateFields = {};
+    if (bio) userUpdateFields.bio = bio;
+    if (location) userUpdateFields.location = location;
+    if (instruments) userUpdateFields.instruments = instruments;
+    if (genres) userUpdateFields.genres = genres;
+    if (experience) userUpdateFields.experience = experience;
+    if (availability !== undefined) userUpdateFields.isAvailableForGigs = availability === 'Available';
     
-    if (profileIndex !== -1) {
-      // Update existing profile in mockProfiles
-      updatedProfile = {
-        ...mockProfiles[profileIndex],
-        bio: bio || mockProfiles[profileIndex].bio,
-        skills: skills || mockProfiles[profileIndex].skills,
-        experience: experience || mockProfiles[profileIndex].experience,
-        hourlyRate: hourlyRate || mockProfiles[profileIndex].hourlyRate,
-        availability: availability || mockProfiles[profileIndex].availability
-      };
-      
-      // Update user fields if provided
-      if (location || instruments || genres) {
-        updatedProfile.user = {
-          ...updatedProfile.user,
-          location: location || updatedProfile.user.location,
-          instruments: instruments || updatedProfile.user.instruments,
-          genres: genres || updatedProfile.user.genres
-        };
-      }
-      
-      mockProfiles[profileIndex] = updatedProfile;
-    } else {
-      // Check if profile exists in mockDB (newly registered users)
-      const mockDBProfile = await mockDB.findProfileByUserId(userId);
-      
-      if (mockDBProfile) {
-        // Update existing profile in mockDB
-        updatedProfile = {
-          ...mockDBProfile,
-          bio: bio || mockDBProfile.bio,
-          skills: skills || mockDBProfile.skills,
-          experience: experience || mockDBProfile.experience,
-          hourlyRate: hourlyRate || mockDBProfile.hourlyRate,
-          availability: availability || mockDBProfile.availability
-        };
-        
-        // Update user fields if provided
-        if (location || instruments || genres) {
-          updatedProfile.user = {
-            ...updatedProfile.user,
-            location: location || updatedProfile.user.location,
-            instruments: instruments || updatedProfile.user.instruments,
-            genres: genres || updatedProfile.user.genres
-          };
-        }
-        
-        // Update the profile in mockDB
-        await mockDB.updateProfile(userId, updatedProfile);
-      } else {
-        return res.status(404).json({ message: 'Profile not found' });
-      }
+    // Update user document if there are user fields to update
+    if (Object.keys(userUpdateFields).length > 0) {
+      await User.findByIdAndUpdate(userId, userUpdateFields, { new: true });
     }
     
-    res.json(updatedProfile);
+    // Update profile fields
+    const profileUpdateFields = {};
+    if (skills) profileUpdateFields.skills = skills;
+    
+    // Find and update profile
+    let profile = await Profile.findOne({ user: userId });
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+    
+    if (Object.keys(profileUpdateFields).length > 0) {
+      profile = await Profile.findOneAndUpdate(
+        { user: userId },
+        profileUpdateFields,
+        { new: true }
+      ).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'experience', 'isAvailableForGigs']);
+    } else {
+      profile = await Profile.findOne({ user: userId }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'experience', 'isAvailableForGigs']);
+    }
+    
+    // Transform profile to match frontend expectations
+    const transformedProfile = {
+      _id: profile._id,
+      user: {
+        _id: profile.user._id,
+        name: profile.user.name,
+        avatar: profile.user.avatar || '',
+        location: profile.user.location || 'Location not specified',
+        instruments: profile.user.instruments || [],
+        genres: profile.user.genres || []
+      },
+      bio: profile.user.bio || 'No bio available',
+      skills: profile.skills || profile.user.instruments || [],
+      experience: profile.user.experience || 'Not specified',
+      hourlyRate: hourlyRate || 60,
+      availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
+      portfolio: [],
+      videos: profile.videos || []
+    };
+    
+    res.json(transformedProfile);
   } catch (error) {
     console.error('Error updating profile:', error);
     res.status(500).json({ message: 'Server error' });
@@ -247,54 +149,29 @@ router.put('/me', auth, async (req, res) => {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    let profiles = [];
+    const dbProfiles = await Profile.find().populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'experience', 'isAvailableForGigs']);
     
-    // Try to fetch real profiles from database
-    try {
-      const dbProfiles = await Profile.find().populate('user', ['name', 'avatar', 'location', 'instruments', 'genres']);
-      
-      // Transform database profiles to match frontend expectations
-      const transformedProfiles = dbProfiles.map(profile => ({
-        _id: profile._id,
-        user: {
-          _id: profile.user._id,
-          name: profile.user.name,
-          avatar: profile.user.avatar || '',
-          location: profile.user.location || 'Location not specified',
-          instruments: profile.user.instruments || [],
-          genres: profile.user.genres || []
-        },
-        bio: profile.user.bio || 'No bio available',
-        skills: profile.skills || profile.user.instruments || [],
-        experience: profile.user.experience || 'Not specified',
-        hourlyRate: 60, // Default rate
-        availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
-        portfolio: [],
-        videos: profile.videos || []
-      }));
-      
-      profiles = transformedProfiles;
-    } catch (mongoErr) {
-      console.log('MongoDB not available, using mock data only');
-    }
+    // Transform database profiles to match frontend expectations
+    const transformedProfiles = dbProfiles.map(profile => ({
+      _id: profile._id,
+      user: {
+        _id: profile.user._id,
+        name: profile.user.name,
+        avatar: profile.user.avatar || '',
+        location: profile.user.location || 'Location not specified',
+        instruments: profile.user.instruments || [],
+        genres: profile.user.genres || []
+      },
+      bio: profile.user.bio || 'No bio available',
+      skills: profile.skills || profile.user.instruments || [],
+      experience: profile.user.experience || 'Not specified',
+      hourlyRate: 60, // Default rate
+      availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
+      portfolio: [],
+      videos: profile.videos || []
+    }));
     
-    // Include all mock profiles when MongoDB is not available
-    if (profiles.length === 0) {
-      profiles = [...mockProfiles];
-    } else {
-      // If we have database profiles, also include mock profiles that aren't duplicates
-      const existingUserIds = profiles.map(p => p.user._id);
-      const uniqueMockProfiles = mockProfiles.filter(mp => !existingUserIds.includes(mp.user._id));
-      profiles.push(...uniqueMockProfiles);
-    }
-    
-    // Also include profiles from mock database (newly registered users)
-    const mockDBProfiles = mockDB.getAllProfiles();
-    const allExistingUserIds = profiles.map(p => p.user._id);
-    const uniqueMockDBProfiles = mockDBProfiles.filter(mp => !allExistingUserIds.includes(mp.user._id));
-    profiles.push(...uniqueMockDBProfiles);
-    
-    res.json(profiles);
+    res.json(transformedProfiles);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -306,25 +183,33 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/user/:user_id', async (req, res) => {
   try {
-    let profile = null;
-    
-    // Try MongoDB first
-    try {
-      profile = await Profile.findOne({ user: req.params.user_id }).populate('user', ['name', 'avatar', 'instruments', 'genres']);
-    } catch (mongoErr) {
-      console.log('MongoDB not available, checking mock data');
-    }
-    
-    // If not found in MongoDB, check mock data
-    if (!profile) {
-      profile = mockProfiles.find(p => p.user._id === req.params.user_id || p.user._id === String(req.params.user_id));
-    }
+    const profile = await Profile.findOne({ user: req.params.user_id }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'experience', 'isAvailableForGigs']);
     
     if (!profile) {
       return res.status(400).json({ msg: 'Profile not found' });
     }
     
-    res.json(profile);
+    // Transform profile to match frontend expectations
+    const transformedProfile = {
+      _id: profile._id,
+      user: {
+        _id: profile.user._id,
+        name: profile.user.name,
+        avatar: profile.user.avatar || '',
+        location: profile.user.location || 'Location not specified',
+        instruments: profile.user.instruments || [],
+        genres: profile.user.genres || []
+      },
+      bio: profile.user.bio || 'No bio available',
+      skills: profile.skills || profile.user.instruments || [],
+      experience: profile.user.experience || 'Not specified',
+      hourlyRate: 60, // Default rate
+      availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
+      portfolio: [],
+      videos: profile.videos || []
+    };
+    
+    res.json(transformedProfile);
   } catch (err) {
     console.error(err.message);
     if (err.kind == 'ObjectId') {
@@ -352,6 +237,36 @@ router.post('/videos', auth, async (req, res) => {
     res.json(profile);
   } catch (err) {
     console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   DELETE api/profiles/me
+// @desc    Delete current user's profile
+// @access  Private
+router.delete('/me', auth, async (req, res) => {
+  try {
+    console.log('DELETE /me route hit');
+    console.log('req.user:', req.user);
+    console.log('req.user.id:', req.user?.id);
+    
+    if (!req.user || !req.user.id) {
+      return res.status(400).json({ msg: 'User ID not found in token' });
+    }
+    
+    // Find and delete the profile
+    const profile = await Profile.findOneAndDelete({ user: req.user.id });
+    
+    console.log('Profile found and deleted:', profile);
+    
+    if (!profile) {
+      return res.status(400).json({ msg: 'Profile not found' });
+    }
+    
+    res.json({ msg: 'Profile deleted successfully' });
+  } catch (err) {
+    console.error('Delete profile error:', err.message);
+    console.error('Full error:', err);
     res.status(500).send('Server Error');
   }
 });
