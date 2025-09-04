@@ -10,15 +10,13 @@ import MenuIcon from '@mui/icons-material/Menu';
 import Container from '@mui/material/Container';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
+import Avatar from '@mui/material/Avatar';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import AuthContext from '../../context/AuthContext';
-import LinksManagement from '../LinksManagement';
-import NotificationBadge from '../NotificationBadge';
 
 const Navbar = () => {
-  const { isAuthenticated, logout } = useContext(AuthContext);
+  const { isAuthenticated, user } = useContext(AuthContext);
   const [anchorElNav, setAnchorElNav] = useState(null);
-  const [showLinksManagement, setShowLinksManagement] = useState(false);
 
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
@@ -50,59 +48,31 @@ const Navbar = () => {
       >
         Login
       </Button>
+      <Button
+        component={RouterLink}
+        to="/register"
+        sx={{ 
+          my: 2, 
+          color: 'white', 
+          display: 'block', 
+          mx: 1,
+          bgcolor: '#2c5282',
+          '&:hover': {
+            bgcolor: '#3182ce'
+          }
+        }}
+      >
+        Sign Up
+      </Button>
     </>
   );
 
   const authLinks = (
-    <>
-      <Button
-        component={RouterLink}
-        to="/dashboard"
-        sx={{ 
-          my: 2, 
-          color: 'white', 
-          display: 'block', 
-          mx: 1,
-          bgcolor: '#1a365d',
-          '&:hover': {
-            bgcolor: '#2c5282'
-          }
-        }}
-      >
-        Dashboard
-      </Button>
-      <Button
-        component={RouterLink}
-        to="/messages"
-        sx={{ 
-          my: 2, 
-          color: 'white', 
-          display: 'block', 
-          mx: 1,
-          bgcolor: '#1a365d',
-          '&:hover': {
-            bgcolor: '#2c5282'
-          }
-        }}
-      >
-        Messages
-      </Button>
-      <Button
-        onClick={() => setShowLinksManagement(true)}
-        sx={{ 
-          my: 2, 
-          color: 'white', 
-          display: 'block', 
-          mx: 1,
-          bgcolor: '#1a365d',
-          '&:hover': {
-            bgcolor: '#2c5282'
-          }
-        }}
-      >
-        Links
-      </Button>
-    </>
+    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <Button color="inherit" component={RouterLink} to="/dashboard">Dashboard</Button>
+      <Button color="inherit" component={RouterLink} to="/messages">Messages</Button>
+      <Button color="inherit" component={RouterLink} to="/links">Links</Button>
+    </Box>
   );
 
   return (
@@ -195,31 +165,39 @@ const Navbar = () => {
                 }
               }}
             >
+              {/* Public Pages */}
               <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/gigs">
-                <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🎵 Gigs</Typography>
+                <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🎵 Browse Gigs</Typography>
               </MenuItem>
               <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/discover">
-                <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🔍 Discover</Typography>
+                <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🔍 Discover Musicians</Typography>
               </MenuItem>
+              
+              {/* User-specific sections */}
               {isAuthenticated && (
                 <>
                   <Box sx={{ borderTop: '1px solid rgba(0,0,0,0.08)', my: 1, mx: 2 }} />
+                  <Typography sx={{ px: 3, py: 1, fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>My Account</Typography>
                   <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/dashboard">
                     <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>📊 Dashboard</Typography>
                   </MenuItem>
                   <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/messages">
                     <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>💬 Messages</Typography>
                   </MenuItem>
-                  <MenuItem onClick={() => { handleMenuItemClick(); setShowLinksManagement(true); }}>
-                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🔗 Links</Typography>
+                  <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/links">
+                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>👥 Links</Typography>
                   </MenuItem>
                 </>
               )}
               {!isAuthenticated && (
                 <>
                   <Box sx={{ borderTop: '1px solid rgba(0,0,0,0.08)', my: 1, mx: 2 }} />
+                  <Typography sx={{ px: 3, py: 1, fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Get Started</Typography>
                   <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/login">
                     <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d', fontWeight: 600 }}>🔐 Login</Typography>
+                  </MenuItem>
+                  <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/register">
+                    <Typography textAlign="left" sx={{ width: '100%', color: '#2c5282', fontWeight: 600 }}>✨ Sign Up</Typography>
                   </MenuItem>
                 </>
               )}
@@ -259,25 +237,43 @@ const Navbar = () => {
             GigLink
           </Typography>
           
-          <Box sx={{ flexGrow: 1 }} />
-
-          {/* Navigation Links - Right Side */}
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, mr: 2 }}>
+          {isAuthenticated && user && (
+            <Avatar
+              src={user.avatar}
+              alt={user.name}
+              sx={{
+                width: 32,
+                height: 32,
+                ml: 1,
+                display: { xs: 'flex', md: 'none' },
+                border: '2px solid rgba(255, 255, 255, 0.2)'
+              }}
+            >
+              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            </Avatar>
+          )}
+          
+          {/* Center Navigation - Public Pages */}
+          <Box sx={{ 
+            flexGrow: 1, 
+            display: { xs: 'none', md: 'flex' }, 
+            justifyContent: 'center',
+            gap: 2
+          }}>
             <Button
               component={RouterLink}
               to="/gigs"
               sx={{ 
                 my: 2, 
                 color: 'white', 
-                display: 'block', 
-                mr: 1,
-                bgcolor: '#1a365d',
+                display: 'block',
+                bgcolor: 'transparent',
                 '&:hover': {
-                  bgcolor: '#2c5282'
+                  bgcolor: 'rgba(255, 255, 255, 0.1)'
                 }
               }}
             >
-              Gigs
+              Browse Gigs
             </Button>
             <Button
               component={RouterLink}
@@ -286,34 +282,44 @@ const Navbar = () => {
                 my: 2, 
                 color: 'white', 
                 display: 'block',
-                bgcolor: '#1a365d',
+                bgcolor: 'transparent',
                 '&:hover': {
-                  bgcolor: '#2c5282'
+                  bgcolor: 'rgba(255, 255, 255, 0.1)'
                 }
               }}
             >
-              Discover
+              Discover Musicians
             </Button>
           </Box>
 
+          {/* Right Side - User Actions */}
           <Box sx={{ 
             flexGrow: 0, 
             display: { xs: 'none', md: 'flex' },
             alignItems: 'center',
             gap: 1
           }}>
-            {isAuthenticated && <NotificationBadge />}
             {isAuthenticated ? authLinks : guestLinks}
+            {isAuthenticated && user && (
+              <Avatar
+                src={user.avatar}
+                alt={user.name}
+                sx={{
+                  width: 40,
+                  height: 40,
+                  ml: 2,
+                  display: { xs: 'none', md: 'flex' },
+                  border: '2px solid rgba(255, 255, 255, 0.2)'
+                }}
+              >
+                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </Avatar>
+            )}
           </Box>
         </Toolbar>
       </Container>
     </AppBar>
     
-    {/* Links Management Dialog */}
-    <LinksManagement
-      open={showLinksManagement}
-      onClose={() => setShowLinksManagement(false)}
-    />
     </>
   );
 };

@@ -69,7 +69,7 @@ const Dashboard = () => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   
   // Links state
-  const [friends, setFriends] = useState([]);
+  const [links, setLinks] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [linksLoading, setLinksLoading] = useState(true);
@@ -161,18 +161,18 @@ const Dashboard = () => {
   const fetchLinksData = async () => {
     try {
       setLinksLoading(true);
-      const [friendsRes, pendingRes, sentRes] = await Promise.all([
-        axios.get('/api/links/friends', { headers: { 'x-auth-token': token } }),
+      const [linksRes, pendingRes, sentRes] = await Promise.all([
+        axios.get('/api/links/links', { headers: { 'x-auth-token': token } }),
         axios.get('/api/links/requests/pending', { headers: { 'x-auth-token': token } }),
         axios.get('/api/links/requests/sent', { headers: { 'x-auth-token': token } })
       ]);
       
       // Transform backend response to match frontend expectations
-      const transformedFriends = (friendsRes.data.friends || []).map(item => ({
-        _id: item.friend.id,
-        name: item.friend.name,
-        email: item.friend.email,
-        avatar: item.friend.avatar,
+      const transformedLinks = (linksRes.data.links || []).map(item => ({
+        _id: item.link.id,
+        name: item.link.name,
+        email: item.link.email,
+        avatar: item.link.avatar,
         linkId: item.linkId
       }));
       
@@ -186,7 +186,7 @@ const Dashboard = () => {
         recipient: item.recipient
       }));
       
-      setFriends(transformedFriends);
+      setLinks(transformedLinks);
       setPendingRequests(transformedPending);
       setSentRequests(transformedSent);
     } catch (err) {
@@ -643,7 +643,7 @@ const Dashboard = () => {
                 </Typography>
               ) : (
                 <>
-                  {/* Pending Friend Requests */}
+                  {/* Pending Link Requests */}
                   {pendingRequests.length > 0 && (
                     <Box sx={{ mb: 3 }}>
                       <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -693,17 +693,17 @@ const Dashboard = () => {
                     </Box>
                   )}
                   
-                  {/* Current Friends */}
-                  {friends.length > 0 && (
+                  {/* Current Links */}
+                  {links.length > 0 && (
                     <Box sx={{ mb: 2 }}>
                       <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <PeopleIcon fontSize="small" />
-                        Friends ({friends.length})
+                        Links ({links.length})
                       </Typography>
                       <List>
-                        {friends.map(friend => (
+                        {links.map(link => (
                           <ListItem
-                            key={friend._id}
+                            key={link._id}
                             sx={{
                               border: '1px solid',
                               borderColor: 'divider',
@@ -713,16 +713,16 @@ const Dashboard = () => {
                             }}
                           >
                             <Avatar
-                              src={friend.avatar}
-                              alt={friend.name}
+                              src={link.avatar}
+                              alt={link.name}
                               sx={{ mr: 2 }}
                             />
                             <ListItemText
-                              primary={friend.name}
-                              secondary={friend.email}
+                              primary={link.name}
+                              secondary={link.email}
                             />
                             <IconButton
-                              onClick={() => handleRemoveLink(friend.linkId)}
+                              onClick={() => handleRemoveLink(link.linkId)}
                               color="error"
                               size="small"
                             >
@@ -776,7 +776,7 @@ const Dashboard = () => {
                   )}
                   
                   {/* No Links Message */}
-                  {friends.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && (
+                  {links.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && (
                     <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
                       No links yet. Start connecting with other musicians!
                     </Typography>

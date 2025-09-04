@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
+  Container,
+  Typography,
   Tabs,
   Tab,
   Box,
@@ -16,12 +13,13 @@ import {
   Avatar,
   IconButton,
   TextField,
-  Typography,
   Chip,
   InputAdornment,
   Divider,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Paper,
+  Button
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -44,7 +42,7 @@ function TabPanel({ children, value, index, ...other }) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: 3 }}>
           {children}
         </Box>
       )}
@@ -52,40 +50,39 @@ function TabPanel({ children, value, index, ...other }) {
   );
 }
 
-const LinksManagement = ({ open, onClose }) => {
+const LinksPage = () => {
   const { user } = useAuth();
   const [tabValue, setTabValue] = useState(0);
-  const [friends, setFriends] = useState([]);
+  const [links, setLinks] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [locationQuery, setLocationQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    if (open) {
-      loadFriends();
-      loadPendingRequests();
-      loadSentRequests();
-    }
-  }, [open]);
+    loadLinks();
+    loadPendingRequests();
+    loadSentRequests();
+  }, []);
 
-  const loadFriends = async () => {
+  const loadLinks = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/links/friends', {
+      const response = await fetch('/api/links/links', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       const data = await response.json();
       if (response.ok) {
-        setFriends(data.friends);
+        setLinks(data.links);
       }
     } catch (error) {
-      console.error('Error loading friends:', error);
+      console.error('Error loading links:', error);
     }
   };
 
@@ -123,7 +120,7 @@ const LinksManagement = ({ open, onClose }) => {
     }
   };
 
-  const searchUsers = async (query) => {
+  const searchUsers = async (query, location = '') => {
     if (!query || query.trim().length < 2) {
       setSearchResults([]);
       return;
@@ -132,7 +129,11 @@ const LinksManagement = ({ open, onClose }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/links/search?query=${encodeURIComponent(query)}`, {
+      let searchUrl = `/api/links/search?query=${encodeURIComponent(query)}`;
+      if (location && location.trim()) {
+        searchUrl += `&location=${encodeURIComponent(location.trim())}`;
+      }
+      const response = await fetch(searchUrl, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -164,8 +165,7 @@ const LinksManagement = ({ open, onClose }) => {
       const data = await response.json();
       
       if (response.ok) {
-        setSuccess('Friend request sent successfully');
-        // Update search results to reflect new status
+        setSuccess('Link request sent successfully');
         setSearchResults(prev => prev.map(user => 
           user.id === userId 
             ? { ...user, relationshipStatus: 'pending' }
@@ -176,7 +176,7 @@ const LinksManagement = ({ open, onClose }) => {
         setError(data.message);
       }
     } catch (error) {
-      setError('Error sending friend request');
+      setError('Error sending link request');
     }
   };
 
@@ -192,18 +192,18 @@ const LinksManagement = ({ open, onClose }) => {
       const data = await response.json();
       
       if (response.ok) {
-        setSuccess('Friend request accepted');
-        loadFriends();
+        setSuccess('Link request accepted');
+        loadLinks();
         loadPendingRequests();
       } else {
         setError(data.message);
       }
     } catch (error) {
-      setError('Error accepting friend request');
+      setError('Error accepting link request');
     }
   };
 
-  const declineFriendRequest = async (linkId) => {
+  const declineLinkRequest = async (linkId) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/links/decline/${linkId}`, {
@@ -215,17 +215,17 @@ const LinksManagement = ({ open, onClose }) => {
       const data = await response.json();
       
       if (response.ok) {
-        setSuccess('Friend request declined');
+        setSuccess('Link request declined');
         loadPendingRequests();
       } else {
         setError(data.message);
       }
     } catch (error) {
-      setError('Error declining friend request');
+      setError('Error declining link request');
     }
   };
 
-  const removeFriend = async (linkId) => {
+  const removeLink = async (linkId) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/links/${linkId}`, {
@@ -237,13 +237,13 @@ const LinksManagement = ({ open, onClose }) => {
       const data = await response.json();
       
       if (response.ok) {
-        setSuccess('Friend removed successfully');
-        loadFriends();
+        setSuccess('Link removed successfully');
+        loadLinks();
       } else {
         setError(data.message);
       }
     } catch (error) {
-      setError('Error removing friend');
+      setError('Error removing link');
     }
   };
 
@@ -259,7 +259,7 @@ const LinksManagement = ({ open, onClose }) => {
       const data = await response.json();
       
       if (response.ok) {
-        setSuccess('Friend request cancelled');
+        setSuccess('Link request cancelled');
         loadSentRequests();
       } else {
         setError(data.message);
@@ -278,14 +278,22 @@ const LinksManagement = ({ open, onClose }) => {
   const handleSearchChange = (event) => {
     const query = event.target.value;
     setSearchQuery(query);
-    searchUsers(query);
+    searchUsers(query, locationQuery);
+  };
+
+  const handleLocationChange = (event) => {
+    const location = event.target.value;
+    setLocationQuery(location);
+    if (searchQuery && searchQuery.trim().length >= 2) {
+      searchUsers(searchQuery, location);
+    }
   };
 
   const getStatusChip = (status) => {
     const statusConfig = {
-      none: { label: 'Add Friend', color: 'primary', icon: <PersonAddIcon /> },
+      none: { label: 'Add Link', color: 'primary', icon: <PersonAddIcon /> },
       pending: { label: 'Request Sent', color: 'warning', icon: null },
-      accepted: { label: 'Friends', color: 'success', icon: <PeopleIcon /> },
+      accepted: { label: 'Links', color: 'success', icon: <PeopleIcon /> },
       declined: { label: 'Declined', color: 'error', icon: null },
       blocked: { label: 'Blocked', color: 'error', icon: <BlockIcon /> }
     };
@@ -303,14 +311,12 @@ const LinksManagement = ({ open, onClose }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Typography variant="h6" component="div">
-          Links Management
-        </Typography>
-      </DialogTitle>
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Links Management
+      </Typography>
       
-      <DialogContent>
+      <Paper elevation={2} sx={{ p: 2 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
             {error}
@@ -323,37 +329,37 @@ const LinksManagement = ({ open, onClose }) => {
         )}
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={tabValue} onChange={handleTabChange}>
-            <Tab label={`Friends (${friends.length})`} />
+          <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth">
+            <Tab label={`Links (${links.length})`} />
             <Tab label={`Requests (${pendingRequests.length})`} />
             <Tab label={`Sent (${sentRequests.length})`} />
-            <Tab label="Find Friends" />
+            <Tab label="Find Links" />
           </Tabs>
         </Box>
 
-        {/* Friends Tab */}
+        {/* Links Tab */}
         <TabPanel value={tabValue} index={0}>
-          {friends.length === 0 ? (
+          {links.length === 0 ? (
             <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
-              No friends yet. Use the "Find Friends" tab to connect with other musicians!
+              No links yet. Use the "Find Links" tab to connect with other musicians!
             </Typography>
           ) : (
             <List>
-              {friends.map((friendData) => (
-                <ListItem key={friendData.linkId}>
+              {links.map((linkData) => (
+                <ListItem key={linkData.linkId}>
                   <ListItemAvatar>
-                    <Avatar src={friendData.friend.avatar}>
-                      {friendData.friend.name.charAt(0).toUpperCase()}
+                    <Avatar src={linkData.link.avatar}>
+                      {linkData.link.name.charAt(0).toUpperCase()}
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary={friendData.friend.name}
-                    secondary={`Connected ${new Date(friendData.connectedAt).toLocaleDateString()}`}
+                    primary={linkData.link.name}
+                    secondary={`Connected ${new Date(linkData.connectedAt).toLocaleDateString()}`}
                   />
                   <ListItemSecondaryAction>
                     <IconButton
                       edge="end"
-                      onClick={() => removeFriend(friendData.linkId)}
+                      onClick={() => removeLink(linkData.linkId)}
                       color="error"
                     >
                       <DeleteIcon />
@@ -369,7 +375,7 @@ const LinksManagement = ({ open, onClose }) => {
         <TabPanel value={tabValue} index={1}>
           {pendingRequests.length === 0 ? (
             <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
-              No pending friend requests
+              No pending link requests
             </Typography>
           ) : (
             <List>
@@ -404,7 +410,7 @@ const LinksManagement = ({ open, onClose }) => {
                       <CheckIcon />
                     </IconButton>
                     <IconButton
-                      onClick={() => declineFriendRequest(request.linkId)}
+                      onClick={() => declineLinkRequest(request.linkId)}
                       color="error"
                     >
                       <CloseIcon />
@@ -420,7 +426,7 @@ const LinksManagement = ({ open, onClose }) => {
         <TabPanel value={tabValue} index={2}>
           {sentRequests.length === 0 ? (
             <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
-              No sent friend requests
+              No sent link requests
             </Typography>
           ) : (
             <List>
@@ -461,7 +467,7 @@ const LinksManagement = ({ open, onClose }) => {
           )}
         </TabPanel>
 
-        {/* Find Friends Tab */}
+        {/* Find Links Tab */}
         <TabPanel value={tabValue} index={3}>
           <TextField
             fullWidth
@@ -482,6 +488,13 @@ const LinksManagement = ({ open, onClose }) => {
             }}
             sx={{ mb: 2 }}
           />
+          <TextField
+            fullWidth
+            placeholder="Filter by location (optional)..."
+            value={locationQuery}
+            onChange={handleLocationChange}
+            sx={{ mb: 2 }}
+          />
           
           {searchResults.length === 0 && searchQuery.length >= 2 && !loading ? (
             <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
@@ -498,7 +511,18 @@ const LinksManagement = ({ open, onClose }) => {
                   </ListItemAvatar>
                   <ListItemText
                     primary={user.name}
-                    secondary={user.email}
+                    secondary={
+                      <>
+                        <Typography variant="body2" color="text.secondary">
+                          {user.email}
+                        </Typography>
+                        {user.location && (
+                          <Typography variant="caption" color="text.secondary">
+                            📍 {user.location}
+                          </Typography>
+                        )}
+                      </>
+                    }
                   />
                   <ListItemSecondaryAction>
                     {user.relationshipStatus === 'none' ? (
@@ -508,7 +532,7 @@ const LinksManagement = ({ open, onClose }) => {
                         size="small"
                         startIcon={<PersonAddIcon />}
                       >
-                        Add Friend
+                        Add Link
                       </Button>
                     ) : (
                       getStatusChip(user.relationshipStatus)
@@ -519,13 +543,9 @@ const LinksManagement = ({ open, onClose }) => {
             </List>
           )}
         </TabPanel>
-      </DialogContent>
-      
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
-      </DialogActions>
-    </Dialog>
+      </Paper>
+    </Container>
   );
 };
 
-export default LinksManagement;
+export default LinksPage;

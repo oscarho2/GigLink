@@ -15,6 +15,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
+import LinksPage from './pages/Links';
+import PrivateRoute from './components/PrivateRoute';
 import EditProfile from './pages/EditProfile';
 import ProfileSetup from './pages/ProfileSetup';
 import Discover from './pages/Discover';
@@ -81,16 +83,17 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/profile/:id" element={<Profile />} />
-                <Route path="/edit-profile" element={<EditProfile />} />
-                <Route path="/profile-setup" element={<ProfileSetup />} />
+                <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+                <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />
+                <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
+                <Route path="/profile-setup" element={<PrivateRoute><ProfileSetup /></PrivateRoute>} />
                 <Route path="/discover" element={<Discover />} />
                 <Route path="/gigs" element={<Gigs />} />
                 <Route path="/gigs/:id" element={<GigDetail />} />
-                <Route path="/gigs/:id/edit" element={<EditGig />} />
-                <Route path="/create-gig" element={<CreateGig />} />
-                <Route path="/messages" element={<Messages />} />
+                <Route path="/gigs/:id/edit" element={<PrivateRoute><EditGig /></PrivateRoute>} />
+                <Route path="/create-gig" element={<PrivateRoute><CreateGig /></PrivateRoute>} />
+                <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
+                <Route path="/links" element={<PrivateRoute><LinksPage /></PrivateRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Box>
