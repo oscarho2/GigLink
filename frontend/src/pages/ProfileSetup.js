@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Typography, Box, Paper, TextField, Button, Grid, Autocomplete, Alert, Stepper, Step, StepLabel } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -22,8 +22,23 @@ const ProfileSetup = () => {
     experience: 'Beginner',
     availability: 'Available'
   });
+  
+  // Pre-fill form data with user information from registration
+  useEffect(() => {
+    if (user) {
+      setFormData(prevData => ({
+        ...prevData,
+        location: user.location || '',
+        bio: user.bio || `Hi, I'm ${user.name}! I'm excited to connect with fellow musicians and explore new opportunities in the music world.`,
+        instruments: user.instruments || [],
+        genres: user.genres || [],
+        experience: user.experience || 'Beginner'
+      }));
+    }
+  }, [user]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [setupComplete, setSetupComplete] = useState(false);
 
   const steps = ['Basic Info', 'Skills & Experience', 'Complete Setup'];
 
@@ -101,8 +116,13 @@ const ProfileSetup = () => {
         }
       }
 
-      // Redirect to profile page
-      navigate('/profile');
+      // Show setup complete message
+      setSetupComplete(true);
+      
+      // Redirect to dashboard after 2 seconds
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000);
     } catch (err) {
       console.error('Error creating/updating profile:', err);
       setError(err.response?.data?.message || 'Failed to create profile. Please try again.');
@@ -212,6 +232,23 @@ const ProfileSetup = () => {
           </Grid>
         );
       case 2:
+        if (setupComplete) {
+          return (
+            <Grid container spacing={3}>
+              <Grid item xs={12} sx={{ textAlign: 'center', py: 4 }}>
+                <Typography variant="h4" gutterBottom color="primary">
+                  🎉 Setup Complete!
+                </Typography>
+                <Typography variant="h6" gutterBottom>
+                  Welcome to GigLink, {user?.name}!
+                </Typography>
+                <Typography variant="body1" color="textSecondary">
+                  Your profile has been created successfully. Redirecting you to your dashboard...
+                </Typography>
+              </Grid>
+            </Grid>
+          );
+        }
         return (
           <Grid container spacing={3}>
             <Grid item xs={12}>
@@ -292,9 +329,9 @@ const ProfileSetup = () => {
                 <Button
                   type="submit"
                   variant="contained"
-                  disabled={loading}
+                  disabled={loading || setupComplete}
                 >
-                  {loading ? 'Creating Profile...' : 'Complete Setup'}
+                  {setupComplete ? 'Redirecting...' : loading ? 'Creating Profile...' : 'Complete Setup'}
                 </Button>
               ) : (
                 <Button

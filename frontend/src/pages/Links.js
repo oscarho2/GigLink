@@ -12,23 +12,15 @@ import {
   ListItemSecondaryAction,
   Avatar,
   IconButton,
-  TextField,
-  Chip,
-  InputAdornment,
   Divider,
   Alert,
-  CircularProgress,
   Paper,
   Button
 } from '@mui/material';
 import {
-  Search as SearchIcon,
-  PersonAdd as PersonAddIcon,
   Check as CheckIcon,
   Close as CloseIcon,
-  Block as BlockIcon,
-  Delete as DeleteIcon,
-  People as PeopleIcon
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 
@@ -56,10 +48,7 @@ const LinksPage = () => {
   const [links, setLinks] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [locationQuery, setLocationQuery] = useState('');
-  const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -74,7 +63,7 @@ const LinksPage = () => {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/links/links', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'x-auth-token': token
         }
       });
       const data = await response.json();
@@ -91,7 +80,7 @@ const LinksPage = () => {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/links/requests/pending', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'x-auth-token': token
         }
       });
       const data = await response.json();
@@ -108,7 +97,7 @@ const LinksPage = () => {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/links/requests/sent', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'x-auth-token': token
         }
       });
       const data = await response.json();
@@ -120,65 +109,9 @@ const LinksPage = () => {
     }
   };
 
-  const searchUsers = async (query, location = '') => {
-    if (!query || query.trim().length < 2) {
-      setSearchResults([]);
-      return;
-    }
 
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      let searchUrl = `/api/links/search?query=${encodeURIComponent(query)}`;
-      if (location && location.trim()) {
-        searchUrl += `&location=${encodeURIComponent(location.trim())}`;
-      }
-      const response = await fetch(searchUrl, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setSearchResults(data.users);
-      } else {
-        setError(data.message);
-      }
-    } catch (error) {
-      setError('Error searching users');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const sendFriendRequest = async (userId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/links/request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ recipientId: userId })
-      });
-      const data = await response.json();
-      
-      if (response.ok) {
-        setSuccess('Link request sent successfully');
-        setSearchResults(prev => prev.map(user => 
-          user.id === userId 
-            ? { ...user, relationshipStatus: 'pending' }
-            : user
-        ));
-        loadSentRequests();
-      } else {
-        setError(data.message);
-      }
-    } catch (error) {
-      setError('Error sending link request');
-    }
-  };
+
 
   const acceptFriendRequest = async (linkId) => {
     try {
@@ -186,7 +119,7 @@ const LinksPage = () => {
       const response = await fetch(`/api/links/accept/${linkId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'x-auth-token': token
         }
       });
       const data = await response.json();
@@ -209,7 +142,7 @@ const LinksPage = () => {
       const response = await fetch(`/api/links/decline/${linkId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'x-auth-token': token
         }
       });
       const data = await response.json();
@@ -231,7 +164,7 @@ const LinksPage = () => {
       const response = await fetch(`/api/links/${linkId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'x-auth-token': token
         }
       });
       const data = await response.json();
@@ -253,7 +186,7 @@ const LinksPage = () => {
       const response = await fetch(`/api/links/${linkId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'x-auth-token': token
         }
       });
       const data = await response.json();
@@ -275,40 +208,9 @@ const LinksPage = () => {
     setSuccess('');
   };
 
-  const handleSearchChange = (event) => {
-    const query = event.target.value;
-    setSearchQuery(query);
-    searchUsers(query, locationQuery);
-  };
 
-  const handleLocationChange = (event) => {
-    const location = event.target.value;
-    setLocationQuery(location);
-    if (searchQuery && searchQuery.trim().length >= 2) {
-      searchUsers(searchQuery, location);
-    }
-  };
 
-  const getStatusChip = (status) => {
-    const statusConfig = {
-      none: { label: 'Add Link', color: 'primary', icon: <PersonAddIcon /> },
-      pending: { label: 'Request Sent', color: 'warning', icon: null },
-      accepted: { label: 'Links', color: 'success', icon: <PeopleIcon /> },
-      declined: { label: 'Declined', color: 'error', icon: null },
-      blocked: { label: 'Blocked', color: 'error', icon: <BlockIcon /> }
-    };
 
-    const config = statusConfig[status] || statusConfig.none;
-    return (
-      <Chip
-        label={config.label}
-        color={config.color}
-        size="small"
-        icon={config.icon}
-        variant={status === 'none' ? 'outlined' : 'filled'}
-      />
-    );
-  };
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
@@ -333,7 +235,6 @@ const LinksPage = () => {
             <Tab label={`Links (${links.length})`} />
             <Tab label={`Requests (${pendingRequests.length})`} />
             <Tab label={`Sent (${sentRequests.length})`} />
-            <Tab label="Find Links" />
           </Tabs>
         </Box>
 
@@ -341,7 +242,7 @@ const LinksPage = () => {
         <TabPanel value={tabValue} index={0}>
           {links.length === 0 ? (
             <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
-              No links yet. Use the "Find Links" tab to connect with other musicians!
+              No links yet. Connect with other musicians to build your network!
             </Typography>
           ) : (
             <List>
@@ -467,82 +368,7 @@ const LinksPage = () => {
           )}
         </TabPanel>
 
-        {/* Find Links Tab */}
-        <TabPanel value={tabValue} index={3}>
-          <TextField
-            fullWidth
-            placeholder="Search by name or email..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-              endAdornment: loading && (
-                <InputAdornment position="end">
-                  <CircularProgress size={20} />
-                </InputAdornment>
-              )
-            }}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            placeholder="Filter by location (optional)..."
-            value={locationQuery}
-            onChange={handleLocationChange}
-            sx={{ mb: 2 }}
-          />
-          
-          {searchResults.length === 0 && searchQuery.length >= 2 && !loading ? (
-            <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
-              No users found matching "{searchQuery}"
-            </Typography>
-          ) : (
-            <List>
-              {searchResults.map((user) => (
-                <ListItem key={user.id}>
-                  <ListItemAvatar>
-                    <Avatar src={user.avatar}>
-                      {user.name.charAt(0).toUpperCase()}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={user.name}
-                    secondary={
-                      <>
-                        <Typography variant="body2" color="text.secondary">
-                          {user.email}
-                        </Typography>
-                        {user.location && (
-                          <Typography variant="caption" color="text.secondary">
-                            📍 {user.location}
-                          </Typography>
-                        )}
-                      </>
-                    }
-                  />
-                  <ListItemSecondaryAction>
-                    {user.relationshipStatus === 'none' ? (
-                      <Button
-                        onClick={() => sendFriendRequest(user.id)}
-                        variant="outlined"
-                        size="small"
-                        startIcon={<PersonAddIcon />}
-                      >
-                        Add Link
-                      </Button>
-                    ) : (
-                      getStatusChip(user.relationshipStatus)
-                    )}
-                  </ListItemSecondaryAction>
-                </ListItem>
-              ))}
-            </List>
-          )}
-        </TabPanel>
+
       </Paper>
     </Container>
   );
