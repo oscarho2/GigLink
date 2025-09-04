@@ -37,6 +37,8 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import SearchIcon from '@mui/icons-material/Search';
 import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
@@ -46,13 +48,11 @@ const Dashboard = () => {
   const [profile, setProfile] = useState(null);
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [deleteDialogStep, setDeleteDialogStep] = useState(0); // 0: closed, 1: first warning, 2: second warning, 3: final confirmation
-  const [confirmationText, setConfirmationText] = useState('');
+  const [deleteDialogStep, setDeleteDialogStep] = useState(0); // 0: closed, 1: first warning, 2: final confirmation
   const [isDeleting, setIsDeleting] = useState(false);
   const [gigToDelete, setGigToDelete] = useState(null);
   const [gigDeleteDialogOpen, setGigDeleteDialogOpen] = useState(false);
-  const [gigDeleteConfirmation, setGigDeleteConfirmation] = useState('');
-  const [gigDeleteError, setGigDeleteError] = useState('');
+
   
   // Change password state
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -80,7 +80,6 @@ const Dashboard = () => {
 
   const handleCloseDeleteDialog = () => {
     setDeleteDialogStep(0);
-    setConfirmationText('');
     setIsDeleting(false);
   };
 
@@ -89,10 +88,6 @@ const Dashboard = () => {
   };
 
   const handleFinalDelete = async () => {
-    if (confirmationText !== 'DELETE MY ACCOUNT') {
-      return;
-    }
-
     setIsDeleting(true);
     try {
       const response = await axios.delete('/api/profiles/me', {
@@ -232,23 +227,14 @@ const Dashboard = () => {
   const handleGigDeleteClick = (gig) => {
     setGigToDelete(gig);
     setGigDeleteDialogOpen(true);
-    setGigDeleteConfirmation('');
-    setGigDeleteError('');
   };
 
   const handleCloseGigDeleteDialog = () => {
     setGigDeleteDialogOpen(false);
     setGigToDelete(null);
-    setGigDeleteConfirmation('');
-    setGigDeleteError('');
   };
 
   const handleConfirmGigDelete = async () => {
-    if (gigDeleteConfirmation !== gigToDelete?.title) {
-      setGigDeleteError('Please type the gig title exactly as shown.');
-      return;
-    }
-
     try {
       await axios.delete(`/api/gigs/${gigToDelete._id}`, {
         headers: { 'x-auth-token': token }
@@ -259,7 +245,7 @@ const Dashboard = () => {
       handleCloseGigDeleteDialog();
     } catch (err) {
       console.error('Error deleting gig:', err);
-      setGigDeleteError(err.response?.data?.msg || 'Failed to delete gig');
+      alert(`Failed to delete gig: ${err.response?.data?.msg || err.message}`);
     }
   };
 
@@ -334,50 +320,144 @@ const Dashboard = () => {
         {/* Left Column - Profile and Account Settings */}
         <Grid item xs={12} md={6} lg={4}>
           {/* Profile Summary */}
-          <Card sx={{ mb: 2 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+          <Card 
+            sx={{ 
+              mb: 2,
+              height: '100%',
+              maxHeight: '500px',
+              display: 'flex', 
+              flexDirection: 'column',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: 6
+              }
+            }}
+          >
+            <CardContent sx={{ flexGrow: 1 }}>
+              {/* Profile Header */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
                 <Avatar
-                  src={user?.avatar}
-                  alt={user?.name}
-                  sx={{ width: 100, height: 100, mb: 2 }}
-                />
-                <Typography variant="h5" sx={{ textAlign: 'center' }}>{user?.name}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', wordBreak: 'break-word' }}>
-                  {user?.email}
+                  src={profile?.user?.avatar || user?.avatar}
+                  alt={profile?.user?.name || user?.name}
+                  sx={{ 
+                    width: 80, 
+                    height: 80, 
+                    mb: 2,
+                    bgcolor: 'primary.main',
+                    fontSize: '2rem'
+                  }}
+                >
+                  {(profile?.user?.name || user?.name)?.charAt(0)}
+                </Avatar>
+                <Typography variant="h6" component="h2" align="center" gutterBottom>
+                  {profile?.user?.name || user?.name}
                 </Typography>
-                {user?.location && (
-                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-                    {user?.location}
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <LocationOnIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
+                  <Typography variant="body2" color="text.secondary">
+                    {profile?.user?.location || user?.location || 'Location not specified'}
                   </Typography>
-                )}
+                </Box>
               </Box>
-              
-              {user?.instruments && user.instruments.length > 0 && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Instruments
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {user.instruments.map((instrument, index) => (
-                      <Chip key={index} label={instrument} size="small" />
-                    ))}
-                  </Box>
-                </Box>
+
+              <Divider sx={{ mb: 2 }} />
+
+              {/* Bio */}
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                paragraph 
+                sx={{ 
+                  textAlign: 'center', 
+                  mb: 2, 
+                  whiteSpace: 'pre-wrap',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxHeight: '4.5em',
+                  lineHeight: '1.5em'
+                }}
+              >
+                {profile?.bio || user?.bio || 'Professional musician available for collaborations'}
+              </Typography>
+
+              {/* Skills - Two Column Layout */}
+              {(((profile?.user?.instruments || user?.instruments) && (profile?.user?.instruments || user?.instruments).length > 0) || 
+                ((profile?.user?.genres || user?.genres) && (profile?.user?.genres || user?.genres).length > 0)) && (
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  {/* Left Half - Instruments */}
+                  <Grid item xs={12} sm={6}>
+                    {(profile?.user?.instruments || user?.instruments) && (profile?.user?.instruments || user?.instruments).length > 0 && (
+                      <>
+                        <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                          <MusicNoteIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
+                          Instruments
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {(profile?.user?.instruments || user?.instruments).slice(0, 3).map((instrument, index) => (
+                            <Chip
+                              key={`instrument-${index}`}
+                              label={instrument}
+                              size="small"
+                              color="primary"
+                              variant="filled"
+                            />
+                          ))}
+                          {(profile?.user?.instruments || user?.instruments).length > 3 && (
+                            <Chip
+                              label={`+${(profile?.user?.instruments || user?.instruments).length - 3} more`}
+                              size="small"
+                              variant="outlined"
+                            />
+                          )}
+                        </Box>
+                      </>
+                    )}
+                  </Grid>
+
+                  {/* Right Half - Genres */}
+                  <Grid item xs={12} sm={6}>
+                    {(profile?.user?.genres || user?.genres) && (profile?.user?.genres || user?.genres).length > 0 && (
+                      <>
+                        <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                          <MusicNoteIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
+                          Genres
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {(profile?.user?.genres || user?.genres).slice(0, 3).map((genre, index) => (
+                            <Chip
+                              key={`genre-${index}`}
+                              label={genre}
+                              size="small"
+                              color="secondary"
+                              variant="outlined"
+                            />
+                          ))}
+                          {(profile?.user?.genres || user?.genres).length > 3 && (
+                            <Chip
+                              label={`+${(profile?.user?.genres || user?.genres).length - 3} more`}
+                              size="small"
+                              variant="outlined"
+                            />
+                          )}
+                        </Box>
+                      </>
+                    )}
+                  </Grid>
+                </Grid>
               )}
-              
-              {user?.genres && user.genres.length > 0 && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Genres
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {user.genres.map((genre, index) => (
-                      <Chip key={index} label={genre} size="small" />
-                    ))}
-                  </Box>
-                </Box>
-              )}
+
+              {/* Experience */}
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <WorkIcon sx={{ mr: 0.5, color: 'primary.main', fontSize: '1rem' }} />
+                <Typography variant="caption" color="text.secondary">
+                  {profile?.experience || user?.experience || 'Beginner'}
+                </Typography>
+              </Box>
+
             </CardContent>
             <CardActions sx={{ 
               flexDirection: { xs: 'column', sm: 'row' },
@@ -386,7 +466,7 @@ const Dashboard = () => {
             }}>
               <Button
                 component={RouterLink}
-                to={`/profile/${user?.id}`}
+                to={`/profile/${profile?.user?._id || user?.id || user?._id}`}
                 variant="outlined"
                 sx={{ 
                   minHeight: { xs: 48, sm: 40 },
@@ -407,69 +487,6 @@ const Dashboard = () => {
                 }}
               >
                 Edit Profile
-              </Button>
-            </CardActions>
-          </Card>
-          
-          {/* Account Management */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="h2" gutterBottom>
-                Account Settings
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Manage your account security and preferences
-              </Typography>
-            </CardContent>
-            <CardActions sx={{ 
-              flexDirection: 'column',
-              gap: { xs: 1.5, sm: 2 },
-              p: { xs: 2, sm: 2 }
-            }}>
-              <Box sx={{ 
-                display: 'flex',
-                flexDirection: { xs: 'column', sm: 'row' },
-                gap: { xs: 1.5, sm: 2 },
-                width: '100%'
-              }}>
-                <Button
-                  onClick={handleChangePassword}
-                  variant="outlined"
-                  startIcon={<LockIcon />}
-                  sx={{ 
-                    minHeight: { xs: 48, sm: 40 },
-                    flex: { xs: 1, sm: 1 },
-                    fontWeight: 500
-                  }}
-                >
-                  Change Password
-                </Button>
-                <Button
-                  onClick={handleDeleteAccount}
-                  variant="contained"
-                  color="error"
-                  startIcon={<DeleteIcon />}
-                  sx={{ 
-                    minHeight: { xs: 48, sm: 40 },
-                    flex: { xs: 1, sm: 1 },
-                    fontWeight: 500
-                  }}
-                >
-                  Delete Account
-                </Button>
-              </Box>
-              <Button
-                onClick={logout}
-                variant="contained"
-                color="warning"
-                startIcon={<LogoutIcon />}
-                sx={{ 
-                  minHeight: { xs: 48, sm: 40 },
-                  width: '100%',
-                  fontWeight: 500
-                }}
-              >
-                Logout
               </Button>
             </CardActions>
           </Card>
@@ -862,55 +879,13 @@ const Dashboard = () => {
           <Button onClick={handleCloseDeleteDialog} color="primary">
             Cancel
           </Button>
-          <Button onClick={handleNextStep} color="error" variant="outlined">
-            Yes, I Understand
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Step 3: Confirmation Text Input */}
-      <Dialog open={deleteDialogStep === 3} onClose={handleCloseDeleteDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <WarningIcon color="error" />
-          Confirm Account Deletion
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="error" sx={{ mb: 3 }}>
-            <Typography variant="body1" fontWeight="bold">
-              LAST CHANCE TO CANCEL
-            </Typography>
-          </Alert>
-          <Typography variant="body1" gutterBottom>
-            To confirm the deletion of your account and all associated data, please type:
-          </Typography>
-          <Typography variant="h6" sx={{ my: 2, p: 1, bgcolor: 'grey.100', borderRadius: 1, fontFamily: 'monospace' }}>
-            DELETE MY ACCOUNT
-          </Typography>
-          <TextField
-            fullWidth
-            label="Type the confirmation text above"
-            value={confirmationText}
-            onChange={(e) => setConfirmationText(e.target.value)}
-            placeholder="DELETE MY ACCOUNT"
-            sx={{ mt: 2 }}
-            error={confirmationText !== '' && confirmationText !== 'DELETE MY ACCOUNT'}
-            helperText={confirmationText !== '' && confirmationText !== 'DELETE MY ACCOUNT' ? 'Text must match exactly' : ''}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} color="primary">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleFinalDelete} 
-            color="error" 
-            variant="contained"
-            disabled={confirmationText !== 'DELETE MY ACCOUNT' || isDeleting}
-          >
+          <Button onClick={handleFinalDelete} color="error" variant="contained" disabled={isDeleting}>
             {isDeleting ? 'Deleting...' : 'DELETE MY ACCOUNT'}
           </Button>
         </DialogActions>
       </Dialog>
+
+
 
       {/* Change Password Dialog */}
       <Dialog open={changePasswordOpen} onClose={handleCloseChangePassword} maxWidth="sm" fullWidth>
@@ -1032,22 +1007,6 @@ const Dashboard = () => {
           <Typography variant="body1" gutterBottom>
             Are you sure you want to delete the gig "{gigToDelete?.title}"?
           </Typography>
-          <Typography variant="body1" gutterBottom>
-            To confirm, please type the gig title exactly as shown:
-          </Typography>
-          <Typography variant="h6" sx={{ my: 2, p: 1, bgcolor: 'grey.100', borderRadius: 1, fontFamily: 'monospace' }}>
-            {gigToDelete?.title}
-          </Typography>
-          <TextField
-            fullWidth
-            label="Type the gig title above"
-            value={gigDeleteConfirmation}
-            onChange={(e) => setGigDeleteConfirmation(e.target.value)}
-            placeholder={gigToDelete?.title}
-            sx={{ mt: 2 }}
-            error={gigDeleteError !== ''}
-            helperText={gigDeleteError || (gigDeleteConfirmation !== '' && gigDeleteConfirmation !== gigToDelete?.title ? 'Title must match exactly' : '')}
-          />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseGigDeleteDialog} color="primary">
@@ -1057,7 +1016,6 @@ const Dashboard = () => {
             onClick={handleConfirmGigDelete} 
             color="error" 
             variant="contained"
-            disabled={gigDeleteConfirmation !== gigToDelete?.title}
           >
             Delete Gig
           </Button>

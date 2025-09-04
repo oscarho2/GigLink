@@ -436,4 +436,37 @@ router.delete('/:messageId', auth, async (req, res) => {
   }
 });
 
+// @route   GET api/messages/unread-count
+// @desc    Get count of unread messages for the authenticated user
+// @access  Private
+router.get('/unread-count', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Count unread direct messages where user is recipient
+    const unreadDirectCount = await Message.countDocuments({
+      recipient: userId,
+      readBy: { $ne: userId }
+    });
+    
+    // Count unread group messages where user hasn't read them
+    const unreadGroupCount = await Message.countDocuments({
+      groupId: { $exists: true },
+      readBy: { $ne: userId },
+      sender: { $ne: userId } // Don't count own messages
+    });
+    
+    const totalUnreadCount = unreadDirectCount + unreadGroupCount;
+    
+    res.json({ 
+      count: totalUnreadCount,
+      direct: unreadDirectCount,
+      group: unreadGroupCount
+    });
+  } catch (error) {
+    console.error('Error getting unread message count:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

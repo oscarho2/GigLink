@@ -15,7 +15,8 @@ import {
   FormControl,
   InputLabel,
   Slider,
-  CardActions
+  CardActions,
+  Avatar
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -27,6 +28,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import PaymentIcon from '@mui/icons-material/Payment';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import PersonIcon from '@mui/icons-material/Person';
 
 const Gigs = () => {
   const { isAuthenticated } = useAuth();
@@ -470,6 +472,33 @@ const Gigs = () => {
                 <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
                   <Grid item xs={12} sm={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                      <Avatar 
+                        src={gig.user?.avatar} 
+                        alt={gig.user?.name || 'User'}
+                        sx={{ 
+                          width: { xs: 24, sm: 28 }, 
+                          height: { xs: 24, sm: 28 }, 
+                          mr: 1,
+                          bgcolor: '#1a365d',
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                        }}
+                      >
+                        {!gig.user?.avatar && (gig.user?.name?.charAt(0) || 'U')}
+                      </Avatar>
+                      <Typography 
+                        variant="body1" 
+                        fontWeight="bold"
+                        sx={{
+                          fontSize: { xs: '0.875rem', sm: '1rem' }
+                        }}
+                      >
+                        {gig.user?.name || 'Unknown'}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
                       <PaymentIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
                       <Typography 
                         variant="body1" 
@@ -493,13 +522,6 @@ const Gigs = () => {
                         {new Date(gig.date).toLocaleDateString('en-GB')}
                       </Typography>
                     </Box>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    {/* Right column intentionally left empty */}
-                  </Grid>
-                  
-                  <Grid item xs={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <LocationOnIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
                       <Typography 

@@ -2,8 +2,13 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { check, validationResult } = require('express-validator');
+const { OAuth2Client } = require('google-auth-library');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
+const Profile = require('../models/Profile');
+
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // @route   GET api/auth
 // @desc    Get authenticated user
@@ -105,5 +110,83 @@ router.post(
     }
   }
 );
+
+// @route   POST api/auth/google
+// @desc    Authenticate user with Google OAuth
+// @access  Public
+router.post('/google', async (req, res) => {
+  try {
+    const { idToken, email, name, imageUrl } = req.body;
+
+    // Verify Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: idToken,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+    const googleId = payload['sub'];
+    const verifiedEmail = payload['email'];
+
+    // Verify email matches
+    if (verifiedEmail !== email) {
+      return res.status(400).json({ message: 'Email verification failed' });
+    }
+
+    // Check if user already exists
+    let user = await User.findOne({ email: verifiedEmail });
+    
+    if (user) {
+      // Update Google ID if not set
+      if (!user.googleId) {
+        user.googleId = googleId;
+        await user.save();
+      }
+    } else {
+      // Create new user
+      user = new User({
+        name: name,
+        email: verifiedEmail,
+        googleId: googleId,
+        avatar: imageUrl,
+        password: 'google_oauth_user' // Placeholder password for Google users
+      });
+      await user.save();
+    }
+
+    // Check if user has a profile
+    let profile = await Profile.findOne({ user: user._id });
+    const profileComplete = !!profile;
+
+    // Generate JWT token
+    const jwtPayload = {
+      user: {
+        id: user.id
+      }
+    };
+
+    jwt.sign(
+      jwtPayload,
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' },
+      (err, token) => {
+        if (err) throw err;
+        res.json({
+          token,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar,
+            profileComplete: profileComplete
+          }
+        });
+      }
+    );
+  } catch (error) {
+    console.error('Google OAuth Error:', error);
+    res.status(500).json({ message: 'Server error during Google authentication' });
+  }
+});
 
 module.exports = router;

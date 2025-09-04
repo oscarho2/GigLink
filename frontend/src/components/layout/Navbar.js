@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
@@ -13,14 +13,20 @@ import MenuItem from '@mui/material/MenuItem';
 import Avatar from '@mui/material/Avatar';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import LogoutIcon from '@mui/icons-material/Logout';
+import PersonIcon from '@mui/icons-material/Person';
+import SettingsIcon from '@mui/icons-material/Settings';
 import AuthContext from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import NotificationBadge from '../NotificationBadge';
 
 const Navbar = () => {
-  const { isAuthenticated, user } = useContext(AuthContext);
+  const { isAuthenticated, user, logout } = useContext(AuthContext);
   const { totalUnreadCount } = useNotifications();
+  const navigate = useNavigate();
   const [anchorElNav, setAnchorElNav] = useState(null);
+  const [anchorElProfile, setAnchorElProfile] = useState(null);
+  const [anchorElNotifications, setAnchorElNotifications] = useState(null);
 
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
@@ -32,6 +38,37 @@ const Navbar = () => {
 
   const handleMenuItemClick = () => {
     setAnchorElNav(null);
+  };
+
+  const handleOpenProfileMenu = (event) => {
+    setAnchorElProfile(event.currentTarget);
+  };
+
+  const handleCloseProfileMenu = () => {
+    setAnchorElProfile(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    setAnchorElProfile(null);
+  };
+
+  const handleProfileClick = () => {
+    setAnchorElProfile(null);
+    navigate(`/profile/${user.id || user._id}`);
+  };
+
+  const handleSettingsClick = () => {
+    setAnchorElProfile(null);
+    navigate('/settings');
+  };
+
+  const handleOpenNotificationsMenu = (event) => {
+    setAnchorElNotifications(event.currentTarget);
+  };
+
+  const handleCloseNotificationsMenu = () => {
+    setAnchorElNotifications(null);
   };
 
   const guestLinks = (
@@ -50,7 +87,7 @@ const Navbar = () => {
           }
         }}
       >
-        Login
+        Sign In
       </Button>
       <Button
         component={RouterLink}
@@ -66,7 +103,7 @@ const Navbar = () => {
           }
         }}
       >
-        Sign Up
+        Join Now
       </Button>
     </>
   );
@@ -198,10 +235,10 @@ const Navbar = () => {
                   <Box sx={{ borderTop: '1px solid rgba(0,0,0,0.08)', my: 1, mx: 2 }} />
                   <Typography sx={{ px: 3, py: 1, fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Get Started</Typography>
                   <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/login">
-                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d', fontWeight: 600 }}>🔐 Login</Typography>
+                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d', fontWeight: 600 }}>🔐 Sign In</Typography>
                   </MenuItem>
                   <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/register">
-                    <Typography textAlign="left" sx={{ width: '100%', color: '#2c5282', fontWeight: 600 }}>✨ Sign Up</Typography>
+                    <Typography textAlign="left" sx={{ width: '100%', color: '#2c5282', fontWeight: 600 }}>✨ Join Now</Typography>
                   </MenuItem>
                 </>
               )}
@@ -245,9 +282,10 @@ const Navbar = () => {
             <>
               <NotificationBadge count={totalUnreadCount}>
                 <IconButton
+                  onClick={handleOpenNotificationsMenu}
                   sx={{
                     p: 0.5,
-                    ml: 0.5,
+                    ml: 1,
                     display: { xs: 'flex', md: 'none' },
                     '&:hover': {
                       bgcolor: 'rgba(255, 255, 255, 0.1)'
@@ -260,12 +298,17 @@ const Navbar = () => {
               <Avatar
                 src={user.avatar}
                 alt={user.name}
+                onClick={handleOpenProfileMenu}
                 sx={{
                   width: 32,
                   height: 32,
                   ml: 0.5,
                   display: { xs: 'flex', md: 'none' },
-                  border: '2px solid rgba(255, 255, 255, 0.2)'
+                  border: '2px solid rgba(255, 255, 255, 0.2)',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.1)'
+                  }
                 }}
               >
                 {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -324,6 +367,7 @@ const Navbar = () => {
               <>
                 <NotificationBadge count={totalUnreadCount}>
                   <IconButton
+                    onClick={handleOpenNotificationsMenu}
                     sx={{
                       p: 1,
                       ml: 1,
@@ -336,19 +380,87 @@ const Navbar = () => {
                     <NotificationsIcon sx={{ color: 'white' }} />
                   </IconButton>
                 </NotificationBadge>
+                <Menu
+                  anchorEl={anchorElNotifications}
+                  open={Boolean(anchorElNotifications)}
+                  onClose={handleCloseNotificationsMenu}
+                  sx={{
+                    mt: '45px'
+                  }}
+                  anchorOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                >
+                   {totalUnreadCount === 0 ? (
+                     <MenuItem onClick={handleCloseNotificationsMenu}>
+                       No notifications
+                     </MenuItem>
+                   ) : (
+                     <>
+                       <MenuItem onClick={handleCloseNotificationsMenu}>
+                         Messages ({totalUnreadCount})
+                       </MenuItem>
+                       <MenuItem onClick={handleCloseNotificationsMenu}>
+                         Friend Requests
+                       </MenuItem>
+                       <MenuItem onClick={handleCloseNotificationsMenu}>
+                         Mark All as Read
+                       </MenuItem>
+                     </>
+                   )}
+                 </Menu>
                 <Avatar
                   src={user.avatar}
                   alt={user.name}
+                  onClick={handleOpenProfileMenu}
                   sx={{
                     width: 40,
                     height: 40,
                     ml: 1,
                     display: { xs: 'none', md: 'flex' },
-                    border: '2px solid rgba(255, 255, 255, 0.2)'
+                    border: '2px solid rgba(255, 255, 255, 0.2)',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      bgcolor: 'rgba(255, 255, 255, 0.1)'
+                    }
                   }}
                 >
                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </Avatar>
+                <Menu
+                  anchorEl={anchorElProfile}
+                  open={Boolean(anchorElProfile)}
+                  onClose={handleCloseProfileMenu}
+                  sx={{
+                    mt: '45px'
+                  }}
+                  anchorOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                >
+                  <MenuItem onClick={handleProfileClick}>
+                    <PersonIcon sx={{ mr: 1 }} />
+                    Profile
+                  </MenuItem>
+                  <MenuItem onClick={handleSettingsClick}>
+                    <SettingsIcon sx={{ mr: 1 }} />
+                    Settings
+                  </MenuItem>
+                  <MenuItem onClick={handleLogout}>
+                    <LogoutIcon sx={{ mr: 1 }} />
+                    Sign Out
+                  </MenuItem>
+                </Menu>
               </>
             )}
           </Box>
