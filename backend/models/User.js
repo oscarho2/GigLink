@@ -58,16 +58,16 @@ const UserSchema = new mongoose.Schema({
   }
 });
 
-// Virtual for getting user's friends
-UserSchema.virtual('friends', {
+// Virtual for getting user's links
+UserSchema.virtual('links', {
   ref: 'Link',
   localField: '_id',
   foreignField: 'requester',
   match: { status: 'accepted' }
 });
 
-// Virtual for getting user's friend requests
-UserSchema.virtual('friendRequests', {
+// Virtual for getting user's link requests
+UserSchema.virtual('linkRequests', {
   ref: 'Link',
   localField: '_id',
   foreignField: 'recipient',

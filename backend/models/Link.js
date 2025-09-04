@@ -31,7 +31,7 @@ const linkSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index to prevent duplicate friend requests
+// Compound index to prevent duplicate link requests
 linkSchema.index({ requester: 1, recipient: 1 }, { unique: true });
 
 // Instance methods
@@ -54,7 +54,7 @@ linkSchema.methods.block = function() {
 };
 
 // Static methods
-linkSchema.statics.findFriendship = function(userId1, userId2) {
+linkSchema.statics.findLink = function(userId1, userId2) {
   return this.findOne({
     $or: [
       { requester: userId1, recipient: userId2 },
@@ -63,7 +63,7 @@ linkSchema.statics.findFriendship = function(userId1, userId2) {
   });
 };
 
-linkSchema.statics.getFriends = function(userId) {
+linkSchema.statics.getLinks = function(userId) {
   return this.find({
     $or: [
       { requester: userId, status: 'accepted' },
@@ -86,7 +86,7 @@ linkSchema.statics.getSentRequests = function(userId) {
   }).populate('recipient', 'name email avatar');
 };
 
-linkSchema.statics.areFriends = function(userId1, userId2) {
+linkSchema.statics.areLinked = function(userId1, userId2) {
   return this.findOne({
     $or: [
       { requester: userId1, recipient: userId2, status: 'accepted' },
