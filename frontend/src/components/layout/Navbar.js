@@ -12,10 +12,14 @@ import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import Avatar from '@mui/material/Avatar';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import AuthContext from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
+import NotificationBadge from '../NotificationBadge';
 
 const Navbar = () => {
   const { isAuthenticated, user } = useContext(AuthContext);
+  const { totalUnreadCount } = useNotifications();
   const [anchorElNav, setAnchorElNav] = useState(null);
 
   const handleOpenNavMenu = (event) => {
@@ -238,19 +242,35 @@ const Navbar = () => {
           </Typography>
           
           {isAuthenticated && user && (
-            <Avatar
-              src={user.avatar}
-              alt={user.name}
-              sx={{
-                width: 32,
-                height: 32,
-                ml: 1,
-                display: { xs: 'flex', md: 'none' },
-                border: '2px solid rgba(255, 255, 255, 0.2)'
-              }}
-            >
-              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-            </Avatar>
+            <>
+              <NotificationBadge count={totalUnreadCount}>
+                <IconButton
+                  sx={{
+                    p: 0.5,
+                    ml: 0.5,
+                    display: { xs: 'flex', md: 'none' },
+                    '&:hover': {
+                      bgcolor: 'rgba(255, 255, 255, 0.1)'
+                    }
+                  }}
+                >
+                  <NotificationsIcon sx={{ fontSize: 20, color: 'white' }} />
+                </IconButton>
+              </NotificationBadge>
+              <Avatar
+                src={user.avatar}
+                alt={user.name}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  ml: 0.5,
+                  display: { xs: 'flex', md: 'none' },
+                  border: '2px solid rgba(255, 255, 255, 0.2)'
+                }}
+              >
+                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </Avatar>
+            </>
           )}
           
           {/* Center Navigation - Public Pages */}
@@ -301,19 +321,35 @@ const Navbar = () => {
           }}>
             {isAuthenticated ? authLinks : guestLinks}
             {isAuthenticated && user && (
-              <Avatar
-                src={user.avatar}
-                alt={user.name}
-                sx={{
-                  width: 40,
-                  height: 40,
-                  ml: 2,
-                  display: { xs: 'none', md: 'flex' },
-                  border: '2px solid rgba(255, 255, 255, 0.2)'
-                }}
-              >
-                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </Avatar>
+              <>
+                <NotificationBadge count={totalUnreadCount}>
+                  <IconButton
+                    sx={{
+                      p: 1,
+                      ml: 1,
+                      display: { xs: 'none', md: 'flex' },
+                      '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 0.1)'
+                      }
+                    }}
+                  >
+                    <NotificationsIcon sx={{ color: 'white' }} />
+                  </IconButton>
+                </NotificationBadge>
+                <Avatar
+                  src={user.avatar}
+                  alt={user.name}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    ml: 1,
+                    display: { xs: 'none', md: 'flex' },
+                    border: '2px solid rgba(255, 255, 255, 0.2)'
+                  }}
+                >
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </Avatar>
+              </>
             )}
           </Box>
         </Toolbar>
