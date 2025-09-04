@@ -4,6 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 
 // Components
 import Navbar from './components/layout/Navbar';
@@ -67,9 +68,10 @@ function App() {
 
   return (
     <AuthProvider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Router>
+      <NotificationProvider>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <Router>
           <Box
             sx={{
               display: 'flex',
@@ -99,8 +101,9 @@ function App() {
             </Box>
             <Footer />
           </Box>
-        </Router>
-      </ThemeProvider>
+          </Router>
+        </ThemeProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }
