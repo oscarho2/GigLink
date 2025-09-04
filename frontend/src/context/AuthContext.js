@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { isValidJWT, clearInvalidToken } from '../utils/tokenValidator';
 
 const AuthContext = createContext();
 
@@ -21,6 +22,14 @@ export const AuthProvider = ({ children }) => {
       const hasManuallyLoggedOut = localStorage.getItem('hasLoggedOut') === 'true';
       
       if (storedToken && !hasManuallyLoggedOut) {
+        // First validate the token format
+        if (!isValidJWT(storedToken)) {
+          console.log('Invalid JWT format detected, clearing token');
+          clearInvalidToken();
+          setLoading(false);
+          return;
+        }
+        
         try {
           // Set auth token in axios headers
           axios.defaults.headers.common['x-auth-token'] = storedToken;
@@ -39,9 +48,8 @@ export const AuthProvider = ({ children }) => {
           });
         } catch (err) {
           console.error('Token verification failed:', err);
-          // Remove invalid token
-          localStorage.removeItem('token');
-          delete axios.defaults.headers.common['x-auth-token'];
+          // Remove invalid token using utility
+          clearInvalidToken();
         }
       }
       setLoading(false);

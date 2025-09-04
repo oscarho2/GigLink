@@ -13,13 +13,21 @@ import {
   TextField,
   Card,
   CardContent,
-  CardActions
+  CardActions,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  InputAdornment,
+  IconButton
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const Settings = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const navigate = useNavigate();
   const [settings, setSettings] = useState({
     emailNotifications: true,
@@ -29,6 +37,24 @@ const Settings = () => {
     darkMode: false
   });
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Password change state
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  // Delete account state
+  const [deleteDialogStep, setDeleteDialogStep] = useState(0); // 0: closed, 1: first warning, 2: final confirmation
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleSettingChange = (setting) => (event) => {
     setSettings({
@@ -43,37 +69,83 @@ const Settings = () => {
     setTimeout(() => setShowSuccess(false), 3000);
   };
 
+  // Password change handlers
   const handlePasswordChange = () => {
-    const currentPassword = prompt('Enter your current password:');
-    if (!currentPassword) return;
-    
-    const newPassword = prompt('Enter your new password:');
-    if (!newPassword) return;
-    
-    const confirmPassword = prompt('Confirm your new password:');
-    if (!confirmPassword) return;
-    
-    if (newPassword !== confirmPassword) {
-      alert('New passwords do not match');
-      return;
+    setChangePasswordOpen(true);
+    setPasswordError('');
+    setPasswordSuccess('');
+  };
+
+  const handleCloseChangePassword = () => {
+    setChangePasswordOpen(false);
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setPasswordError('');
+    setPasswordSuccess('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+  };
+
+  const handlePasswordInputChange = (e) => {
+    setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
+    setPasswordError('');
+  };
+
+  const handleSubmitPasswordChange = async (e) => {
+    e.preventDefault();
+    setIsChangingPassword(true);
+    setPasswordError('');
+
+    try {
+      const response = await axios.put('/api/users/change-password', passwordData, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      setPasswordSuccess('Password changed successfully!');
+      setTimeout(() => {
+        handleCloseChangePassword();
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      }, 2000);
+    } catch (err) {
+      console.error('Error changing password:', err);
+      const errorMsg = err.response?.data?.errors?.[0]?.msg || 'Failed to change password';
+      setPasswordError(errorMsg);
+    } finally {
+      setIsChangingPassword(false);
     }
-    
-    if (newPassword.length < 6) {
-      alert('Password must be at least 6 characters long');
-      return;
-    }
-    
-    // TODO: Implement password change API call
-    alert('Password changed successfully!');
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
   };
 
   const handleDeleteAccount = () => {
-    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      // TODO: Implement account deletion API call
-      logout();
-      navigate('/');
+    setDeleteDialogStep(1);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogStep(0);
+    setIsDeleting(false);
+  };
+
+  const handleNextStep = () => {
+    setDeleteDialogStep(deleteDialogStep + 1);
+  };
+
+  const handleFinalDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await axios.delete('/api/profiles/me', {
+        headers: { 'x-auth-token': token }
+      });
+      
+      alert('Account and all data deleted successfully. You will be redirected to the home page.');
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Error deleting account:', err);
+      alert(`Failed to delete account: ${err.response?.data?.msg || err.message}`);
+      setIsDeleting(false);
     }
   };
 
@@ -174,6 +246,157 @@ const Settings = () => {
           </Box>
         </Grid>
       </Grid>
+
+      {/* Change Password Dialog */}
+      <Dialog open={changePasswordOpen} onClose={handleCloseChangePassword} maxWidth="sm" fullWidth>
+        <DialogTitle>Change Password</DialogTitle>
+        <form onSubmit={handleSubmitPasswordChange}>
+          <DialogContent>
+            {passwordError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {passwordError}
+              </Alert>
+            )}
+            {passwordSuccess && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {passwordSuccess}
+              </Alert>
+            )}
+            
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="currentPassword"
+              label="Current Password"
+              type={showCurrentPassword ? 'text' : 'password'}
+              value={passwordData.currentPassword}
+              onChange={handlePasswordInputChange}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      edge="end"
+                    >
+                      {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="newPassword"
+              label="New Password"
+              type={showNewPassword ? 'text' : 'password'}
+              value={passwordData.newPassword}
+              onChange={handlePasswordInputChange}
+              helperText="Must be at least 8 characters with uppercase, lowercase, number, and special character"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      edge="end"
+                    >
+                      {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="confirmPassword"
+              label="Confirm New Password"
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={passwordData.confirmPassword}
+              onChange={handlePasswordInputChange}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      edge="end"
+                    >
+                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseChangePassword}>Cancel</Button>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              disabled={isChangingPassword}
+            >
+              {isChangingPassword ? 'Changing...' : 'Change Password'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Multi-step Delete Account Dialog */}
+      <Dialog
+        open={deleteDialogStep > 0}
+        onClose={handleCloseDeleteDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Delete Account?
+        </DialogTitle>
+        <DialogContent>
+          {deleteDialogStep === 1 && (
+            <Typography>
+              Are you sure you want to delete your account? This will permanently remove:
+              <br />• Your profile and all personal information
+              <br />• All your gig posts and applications
+              <br />• Your connections and messages
+              <br />• All other data associated with your account
+              <br /><br />
+              This action cannot be undone.
+            </Typography>
+          )}
+          {deleteDialogStep === 2 && (
+            <Typography color="error" sx={{ fontWeight: 'bold' }}>
+              FINAL WARNING: This will permanently delete your account and ALL associated data.
+              <br /><br />
+              Type "DELETE" below to confirm:
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog}>
+            Cancel
+          </Button>
+          {deleteDialogStep === 1 && (
+            <Button onClick={handleNextStep} color="error">
+              Continue
+            </Button>
+          )}
+          {deleteDialogStep === 2 && (
+            <Button 
+              onClick={handleFinalDelete} 
+              color="error" 
+              variant="contained"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'DELETE ACCOUNT'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

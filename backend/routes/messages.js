@@ -1,470 +1,171 @@
 const express = require('express');
 const router = express.Router();
-const { body, validationResult } = require('express-validator');
-const auth = require('../middleware/auth');
 const Message = require('../models/Message');
 const User = require('../models/User');
-const Group = require('../models/Group');
+const auth = require('../middleware/auth');
 
-// @route   POST api/messages
-// @desc    Send a message (direct or group)
-// @access  Private
-router.post('/', [
-  auth,
-  body('recipient').custom((value, { req }) => {
-    // Recipient is required for direct messages, groupId for group messages
-    if (!value && !req.body.groupId) {
-      throw new Error('Either recipient or groupId is required');
-    }
-    if (value && req.body.groupId) {
-      throw new Error('Cannot specify both recipient and groupId');
-    }
-    return true;
-  }),
-  body('content').custom((value, { req }) => {
-    // Content is required for non-file messages
-    if (req.body.messageType !== 'file' && (!value || value.trim().length === 0)) {
-      throw new Error('Message content is required');
-    }
-    // Content length validation for text messages
-    if (value && value.length > 1000) {
-      throw new Error('Message content cannot exceed 1000 characters');
-    }
-    return true;
-  }),
-  body('messageType', 'Invalid message type').optional().isIn(['text', 'gig_application', 'system', 'file']),
-  body('attachment').custom((value, { req }) => {
-    // Attachment is required for file messages
-    if (req.body.messageType === 'file' && !value) {
-      throw new Error('Attachment is required for file messages');
-    }
-    return true;
-  })
-], async (req, res) => {
+// Get conversations for the authenticated user
+router.get('/conversations', auth, async (req, res) => {
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { recipient, groupId, content, messageType = 'text', attachment, gigApplication } = req.body;
+    const userId = req.user.id;
     
-    let messageData = {
-      sender: req.user.id,
-      messageType
-    };
+    // Get all messages where user is sender or recipient
+    const messages = await Message.find({
+      $or: [{ sender: userId }, { recipient: userId }]
+    })
+    .populate('sender', 'name email')
+    .populate('recipient', 'name email')
+    .sort({ createdAt: -1 });
     
-    if (groupId) {
-      // Group message
-      const group = await Group.findById(groupId);
-      if (!group) {
-        return res.status(404).json({ msg: 'Group not found' });
+    // Group messages by conversation and get latest message for each
+    const conversationsMap = new Map();
+    
+    messages.forEach(message => {
+      const conversationId = message.conversationId;
+      if (!conversationsMap.has(conversationId)) {
+        const otherUser = message.sender._id.toString() === userId ? message.recipient : message.sender;
+        conversationsMap.set(conversationId, {
+          conversationId,
+          otherUser,
+          lastMessage: message,
+          unreadCount: 0
+        });
       }
       
-      // Check if user is a member of the group
-      if (!group.isMember(req.user.id)) {
-        return res.status(403).json({ msg: 'You are not a member of this group' });
+      // Count unread messages for this user
+      if (message.recipient._id.toString() === userId && !message.read) {
+        conversationsMap.get(conversationId).unreadCount++;
       }
-      
-      messageData.groupId = groupId;
-    } else {
-      // Direct message
-      // Prevent sending message to self
-      if (recipient === req.user.id) {
-        return res.status(400).json({ msg: 'Cannot send message to yourself' });
-      }
-      
-      // Check if recipient exists
-      const recipientUser = await User.findById(recipient);
-      if (!recipientUser) {
-        return res.status(404).json({ msg: 'Recipient not found' });
-      }
-      
-      messageData.recipient = recipient;
-    }
+    });
     
-    // Add content for non-file messages
-    if (messageType !== 'file' && content) {
-      messageData.content = content.trim();
-    }
-    
-    // Add attachment for file messages
-    if (messageType === 'file' && attachment) {
-      messageData.attachment = attachment;
-    }
-    
-    // Add gig application data for gig application messages
-    if (messageType === 'gig_application' && gigApplication) {
-      messageData.gigApplication = gigApplication;
-    }
-    
-    const newMessage = new Message(messageData);
-    
-    const message = await newMessage.save();
-    await message.populate('sender', 'name avatar');
-    
-    if (message.recipient) {
-      await message.populate('recipient', 'name avatar');
-    }
-    
-    if (message.groupId) {
-      await message.populate('groupId', 'name avatar members');
-    }
-    
-    res.status(201).json(message);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server Error' });
+    const conversations = Array.from(conversationsMap.values());
+    res.json(conversations);
+  } catch (error) {
+    console.error('Error fetching conversations:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// @route   GET api/messages/group/:groupId
-// @desc    Get group conversation messages
-// @access  Private
-router.get('/group/:groupId', auth, async (req, res) => {
+// Get messages for a specific conversation
+router.get('/conversation/:otherUserId', auth, async (req, res) => {
   try {
-    const { groupId } = req.params;
-    const { limit = 50, skip = 0 } = req.query;
+    const userId = req.user.id;
+    const otherUserId = req.params.otherUserId;
     
-    // Check if group exists and user is a member
-    const group = await Group.findById(groupId);
-    if (!group) {
-      return res.status(404).json({ msg: 'Group not found' });
-    }
-    
-    if (!group.isMember(req.user.id)) {
-      return res.status(403).json({ msg: 'Access denied' });
-    }
-    
-    const messages = await Message.getGroupConversation(groupId, parseInt(limit), parseInt(skip));
-    
-    res.json(messages.reverse()); // Reverse to show oldest first
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-});
-
-// @route   GET api/messages/conversation/:userId
-// @desc    Get conversation between current user and another user
-// @access  Private
-router.get('/conversation/:userId', auth, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { page = 1, limit = 50 } = req.query;
-    
-    // Validate userId
-    if (!userId || userId === req.user.id) {
-      return res.status(400).json({ msg: 'Invalid user ID' });
-    }
-    
-    // Check if the other user exists
-    const otherUser = await User.findById(userId);
+    // Validate other user exists
+    const otherUser = await User.findById(otherUserId).select('name email');
     if (!otherUser) {
-      return res.status(404).json({ msg: 'User not found' });
+      return res.status(404).json({ message: 'User not found' });
     }
     
-    const skip = (page - 1) * limit;
-    const messages = await Message.getConversation(req.user.id, userId, parseInt(limit), skip);
+    const conversationId = Message.generateConversationId(userId, otherUserId);
     
-    // Mark messages as read (where current user is recipient)
+    const messages = await Message.find({ conversationId })
+      .populate('sender', 'name email')
+      .populate('recipient', 'name email')
+      .sort({ createdAt: 1 });
+    
+    // Mark messages as read for the current user
     await Message.updateMany(
-      {
-        sender: userId,
-        recipient: req.user.id,
-        read: false
-      },
-      {
-        read: true,
-        readAt: new Date()
-      }
+      { conversationId, recipient: userId, read: false },
+      { read: true }
     );
     
     res.json({
-      messages: messages.reverse(), // Return in chronological order
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        hasMore: messages.length === parseInt(limit)
-      }
+      otherUser,
+      messages
     });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server Error' });
+  } catch (error) {
+    console.error('Error fetching conversation:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// @route   GET api/messages
-// @desc    Get all messages for a user (deprecated - use /conversations instead)
-// @access  Private
-router.get('/', auth, async (req, res) => {
+// Send a new message
+router.post('/send', auth, async (req, res) => {
   try {
-    const messages = await Message.find({
-      $or: [
-        { sender: req.user.id },
-        { recipient: req.user.id }
-      ],
-      isDeleted: false
-    })
-    .populate('sender', 'name avatar')
-    .populate('recipient', 'name avatar')
-    .sort({ createdAt: -1 })
-    .limit(100);
+    const { recipientId, content } = req.body;
+    const senderId = req.user.id;
     
-    res.json(messages);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server Error' });
-  }
-});
-
-// @route   GET api/messages/conversations
-// @desc    Get all conversations for a user (direct and group)
-// @access  Private
-router.get('/conversations', auth, async (req, res) => {
-  try {
-    const conversations = await Message.getUserConversations(req.user.id);
+    // Validate input
+    if (!recipientId || !content) {
+      return res.status(400).json({ message: 'Recipient and content are required' });
+    }
     
-    // Transform the aggregation result to match frontend expectations
-    const formattedConversations = conversations.map(conv => {
-      const lastMessage = conv.lastMessage;
-      const senderInfo = conv.senderInfo[0];
-      const recipientInfo = conv.recipientInfo[0];
-      const groupInfo = conv.groupInfo[0];
-      
-      if (groupInfo) {
-        // Group conversation
-        return {
-          _id: conv._id, // conversationId
-          isGroup: true,
-          group: {
-            _id: groupInfo._id,
-            name: groupInfo.name,
-            avatar: groupInfo.avatar || '',
-            memberCount: groupInfo.members ? groupInfo.members.length : 0
-          },
-          lastMessage: {
-            _id: lastMessage._id,
-            content: lastMessage.content,
-            sender: {
-              _id: senderInfo._id,
-              name: senderInfo.name,
-              avatar: senderInfo.avatar || ''
-            },
-            createdAt: lastMessage.createdAt,
-            read: lastMessage.read,
-            messageType: lastMessage.messageType
-          },
-          unreadCount: conv.unreadCount || 0
-        };
-      } else {
-        // Direct conversation
-        // Determine the conversation partner (the other user)
-        const isCurrentUserSender = lastMessage.sender.toString() === req.user.id;
-        const partner = isCurrentUserSender ? recipientInfo : senderInfo;
-        
-        return {
-          _id: conv._id, // conversationId
-          isGroup: false,
-          user: {
-            _id: partner._id,
-            name: partner.name,
-            avatar: partner.avatar || ''
-          },
-          lastMessage: {
-            _id: lastMessage._id,
-            content: lastMessage.content,
-            sender: {
-              _id: senderInfo._id,
-              name: senderInfo.name,
-              avatar: senderInfo.avatar || ''
-            },
-            recipient: {
-              _id: recipientInfo._id,
-              name: recipientInfo.name,
-              avatar: recipientInfo.avatar || ''
-            },
-            createdAt: lastMessage.createdAt,
-            read: lastMessage.read,
-            messageType: lastMessage.messageType
-          },
-          unreadCount: conv.unreadCount || 0
-        };
-      }
+    if (content.trim().length === 0) {
+      return res.status(400).json({ message: 'Message content cannot be empty' });
+    }
+    
+    if (content.length > 1000) {
+      return res.status(400).json({ message: 'Message too long (max 1000 characters)' });
+    }
+    
+    // Validate recipient exists
+    const recipient = await User.findById(recipientId);
+    if (!recipient) {
+      return res.status(404).json({ message: 'Recipient not found' });
+    }
+    
+    // Cannot send message to yourself
+    if (senderId === recipientId) {
+      return res.status(400).json({ message: 'Cannot send message to yourself' });
+    }
+    
+    const conversationId = Message.generateConversationId(senderId, recipientId);
+    
+    const message = new Message({
+      sender: senderId,
+      recipient: recipientId,
+      content: content.trim(),
+      conversationId
     });
     
-    res.json(formattedConversations);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server Error' });
-  }
-});
-
-// @route   PUT api/messages/mark-read/:userId
-// @desc    Mark all messages in a direct conversation as read
-// @access  Private
-router.put('/mark-read/:userId', auth, async (req, res) => {
-  try {
-    const otherUserId = req.params.userId;
-    
-    // Generate conversationId
-    const userIds = [req.user.id, otherUserId].sort();
-    const conversationId = userIds.join('_');
-    
-    // Mark all unread messages in this conversation as read
-    const result = await Message.updateMany(
-      {
-        conversationId,
-        recipient: req.user.id,
-        read: false
-      },
-      {
-        $set: {
-          read: true,
-          readAt: new Date()
-        }
-      }
-    );
-    
-    res.json({ 
-      msg: 'Messages marked as read',
-      modifiedCount: result.modifiedCount
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server Error' });
-  }
-});
-
-// @route   PUT api/messages/mark-read-group/:groupId
-// @desc    Mark all messages in a group conversation as read
-// @access  Private
-router.put('/mark-read-group/:groupId', auth, async (req, res) => {
-  try {
-    const groupId = req.params.groupId;
-    
-    // Check if group exists and user is a member
-    const group = await Group.findById(groupId);
-    if (!group) {
-      return res.status(404).json({ msg: 'Group not found' });
-    }
-    
-    if (!group.isMember(req.user.id)) {
-      return res.status(403).json({ msg: 'Access denied' });
-    }
-    
-    // For group messages, we mark them as read for the current user
-    // Note: Group messages don't have a specific recipient, so we need a different approach
-    // We could add a readBy array to track who has read each message
-    // For now, we'll use a simpler approach and mark based on sender
-    const conversationId = `group_${groupId}`;
-    
-    const result = await Message.updateMany(
-      {
-        conversationId,
-        sender: { $ne: req.user.id }, // Don't mark own messages as read
-        read: false
-      },
-      {
-        $set: {
-          read: true,
-          readAt: new Date()
-        }
-      }
-    );
-    
-    res.json({ 
-      msg: 'Group messages marked as read',
-      modifiedCount: result.modifiedCount
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server Error' });
-  }
-});
-
-// @route   PUT api/messages/:messageId/read
-// @desc    Mark a message as read
-// @access  Private
-router.put('/:messageId/read', auth, async (req, res) => {
-  try {
-    const message = await Message.findById(req.params.messageId);
-    
-    if (!message) {
-      return res.status(404).json({ msg: 'Message not found' });
-    }
-    
-    // Only the recipient can mark a message as read
-    if (message.recipient.toString() !== req.user.id) {
-      return res.status(403).json({ msg: 'Not authorized to mark this message as read' });
-    }
-    
-    await message.markAsRead();
-    
-    res.json({ msg: 'Message marked as read' });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server Error' });
-  }
-});
-
-// @route   DELETE api/messages/:messageId
-// @desc    Soft delete a message
-// @access  Private
-router.delete('/:messageId', auth, async (req, res) => {
-  try {
-    const message = await Message.findById(req.params.messageId);
-    
-    if (!message) {
-      return res.status(404).json({ msg: 'Message not found' });
-    }
-    
-    // Only the sender can delete a message
-    if (message.sender.toString() !== req.user.id) {
-      return res.status(403).json({ msg: 'Not authorized to delete this message' });
-    }
-    
-    message.isDeleted = true;
-    message.content = 'This message has been deleted';
     await message.save();
     
-    res.json({ msg: 'Message deleted successfully' });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server Error' });
+    // Populate sender and recipient info
+    await message.populate('sender', 'name email');
+    await message.populate('recipient', 'name email');
+    
+    res.status(201).json(message);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// @route   GET api/messages/unread-count
-// @desc    Get count of unread messages for the authenticated user
-// @access  Private
+// Get unread message count
 router.get('/unread-count', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Count unread direct messages where user is recipient
-    const unreadDirectCount = await Message.countDocuments({
+    const unreadCount = await Message.countDocuments({
       recipient: userId,
-      readBy: { $ne: userId }
+      read: false
     });
     
-    // Count unread group messages where user hasn't read them
-    const unreadGroupCount = await Message.countDocuments({
-      groupId: { $exists: true },
-      readBy: { $ne: userId },
-      sender: { $ne: userId } // Don't count own messages
-    });
-    
-    const totalUnreadCount = unreadDirectCount + unreadGroupCount;
-    
-    res.json({ 
-      count: totalUnreadCount,
-      direct: unreadDirectCount,
-      group: unreadGroupCount
-    });
+    res.json({ unreadCount });
   } catch (error) {
-    console.error('Error getting unread message count:', error);
+    console.error('Error fetching unread count:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Mark conversation as read
+router.put('/conversation/:otherUserId/read', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const otherUserId = req.params.otherUserId;
+    
+    const conversationId = Message.generateConversationId(userId, otherUserId);
+    
+    await Message.updateMany(
+      { conversationId, recipient: userId, read: false },
+      { read: true }
+    );
+    
+    res.json({ message: 'Conversation marked as read' });
+  } catch (error) {
+    console.error('Error marking conversation as read:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

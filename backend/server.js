@@ -8,7 +8,6 @@ const gigRoutes = require('./routes/gigs');
 const messageRoutes = require('./routes/messages');
 const profileRoutes = require('./routes/profiles');
 const uploadRoutes = require('./routes/upload');
-const groupRoutes = require('./routes/groups');
 const linkRoutes = require('./routes/links');
 
 const app = express();
@@ -25,7 +24,6 @@ app.use('/api/gigs', gigRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/profiles', profileRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/groups', groupRoutes);
 app.use('/api/links', linkRoutes);
 
 // Default route
