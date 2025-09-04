@@ -87,9 +87,11 @@ const Messages = () => {
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [lastReadTimestamp, setLastReadTimestamp] = useState(null);
 
   
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const messageInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   // Fetch conversations
@@ -208,8 +210,51 @@ const Messages = () => {
       console.log('Full conversation found:', fullConversation);
       if (fullConversation) {
         setSelectedConversation(fullConversation);
+        
+        // Join the conversation for real-time updates
+        joinConversation(fullConversation.conversationId);
+        
+        // Mark all unread messages as read when conversation is opened
+        if (fullConversation.unreadCount > 0) {
+          const messages = Array.isArray(response.data) ? response.data : [];
+          const unreadMessages = messages.filter(msg => 
+            msg.sender._id !== user.id && !msg.read
+          );
+          
+          // Mark each unread message as read via API
+          unreadMessages.forEach(async (message) => {
+            try {
+              await axios.put(`/api/messages/${message._id}/status`, {
+                status: 'read'
+              }, {
+                headers: { 'x-auth-token': token }
+              });
+            } catch (error) {
+              console.error('Error marking message as read:', error);
+            }
+          });
+          
+          // Update conversation unread count locally
+          setConversations(prev => 
+            prev.map(conv => 
+              conv.conversationId === fullConversation.conversationId 
+                ? { ...conv, unreadCount: 0 }
+                : conv
+            )
+          );
+        }
       } else {
-        setSelectedConversation({ _id: otherUserId });
+        // If conversation not found, fetch user details
+        try {
+          const userResponse = await axios.get(`/api/users/${otherUserId}`, {
+            headers: { 'x-auth-token': token }
+          });
+          const otherUser = userResponse.data;
+          setSelectedConversation({ _id: otherUserId, otherUser });
+        } catch (userErr) {
+          console.error('Error fetching user details:', userErr);
+          setSelectedConversation({ _id: otherUserId });
+        }
       }
       console.log('Messages state updated, count:', response.data.length);
     } catch (err) {
@@ -284,20 +329,56 @@ const Messages = () => {
       // (current user's messages are already added optimistically)
       if (message.sender._id !== user.id) {
         setMessages(prev => [...(prev || []), message]);
-        setConversations(prev => {
-          const updated = (prev || []).map(conv => {
-            if (conv.conversationId === message.conversationId) {
-              return {
-                ...conv,
-                lastMessage: message,
-                unreadCount: conv.unreadCount + 1
-              };
+        
+        // Check if this message is for the currently open conversation
+        const isCurrentConversation = selectedConversation && 
+          (selectedConversation.conversationId === message.conversationId ||
+           selectedConversation.otherUser?._id === message.sender._id);
+        
+        if (isCurrentConversation) {
+          // If conversation is already open, mark message as read immediately via API
+          (async () => {
+            try {
+              await axios.put(`/api/messages/${message._id}/status`, {
+                status: 'read'
+              }, {
+                headers: { 'x-auth-token': token }
+              });
+            } catch (error) {
+              console.error('Error marking message as read:', error);
             }
-            return conv;
+          })();
+          
+          // Don't increment unread count for current conversation
+          setConversations(prev => {
+            const updated = (prev || []).map(conv => {
+              if (conv.conversationId === message.conversationId) {
+                return {
+                  ...conv,
+                  lastMessage: message
+                  // unreadCount stays the same since message is read immediately
+                };
+              }
+              return conv;
+            });
+            return updated;
           });
-          return updated;
-        });
-        // scrollToBottom(); // Disabled auto-scroll
+        } else {
+          // If conversation is not open, increment unread count
+          setConversations(prev => {
+            const updated = (prev || []).map(conv => {
+              if (conv.conversationId === message.conversationId) {
+                return {
+                  ...conv,
+                  lastMessage: message,
+                  unreadCount: conv.unreadCount + 1
+                };
+              }
+              return conv;
+            });
+            return updated;
+          });
+        }
       }
     });
 
@@ -326,6 +407,12 @@ const Messages = () => {
         }
         return msg;
       }));
+      
+      // If a message was marked as read, update the tick icon color
+      if (status === 'read') {
+        // The getMessageStatusIcon function will automatically show blue ticks for read messages
+        console.log(`Message ${messageId} marked as read - tick will turn blue`);
+      }
     });
 
     // Listen for typing indicators
@@ -344,14 +431,37 @@ const Messages = () => {
     };
   }, [socket, selectedConversation]);
 
+  // Handle joining/leaving conversations
+  useEffect(() => {
+    return () => {
+      // Leave conversation when component unmounts or conversation changes
+      if (selectedConversation?.conversationId) {
+        leaveConversation(selectedConversation.conversationId);
+      }
+    };
+  }, [selectedConversation?.conversationId, leaveConversation]);
+
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesContainerRef.current) {
+      // Scroll only the message container div to the bottom
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   };
 
-  // useEffect(() => {
-  //   scrollToBottom();
-  // }, [messages]); // Disabled auto-scroll when messages update
+  // Auto-scroll to bottom when conversation is opened or messages change
+  useEffect(() => {
+    if (selectedConversation && messages && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages, selectedConversation]);
+
+  // Auto-scroll to bottom when typing indicator appears or disappears
+  useEffect(() => {
+    if (selectedConversation) {
+      scrollToBottom();
+    }
+  }, [isTyping, selectedConversation]);
 
   // Join/leave conversation rooms
   useEffect(() => {
@@ -525,8 +635,6 @@ const Messages = () => {
       
       // Refresh conversations to update last message
       fetchConversations();
-      
-      showNotification('Message sent successfully', 'success');
      } catch (err) {
        console.error('Error sending message:', err);
        if (err.response) {
@@ -629,7 +737,7 @@ const Messages = () => {
     const now = moment();
     
     if (now.diff(messageTime, 'days') === 0) {
-      return messageTime.format('HH:mm');
+      return 'Today';
     } else if (now.diff(messageTime, 'days') === 1) {
       return 'Yesterday';
     } else {
@@ -650,7 +758,7 @@ const Messages = () => {
   }
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', bgcolor: '#f5f5f5' }}>
       {/* Sidebar - Conversations List */}
       <Box sx={{ 
         width: 400, 
@@ -712,6 +820,20 @@ const Messages = () => {
                   console.log('Other user ID:', conversation.otherUser?._id);
                   console.log('About to call fetchMessages with ID:', conversation.otherUser?._id);
                   if (conversation.otherUser?._id) {
+                    // Set the timestamp for "new messages" line based on unread count
+                    // If there are unread messages, set timestamp to show them as new
+                    if (conversation.unreadCount > 0) {
+                      // Set to a time before the last message to show unread messages as new
+                      const lastMessageTime = conversation.lastMessage?.createdAt;
+                      if (lastMessageTime) {
+                        setLastReadTimestamp(moment(lastMessageTime).subtract(1, 'hour'));
+                      } else {
+                        setLastReadTimestamp(moment().subtract(1, 'day'));
+                      }
+                    } else {
+                      // No unread messages, set to current time
+                      setLastReadTimestamp(moment());
+                    }
                     fetchMessages(conversation.otherUser._id);
                   } else {
                     console.error('No other user ID found in conversation:', conversation);
@@ -724,20 +846,26 @@ const Messages = () => {
                   py: 1.5
                 }}
               >
-                <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: '#1976d2', width: 50, height: 50 }}>
-                    {conversation.otherUser?.name?.charAt(0)?.toUpperCase() || 'U'}
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
+
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: '#1976d2', width: 50, height: 50 }}>
+                      {conversation.otherUser?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
                   primary={
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Typography variant="subtitle1" fontWeight="500">
                         {conversation.otherUser?.name || 'Unknown User'}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {conversation.lastMessage?.createdAt ? moment(conversation.lastMessage.createdAt).format('HH:mm') : ''}
-                      </Typography>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {conversation.lastMessage?.createdAt ? moment(conversation.lastMessage.createdAt).format('DD/MM/YYYY') : ''}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                          {conversation.lastMessage?.createdAt ? moment(conversation.lastMessage.createdAt).format('HH:mm') : ''}
+                        </Typography>
+                      </Box>
                     </Box>
                   }
                   secondary={
@@ -788,12 +916,20 @@ const Messages = () => {
               justifyContent: 'space-between'
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Avatar sx={{ bgcolor: '#1976d2', mr: 2 }}>
-                  {conversations.find(c => c.otherUser?._id === selectedConversation._id)?.otherUser?.name?.charAt(0)?.toUpperCase() || 'U'}
+                <Avatar 
+                  sx={{ 
+                    width: 40, 
+                    height: 40, 
+                    mr: 2, 
+                    bgcolor: '#1976d2',
+                    fontSize: '1rem'
+                  }}
+                >
+                  {(selectedConversation?.otherUser?.name || conversations.find(c => c.otherUser?._id === selectedConversation._id)?.otherUser?.name || 'U').charAt(0).toUpperCase()}
                 </Avatar>
                 <Box>
                   <Typography variant="subtitle1" fontWeight="500">
-                    {conversations.find(c => c.otherUser?._id === selectedConversation._id)?.otherUser?.name || 'Unknown User'}
+                    {selectedConversation?.otherUser?.name || conversations.find(c => c.otherUser?._id === selectedConversation._id)?.otherUser?.name || 'Unknown User'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Online
@@ -837,16 +973,18 @@ const Messages = () => {
             )}
 
             {/* Messages Area */}
-            <Box sx={{ 
-              flex: 1, 
-              p: 2, 
-              overflow: 'auto',
-              bgcolor: '#e5ddd5',
-              backgroundImage: 'url("data:image/svg+xml,%3Csvg width="100" height="100" xmlns="http://www.w3.org/2000/svg"%3E%3Cdefs%3E%3Cpattern id="a" patternUnits="userSpaceOnUse" width="100" height="100"%3E%3Cpath d="M0 0h100v100H0z" fill="%23e5ddd5"/%3E%3Cpath d="M20 20h60v60H20z" fill="none" stroke="%23d1c7b7" stroke-width="0.5" opacity="0.1"/%3E%3C/pattern%3E%3C/defs%3E%3Crect width="100%25" height="100%25" fill="url(%23a)"/%3E%3C/svg%3E")',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1
-            }}>
+            <Box 
+              ref={messagesContainerRef}
+              sx={{ 
+                flex: 1, 
+                p: 2, 
+                overflow: 'auto',
+                bgcolor: '#e5ddd5',
+                backgroundImage: 'url("data:image/svg+xml,%3Csvg width="100" height="100" xmlns="http://www.w3.org/2000/svg"%3E%3Cdefs%3E%3Cpattern id="a" patternUnits="userSpaceOnUse" width="100" height="100"%3E%3Cpath d="M0 0h100v100H0z" fill="%23e5ddd5"/%3E%3Cpath d="M20 20h60v60H20z" fill="none" stroke="%23d1c7b7" stroke-width="0.5" opacity="0.1"/%3E%3C/pattern%3E%3C/defs%3E%3Crect width="100%25" height="100%25" fill="url(%23a)"/%3E%3C/svg%3E")',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1
+              }}>
               {(() => {
                 console.log('Rendering messages:', messages, 'Array?', Array.isArray(messages), 'Length:', messages?.length);
                 return messages && Array.isArray(messages) && messages
@@ -859,10 +997,35 @@ const Messages = () => {
                 const isOwn = message.sender?._id === user.id;
                 const showAvatar = !isOwn && (index === 0 || messages[index - 1]?.sender?._id !== message.sender?._id);
                 const showTimestamp = index === 0 || 
-                  moment(message.createdAt).diff(moment(messages[index - 1]?.createdAt), 'minutes') > 5;
+                  !moment(message.createdAt).isSame(moment(messages[index - 1]?.createdAt), 'day');
+                
+                // Check if this is the first new message (only for received messages, not sent)
+                const isFirstNewMessage = lastReadTimestamp && 
+                  moment(message.createdAt).isAfter(lastReadTimestamp) &&
+                  !isOwn && // Only show for received messages, not sent messages
+                  (index === 0 || !moment(messages[index - 1]?.createdAt).isAfter(lastReadTimestamp));
                 
                 return (
                   <React.Fragment key={message._id}>
+                    {/* New Messages separator */}
+                    {isFirstNewMessage && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', my: 3 }}>
+                        <Box sx={{ flex: 1, height: '1px', bgcolor: '#e74c3c' }} />
+                        <Chip 
+                          label="New Messages" 
+                          size="small" 
+                          sx={{ 
+                            mx: 2,
+                            bgcolor: '#e74c3c', 
+                            color: 'white',
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold'
+                          }} 
+                        />
+                        <Box sx={{ flex: 1, height: '1px', bgcolor: '#e74c3c' }} />
+                      </Box>
+                    )}
+                    
                     {/* Timestamp separator */}
                     {showTimestamp && (
                       <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
@@ -886,20 +1049,7 @@ const Messages = () => {
                         alignItems: 'flex-end'
                       }}
                     >
-                      {/* Avatar for received messages */}
-                      {showAvatar && (
-                        <Avatar 
-                          sx={{ 
-                            width: 32, 
-                            height: 32, 
-                            mr: 1, 
-                            bgcolor: '#1976d2',
-                            fontSize: '0.8rem'
-                          }}
-                        >
-                          {message.sender?.name?.charAt(0)?.toUpperCase() || 'U'}
-                        </Avatar>
-                      )}
+                      {/* Avatar removed for cleaner message display */}
                       
                       {/* Message bubble */}
                       <Box sx={{ maxWidth: '70%' }}>
@@ -1045,10 +1195,7 @@ const Messages = () => {
                         </Paper>
                       </Box>
                       
-                      {/* Spacer for sent messages to align with avatar space */}
-                      {isOwn && !showAvatar && (
-                        <Box sx={{ width: 40 }} />
-                      )}
+                      {/* Spacer removed since avatars are no longer displayed */}
                     </Box>
                   </React.Fragment>
                 );
@@ -1059,12 +1206,10 @@ const Messages = () => {
               {isTyping && (
                 <Fade in={isTyping}>
                   <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1 }}>
-                    <Avatar sx={{ width: 32, height: 32, mr: 1, bgcolor: '#1976d2' }}>
-                      {conversations.find(c => c.otherUser?._id === selectedConversation._id)?.otherUser?.name?.charAt(0)?.toUpperCase() || 'U'}
-                    </Avatar>
+                    {/* Avatar removed from typing indicator */}
                     <Paper sx={{
                       p: 1.5,
-                      bgcolor: 'white',
+                      bgcolor: '#f0f0f0',
                       borderRadius: '18px 18px 18px 4px',
                       boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                     }}>

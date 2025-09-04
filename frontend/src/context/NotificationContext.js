@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { useSocket } from './SocketContext';
 import { toast } from 'react-toastify';
 
 const NotificationContext = createContext();
@@ -14,6 +15,7 @@ export const useNotifications = () => {
 
 export const NotificationProvider = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
+  const { socket } = useSocket();
   const [unreadCounts, setUnreadCounts] = useState({
     messages: 0,
     linkRequests: 0,
@@ -117,6 +119,43 @@ export const NotificationProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
+  // Socket event listeners for real-time updates
+  useEffect(() => {
+    if (!socket || !isAuthenticated || !user) return;
+
+    // Listen for new messages to increment unread count
+    const handleNewMessage = (message) => {
+      // Only increment if message is not from current user
+      if (message.sender._id !== user.id) {
+        incrementCount('messages', 1);
+      }
+    };
+
+    // Listen for conversation updates (when messages are read)
+    const handleConversationUpdate = (data) => {
+      // Refresh counts when conversation is updated
+      fetchUnreadCounts();
+    };
+
+    // Listen for message status updates (when messages are marked as read)
+    const handleMessageStatusUpdate = ({ status }) => {
+      if (status === 'read') {
+        // Refresh counts when messages are marked as read
+        fetchUnreadCounts();
+      }
+    };
+
+    socket.on('new_message', handleNewMessage);
+    socket.on('conversation_update', handleConversationUpdate);
+    socket.on('message_status_update', handleMessageStatusUpdate);
+
+    return () => {
+      socket.off('new_message', handleNewMessage);
+      socket.off('conversation_update', handleConversationUpdate);
+      socket.off('message_status_update', handleMessageStatusUpdate);
+    };
+  }, [socket, isAuthenticated, user, incrementCount, fetchUnreadCounts]);
+
   // Show notification function
   const showNotification = (message, type = 'info') => {
     switch (type) {
@@ -136,6 +175,7 @@ export const NotificationProvider = ({ children }) => {
 
   const value = {
     unreadCounts,
+    totalUnreadCount: unreadCounts.total,
     loading,
     fetchUnreadCounts,
     updateCount,
