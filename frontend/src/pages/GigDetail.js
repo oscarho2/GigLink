@@ -86,7 +86,7 @@ const GigDetail = () => {
           gigPayment: parseFloat(gig.payment)
         }
       };
-      await axios.post('/api/messages', body, config);
+      await axios.post('/api/messages/send', body, config);
       setApplyStatus('success');
       setMessageSent(true);
     } catch (err) {

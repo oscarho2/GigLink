@@ -5,6 +5,9 @@ import { Box } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { SocketProvider } from './context/SocketContext';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Components
 import Navbar from './components/layout/Navbar';
@@ -69,8 +72,9 @@ function App() {
 
   return (
     <AuthProvider>
-      <NotificationProvider>
-        <ThemeProvider theme={theme}>
+      <SocketProvider>
+        <NotificationProvider>
+          <ThemeProvider theme={theme}>
           <CssBaseline />
           <Router>
           <Box
@@ -104,8 +108,20 @@ function App() {
             <Footer />
           </Box>
           </Router>
-        </ThemeProvider>
-      </NotificationProvider>
+          </ThemeProvider>
+        </NotificationProvider>
+      </SocketProvider>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </AuthProvider>
   );
 }
