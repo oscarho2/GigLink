@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { toast } from 'react-toastify';
 
 const NotificationContext = createContext();
 
@@ -116,13 +117,31 @@ export const NotificationProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
+  // Show notification function
+  const showNotification = (message, type = 'info') => {
+    switch (type) {
+      case 'success':
+        toast.success(message);
+        break;
+      case 'error':
+        toast.error(message);
+        break;
+      case 'warning':
+        toast.warning(message);
+        break;
+      default:
+        toast.info(message);
+    }
+  };
+
   const value = {
     unreadCounts,
     loading,
     fetchUnreadCounts,
     updateCount,
     markAsRead,
-    incrementCount
+    incrementCount,
+    showNotification
   };
 
   return (

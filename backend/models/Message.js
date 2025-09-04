@@ -26,6 +26,49 @@ const messageSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  delivered: {
+    type: Boolean,
+    default: false
+  },
+  messageType: {
+    type: String,
+    enum: ['text', 'image', 'file', 'emoji'],
+    default: 'text'
+  },
+  fileUrl: {
+    type: String,
+    default: null
+  },
+  fileName: {
+    type: String,
+    default: null
+  },
+  fileSize: {
+    type: Number,
+    default: null
+  },
+  mimeType: {
+    type: String,
+    default: null
+  },
+  reactions: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    emoji: {
+      type: String,
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  editedAt: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
