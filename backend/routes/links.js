@@ -356,4 +356,24 @@ router.get('/status/:userId', auth, async (req, res) => {
   }
 });
 
+// @route   GET api/links/pending-count
+// @desc    Get count of pending link requests for the authenticated user
+// @access  Private
+router.get('/pending-count', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Count pending link requests where user is the recipient
+    const pendingCount = await Link.countDocuments({
+      recipient: userId,
+      status: 'pending'
+    });
+    
+    res.json({ count: pendingCount });
+  } catch (error) {
+    console.error('Error getting pending link requests count:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

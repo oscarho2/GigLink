@@ -20,6 +20,7 @@ import LinksPage from './pages/Links';
 import PrivateRoute from './components/PrivateRoute';
 import EditProfile from './pages/EditProfile';
 import ProfileSetup from './pages/ProfileSetup';
+import Settings from './pages/Settings';
 import Discover from './pages/Discover';
 import Gigs from './pages/Gigs';
 import GigDetail from './pages/GigDetail';
@@ -89,6 +90,7 @@ function App() {
                 <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />
                 <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
                 <Route path="/profile-setup" element={<PrivateRoute><ProfileSetup /></PrivateRoute>} />
+                <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
                 <Route path="/discover" element={<Discover />} />
                 <Route path="/gigs" element={<Gigs />} />
                 <Route path="/gigs/:id" element={<GigDetail />} />
