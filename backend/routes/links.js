@@ -4,7 +4,7 @@ const Link = require('../models/Link');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
-// Send friend request
+// Send link request
 router.post('/request', auth, async (req, res) => {
   try {
     const { recipientId, note } = req.body;
@@ -12,7 +12,7 @@ router.post('/request', auth, async (req, res) => {
 
     // Check if trying to add themselves
     if (requesterId === recipientId) {
-      return res.status(400).json({ message: 'Cannot send friend request to yourself' });
+      return res.status(400).json({ message: 'Cannot send link request to yourself' });
     }
 
     // Check if recipient exists
@@ -21,21 +21,21 @@ router.post('/request', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Check if friendship already exists
-    const existingLink = await Link.findFriendship(requesterId, recipientId);
+    // Check if link already exists
+    const existingLink = await Link.areLinked(requesterId, recipientId);
     if (existingLink) {
       if (existingLink.status === 'accepted') {
-        return res.status(400).json({ message: 'You are already friends with this user' });
+        return res.status(400).json({ message: 'You are already linked with this user' });
       }
       if (existingLink.status === 'pending') {
-        return res.status(400).json({ message: 'Friend request already sent' });
+        return res.status(400).json({ message: 'Link request already sent' });
       }
       if (existingLink.status === 'blocked') {
-        return res.status(400).json({ message: 'Cannot send friend request to this user' });
+        return res.status(400).json({ message: 'Cannot send link request to this user' });
       }
     }
 
-    // Create new friend request
+    // Create new link request
     const newLink = new Link({
       requester: requesterId,
       recipient: recipientId,
@@ -46,16 +46,16 @@ router.post('/request', auth, async (req, res) => {
     await newLink.populate('requester recipient', 'name email avatar');
 
     res.status(201).json({
-      message: 'Friend request sent successfully',
+      message: 'Link request sent successfully',
       link: newLink
     });
   } catch (error) {
-    console.error('Error sending friend request:', error);
+    console.error('Error sending link request:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Accept friend request
+// Accept link request
 router.put('/accept/:linkId', auth, async (req, res) => {
   try {
     const { linkId } = req.params;
@@ -63,7 +63,7 @@ router.put('/accept/:linkId', auth, async (req, res) => {
 
     const link = await Link.findById(linkId);
     if (!link) {
-      return res.status(404).json({ message: 'Friend request not found' });
+      return res.status(404).json({ message: 'Link not found' });
     }
 
     // Check if user is the recipient
@@ -73,23 +73,23 @@ router.put('/accept/:linkId', auth, async (req, res) => {
 
     // Check if request is still pending
     if (link.status !== 'pending') {
-      return res.status(400).json({ message: 'Friend request is no longer pending' });
+      return res.status(400).json({ message: 'Link request is no longer pending' });
     }
 
     await link.accept();
     await link.populate('requester recipient', 'name email avatar');
 
     res.json({
-      message: 'Friend request accepted',
+      message: 'Link request accepted',
       link: link
     });
   } catch (error) {
-    console.error('Error accepting friend request:', error);
+    console.error('Error accepting link request:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Decline friend request
+// Decline link request
 router.put('/decline/:linkId', auth, async (req, res) => {
   try {
     const { linkId } = req.params;
@@ -97,7 +97,7 @@ router.put('/decline/:linkId', auth, async (req, res) => {
 
     const link = await Link.findById(linkId);
     if (!link) {
-      return res.status(404).json({ message: 'Friend request not found' });
+      return res.status(404).json({ message: 'Link request not found' });
     }
 
     // Check if user is the recipient
@@ -107,23 +107,23 @@ router.put('/decline/:linkId', auth, async (req, res) => {
 
     // Check if request is still pending
     if (link.status !== 'pending') {
-      return res.status(400).json({ message: 'Friend request is no longer pending' });
+      return res.status(400).json({ message: 'Link request is no longer pending' });
     }
 
     await link.decline();
     await link.populate('requester recipient', 'name email avatar');
 
     res.json({
-      message: 'Friend request declined',
+      message: 'Link request declined',
       link: link
     });
   } catch (error) {
-    console.error('Error declining friend request:', error);
+    console.error('Error declining link request:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Remove friend/Cancel request
+// Remove link/Cancel request
 router.delete('/:linkId', auth, async (req, res) => {
   try {
     const { linkId } = req.params;
@@ -134,7 +134,7 @@ router.delete('/:linkId', auth, async (req, res) => {
       return res.status(404).json({ message: 'Link not found' });
     }
 
-    // Check if user is involved in this friendship
+    // Check if user is involved in this link
     if (link.requester.toString() !== userId && link.recipient.toString() !== userId) {
       return res.status(403).json({ message: 'Not authorized to remove this link' });
     }
@@ -177,38 +177,38 @@ router.put('/block/:linkId', auth, async (req, res) => {
   }
 });
 
-// Get user's friends
-router.get('/friends', auth, async (req, res) => {
+// Get user's links
+router.get('/links', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const friends = await Link.getFriends(userId);
+    const links = await Link.getLinks(userId);
 
-    // Format friends list
-    const friendsList = friends.map(link => {
-      const friend = link.requester._id.toString() === userId 
+    // Format links list
+    const linksList = links.map(link => {
+      const linkUser = link.requester._id.toString() === userId 
         ? link.recipient 
         : link.requester;
       
       return {
         linkId: link._id,
-        friend: {
-          id: friend._id,
-          name: friend.name,
-          email: friend.email,
-          avatar: friend.avatar
+        link: {
+          id: linkUser._id,
+          name: linkUser.name,
+          email: linkUser.email,
+          avatar: linkUser.avatar
         },
         connectedAt: link.respondedAt || link.createdAt
       };
     });
 
-    res.json({ friends: friendsList });
+    res.json({ links: linksList });
   } catch (error) {
-    console.error('Error getting friends:', error);
+    console.error('Error getting links:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Get pending friend requests (received)
+// Get pending link requests (received)
 router.get('/requests/pending', auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -233,7 +233,7 @@ router.get('/requests/pending', auth, async (req, res) => {
   }
 });
 
-// Get sent friend requests
+// Get sent link requests
 router.get('/requests/sent', auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -258,24 +258,32 @@ router.get('/requests/sent', auth, async (req, res) => {
   }
 });
 
-// Search users (for adding friends)
+// Search users (for adding links)
 router.get('/search', auth, async (req, res) => {
   try {
-    const { query } = req.query;
+    const { query, location } = req.query;
     const userId = req.user.id;
 
     if (!query || query.trim().length < 2) {
       return res.status(400).json({ message: 'Search query must be at least 2 characters' });
     }
 
-    // Search users by name or email
-    const users = await User.find({
+    // Build search criteria
+    const searchCriteria = {
       _id: { $ne: userId }, // Exclude current user
       $or: [
         { name: { $regex: query, $options: 'i' } },
         { email: { $regex: query, $options: 'i' } }
       ]
-    }).select('name email avatar').limit(20);
+    };
+
+    // Add location filter if provided
+    if (location && location.trim().length > 0) {
+      searchCriteria.location = { $regex: location, $options: 'i' };
+    }
+
+    // Search users by name, email, and optionally location
+    const users = await User.find(searchCriteria).select('name email avatar location').limit(20);
 
     // Get existing links for these users
     const userIds = users.map(user => user._id);
@@ -301,6 +309,7 @@ router.get('/search', auth, async (req, res) => {
       name: user.name,
       email: user.email,
       avatar: user.avatar,
+      location: user.location,
       relationshipStatus: linkMap[user._id.toString()] || 'none'
     }));
 
@@ -311,7 +320,7 @@ router.get('/search', auth, async (req, res) => {
   }
 });
 
-// Check friendship status
+// Check link status
 router.get('/status/:userId', auth, async (req, res) => {
   try {
     const { userId: otherUserId } = req.params;
@@ -321,7 +330,7 @@ router.get('/status/:userId', auth, async (req, res) => {
       return res.json({ status: 'self' });
     }
 
-    const link = await Link.findFriendship(userId, otherUserId);
+    const link = await Link.areLinked(userId, otherUserId);
     
     if (!link) {
       return res.json({ status: 'none' });
@@ -342,7 +351,7 @@ router.get('/status/:userId', auth, async (req, res) => {
       respondedAt: link.respondedAt
     });
   } catch (error) {
-    console.error('Error checking friendship status:', error);
+    console.error('Error checking link status:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
