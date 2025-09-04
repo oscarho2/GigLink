@@ -64,8 +64,8 @@ const Messages = () => {
   const [firstUnreadMessageId, setFirstUnreadMessageId] = useState(null);
   const [showGroupManagement, setShowGroupManagement] = useState(false);
   const [groups, setGroups] = useState([]);
-  const [friends, setFriends] = useState([]);
-  const [showFriendsOnly, setShowFriendsOnly] = useState(false);
+  const [links, setLinks] = useState([]);
+  const [showLinksOnly, setShowLinksOnly] = useState(false);
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const firstUnreadRef = useRef(null);
@@ -85,17 +85,17 @@ const Messages = () => {
     }
   };
 
-  // Fetch friends
-  const fetchFriends = useCallback(async () => {
+  // Fetch links
+  const fetchLinks = useCallback(async () => {
     if (!token) return;
     
     try {
-      const res = await axios.get('/api/links/friends', {
+      const res = await axios.get('/api/links/links', {
         headers: { 'x-auth-token': token }
       });
-      setFriends(res.data.map(friend => friend._id));
+      setLinks(res.data.map(link => link._id));
     } catch (err) {
-      console.error('Error fetching friends:', err);
+      console.error('Error fetching links:', err);
     }
   }, [token]);
 
@@ -212,8 +212,8 @@ const Messages = () => {
   // Load initial data
   useEffect(() => {
     fetchConversations();
-    fetchFriends();
-  }, [fetchConversations, fetchFriends]);
+    fetchLinks();
+  }, [fetchConversations, fetchLinks]);
 
   // Auto-select the most recent conversation when conversations are loaded
   useEffect(() => {
@@ -225,7 +225,7 @@ const Messages = () => {
   // Load messages when conversation is selected
   useEffect(() => {
     if (selectedConversation) {
-      fetchMessages(selectedConversation.user._id);
+      fetchMessages(selectedConversation);
     }
   }, [selectedConversation, fetchMessages]);
 
@@ -409,7 +409,7 @@ const Messages = () => {
     }
   };
 
-  // Filter conversations based on search and friend status
+  // Filter conversations based on search and link status
   const filteredConversations = conversations.filter(conv => {
     // Search filter
     const matchesSearch = conv.isGroup 
@@ -418,9 +418,9 @@ const Messages = () => {
     
     if (!matchesSearch) return false;
     
-    // Friend filter (only apply to direct messages, not groups)
-    if (showFriendsOnly && !conv.isGroup) {
-      return friends.includes(conv.user._id);
+    // Link filter (only apply to direct messages, not groups)
+    if (showLinksOnly && !conv.isGroup) {
+      return links.includes(conv.user._id);
     }
     
     return true;
@@ -542,12 +542,12 @@ const Messages = () => {
               </IconButton>
             </Box>
             
-            {/* Friends Filter Toggle */}
+            {/* Links Filter Toggle */}
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
               <ToggleButtonGroup
-                value={showFriendsOnly ? 'friends' : 'all'}
+                value={showLinksOnly ? 'links' : 'all'}
                 exclusive
-                onChange={(e, newValue) => setShowFriendsOnly(newValue === 'friends')}
+                onChange={(e, newValue) => setShowLinksOnly(newValue === 'links')}
                 size="small"
                 sx={{
                   '& .MuiToggleButton-root': {
@@ -561,9 +561,9 @@ const Messages = () => {
                   <PeopleIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
                   All
                 </ToggleButton>
-                <ToggleButton value="friends">
+                <ToggleButton value="links">
                   <FavoriteIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
-                  Friends Only
+                  Links Only
                 </ToggleButton>
               </ToggleButtonGroup>
             </Box>
@@ -644,8 +644,8 @@ const Messages = () => {
                           >
                             {conversation.isGroup ? conversation.groupName : conversation.user.name}
                           </Typography>
-                          {!conversation.isGroup && friends.includes(conversation.user._id) && (
-                            <Tooltip title="Friend">
+                          {!conversation.isGroup && links.includes(conversation.user._id) && (
+                            <Tooltip title="Link">
                               <FavoriteIcon 
                                 sx={{ 
                                   fontSize: { xs: '0.875rem', sm: '0.75rem' }, 

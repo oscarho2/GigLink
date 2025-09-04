@@ -61,7 +61,7 @@ const NotificationBadge = () => {
     setAnchorEl(null);
   };
 
-  const acceptFriendRequest = async (linkId) => {
+  const acceptLinkRequest = async (linkId) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/links/accept/${linkId}`, {
@@ -77,11 +77,11 @@ const NotificationBadge = () => {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error('Error accepting friend request:', error);
+      console.error('Error accepting link request:', error);
     }
   };
 
-  const declineFriendRequest = async (linkId) => {
+  const declineLinkRequest = async (linkId) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/links/decline/${linkId}`, {
@@ -97,7 +97,7 @@ const NotificationBadge = () => {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error('Error declining friend request:', error);
+      console.error('Error declining link request:', error);
     }
   };
 
@@ -138,7 +138,7 @@ const NotificationBadge = () => {
       >
         <Box sx={{ p: 2, borderBottom: '1px solid rgba(0,0,0,0.12)' }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Friend Requests
+            Link Requests
           </Typography>
           {unreadCount > 0 && (
             <Typography variant="body2" color="text.secondary">
@@ -150,7 +150,7 @@ const NotificationBadge = () => {
         {notifications.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              No pending friend requests
+              No pending link requests
             </Typography>
           </Box>
         ) : (
@@ -196,7 +196,7 @@ const NotificationBadge = () => {
                     startIcon={<CheckIcon />}
                     onClick={(e) => {
                       e.stopPropagation();
-                      acceptFriendRequest(request.linkId);
+                      acceptLinkRequest(request.linkId);
                     }}
                     sx={{ minWidth: 80 }}
                   >
@@ -209,7 +209,7 @@ const NotificationBadge = () => {
                     startIcon={<CloseIcon />}
                     onClick={(e) => {
                       e.stopPropagation();
-                      declineFriendRequest(request.linkId);
+                      declineLinkRequest(request.linkId);
                     }}
                     sx={{ minWidth: 80 }}
                   >

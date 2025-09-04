@@ -16,7 +16,7 @@ const Profile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
-  const [friendStatus, setFriendStatus] = useState(null); // 'none', 'pending', 'friends', 'received'
+  const [linkStatus, setLinkStatus] = useState(null); // 'none', 'pending', 'links', 'received'
   const [linkId, setLinkId] = useState(null);
   const [userRole, setUserRole] = useState(null); // 'requester' or 'recipient'
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -73,9 +73,9 @@ const Profile = () => {
     fetchProfile();
   }, [user, token, id]);
 
-  // Check friend status when viewing another user's profile
+  // Check link status when viewing another user's profile
   useEffect(() => {
-    const checkFriendStatus = async () => {
+    const checkLinkStatus = async () => {
       if (!user || !id || isOwnProfile) return;
       
       try {
@@ -83,42 +83,42 @@ const Profile = () => {
           headers: { 'x-auth-token': token }
         });
         const { status, linkId: responseLink, role } = response.data;
-        setFriendStatus(status);
+        setLinkStatus(status);
         setLinkId(responseLink);
         setUserRole(role);
         
         // Map backend status to frontend status
         if (status === 'pending') {
-          setFriendStatus(role === 'requester' ? 'pending' : 'received');
+          setLinkStatus(role === 'requester' ? 'pending' : 'received');
         } else if (status === 'accepted') {
-          setFriendStatus('friends');
+          setLinkStatus('links');
         } else {
-          setFriendStatus('none');
+          setLinkStatus('none');
         }
       } catch (err) {
-        console.error('Error checking friend status:', err);
-        setFriendStatus('none');
+        console.error('Error checking link status:', err);
+        setLinkStatus('none');
       }
     };
 
-    checkFriendStatus();
+    checkLinkStatus();
   }, [user, token, id, isOwnProfile]);
 
-  const handleSendFriendRequest = async () => {
+  const handleSendLinkRequest = async () => {
     try {
       await axios.post('/api/links/request', 
         { recipientId: id },
         { headers: { 'x-auth-token': token } }
       );
-      setFriendStatus('pending');
+      setLinkStatus('pending');
       setSnackbar({ open: true, message: 'Link request sent!', severity: 'success' });
     } catch (err) {
-      console.error('Error sending friend request:', err);
+      console.error('Error sending link request:', err);
       setSnackbar({ open: true, message: 'Failed to send link request', severity: 'error' });
     }
   };
 
-  const handleAcceptFriendRequest = async () => {
+  const handleAcceptLinkRequest = async () => {
     try {
       if (!linkId) {
         setSnackbar({ open: true, message: 'Link ID not found', severity: 'error' });
@@ -127,15 +127,15 @@ const Profile = () => {
       await axios.put(`/api/links/accept/${linkId}`, {}, {
         headers: { 'x-auth-token': token }
       });
-      setFriendStatus('friends');
+      setLinkStatus('links');
       setSnackbar({ open: true, message: 'Link request accepted!', severity: 'success' });
     } catch (err) {
-      console.error('Error accepting friend request:', err);
+      console.error('Error accepting link request:', err);
       setSnackbar({ open: true, message: 'Failed to accept link request', severity: 'error' });
     }
   };
 
-  const handleDeclineFriendRequest = async () => {
+  const handleDeclineLinkRequest = async () => {
     try {
       if (!linkId) {
         setSnackbar({ open: true, message: 'Link ID not found', severity: 'error' });
@@ -144,16 +144,16 @@ const Profile = () => {
       await axios.put(`/api/links/decline/${linkId}`, {}, {
         headers: { 'x-auth-token': token }
       });
-      setFriendStatus('none');
+      setLinkStatus('none');
       setLinkId(null);
       setSnackbar({ open: true, message: 'Link request declined', severity: 'info' });
     } catch (err) {
-      console.error('Error declining friend request:', err);
+      console.error('Error declining link request:', err);
       setSnackbar({ open: true, message: 'Failed to decline link request', severity: 'error' });
     }
   };
 
-  const handleRemoveFriend = async () => {
+  const handleRemoveLink = async () => {
     try {
       if (!linkId) {
         setSnackbar({ open: true, message: 'Link ID not found', severity: 'error' });
@@ -162,26 +162,26 @@ const Profile = () => {
       await axios.delete(`/api/links/${linkId}`, {
         headers: { 'x-auth-token': token }
       });
-      setFriendStatus('none');
+      setLinkStatus('none');
       setLinkId(null);
       setSnackbar({ open: true, message: 'Link removed', severity: 'info' });
     } catch (err) {
-      console.error('Error removing friend:', err);
+      console.error('Error removing link:', err);
       setSnackbar({ open: true, message: 'Failed to remove link', severity: 'error' });
     }
   };
 
-  const renderFriendButton = () => {
+  const renderLinkButton = () => {
     if (!user || !id) return null;
 
-    switch (friendStatus) {
-      case 'friends':
+    switch (linkStatus) {
+      case 'links':
         return (
           <Button
             variant="outlined"
             color="error"
             startIcon={<PersonRemoveIcon />}
-            onClick={handleRemoveFriend}
+            onClick={handleRemoveLink}
             size="small"
             sx={{
               minHeight: { xs: 40, sm: 32 },
@@ -215,7 +215,7 @@ const Profile = () => {
               variant="contained"
               color="success"
               startIcon={<CheckCircleIcon />}
-              onClick={handleAcceptFriendRequest}
+              onClick={handleAcceptLinkRequest}
               size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
@@ -228,7 +228,7 @@ const Profile = () => {
             <Button
               variant="outlined"
               color="error"
-              onClick={handleDeclineFriendRequest}
+              onClick={handleDeclineLinkRequest}
               size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
@@ -246,7 +246,7 @@ const Profile = () => {
           <Button
             variant="contained"
             startIcon={<PersonAddIcon />}
-            onClick={handleSendFriendRequest}
+            onClick={handleSendLinkRequest}
             size="small"
             sx={{
               minHeight: { xs: 40, sm: 32 },
@@ -355,7 +355,7 @@ const Profile = () => {
               </Button>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
-                {renderFriendButton()}
+                {renderLinkButton()}
               </Box>
             )}
           </Grid>
