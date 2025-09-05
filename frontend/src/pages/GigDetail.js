@@ -83,7 +83,9 @@ const GigDetail = () => {
           gigTitle: gig.title,
           gigVenue: gig.venue,
           gigDate: new Date(gig.date),
-          gigPayment: parseFloat(gig.payment)
+          gigPayment: parseFloat(gig.payment),
+          gigInstruments: gig.instruments || [],
+          gigGenres: gig.genres || []
         }
       };
       await axios.post('/api/messages/send', body, config);

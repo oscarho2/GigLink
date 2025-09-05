@@ -13,7 +13,10 @@ const messageSchema = new mongoose.Schema({
   },
   content: {
     type: String,
-    required: true,
+    required: function() {
+      // Content is required only if no file is attached
+      return !this.fileUrl;
+    },
     trim: true,
     maxlength: 1000
   },
@@ -43,7 +46,9 @@ const messageSchema = new mongoose.Schema({
     gigTitle: String,
     gigVenue: String,
     gigDate: Date,
-    gigPayment: Number
+    gigPayment: Number,
+    gigInstruments: [String],
+    gigGenres: [String]
   },
   fileUrl: {
     type: String,
@@ -75,6 +80,11 @@ const messageSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  replyTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Message',
+    default: null
+  },
   editedAt: {
     type: Date,
     default: null
