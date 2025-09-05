@@ -327,7 +327,7 @@ const Gigs = () => {
             </Grid>
             
             {/* Date Filter */}
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 fullWidth
                 label="Date From"
@@ -346,7 +346,7 @@ const Gigs = () => {
             </Grid>
             
             {/* Date To Filter */}
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 fullWidth
                 label="Date To"
@@ -365,7 +365,7 @@ const Gigs = () => {
             </Grid>
             
             {/* Fee Range Filter */}
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12} sm={6} md={6}>
               <Typography id="fee-range-slider" gutterBottom>
                 Fee Range: £{filters.minFee} - {filters.maxFee === Infinity ? '£2000+' : `£${filters.maxFee}`}
               </Typography>
@@ -423,7 +423,7 @@ const Gigs = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={4} container justifyContent="flex-end" alignItems="flex-end">
+            <Grid item xs={12} sm={6} md={6} container justifyContent="flex-end" alignItems="flex-end">
               <FormControl fullWidth variant="outlined">
                 <InputLabel>Sort By</InputLabel>
                 <Select
