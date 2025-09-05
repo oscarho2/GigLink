@@ -34,8 +34,6 @@ import {
   Search as SearchIcon,
   MoreVert as MoreVertIcon,
   Add as AddIcon,
-  Phone as PhoneIcon,
-  VideoCall as VideoCallIcon,
   EmojiEmotions as EmojiIcon,
   AttachFile as AttachIcon,
   Check as CheckIcon,
@@ -46,7 +44,9 @@ import {
   CalendarToday as CalendarTodayIcon,
   Payment as PaymentIcon,
   MusicNote as MusicNoteIcon,
-  OpenInNew as OpenInNewIcon
+  OpenInNew as OpenInNewIcon,
+  KeyboardArrowUp as ArrowUpIcon,
+  KeyboardArrowDown as ArrowDownIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -95,8 +95,8 @@ const Messages = () => {
   const [uploading, setUploading] = useState(false);
   const [messageSearchTerm, setMessageSearchTerm] = useState('');
   const [showMessageSearch, setShowMessageSearch] = useState(false);
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchMatches, setSearchMatches] = useState([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [lastReadTimestamp, setLastReadTimestamp] = useState(null);
       const [replyToMessage, setReplyToMessage] = useState(null);
   const [hoveredMessage, setHoveredMessage] = useState(null);
@@ -528,36 +528,108 @@ const Messages = () => {
     }
   };
 
-  // Search messages in current conversation
-  const searchMessages = async (searchTerm) => {
-    if (!selectedConversation || !searchTerm.trim()) {
-      setSearchResults([]);
+  // Find text in current conversation messages
+  const findInMessages = (searchTerm) => {
+    if (!searchTerm.trim()) {
+      // Clear any existing highlights
+      const highlightedElements = document.querySelectorAll('.search-highlight');
+      highlightedElements.forEach(el => {
+        el.outerHTML = el.innerHTML;
+      });
+      setSearchMatches([]);
+      setCurrentMatchIndex(0);
       return;
     }
 
-    setSearchLoading(true);
-    try {
-      const userId = selectedConversation.otherUser?._id || selectedConversation._id;
-      const response = await fetch(`/api/messages/search/${userId}?q=${encodeURIComponent(searchTerm)}`, {
-        headers: {
-          'x-auth-token': token,
-          'Content-Type': 'application/json'
+    // Remove previous highlights
+    const highlightedElements = document.querySelectorAll('.search-highlight');
+    highlightedElements.forEach(el => {
+      el.outerHTML = el.innerHTML;
+    });
+
+    // Find and highlight matching text in visible messages
+    const messageElements = document.querySelectorAll('[id^="message-"]');
+    const matches = [];
+    
+    messageElements.forEach(messageEl => {
+      const textNodes = getTextNodes(messageEl);
+      textNodes.forEach(textNode => {
+        const text = textNode.textContent;
+        const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        
+        if (regex.test(text)) {
+          const highlightedText = text.replace(regex, (match, p1, offset) => {
+            const matchIndex = matches.length;
+            matches.push({ element: messageEl, text: match, offset });
+            return `<span class="search-highlight" data-match-index="${matchIndex}" style="background-color: #e0e0e0; padding: 2px 4px; border-radius: 3px;">${match}</span>`;
+          });
+          const wrapper = document.createElement('span');
+          wrapper.innerHTML = highlightedText;
+          textNode.parentNode.replaceChild(wrapper, textNode);
         }
       });
-      
-      if (response.ok) {
-        const results = await response.json();
-        setSearchResults(results);
-      } else {
-        console.error('Search failed:', response.statusText);
-        setSearchResults([]);
-      }
-    } catch (err) {
-      console.error('Error searching messages:', err);
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false);
+    });
+
+    setSearchMatches(matches);
+    setCurrentMatchIndex(0);
+
+    // Highlight current match and scroll to it
+    if (matches.length > 0) {
+      highlightCurrentMatch(0);
     }
+  };
+
+  // Helper function to get all text nodes
+  const getTextNodes = (element) => {
+    const textNodes = [];
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+    
+    let node;
+    while (node = walker.nextNode()) {
+      if (node.textContent.trim()) {
+        textNodes.push(node);
+      }
+    }
+    return textNodes;
+  };
+
+  // Highlight current match
+  const highlightCurrentMatch = (index) => {
+    // Remove current highlight from all matches
+    const allHighlights = document.querySelectorAll('.search-highlight');
+    allHighlights.forEach(el => {
+      el.style.backgroundColor = '#e0e0e0';
+      el.style.border = 'none';
+    });
+
+    // Highlight current match
+    const currentHighlight = document.querySelector(`[data-match-index="${index}"]`);
+    if (currentHighlight) {
+      currentHighlight.style.backgroundColor = '#bdbdbd';
+      currentHighlight.style.border = '1px solid #757575';
+      currentHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // Navigate to next match
+  const navigateToNextMatch = () => {
+    if (searchMatches.length === 0) return;
+    const nextIndex = (currentMatchIndex + 1) % searchMatches.length;
+    setCurrentMatchIndex(nextIndex);
+    highlightCurrentMatch(nextIndex);
+  };
+
+  // Navigate to previous match
+  const navigateToPrevMatch = () => {
+    if (searchMatches.length === 0) return;
+    const prevIndex = currentMatchIndex === 0 ? searchMatches.length - 1 : currentMatchIndex - 1;
+    setCurrentMatchIndex(prevIndex);
+    highlightCurrentMatch(prevIndex);
   };
 
   // Handle message search input
@@ -571,16 +643,24 @@ const Messages = () => {
     }
     
     typingTimeoutRef.current = setTimeout(() => {
-      searchMessages(term);
+      findInMessages(term);
     }, 300);
   };
+
+
 
   // Toggle message search
   const toggleMessageSearch = () => {
     setShowMessageSearch(!showMessageSearch);
     if (showMessageSearch) {
       setMessageSearchTerm('');
-      setSearchResults([]);
+      setSearchMatches([]);
+      setCurrentMatchIndex(0);
+      // Clear any existing highlights
+      const highlightedElements = document.querySelectorAll('.search-highlight');
+      highlightedElements.forEach(el => {
+        el.outerHTML = el.innerHTML;
+      });
     }
   };
 
@@ -1037,10 +1117,10 @@ const Messages = () => {
                   <SearchIcon />
                 </IconButton>
                 <IconButton>
-                  <PhoneIcon />
+                  
                 </IconButton>
                 <IconButton>
-                  <VideoCallIcon />
+                  
                 </IconButton>
                 <IconButton>
                   <MoreVertIcon />
@@ -1051,20 +1131,35 @@ const Messages = () => {
             {/* Message Search */}
             {showMessageSearch && (
               <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', bgcolor: '#f8f9fa' }}>
-                <TextField
-                  fullWidth
-                  placeholder="Search messages..."
-                  value={messageSearchTerm}
-                  onChange={(e) => setMessageSearchTerm(e.target.value)}
-                  size="small"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TextField
+                    fullWidth
+                    placeholder="Find in conversation..."
+                    value={messageSearchTerm}
+                    onChange={handleMessageSearch}
+                    size="small"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  {searchMatches.length > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 'fit-content' }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                        {currentMatchIndex + 1} of {searchMatches.length}
+                      </Typography>
+                      <IconButton size="small" onClick={navigateToPrevMatch} disabled={searchMatches.length === 0}>
+                        <ArrowUpIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" onClick={navigateToNextMatch} disabled={searchMatches.length === 0}>
+                        <ArrowDownIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  )}
+                </Box>
               </Box>
             )}
 
@@ -1076,7 +1171,7 @@ const Messages = () => {
                 p: 2, 
                 overflow: 'auto',
                 bgcolor: '#f5f5f5',
-                backgroundImage: 'url("data:image/svg+xml,%3Csvg width="100" height="100" xmlns="http://www.w3.org/2000/svg"%3E%3Cdefs%3E%3Cpattern id="a" patternUnits="userSpaceOnUse" width="100" height="100"%3E%3Cpath d="M0 0h100v100H0z" fill="%23e5ddd5"/%3E%3Cpath d="M20 20h60v60H20z" fill="none" stroke="%23d1c7b7" stroke-width="0.5" opacity="0.1"/%3E%3C/pattern%3E%3C/defs%3E%3Crect width="100%25" height="100%25" fill="url(%23a)"/%3E%3C/svg%3E")',
+                // backgroundImage: 'url("data:image/svg+xml,%3Csvg width="100" height="100" xmlns="http://www.w3.org/2000/svg"%3E%3Cdefs%3E%3Cpattern id="a" patternUnits="userSpaceOnUse" width="100" height="100"%3E%3Cpath d="M0 0h100v100H0z" fill="%23e5ddd5"/%3E%3Cpath d="M20 20h60v60H20z" fill="none" stroke="%23d1c7b7" stroke-width="0.5" opacity="0.1"/%3E%3C/pattern%3E%3C/defs%3E%3Crect width="100%25" height="100%25" fill="url(%23a)"/%3E%3C/svg%3E")',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 1
