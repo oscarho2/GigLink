@@ -24,7 +24,10 @@ import {
   Tooltip,
   Fade,
   Zoom,
-  Chip
+  Chip,
+  Card,
+  CardContent,
+  Divider
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -38,12 +41,19 @@ import {
   Check as CheckIcon,
   DoneAll as DoneAllIcon,
   Schedule as ScheduleIcon,
-  Reply as ReplyIcon
+  Reply as ReplyIcon,
+  LocationOn as LocationOnIcon,
+  CalendarToday as CalendarTodayIcon,
+  Payment as PaymentIcon,
+  MusicNote as MusicNoteIcon,
+  OpenInNew as OpenInNewIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useSocket } from '../context/SocketContext';
+import { Link } from 'react-router-dom';
+import { formatPayment } from '../utils/currency';
 import moment from 'moment';
 
 const Messages = () => {
@@ -88,6 +98,21 @@ const Messages = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [lastReadTimestamp, setLastReadTimestamp] = useState(null);
+      const [replyToMessage, setReplyToMessage] = useState(null);
+  const [hoveredMessage, setHoveredMessage] = useState(null);
+  const [longPressTimer, setLongPressTimer] = useState(null);
+  const [showReactionPicker, setShowReactionPicker] = useState(null);
+
+  const handleMessageContextMenu = (event, message) => {
+    event.preventDefault();
+    setSelectedMessageForMenu(message);
+    setMessageMenuAnchor(event.currentTarget);
+  };
+  
+  // Debug: Log replyToMessage changes
+  useEffect(() => {
+    console.log('replyToMessage state changed:', replyToMessage);
+  }, [replyToMessage]);
 
   
   const messagesEndRef = useRef(null);
@@ -383,17 +408,10 @@ const Messages = () => {
     });
 
     // Listen for message reactions
-    socket.on('message_reaction', ({ messageId, reaction }) => {
+    socket.on('message_reaction', ({ messageId, reactions }) => {
       setMessages(prev => (prev || []).map(msg => {
         if (msg._id === messageId) {
-          const existingReactionIndex = msg.reactions.findIndex(r => r.user === reaction.user);
-          if (existingReactionIndex >= 0) {
-            const updatedReactions = [...msg.reactions];
-            updatedReactions[existingReactionIndex] = reaction;
-            return { ...msg, reactions: updatedReactions };
-          } else {
-            return { ...msg, reactions: [...msg.reactions, reaction] };
-          }
+          return { ...msg, reactions: reactions };
         }
         return msg;
       }));
@@ -618,7 +636,8 @@ const Messages = () => {
         fileUrl: fileData?.fileUrl,
         fileName: fileData?.fileName,
         fileSize: fileData?.fileSize,
-        mimeType: fileData?.mimeType
+        mimeType: fileData?.mimeType,
+        replyTo: replyToMessage?._id
       };
 
       const response = await axios.post('/api/messages/send', messagePayload, {
@@ -630,8 +649,9 @@ const Messages = () => {
       // Add message to local state immediately
       setMessages(prev => [...(prev || []), newMessageData]);
       
-      // Clear selected file
+      // Clear selected file and reply
       clearSelectedFile();
+      clearReply();
       
       // Refresh conversations to update last message
       fetchConversations();
@@ -660,15 +680,65 @@ const Messages = () => {
       });
       setEmojiMenuAnchor(null);
       setSelectedMessageForReaction(null);
+      setShowReactionPicker(null);
     } catch (err) {
       console.error('Error adding reaction:', err);
       showNotification('Failed to add reaction', 'error');
     }
   };
 
+  // Handle message hover (desktop)
+  const handleMessageHover = (messageId) => {
+    setHoveredMessage(messageId);
+  };
+
+  const handleMessageLeave = () => {
+    setHoveredMessage(null);
+  };
+
+  // Handle long press (mobile)
+  const handleTouchStart = (event, message) => {
+    const timer = setTimeout(() => {
+      handleMessageContextMenu(event, message);
+    }, 500); // 500ms long press
+    setLongPressTimer(timer);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  // Handle reply to message
+  const handleReplyToMessage = (message) => {
+    console.log('Setting reply to message:', message);
+    setReplyToMessage(message);
+    setHoveredMessage(null);
+    setShowReactionPicker(null);
+    // Focus on input
+    if (messageInputRef.current) {
+      messageInputRef.current.focus();
+    }
+  };
+
+  // Clear reply
+  const clearReply = () => {
+    setReplyToMessage(null);
+  };
+
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
+      // Check file size (10MB limit)
+      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+      if (file.size > maxSize) {
+        showNotification('File size must be less than 10MB', 'error');
+        event.target.value = ''; // Clear the input
+        return;
+      }
+      
       setSelectedFile(file);
       
       // Create preview for images
@@ -718,12 +788,38 @@ const Messages = () => {
     setFilePreview(null);
   };
 
+  // Handle document preview
+  const handleDocumentPreview = async (fileUrl, fileName) => {
+    try {
+      const response = await fetch(fileUrl, {
+        headers: {
+          'x-auth-token': token
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        // Clean up the object URL after a delay to allow the browser to load it
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 1000);
+      } else {
+        showNotification('Failed to open file', 'error');
+      }
+    } catch (err) {
+      console.error('Error opening file:', err);
+      showNotification('Failed to open file', 'error');
+    }
+  };
+
   // Message status helpers
   const getMessageStatusIcon = (message) => {
     if (message.sender._id !== user.id) return null;
     
     if (message.read) {
-      return <DoneAllIcon sx={{ fontSize: 16, color: '#4fc3f7' }} />;
+      return <DoneAllIcon sx={{ fontSize: 16, color: '#4caf50' }} />;
     } else if (message.delivered) {
       return <DoneAllIcon sx={{ fontSize: 16, color: '#9e9e9e' }} />;
     } else {
@@ -979,7 +1075,7 @@ const Messages = () => {
                 flex: 1, 
                 p: 2, 
                 overflow: 'auto',
-                bgcolor: '#e5ddd5',
+                bgcolor: '#f5f5f5',
                 backgroundImage: 'url("data:image/svg+xml,%3Csvg width="100" height="100" xmlns="http://www.w3.org/2000/svg"%3E%3Cdefs%3E%3Cpattern id="a" patternUnits="userSpaceOnUse" width="100" height="100"%3E%3Cpath d="M0 0h100v100H0z" fill="%23e5ddd5"/%3E%3Cpath d="M20 20h60v60H20z" fill="none" stroke="%23d1c7b7" stroke-width="0.5" opacity="0.1"/%3E%3C/pattern%3E%3C/defs%3E%3Crect width="100%25" height="100%25" fill="url(%23a)"/%3E%3C/svg%3E")',
                 display: 'flex',
                 flexDirection: 'column',
@@ -998,6 +1094,17 @@ const Messages = () => {
                 const showAvatar = !isOwn && (index === 0 || messages[index - 1]?.sender?._id !== message.sender?._id);
                 const showTimestamp = index === 0 || 
                   !moment(message.createdAt).isSame(moment(messages[index - 1]?.createdAt), 'day');
+                
+                // Debug logging for reply functionality
+                if (message.replyTo) {
+                  console.log('Message with reply found:', {
+                    messageId: message._id,
+                    content: message.content,
+                    replyTo: message.replyTo,
+                    replyToContent: message.replyTo?.content,
+                    replyToSender: message.replyTo?.sender
+                  });
+                }
                 
                 // Check if this is the first new message (only for received messages, not sent)
                 const isFirstNewMessage = lastReadTimestamp && 
@@ -1042,26 +1149,36 @@ const Messages = () => {
                     )}
                     
                     <Box
+                      onMouseEnter={() => handleMessageHover(message._id)}
+                      onMouseLeave={handleMessageLeave}
+                      onTouchStart={() => handleTouchStart(message._id)}
+                      onTouchEnd={handleTouchEnd}
                       sx={{
                         display: 'flex',
                         justifyContent: isOwn ? 'flex-end' : 'flex-start',
                         mb: 0.5,
-                        alignItems: 'flex-end'
+                        alignItems: 'flex-end',
+                        position: 'relative',
+                        px: 1
                       }}
                     >
                       {/* Avatar removed for cleaner message display */}
                       
                       {/* Message bubble */}
-                      <Box sx={{ maxWidth: '70%' }}>
+                      <Box sx={{ maxWidth: '70%', position: 'relative', zIndex: 1, mb: 1 }} id={`message-${message._id}`}>
                         <Paper
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            setSelectedMessageForMenu(message);
-                            setMessageMenuAnchor(e.currentTarget);
+                          onMouseEnter={() => setHoveredMessage(message._id)}
+                          onMouseLeave={() => {
+                            if (showReactionPicker !== message._id) {
+                              setHoveredMessage(null);
+                            }
                           }}
+                          onTouchStart={(e) => handleTouchStart(e, message)}
+                          onTouchEnd={handleTouchEnd}
+                          onContextMenu={(e) => handleMessageContextMenu(e, message)}
                           sx={{
                             p: 1.5,
-                            bgcolor: isOwn ? '#dcf8c6' : 'white',
+                            bgcolor: isOwn ? '#e6f3ff' : 'white',
                             borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                             boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
                             position: 'relative',
@@ -1071,6 +1188,49 @@ const Messages = () => {
                             }
                           }}
                         >
+                          {/* Reply indicator - nested bubble */}
+                          {message.replyTo && (
+                            <Paper
+                              data-testid="reply-bubble"
+                              sx={{
+                                mb: 1.5,
+                                p: 1.5,
+                                bgcolor: isOwn ? 'rgba(25, 118, 210, 0.08)' : 'rgba(0,0,0,0.03)',
+                                borderRadius: isOwn ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                                borderLeft: '3px solid #1976d2',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                                border: '1px solid rgba(25, 118, 210, 0.12)'
+                              }}
+                              onClick={() => {
+                                const repliedElement = document.getElementById(`message-${message.replyTo._id}`);
+                                if (repliedElement) {
+                                  repliedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                                <ReplyIcon sx={{ fontSize: '0.875rem', mr: 0.5, color: '#1976d2' }} />
+                                <Typography variant="caption" color="#1976d2" fontWeight="600">
+                                  {message.replyTo.sender?.name || 'Unknown'}
+                                </Typography>
+                              </Box>
+                              <Typography
+                                variant="body2"
+                                color={isOwn ? 'rgba(25, 118, 210, 0.8)' : 'text.secondary'}
+                                sx={{
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 3,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                {message.replyTo.content || 'File attachment'}
+                              </Typography>
+                            </Paper>
+                          )}
+                          
                           {/* Message content */}
                           {message.fileUrl ? (
                             <Box>
@@ -1128,7 +1288,7 @@ const Messages = () => {
                                     cursor: 'pointer',
                                     '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' }
                                   }}
-                                  onClick={() => window.open(message.fileUrl, '_blank')}
+                                  onClick={() => handleDocumentPreview(message.fileUrl, message.fileName)}
                                 >
                                   <AttachIcon sx={{ mr: 1, color: 'text.secondary' }} />
                                   <Box sx={{ flex: 1 }}>
@@ -1145,18 +1305,138 @@ const Messages = () => {
                               )}
                             </Box>
                           ) : (
-                            <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                            <Typography variant="body2" sx={{ wordBreak: 'break-word', color: isOwn ? '#1a365d' : 'inherit' }}>
                               {message.content}
                             </Typography>
+                          )}
+                          
+                          {/* Gig Application Component */}
+                          {message.messageType === 'gig_application' && message.gigApplication && (
+                            <Card 
+                              sx={{ 
+                                mt: 2, 
+                                bgcolor: 'rgba(26, 54, 93, 0.05)',
+                                border: '1px solid rgba(26, 54, 93, 0.2)',
+                                borderRadius: 2
+                              }}
+                            >
+                              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                                  <MusicNoteIcon sx={{ color: '#1a365d', mr: 1, fontSize: '1.25rem' }} />
+                                  <Typography variant="subtitle2" fontWeight="bold" color="#1a365d">
+                                    Gig Application
+                                  </Typography>
+                                </Box>
+                                
+                                <Typography variant="h6" fontWeight="bold" sx={{ mb: 1.5, color: '#1a365d' }}>
+                                  {message.gigApplication.gigTitle}
+                                </Typography>
+                                
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+                                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                     <LocationOnIcon sx={{ color: '#1a365d', mr: 1, fontSize: '1rem' }} />
+                                     <Typography variant="body2" color="text.secondary">
+                                       {message.gigApplication.gigVenue}
+                                     </Typography>
+                                   </Box>
+                                   
+                                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                     <CalendarTodayIcon sx={{ color: '#1a365d', mr: 1, fontSize: '1rem' }} />
+                                     <Typography variant="body2" color="text.secondary">
+                                       {moment(message.gigApplication.gigDate).format('MMMM Do, YYYY')}
+                                     </Typography>
+                                   </Box>
+                                   
+                                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                     <PaymentIcon sx={{ color: '#1a365d', mr: 1, fontSize: '1rem' }} />
+                                     <Typography variant="body2" color="text.secondary">
+                                       {formatPayment(message.gigApplication.gigPayment)}
+                                     </Typography>
+                                   </Box>
+                                   
+                                   {/* Instruments */}
+                                   {message.gigApplication.gigInstruments && message.gigApplication.gigInstruments.length > 0 && (
+                                     <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                                       <MusicNoteIcon sx={{ color: '#1a365d', mr: 1, fontSize: '1rem', mt: 0.25 }} />
+                                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                         {message.gigApplication.gigInstruments.map((instrument, index) => (
+                                           <Chip
+                                             key={index}
+                                             label={instrument}
+                                             size="small"
+                                             sx={{
+                                               bgcolor: 'rgba(26, 54, 93, 0.1)',
+                                               color: '#1a365d',
+                                               fontSize: '0.75rem',
+                                               height: 24
+                                             }}
+                                           />
+                                         ))}
+                                       </Box>
+                                     </Box>
+                                   )}
+                                   
+                                   {/* Genres */}
+                                   {message.gigApplication.gigGenres && message.gigApplication.gigGenres.length > 0 && (
+                                     <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                                       <Typography variant="body2" sx={{ color: '#1a365d', mr: 1, fontSize: '0.875rem', fontWeight: 'bold', mt: 0.25 }}>
+                                         Genres:
+                                       </Typography>
+                                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                         {message.gigApplication.gigGenres.map((genre, index) => (
+                                           <Chip
+                                             key={index}
+                                             label={genre}
+                                             size="small"
+                                             variant="outlined"
+                                             sx={{
+                                               borderColor: '#1a365d',
+                                               color: '#1a365d',
+                                               fontSize: '0.75rem',
+                                               height: 24
+                                             }}
+                                           />
+                                         ))}
+                                       </Box>
+                                     </Box>
+                                   )}
+                                 </Box>
+                                
+                                <Divider sx={{ my: 1.5 }} />
+                                
+                                <Button
+                                  component={Link}
+                                  to={`/gigs/${message.gigApplication.gigId}`}
+                                  variant="outlined"
+                                  size="small"
+                                  endIcon={<OpenInNewIcon sx={{ fontSize: '1rem' }} />}
+                                  sx={{
+                                    borderColor: '#1a365d',
+                                    color: '#1a365d',
+                                    '&:hover': {
+                                      borderColor: '#2c5282',
+                                      bgcolor: 'rgba(26, 54, 93, 0.05)'
+                                    }
+                                  }}
+                                >
+                                  View Gig Details
+                                </Button>
+                              </CardContent>
+                            </Card>
                           )}
                           
                           {/* Message reactions */}
                           {message.reactions && message.reactions.length > 0 && (
                             <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {message.reactions.map((reaction, idx) => (
+                              {Object.entries(
+                                message.reactions.reduce((acc, reaction) => {
+                                  acc[reaction.emoji] = (acc[reaction.emoji] || 0) + 1;
+                                  return acc;
+                                }, {})
+                              ).map(([emoji, count]) => (
                                 <Chip
-                                  key={idx}
-                                  label={`${reaction.emoji} ${reaction.count || 1}`}
+                                  key={emoji}
+                                  label={`${emoji} ${count}`}
                                   size="small"
                                   sx={{
                                     height: 20,
@@ -1164,7 +1444,7 @@ const Messages = () => {
                                     bgcolor: 'rgba(0,0,0,0.05)',
                                     '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' }
                                   }}
-                                  onClick={() => handleEmojiReaction(message._id, reaction.emoji)}
+                                  onClick={() => handleEmojiReaction(message._id, emoji)}
                                 />
                               ))}
                             </Box>
@@ -1179,7 +1459,7 @@ const Messages = () => {
                           }}>
                             <Typography 
                               variant="caption" 
-                              color="text.secondary"
+                              color={isOwn ? "rgba(26,54,93,0.7)" : "text.secondary"}
                               sx={{ fontSize: '0.7rem' }}
                             >
                               {moment(message.createdAt).format('HH:mm')}
@@ -1193,6 +1473,128 @@ const Messages = () => {
                             )}
                           </Box>
                         </Paper>
+                        
+                        {/* Floating reaction and reply buttons - positioned next to bubble */}
+                        {hoveredMessage === message._id && (
+                          <Box
+                            onMouseEnter={() => setHoveredMessage(message._id)}
+                            onMouseLeave={() => {
+                              if (showReactionPicker !== message._id) {
+                                setHoveredMessage(null);
+                              }
+                            }}
+                            sx={{
+                              position: 'absolute',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              right: isOwn ? 'auto' : -80,
+                              left: isOwn ? -80 : 'auto',
+                              display: 'flex',
+                              flexDirection: isOwn ? 'row' : 'row-reverse',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              zIndex: 1000
+                            }}
+                          >
+                            {/* Emoji face button - closest to bubble */}
+                            <Fade in={true} timeout={200}>
+                              <IconButton
+                                size="small"
+                                onMouseEnter={() => {
+                                  setShowReactionPicker(message._id);
+                                  setHoveredMessage(message._id);
+                                }}
+                                onMouseLeave={() => {
+                                  // Keep buttons visible when moving to emoji picker
+                                }}
+                                sx={{
+                                  bgcolor: 'white',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                  width: 32,
+                                  height: 32,
+                                  '&:hover': {
+                                    bgcolor: 'rgba(0,0,0,0.05)',
+                                    transform: 'scale(1.1)'
+                                  }
+                                }}
+                              >
+                                <EmojiIcon fontSize="small" />
+                              </IconButton>
+                            </Fade>
+                            
+                            {/* Reply button */}
+                            <Fade in={true} timeout={300}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleReplyToMessage(message)}
+                                sx={{
+                                  bgcolor: 'white',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                  width: 32,
+                                  height: 32,
+                                  '&:hover': {
+                                    bgcolor: 'rgba(0,0,0,0.05)',
+                                    transform: 'scale(1.1)'
+                                  }
+                                }}
+                              >
+                                <ReplyIcon fontSize="small" />
+                              </IconButton>
+                            </Fade>
+                            
+                            {/* Emoji picker - appears when hovering emoji face */}
+                            {showReactionPicker === message._id && (
+                              <Fade in={true} timeout={200}>
+                                <Box
+                                  onMouseEnter={() => {
+                                    setShowReactionPicker(message._id);
+                                    setHoveredMessage(message._id);
+                                  }}
+                                  onMouseLeave={() => {
+                                    setShowReactionPicker(null);
+                                    setHoveredMessage(null);
+                                  }}
+                                  sx={{
+                                    position: 'absolute',
+                                    top: isOwn ? 'auto' : -5,
+                                    bottom: isOwn ? -5 : 'auto',
+                                    right: isOwn ? 80 : 'auto',
+                                    left: isOwn ? 'auto' : 80,
+                                    display: 'flex',
+                                    gap: 0.5,
+                                    bgcolor: 'white',
+                                    borderRadius: 2,
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                                    p: 0.5,
+                                    zIndex: 1001
+                                  }}
+                                >
+                                  {['👍', '❤️', '😂', '😮', '😢', '😡'].map((emoji) => (
+                                    <IconButton
+                                      key={emoji}
+                                      size="small"
+                                      onClick={() => {
+                                        handleEmojiReaction(message._id, emoji);
+                                        setShowReactionPicker(null);
+                                      }}
+                                      sx={{
+                                        fontSize: '1.2rem',
+                                        minWidth: 32,
+                                        height: 32,
+                                        '&:hover': {
+                                          bgcolor: 'rgba(0,0,0,0.1)',
+                                          transform: 'scale(1.2)'
+                                        }
+                                      }}
+                                    >
+                                      {emoji}
+                                    </IconButton>
+                                  ))}
+                                </Box>
+                              </Fade>
+                            )}
+                          </Box>
+                        )}
                       </Box>
                       
                       {/* Spacer removed since avatars are no longer displayed */}
@@ -1292,11 +1694,73 @@ const Messages = () => {
               </Box>
             )}
 
+            {/* Reply indicator */}
+            {replyToMessage && (
+              <Box sx={{
+                p: 2,
+                bgcolor: '#f0f8ff',
+                borderTop: '1px solid #e0e0e0',
+                borderLeft: '4px solid #1976d2',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 2
+              }}>
+                <Box sx={{ flex: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <ReplyIcon sx={{ fontSize: '1rem', mr: 0.5, color: '#1976d2' }} />
+                    <Typography variant="caption" color="primary" fontWeight="600">
+                      Replying to {replyToMessage.sender?.name || 'Unknown'}
+                    </Typography>
+                  </Box>
+                  
+                  {/* Message preview bubble */}
+                  <Paper sx={{
+                    p: 1.5,
+                    bgcolor: 'white',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(25, 118, 210, 0.2)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    maxWidth: '400px'
+                  }}>
+                    {replyToMessage.content && (
+                       <Typography variant="body2" color="text.primary" sx={{
+                         display: '-webkit-box',
+                         WebkitLineClamp: 3,
+                         WebkitBoxOrient: 'vertical',
+                         overflow: 'hidden',
+                         lineHeight: 1.4
+                       }}>
+                         {replyToMessage.content}
+                       </Typography>
+                     )}
+                    
+                    {replyToMessage.fileName && (
+                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                         <AttachIcon sx={{ fontSize: '1rem', color: '#666' }} />
+                         <Typography variant="body2" color="text.primary">
+                           {replyToMessage.fileName}
+                         </Typography>
+                       </Box>
+                     )}
+                    
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                      {moment(replyToMessage.createdAt).format('MMM D, HH:mm')}
+                    </Typography>
+                  </Paper>
+                </Box>
+                
+                <IconButton size="small" onClick={clearReply} sx={{ mt: 0.5 }}>
+                  <Typography sx={{ fontSize: '1.2rem', color: '#666' }}>×</Typography>
+                </IconButton>
+              </Box>
+            )}
+
             {/* Message Input */}
             <Box sx={{ 
               p: 2, 
               bgcolor: 'white', 
-              borderTop: '1px solid #e0e0e0',
+              borderTop: replyToMessage ? 'none' : '1px solid #e0e0e0',
               display: 'flex',
               alignItems: 'flex-end',
               gap: 1
@@ -1311,7 +1775,7 @@ const Messages = () => {
                   type="file"
                   hidden
                   onChange={handleFileSelect}
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
                 />
               </IconButton>
               
@@ -1480,6 +1944,7 @@ const Messages = () => {
           <EmojiIcon sx={{ mr: 1 }} /> React
         </MenuItem>
         <MenuItem onClick={() => {
+          handleReplyToMessage(selectedMessageForMenu);
           setMessageMenuAnchor(null);
           setSelectedMessageForMenu(null);
         }}>

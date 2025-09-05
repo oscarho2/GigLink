@@ -39,7 +39,13 @@ const fileFilter = (req, file, cb) => {
     'application/pdf': true,
     'application/msword': true,
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': true,
+    'application/vnd.ms-excel': true,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': true,
+    'application/vnd.ms-powerpoint': true,
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': true,
     'text/plain': true,
+    'text/csv': true,
+    'application/rtf': true,
     // Audio
     'audio/mpeg': true,
     'audio/wav': true,
@@ -61,7 +67,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 25 * 1024 * 1024 // 25MB limit for messages
+    fileSize: 10 * 1024 * 1024 // 10MB limit for documents and media
   }
 });
 
@@ -130,6 +136,14 @@ router.get('/conversation/:otherUserId', auth, async (req, res) => {
     const messages = await Message.find({ conversationId })
       .populate('sender', 'name email')
       .populate('recipient', 'name email')
+      .populate({
+        path: 'replyTo',
+        select: 'content sender createdAt',
+        populate: {
+          path: 'sender',
+          select: 'name email'
+        }
+      })
       .sort({ createdAt: 1 });
     
     console.log('Found messages for conversation:', messages.length);
@@ -190,7 +204,7 @@ router.get('/files/:filename', auth, (req, res) => {
 router.post('/send', auth, async (req, res) => {
   console.log('POST /send called, body:', req.body);
   try {
-    const { recipientId, content, messageType = 'text', fileUrl = null, fileName = null, fileSize = null, mimeType = null, gigApplication = null } = req.body;
+    const { recipientId, content, messageType = 'text', fileUrl = null, fileName = null, fileSize = null, mimeType = null, gigApplication = null, replyTo = null } = req.body;
     const senderId = req.user.id;
     
     // Validate input
@@ -234,6 +248,7 @@ router.post('/send', auth, async (req, res) => {
       fileName,
       fileSize,
       mimeType,
+      replyTo,
       ...(messageType === 'gig_application' && gigApplication ? { gigApplication } : {})
     });
     
@@ -242,6 +257,16 @@ router.post('/send', auth, async (req, res) => {
     // Populate sender and recipient info
     await message.populate('sender', 'name email');
     await message.populate('recipient', 'name email');
+    if (message.replyTo) {
+      await message.populate({
+        path: 'replyTo',
+        select: 'content sender createdAt',
+        populate: {
+          path: 'sender',
+          select: 'name email'
+        }
+      });
+    }
     
     // Emit real-time message to conversation participants
     const io = req.app.get('io');
@@ -333,18 +358,18 @@ router.post('/:messageId/react', auth, async (req, res) => {
     }
     
     await message.save();
-    await message.populate('reactions.user', 'name');
+    await message.populate('reactions.user', 'name email');
     
     // Emit real-time reaction update
     const io = req.app.get('io');
     if (io) {
-      io.to(message.conversationId).emit('message_reaction', {
-        messageId,
-        reactions: message.reactions
+      io.to(message.conversationId).emit('message_reaction', { 
+        messageId: message._id, 
+        reactions: message.reactions 
       });
     }
     
-    res.json({ reactions: message.reactions });
+    res.json(message.reactions);
   } catch (error) {
     console.error('Error adding reaction:', error);
     res.status(500).json({ message: 'Server error' });
