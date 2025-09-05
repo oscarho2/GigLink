@@ -16,7 +16,8 @@ import {
   InputLabel,
   Slider,
   CardActions,
-  Avatar
+  Avatar,
+  IconButton
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -29,6 +30,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import PersonIcon from '@mui/icons-material/Person';
+import ClearIcon from '@mui/icons-material/Clear';
 
 const Gigs = () => {
   const { isAuthenticated } = useAuth();
@@ -38,6 +40,7 @@ const Gigs = () => {
   const [filters, setFilters] = useState({
     location: '',
     date: '',
+    dateTo: '',
     minFee: 0,
     maxFee: Infinity,
     instrument: '',
@@ -87,6 +90,15 @@ const Gigs = () => {
       });
     }
 
+    // Filter by dateTo
+    if (filters.dateTo) {
+      result = result.filter(gig => {
+        const gigDate = new Date(gig.date);
+        const filterDateTo = new Date(filters.dateTo);
+        return gigDate <= filterDateTo;
+      });
+    }
+
     // Filter by fee range
     result = result.filter(gig => {
       const gigFee = getPaymentValue(gig.payment);
@@ -116,6 +128,10 @@ const Gigs = () => {
       result.sort((a, b) => getPaymentValue(a.payment) - getPaymentValue(b.payment));
     } else if (sort === 'feeDesc') {
       result.sort((a, b) => getPaymentValue(b.payment) - getPaymentValue(a.payment));
+    } else if (sort === 'postDateDesc') {
+      result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } else if (sort === 'postDateAsc') {
+      result.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     }
 
     return result;
@@ -136,6 +152,7 @@ const Gigs = () => {
       minFee: 0,
       maxFee: Infinity,
       date: '',
+      dateTo: '',
       instrument: '',
       genre: ''
     });
@@ -318,6 +335,32 @@ const Gigs = () => {
                 value={filters.date}
                 onChange={(e) => handleFilterChange('date', e.target.value)}
                 InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  endAdornment: filters.date && (
+                    <IconButton onClick={() => handleFilterChange('date', '')}>
+                      <ClearIcon />
+                    </IconButton>
+                  ),
+                }}
+              />
+            </Grid>
+            
+            {/* Date To Filter */}
+            <Grid item xs={12} sm={6} md={4}>
+              <TextField
+                fullWidth
+                label="Date To"
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) => handleFilterChange('dateTo', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  endAdornment: filters.dateTo && (
+                    <IconButton onClick={() => handleFilterChange('dateTo', '')}>
+                      <ClearIcon />
+                    </IconButton>
+                  ),
+                }}
               />
             </Grid>
             
@@ -388,10 +431,12 @@ const Gigs = () => {
                   onChange={(e) => setSort(e.target.value)}
                   label="Sort By"
                 >
-                  <MenuItem value="dateAsc">Date (Soonest)</MenuItem>
+                  <MenuItem value="dateAsc">Date (Earliest)</MenuItem>
                   <MenuItem value="dateDesc">Date (Latest)</MenuItem>
                   <MenuItem value="feeAsc">Fee (Low-High)</MenuItem>
                   <MenuItem value="feeDesc">Fee (High-Low)</MenuItem>
+                  <MenuItem value="postDateDesc">Post Date (Latest)</MenuItem>
+                  <MenuItem value="postDateAsc">Post Date (Oldest)</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
