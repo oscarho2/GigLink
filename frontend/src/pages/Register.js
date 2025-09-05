@@ -89,6 +89,7 @@ const Register = () => {
       <Box
         sx={{
           marginTop: { xs: 4, sm: 8 },
+          marginBottom: { xs: 6, sm: 8 },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',

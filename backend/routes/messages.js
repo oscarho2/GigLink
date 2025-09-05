@@ -190,7 +190,7 @@ router.get('/files/:filename', auth, (req, res) => {
 router.post('/send', auth, async (req, res) => {
   console.log('POST /send called, body:', req.body);
   try {
-    const { recipientId, content, messageType = 'text', fileUrl = null, fileName = null, fileSize = null, mimeType = null } = req.body;
+    const { recipientId, content, messageType = 'text', fileUrl = null, fileName = null, fileSize = null, mimeType = null, gigApplication = null } = req.body;
     const senderId = req.user.id;
     
     // Validate input
@@ -233,7 +233,8 @@ router.post('/send', auth, async (req, res) => {
       fileUrl,
       fileName,
       fileSize,
-      mimeType
+      mimeType,
+      ...(messageType === 'gig_application' && gigApplication ? { gigApplication } : {})
     });
     
     await message.save();
