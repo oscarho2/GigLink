@@ -32,8 +32,18 @@ const messageSchema = new mongoose.Schema({
   },
   messageType: {
     type: String,
-    enum: ['text', 'image', 'file', 'emoji'],
+    enum: ['text', 'image', 'file', 'emoji', 'gig_application'],
     default: 'text'
+  },
+  gigApplication: {
+    gigId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Gig'
+    },
+    gigTitle: String,
+    gigVenue: String,
+    gigDate: Date,
+    gigPayment: Number
   },
   fileUrl: {
     type: String,

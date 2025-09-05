@@ -50,9 +50,17 @@ const Login = () => {
     const searchParams = new URLSearchParams(location.search);
     const redirect = searchParams.get('redirect');
     const result = await login({ email, password }, redirect);
-    if (result.error) {
+    if (result && result.error) {
+      // Safely extract error message
+      let errorMessage = 'Login failed';
+      if (Array.isArray(result.error) && result.error.length > 0 && result.error[0].msg) {
+        errorMessage = result.error[0].msg;
+      } else if (typeof result.error === 'string') {
+        errorMessage = result.error;
+      }
+      
       setError({
-        message: result.error[0].msg,
+        message: errorMessage,
         type: result.type || 'general'
       });
     }
@@ -63,6 +71,7 @@ const Login = () => {
       <Box
         sx={{
           marginTop: { xs: 4, sm: 8 },
+          marginBottom: { xs: 6, sm: 8 },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -108,11 +117,6 @@ const Login = () => {
           </Alert>
         )}
         <Box component="form" onSubmit={onSubmit} noValidate sx={{ mt: { xs: 2, sm: 1 }, width: '100%' }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2, fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-              {error}
-            </Alert>
-          )}
           <TextField
             margin="normal"
             required

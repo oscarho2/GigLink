@@ -75,7 +75,7 @@ const GigDetail = () => {
         }
       };
       const body = {
-        recipient: gig.user._id,
+        recipientId: gig.user._id,
         content: applicationMessage,
         messageType: 'gig_application',
         gigApplication: {
