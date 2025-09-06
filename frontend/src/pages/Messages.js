@@ -1570,7 +1570,8 @@ const Messages = () => {
                                   {(() => {
                                     const currentUserId = (user?.id || user?._id)?.toString();
                                     const gigOwnerId = message.gigApplication.gigOwnerId?.toString();
-                                    const isGigOwner = !!(currentUserId && gigOwnerId && currentUserId === gigOwnerId);
+                                    const recipientId = (message.recipient?._id || message.recipient)?.toString();
+                                    const isGigOwner = !!currentUserId && ((gigOwnerId && currentUserId === gigOwnerId) || (recipientId && currentUserId === recipientId));
                                     const isAccepted = acceptedApplicants.has(message.sender._id);
                                     
                                     return isGigOwner && (
