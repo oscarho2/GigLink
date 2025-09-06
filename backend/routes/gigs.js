@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Gig = require('../models/Gig');
 const User = require('../models/User');
+const Message = require('../models/Message');
 
 // @route   POST api/gigs
 // @desc    Create a gig
@@ -188,6 +189,48 @@ router.post('/:id/apply', auth, async (req, res) => {
     });
     
     await gig.save();
+
+    // Also send a gig_application message to the gig owner so they can accept/undo from chat
+    try {
+      const io = req.app.get('io');
+      const senderId = req.user.id; // applicant
+      const recipientId = gig.user.toString(); // gig owner
+      const conversationId = Message.generateConversationId(senderId, recipientId);
+      
+      const gigApplicationPayload = {
+        gigId: gig._id,
+        gigTitle: gig.title,
+        gigVenue: gig.venue || gig.location || '',
+        gigDate: gig.date || gig.eventDate || new Date(),
+        gigPayment: gig.payment || gig.pay || 0,
+        gigInstruments: Array.isArray(gig.instruments) ? gig.instruments : [],
+        gigGenres: Array.isArray(gig.genres) ? gig.genres : []
+      };
+      
+      const appMessage = new Message({
+        sender: senderId,
+        recipient: recipientId,
+        content: req.body.message || 'Applied for your gig',
+        conversationId,
+        messageType: 'gig_application',
+        gigApplication: gigApplicationPayload
+      });
+      await appMessage.save();
+      await appMessage.populate('sender', 'name email');
+      await appMessage.populate('recipient', 'name email');
+      
+      if (io) {
+        io.to(conversationId).emit('new_message', appMessage);
+        io.to(recipientId).emit('conversation_update', {
+          conversationId,
+          lastMessage: appMessage,
+          unreadCount: 1
+        });
+      }
+    } catch (emitErr) {
+      console.error('Failed to emit gig_application message:', emitErr);
+      // Non-blocking: proceed regardless
+    }
     
     res.json(gig.applicants);
   } catch (err) {
