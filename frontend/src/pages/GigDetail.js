@@ -8,6 +8,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PaymentIcon from '@mui/icons-material/Payment';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import PersonIcon from '@mui/icons-material/Person';
 
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -25,15 +26,30 @@ const GigDetail = () => {
   const [openApplyDialog, setOpenApplyDialog] = useState(false);
   const [applicationMessage, setApplicationMessage] = useState('');
   const [applyStatus, setApplyStatus] = useState('');
-  const [messageSent, setMessageSent] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState('');
+  const [hasApplied, setHasApplied] = useState(false);
 
   useEffect(() => {
     const fetchGig = async () => {
       try {
-        const res = await axios.get(`/api/gigs/${id}`);
+        const res = await axios.get(`/api/gigs/${id}`, {
+          headers: { 'x-auth-token': token },
+        });
         setGig(res.data);
+        const uid = (user?.id || user?._id)?.toString();
+        const applied = !!(
+          uid &&
+          Array.isArray(res.data.applicants) &&
+          res.data.applicants.some((applicant) => {
+            const aUser = applicant?.user;
+            if (!aUser) return false;
+            if (typeof aUser === 'string') return aUser === uid;
+            if (typeof aUser === 'object' && aUser._id) return aUser._id.toString() === uid;
+            try { return aUser.toString() === uid; } catch { return false; }
+          })
+        );
+        setHasApplied(applied);
       } catch (err) {
         console.error(err);
         if (err.response) {
@@ -49,7 +65,7 @@ const GigDetail = () => {
     };
 
     fetchGig();
-  }, [id]);
+  }, [id, user]);
 
   const handleApplyClick = () => {
     if (!isAuthenticated) {
@@ -75,25 +91,26 @@ const GigDetail = () => {
         }
       };
       const body = {
-        recipientId: gig.user._id,
-        content: applicationMessage,
-        messageType: 'gig_application',
-        gigApplication: {
-          gigId: gig._id,
-          gigTitle: gig.title,
-          gigVenue: gig.venue,
-          gigDate: new Date(gig.date),
-          gigPayment: parseFloat(gig.payment),
-          gigInstruments: gig.instruments || [],
-          gigGenres: gig.genres || []
-        }
+        message: applicationMessage
       };
-      await axios.post('/api/messages/send', body, config);
+      
+      // Apply to the gig using the proper endpoint
+      await axios.post(`/api/gigs/${id}/apply`, body, config);
+      
+      // Refresh gig data to get updated applicant count
+      const res = await axios.get(`/api/gigs/${id}`);
+      setGig(res.data);
+      setHasApplied(true);
+      
       setApplyStatus('success');
-      setMessageSent(true);
     } catch (err) {
       console.error(err);
-      setApplyStatus('error');
+      if (err.response?.data?.msg === 'Already applied to this gig') {
+        setApplyStatus('duplicate');
+        setHasApplied(true);
+      } else {
+        setApplyStatus('error');
+      }
     }
   };
 
@@ -121,6 +138,38 @@ const GigDetail = () => {
     } catch (err) {
       console.error(err);
       setDeleteStatus('error');
+    }
+  };
+
+  const handleAcceptApplicant = async (applicantId) => {
+    try {
+      const config = {
+        headers: {
+          'x-auth-token': token,
+        },
+      };
+      
+      // Determine if this applicant is already accepted based on applicants' status
+      const applicantsArray = Array.isArray(gig.applicants) ? gig.applicants : [];
+      const target = applicantsArray.find(a => {
+        const aId = (typeof a.user === 'string') ? a.user : a.user?._id;
+        return aId?.toString() === applicantId.toString();
+      });
+      const isAccepted = target?.status === 'accepted';
+      
+      if (isAccepted) {
+        // Undo acceptance
+        await axios.post(`/api/gigs/${id}/undo/${applicantId}`, {}, config);
+      } else {
+        // Accept applicant
+        await axios.post(`/api/gigs/${id}/accept/${applicantId}`, {}, config);
+      }
+      
+      const res = await axios.get(`/api/gigs/${id}`);
+      setGig(res.data);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to process applicant action. Please try again.');
     }
   };
 
@@ -210,7 +259,7 @@ const GigDetail = () => {
         <Box 
           sx={{
             p: { xs: 2.5, sm: 3, md: 4 }, 
-            background: 'linear-gradient(to right, #334155, #1e293b)',
+            background: 'linear-gradient(to right, #2c5282, #1a365d)',
             color: 'white'
           }}
         >
@@ -334,6 +383,80 @@ const GigDetail = () => {
                   </Typography>
                 </Box>
               </Box>
+
+              {(() => {
+                const currentUserId = (user?.id || user?._id)?.toString();
+                const ownerId = (typeof gig.user === 'string') ? gig.user : gig.user?._id?.toString();
+                const poster = !!(currentUserId && ownerId && currentUserId === ownerId);
+                const applicantsArray = Array.isArray(gig.applicants) ? gig.applicants : [];
+                return poster && applicantsArray.length > 0;
+              })() && (
+                <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+                  <Typography
+                    variant="h5"
+                    component="h2"
+                    fontWeight="bold"
+                    gutterBottom
+                    sx={{
+                      fontSize: { xs: '1.375rem', sm: '1.5rem' }
+                    }}
+                  >
+                    Applicants
+                  </Typography>
+                  {Array.isArray(gig.applicants) && gig.applicants.map((applicant) => {
+                    const applicantUserId = (typeof applicant.user === 'string') ? applicant.user : applicant.user?._id;
+                    const isAccepted = applicant?.status === 'accepted';
+                    return (
+                      <Paper key={applicantUserId} sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box 
+                          component={Link} 
+                          to={`/profile/${applicantUserId}`} 
+                          sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            textDecoration: 'none', 
+                            color: 'inherit',
+                            '&:hover': {
+                              opacity: 0.8
+                            }
+                          }}
+                        >
+                          <Avatar 
+                            sx={{ 
+                              mr: 2,
+                              width: 40,
+                              height: 40,
+                              bgcolor: '#1976d2'
+                            }}
+                          >
+                            {typeof applicant.user === 'object' ? applicant.user.name?.charAt(0) : 'U'}
+                          </Avatar>
+                          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                            {typeof applicant.user === 'object' ? applicant.user.name : applicantUserId}
+                          </Typography>
+                        </Box>
+                        {(!gig.isFilled || isAccepted) && (
+                          <Button
+                            variant="contained"
+                            color={isAccepted ? 'secondary' : 'primary'}
+                            onClick={() => handleAcceptApplicant(applicantUserId)}
+                            sx={{
+                              transition: 'all 0.3s ease',
+                              boxShadow: isAccepted ? 'none' : 3,
+                              '&:hover': {
+                                transform: isAccepted ? 'none' : 'translateY(-2px)',
+                                boxShadow: isAccepted ? 'none' : 6,
+                              },
+                            }}
+                          >
+                            {isAccepted ? 'Undo' : 'Accept'}
+                          </Button>
+                        )}
+                      </Paper>
+                    );
+                  })}
+                </Box>
+              )}
             </Grid>
             
             <Grid item xs={12} md={4}>
@@ -434,6 +557,37 @@ const GigDetail = () => {
                     }}
                   >
                     {formatPayment(gig.payment)}
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                    <PersonIcon 
+                      color="primary" 
+                      sx={{ 
+                        mr: 1,
+                        fontSize: { xs: '1.125rem', sm: '1.25rem' }
+                      }} 
+                    />
+                    <Typography 
+                      variant="body1" 
+                      fontWeight="medium"
+                      sx={{
+                        fontSize: { xs: '0.875rem', sm: '1rem' }
+                      }}
+                    >
+                      Applicants
+                    </Typography>
+                  </Box>
+                  <Typography 
+                    variant="h6" 
+                    fontWeight="bold" 
+                    sx={{ 
+                      ml: { xs: 3.5, sm: 4 },
+                      fontSize: { xs: '1rem', sm: '1.125rem' }
+                    }}
+                  >
+                    {(gig.applicantCount ?? (Array.isArray(gig.applicants) ? gig.applicants.length : 0))}
                   </Typography>
                 </Box>
               </Paper>
@@ -546,18 +700,18 @@ const GigDetail = () => {
                   borderRadius: 2,
                   fontSize: { xs: '1rem', sm: '1.1rem' },
                   fontWeight: 'bold',
-                  bgcolor: '#475569',
+                  bgcolor: '#2c5282',
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                   width: { xs: '100%', sm: 'auto' },
                   minHeight: { xs: 48, sm: 'auto' },
                   '&:hover': {
-                    bgcolor: '#334155',
+                    bgcolor: '#1a365d',
                     boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
                   }
                 }}
-                disabled={isPoster || messageSent}
+                disabled={isPoster || hasApplied}
               >
-                {messageSent ? 'Application Sent!' : 'Apply for this Gig'}
+                {hasApplied ? 'Already Applied' : 'Apply for this Gig'}
               </Button>
             )}
             {isPoster && (
@@ -633,16 +787,41 @@ const GigDetail = () => {
       </Paper>
 
       <Dialog open={openApplyDialog} onClose={handleCloseApplyDialog}>
-        <DialogTitle>Apply for Gig</DialogTitle>
+        <DialogTitle>
+          {applyStatus === 'success' ? 'Application Sent!' : 
+           applyStatus === 'duplicate' ? 'Already Applied' : 
+           'Apply for Gig'}
+        </DialogTitle>
         <DialogContent>
           {applyStatus === 'success' ? (
-            <Alert severity="success">Your application message has been sent!</Alert>
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              <Alert 
+                severity="success" 
+                sx={{ 
+                  mb: 2,
+                  '& .MuiAlert-message': {
+                    fontSize: '1.1rem',
+                    fontWeight: 'medium'
+                  }
+                }}
+              >
+                🎉 Application Sent Successfully!
+              </Alert>
+              <Typography variant="body1" sx={{ color: 'text.secondary', mb: 2 }}>
+                Your application has been submitted to the gig poster. The applicant count has been updated.
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                The gig poster will be able to review your application and contact you if selected.
+              </Typography>
+            </Box>
+          ) : applyStatus === 'duplicate' ? (
+            <Alert severity="warning">You have already applied to this gig. You cannot apply multiple times.</Alert>
           ) : applyStatus === 'error' ? (
-            <Alert severity="error">Failed to send application message. Please try again.</Alert>
+            <Alert severity="error">Failed to send application. Please try again.</Alert>
           ) : (
             <>
               <DialogContentText>
-                Send a message to the gig poster to apply for this gig.
+                Apply for this gig by sending a message to the poster.
               </DialogContentText>
               <TextField
                 autoFocus
@@ -663,7 +842,7 @@ const GigDetail = () => {
         <DialogActions>
           <Button onClick={handleCloseApplyDialog}>Close</Button>
           {applyStatus === '' && (
-            <Button onClick={handleSendMessage} variant="contained" color="primary">
+            <Button onClick={handleSendMessage} variant="contained" sx={{ bgcolor: '#2c5282', '&:hover': { bgcolor: '#2a4b78' } }}>
               Send Application
             </Button>
           )}

@@ -27,7 +27,9 @@ import {
   Chip,
   Card,
   CardContent,
-  Divider
+  Divider,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -46,7 +48,8 @@ import {
   MusicNote as MusicNoteIcon,
   OpenInNew as OpenInNewIcon,
   KeyboardArrowUp as ArrowUpIcon,
-  KeyboardArrowDown as ArrowDownIcon
+  KeyboardArrowDown as ArrowDownIcon,
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -60,6 +63,8 @@ const Messages = () => {
   const { user, token } = useAuth();
   const { showNotification } = useNotifications();
   const { socket, isConnected, typingUsers, joinConversation, leaveConversation, startTyping, stopTyping, markMessageDelivered, markMessageRead } = useSocket();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   console.log('=== MESSAGES COMPONENT RENDER ===');
   console.log('Messages component rendered - User:', user, 'Token:', token ? 'Present' : 'Missing');
@@ -84,6 +89,7 @@ const Messages = () => {
   const [showNewConversationDialog, setShowNewConversationDialog] = useState(false);
   const [connectedLinks, setConnectedLinks] = useState([]);
   const [loadingLinks, setLoadingLinks] = useState(false);
+  const [newConversationSearchTerm, setNewConversationSearchTerm] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState(null);
   const [emojiMenuAnchor, setEmojiMenuAnchor] = useState(null);
@@ -98,10 +104,12 @@ const Messages = () => {
   const [searchMatches, setSearchMatches] = useState([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [lastReadTimestamp, setLastReadTimestamp] = useState(null);
+  const [showMobileConversation, setShowMobileConversation] = useState(false);
       const [replyToMessage, setReplyToMessage] = useState(null);
   const [hoveredMessage, setHoveredMessage] = useState(null);
   const [longPressTimer, setLongPressTimer] = useState(null);
   const [showReactionPicker, setShowReactionPicker] = useState(null);
+  const [acceptedApplicants, setAcceptedApplicants] = useState(new Set());
 
   const handleMessageContextMenu = (event, message) => {
     event.preventDefault();
@@ -481,6 +489,13 @@ const Messages = () => {
     }
   }, [isTyping, selectedConversation]);
 
+  // Reset mobile conversation view when screen size changes to desktop
+  useEffect(() => {
+    if (!isMobile && showMobileConversation) {
+      setShowMobileConversation(false);
+    }
+  }, [isMobile, showMobileConversation]);
+
   // Join/leave conversation rooms
   useEffect(() => {
     if (selectedConversation && socket && user?.id) {
@@ -767,6 +782,36 @@ const Messages = () => {
     }
   };
 
+  // Handle accepting/undoing applicant for gig
+  const handleAcceptApplicant = async (gigId, applicantId) => {
+    try {
+      const isAccepted = acceptedApplicants.has(applicantId);
+      
+      if (isAccepted) {
+        // Undo acceptance
+        await axios.post(`/api/gigs/${gigId}/undo/${applicantId}`, {}, {
+          headers: { 'x-auth-token': token }
+        });
+        setAcceptedApplicants(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(applicantId);
+          return newSet;
+        });
+        showNotification('Applicant acceptance undone!', 'success');
+      } else {
+        // Accept applicant
+        await axios.post(`/api/gigs/${gigId}/accept/${applicantId}`, {}, {
+          headers: { 'x-auth-token': token }
+        });
+        setAcceptedApplicants(prev => new Set(prev).add(applicantId));
+        showNotification('Applicant accepted successfully!', 'success');
+      }
+    } catch (err) {
+      console.error('Error processing applicant:', err);
+      showNotification(`Failed to process applicant: ${err.response?.data?.msg || err.message}`, 'error');
+    }
+  };
+
   // Handle message hover (desktop)
   const handleMessageHover = (messageId) => {
     setHoveredMessage(messageId);
@@ -937,10 +982,10 @@ const Messages = () => {
     <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', bgcolor: '#f5f5f5' }}>
       {/* Sidebar - Conversations List */}
       <Box sx={{ 
-        width: 400, 
+        width: isMobile ? '100%' : 400, 
         bgcolor: 'white', 
         borderRight: '1px solid #e0e0e0',
-        display: 'flex',
+        display: isMobile && showMobileConversation ? 'none' : 'flex',
         flexDirection: 'column'
       }}>
         {/* Header */}
@@ -1011,6 +1056,10 @@ const Messages = () => {
                       setLastReadTimestamp(moment());
                     }
                     fetchMessages(conversation.otherUser._id);
+                    // Show conversation view on mobile
+                    if (isMobile) {
+                      setShowMobileConversation(true);
+                    }
                   } else {
                     console.error('No other user ID found in conversation:', conversation);
                   }
@@ -1079,7 +1128,12 @@ const Messages = () => {
       </Box>
 
       {/* Main Chat Area */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ 
+        flex: 1, 
+        display: isMobile && !showMobileConversation ? 'none' : 'flex', 
+        flexDirection: 'column',
+        width: isMobile ? '100%' : 'auto'
+      }}>
         {selectedConversation ? (
           <>
             {/* Chat Header */}
@@ -1092,6 +1146,18 @@ const Messages = () => {
               justifyContent: 'space-between'
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                {isMobile && (
+                  <IconButton 
+                    onClick={() => {
+                      setShowMobileConversation(false);
+                      setSelectedConversation(null);
+                      setMessages([]);
+                    }}
+                    sx={{ mr: 1 }}
+                  >
+                    <ArrowBackIcon />
+                  </IconButton>
+                )}
                 <Avatar 
                   sx={{ 
                     width: 40, 
@@ -1499,23 +1565,51 @@ const Messages = () => {
                                 
                                 <Divider sx={{ my: 1.5 }} />
                                 
-                                <Button
-                                  component={Link}
-                                  to={`/gigs/${message.gigApplication.gigId}`}
-                                  variant="outlined"
-                                  size="small"
-                                  endIcon={<OpenInNewIcon sx={{ fontSize: '1rem' }} />}
-                                  sx={{
-                                    borderColor: '#1a365d',
-                                    color: '#1a365d',
-                                    '&:hover': {
-                                      borderColor: '#2c5282',
-                                      bgcolor: 'rgba(26, 54, 93, 0.05)'
-                                    }
-                                  }}
-                                >
-                                  View Gig Details
-                                </Button>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                  {/* Accept Button - only show for gig owner */}
+                                  {(() => {
+                                    const currentUserId = (user?.id || user?._id)?.toString();
+                                    const gigOwnerId = message.gigApplication.gigOwnerId?.toString();
+                                    const isGigOwner = !!(currentUserId && gigOwnerId && currentUserId === gigOwnerId);
+                                    const isAccepted = acceptedApplicants.has(message.sender._id);
+                                    
+                                    return isGigOwner && (
+                                      <Button
+                                        variant="contained"
+                                        size="small"
+                                        onClick={() => handleAcceptApplicant(message.gigApplication.gigId, message.sender._id)}
+                                        sx={{
+                                          bgcolor: isAccepted ? '#4caf50' : '#1976d2',
+                                          color: 'white',
+                                          '&:hover': {
+                                            bgcolor: isAccepted ? '#388e3c' : '#1565c0'
+                                          },
+                                          textTransform: 'none'
+                                        }}
+                                      >
+                                        {isAccepted ? 'Undo' : 'Accept'}
+                                      </Button>
+                                    );
+                                  })()}
+                                  
+                                  <Button
+                                    component={Link}
+                                    to={`/gigs/${message.gigApplication.gigId}`}
+                                    variant="outlined"
+                                    size="small"
+                                    endIcon={<OpenInNewIcon sx={{ fontSize: '1rem' }} />}
+                                    sx={{
+                                      borderColor: '#1a365d',
+                                      color: '#1a365d',
+                                      '&:hover': {
+                                        borderColor: '#2c5282',
+                                        bgcolor: 'rgba(26, 54, 93, 0.05)'
+                                      }
+                                    }}
+                                  >
+                                    View Gig Details
+                                  </Button>
+                                </Box>
                               </CardContent>
                             </Card>
                           )}
@@ -1972,7 +2066,10 @@ const Messages = () => {
       {/* New Conversation Dialog */}
       <Dialog 
         open={showNewConversationDialog} 
-        onClose={() => setShowNewConversationDialog(false)}
+        onClose={() => {
+          setShowNewConversationDialog(false);
+          setNewConversationSearchTerm('');
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -1981,19 +2078,42 @@ const Messages = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Select a user to start a new conversation
           </Typography>
+          
+          {/* Search Field */}
+          <TextField
+            fullWidth
+            placeholder="Search users..."
+            value={newConversationSearchTerm}
+            onChange={(e) => setNewConversationSearchTerm(e.target.value)}
+            sx={{ mb: 2 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              )
+            }}
+          />
+          
           {loadingLinks ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
               <CircularProgress />
             </Box>
           ) : (
-            <List>
-              {connectedLinks.map((user) => (
+            <List sx={{ maxHeight: 400, overflow: 'auto' }}>
+              {connectedLinks
+                .filter(user => 
+                  user.name?.toLowerCase().includes(newConversationSearchTerm.toLowerCase()) ||
+                  user.email?.toLowerCase().includes(newConversationSearchTerm.toLowerCase())
+                )
+                .map((user) => (
                 <ListItem 
                   key={user._id} 
                   button 
                   onClick={() => {
                     startConversation(user._id);
                     setShowNewConversationDialog(false);
+                    setNewConversationSearchTerm('');
                   }}
                 >
                   <ListItemAvatar>
@@ -2005,6 +2125,14 @@ const Messages = () => {
                   />
                 </ListItem>
               ))}
+              {connectedLinks.filter(user => 
+                user.name?.toLowerCase().includes(newConversationSearchTerm.toLowerCase()) ||
+                user.email?.toLowerCase().includes(newConversationSearchTerm.toLowerCase())
+              ).length === 0 && connectedLinks.length > 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                  No users found matching "{newConversationSearchTerm}"
+                </Typography>
+              )}
               {connectedLinks.length === 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
                   No connected users found
@@ -2014,7 +2142,10 @@ const Messages = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowNewConversationDialog(false)}>Cancel</Button>
+          <Button onClick={() => {
+            setShowNewConversationDialog(false);
+            setNewConversationSearchTerm('');
+          }}>Cancel</Button>
         </DialogActions>
       </Dialog>
 
