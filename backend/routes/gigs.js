@@ -30,7 +30,30 @@ router.post('/', auth, async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const gigs = await Gig.find().populate('user', ['name', 'avatar']).sort({ date: -1 });
-    res.json(gigs);
+    
+    // Add applicant count and applicant info for gig owners
+    const gigsWithApplicantCount = gigs.map(gig => {
+      const gigObj = gig.toObject();
+      gigObj.applicantCount = gig.applicants ? gig.applicants.length : 0;
+      
+      // Include applicant details if user is authenticated and owns the gig
+      const token = req.header('x-auth-token');
+      if (token) {
+        try {
+          const jwt = require('jsonwebtoken');
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          if (gig.user._id.toString() === decoded.user.id) {
+            gigObj.applicants = gig.applicants;
+          }
+        } catch (err) {
+          // Token invalid, don't include applicants
+        }
+      }
+      
+      return gigObj;
+    });
+    
+    res.json(gigsWithApplicantCount);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -42,13 +65,43 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const gig = await Gig.findById(req.params.id).populate('user', ['name', 'avatar']);
-    
+    const gig = await Gig.findById(req.params.id)
+      .populate('user', ['_id', 'name', 'avatar'])
+      .populate('applicants.user', ['_id', 'name', 'avatar']);
+
     if (!gig) {
       return res.status(404).json({ msg: 'Gig not found' });
     }
-    
-    res.json(gig);
+
+    // Add applicant count to the gig
+    const gigObj = gig.toObject();
+    gigObj.applicantCount = gig.applicants ? gig.applicants.length : 0;
+
+    // Securely provide applicants only to the gig owner
+    const token = req.header('x-auth-token');
+    let isOwner = false;
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const ownerId = (gig.user && typeof gig.user === 'object' && gig.user._id)
+          ? gig.user._id.toString()
+          : (gig.user && typeof gig.user.toString === 'function')
+            ? gig.user.toString()
+            : '';
+        if (ownerId && ownerId === decoded.user.id) {
+          isOwner = true;
+        }
+      } catch (err) {
+        // Invalid token or comparison failure; treat as non-owner
+      }
+    }
+
+    if (!isOwner) {
+      delete gigObj.applicants; // Hide applicants from non-owners
+    }
+
+    res.json(gigObj);
   } catch (err) {
     console.error(err.message);
     if (err.kind === 'ObjectId') {
@@ -137,6 +190,93 @@ router.post('/:id/apply', auth, async (req, res) => {
     await gig.save();
     
     res.json(gig.applicants);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/gigs/:id/accept/:applicantId
+// @desc    Accept an applicant and mark gig as filled
+// @access  Private
+router.post('/:id/accept/:applicantId', auth, async (req, res) => {
+  try {
+    const gig = await Gig.findById(req.params.id);
+    
+    if (!gig) {
+      return res.status(404).json({ msg: 'Gig not found' });
+    }
+    
+    // Check if user owns this gig
+    if (gig.user.toString() !== req.user.id) {
+      return res.status(401).json({ msg: 'User not authorized' });
+    }
+    
+    // Find the applicant
+    const applicant = gig.applicants.find(
+      app => app.user.toString() === req.params.applicantId
+    );
+    
+    if (!applicant) {
+      return res.status(404).json({ msg: 'Applicant not found' });
+    }
+    
+    // Update applicant status to accepted
+    applicant.status = 'accepted';
+    
+    // Mark gig as filled
+    gig.isFilled = true;
+    
+    await gig.save();
+    
+    res.json({ msg: 'Applicant accepted and gig marked as filled', gig });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/gigs/:id/undo/:applicantId
+// @desc    Undo acceptance of an applicant
+// @access  Private
+router.post('/:id/undo/:applicantId', auth, async (req, res) => {
+  try {
+    const gig = await Gig.findById(req.params.id);
+    
+    if (!gig) {
+      return res.status(404).json({ msg: 'Gig not found' });
+    }
+    
+    // Check if user owns this gig
+    if (gig.user.toString() !== req.user.id) {
+      return res.status(401).json({ msg: 'User not authorized' });
+    }
+    
+    // Find the applicant
+    const applicant = gig.applicants.find(
+      app => app.user.toString() === req.params.applicantId
+    );
+    
+    if (!applicant) {
+      return res.status(404).json({ msg: 'Applicant not found' });
+    }
+    
+    // Update applicant status back to pending
+    applicant.status = 'pending';
+    
+    // Check if there are any other accepted applicants
+    const hasOtherAcceptedApplicants = gig.applicants.some(
+      app => app.status === 'accepted' && app.user.toString() !== req.params.applicantId
+    );
+    
+    // Only mark gig as not filled if no other applicants are accepted
+    if (!hasOtherAcceptedApplicants) {
+      gig.isFilled = false;
+    }
+    
+    await gig.save();
+    
+    res.json({ msg: 'Applicant acceptance undone', gig });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

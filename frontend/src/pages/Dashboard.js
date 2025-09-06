@@ -32,6 +32,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import PersonIcon from '@mui/icons-material/Person';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import SearchIcon from '@mui/icons-material/Search';
@@ -251,6 +252,30 @@ const Dashboard = () => {
 
   const handleEditGig = (gigId) => {
     navigate(`/gigs/${gigId}/edit`);
+  };
+
+  const handleAcceptApplicant = async (gigId, applicantId) => {
+    try {
+      const currentGig = gigs.find(g => g._id === gigId);
+      const accepted = Array.isArray(currentGig?.applicants) && currentGig.applicants.find(a => a.status === 'accepted');
+      const headers = { 'x-auth-token': token };
+
+      const acceptedUserId = accepted ? ((typeof accepted.user === 'string') ? accepted.user : accepted.user?._id) : null;
+      if (accepted && acceptedUserId && acceptedUserId.toString() === applicantId.toString()) {
+        // Undo acceptance for the currently accepted applicant
+        await axios.post(`/api/gigs/${gigId}/undo/${acceptedUserId}`, {}, { headers });
+      } else {
+        // Accept the specified applicant
+        await axios.post(`/api/gigs/${gigId}/accept/${applicantId}`, {}, { headers });
+      }
+
+      // Refresh the gig from server to ensure we have up-to-date applicants and isFilled
+      const res = await axios.get(`/api/gigs/${gigId}`, { headers });
+      setGigs(gigs.map(g => g._id === gigId ? res.data : g));
+    } catch (err) {
+      console.error('Error accepting/undoing applicant:', err);
+      alert(`Failed to process applicant: ${err.response?.data?.msg || err.message}`);
+    }
   };
 
   useEffect(() => {
@@ -528,10 +553,12 @@ const Dashboard = () => {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         p: 2,
+                        backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'inherit',
+                        opacity: gig.isFilled ? 0.7 : 1,
                         '&:hover': {
-                          backgroundColor: 'action.hover',
-                          transform: 'translateY(-1px)',
-                          boxShadow: 2
+                          backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'action.hover',
+                          transform: gig.isFilled ? 'none' : 'translateY(-1px)',
+                          boxShadow: gig.isFilled ? 'none' : 2
                         },
                         transition: 'all 0.2s ease-in-out'
                       }}
@@ -556,10 +583,11 @@ const Dashboard = () => {
                                 lineHeight: 1.3,
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
+                                whiteSpace: 'nowrap',
+                                color: gig.isFilled ? 'text.disabled' : 'inherit'
                               }}
                             >
-                              {gig.title}
+                              {gig.isFilled ? 'Fixed: ' : ''}{gig.title}
                             </Typography>
                           }
                           secondary={
@@ -602,10 +630,43 @@ const Dashboard = () => {
                           color={gig.isFilled ? 'default' : 'success'}
                           size="small"
                         />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <PersonIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                          <Typography variant="caption" color="text.secondary">
+                            {(() => { const count = (gig.applicantCount ?? (Array.isArray(gig.applicants) ? gig.applicants.length : 0)); return count; })()}
+                          </Typography>
+                        </Box>
                         <Box sx={{ 
                           display: 'flex', 
                           gap: 1
                         }}>
+                          {(() => {
+                            const hasApplicants = (gig.applicantCount ?? (Array.isArray(gig.applicants) ? gig.applicants.length : 0)) > 0;
+                            const accepted = Array.isArray(gig.applicants) && gig.applicants.find(a => a.status === 'accepted');
+                            const showBtn = hasApplicants && (!gig.isFilled || !!accepted);
+                            return showBtn;
+                          })() && (
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color={(Array.isArray(gig.applicants) && gig.applicants.some(a => a.status === 'accepted')) ? 'secondary' : 'primary'}
+                              startIcon={<CheckCircleIcon />}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const accepted = Array.isArray(gig.applicants) && gig.applicants.find(a => a.status === 'accepted');
+                                const targetId = accepted
+                                  ? (typeof accepted.user === 'string' ? accepted.user : accepted.user?._id)
+                                  : (Array.isArray(gig.applicants) && gig.applicants[0]
+                                      ? (typeof gig.applicants[0].user === 'string' ? gig.applicants[0].user : gig.applicants[0].user?._id)
+                                      : null);
+                                if (targetId) {
+                                  handleAcceptApplicant(gig._id, targetId);
+                                }
+                              }}
+                            >
+                              {(Array.isArray(gig.applicants) && gig.applicants.some(a => a.status === 'accepted')) ? 'Undo' : 'Accept'}
+                            </Button>
+                          )}
                           <Button
                             size="small"
                             variant="outlined"

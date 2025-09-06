@@ -33,26 +33,39 @@ import PersonIcon from '@mui/icons-material/Person';
 import ClearIcon from '@mui/icons-material/Clear';
 
 const Gigs = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [showFilters, setShowFilters] = useState(false);
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sort, setSort] = useState('dateAsc');
   const [filters, setFilters] = useState({
     location: '',
-    date: '',
-    dateTo: '',
     minFee: 0,
     maxFee: Infinity,
+    date: '',
+    dateTo: '',
     instrument: '',
     genre: ''
   });
-  const [sort, setSort] = useState('dateAsc');
   
   // Filter options
   const locations = ["London", "Manchester", "Birmingham", "Liverpool", "Edinburgh", "Glasgow"];
   const instruments = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals"];
   const genres = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk"];
-  
+
+
+  // Helpers
+  const getApplicantCount = (gig) => (gig?.applicantCount ?? (Array.isArray(gig?.applicants) ? gig.applicants.length : 0));
+  const isGigOwner = (gig) => {
+    const currentUserId = (user?.id || user?._id)?.toString();
+    const gigUserId = (typeof gig?.user === 'object' && gig?.user !== null)
+      ? ((gig.user._id || gig.user.id || gig.user)?.toString())
+      : gig?.user?.toString();
+    return !!(currentUserId && gigUserId && currentUserId === gigUserId);
+  };
+
+
+
   // Fetch gigs from backend
   useEffect(() => {
     const fetchGigs = async () => {
@@ -152,7 +165,7 @@ const Gigs = () => {
       minFee: 0,
       maxFee: Infinity,
       date: '',
-      dateTo: '',
+dateTo: '',
       instrument: '',
       genre: ''
     });
@@ -481,9 +494,11 @@ const Gigs = () => {
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                 transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
                 position: 'relative',
+                backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'inherit',
+                opacity: gig.isFilled ? 0.7 : 1,
                 '&:hover': {
-                  transform: { xs: 'none', sm: 'translateY(-4px)' },
-                  boxShadow: { xs: '0 4px 12px rgba(0,0,0,0.1)', sm: '0 12px 20px rgba(0,0,0,0.15)' },
+                  transform: gig.isFilled ? 'none' : { xs: 'none', sm: 'translateY(-4px)' },
+                  boxShadow: gig.isFilled ? '0 4px 12px rgba(0,0,0,0.1)' : { xs: '0 4px 12px rgba(0,0,0,0.1)', sm: '0 12px 20px rgba(0,0,0,0.15)' },
                 }
               }}
             >
@@ -502,10 +517,11 @@ const Gigs = () => {
                   fontWeight="bold"
                   sx={{
                     fontSize: { xs: '1.25rem', sm: '1.5rem' },
-                    lineHeight: { xs: 1.3, sm: 1.4 }
+                    lineHeight: { xs: 1.3, sm: 1.4 },
+                    color: gig.isFilled ? 'text.disabled' : 'inherit'
                   }}
                 >
-                  {gig.title}
+                  {gig.isFilled ? 'Fixed: ' : ''}{gig.title}
                 </Typography>
               </Box>
               <CardContent sx={{ 
@@ -567,7 +583,7 @@ const Gigs = () => {
                         {new Date(gig.date).toLocaleDateString('en-GB')}
                       </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
                       <LocationOnIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
                       <Typography 
                         variant="body1" 
@@ -577,6 +593,18 @@ const Gigs = () => {
                         }}
                       >
                         {gig.venue}, {gig.location}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <PersonIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
+                      <Typography 
+                        variant="body1" 
+                        fontWeight="bold"
+                        sx={{
+                          fontSize: { xs: '0.875rem', sm: '1rem' }
+                        }}
+                      >
+                        { (() => { const count = (gig.applicantCount ?? (Array.isArray(gig.applicants) ? gig.applicants.length : 0)); return `${count} applicant${count !== 1 ? 's' : ''}`; })() }
                       </Typography>
                     </Box>
                   </Grid>
@@ -655,25 +683,25 @@ const Gigs = () => {
                 p: { xs: 1.5, sm: 2 }, 
                 pt: 0
               }}>
-                <Button
-                  size="medium"
-                  variant="contained"
-                  fullWidth
-                  component={Link}
-                  to={isAuthenticated ? `/gigs/${gig._id}` : `/login?redirect=/gigs/${gig._id}`}
-                  sx={{
-                    borderRadius: 2,
-                    bgcolor: '#1a365d',
-                    fontSize: { xs: '0.875rem', sm: '0.875rem' },
-                    minHeight: { xs: 40, sm: 44 },
-                    fontWeight: 'bold',
-                    '&:hover': {
-                      bgcolor: '#2c5282'
-                    }
-                  }}
-                >
-                  View Details
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+                  <Button
+                    size="medium"
+                    variant="contained"
+                    component={Link}
+                    to={isAuthenticated ? `/gigs/${gig._id}` : `/login?redirect=/gigs/${gig._id}`}
+                    sx={{
+                      borderRadius: 2,
+                      bgcolor: '#1a365d',
+                      fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                      minHeight: { xs: 40, sm: 44 },
+                      fontWeight: 'bold',
+                      flex: 1,
+                      '&:hover': { bgcolor: '#2c5282' }
+                    }}
+                  >
+                    View Details
+                  </Button>
+                </Box>
               </CardActions>
             </Card>
           </Grid>

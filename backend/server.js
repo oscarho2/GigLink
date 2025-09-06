@@ -36,6 +36,32 @@ app.use('/api/profiles', profileRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/links', linkRoutes);
 
+// DB Health endpoint
+app.get('/api/health/db', async (req, res) => {
+  try {
+    const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+    const stateCode = mongoose.connection.readyState;
+    const info = {
+      connected: stateCode === 1,
+      state: states[stateCode] || stateCode,
+      host: mongoose.connection.host || null,
+      name: mongoose.connection.name || null
+    };
+    if (stateCode === 1 && mongoose.connection.db) {
+      try {
+        await mongoose.connection.db.admin().command({ ping: 1 });
+        info.ping = true;
+      } catch (e) {
+        info.ping = false;
+        info.error = e.message;
+      }
+    }
+    res.json(info);
+  } catch (err) {
+    res.status(500).json({ connected: false, error: err.message });
+  }
+});
+
 // Default route
 app.get('/', (req, res) => {
   res.send('GigLink API is running');
@@ -44,6 +70,10 @@ app.get('/', (req, res) => {
 // Connect to MongoDB
 const connectDB = async () => {
   try {
+    if (!process.env.MONGO_URI) {
+      console.warn('MONGO_URI is not set; skipping Atlas connection and attempting local.');
+      throw new Error('MONGO_URI not set');
+    }
     // First try Atlas connection
     const conn = await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,
