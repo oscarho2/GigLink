@@ -944,7 +944,7 @@ const Messages = () => {
     );
     if (currentHighlight) {
       currentHighlight.style.backgroundColor = "#bdbdbd";
-      currentHighlight.style.border = "1px solid #757575";
+      currentHighlight.style.border = "none";
       currentHighlight.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
