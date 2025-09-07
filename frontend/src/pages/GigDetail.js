@@ -761,7 +761,7 @@ const GigDetail = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: { xs: '100%', sm: 'auto' } }}>
                 {hasApplied && applicationStatus && (
                   <Chip
-                    label={`Application Status: ${applicationStatus.charAt(0).toUpperCase() + applicationStatus.slice(1)}`}
+                    label={`${applicationStatus.charAt(0).toUpperCase() + applicationStatus.slice(1)}`}
                     color={applicationStatus === 'accepted' ? 'success' : applicationStatus === 'rejected' ? 'error' : 'warning'}
                     sx={{
                       fontWeight: 'bold',
