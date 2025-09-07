@@ -219,6 +219,8 @@ const Messages = () => {
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const prevConversationIdRef = useRef(null);
+  const prevLastMessageIdRef = useRef(null);
   const messageInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   // Fetch conversations
@@ -724,25 +726,31 @@ const Messages = () => {
     return c.scrollTop + c.clientHeight >= c.scrollHeight - 100;
   };
 
-  const lastMessageId = messages && messages.length > 0 ? messages[messages.length - 1]?._id : null;
-  const conversationId = selectedConversation
-    ? (selectedConversation.conversationId || selectedConversation.otherUser?._id || selectedConversation._id)
-    : null;
-
   // Auto-scroll to bottom when conversation is opened or messages change
   // But don't scroll when loading more messages (pagination)
   useEffect(() => {
-    // Always scroll when switching/opening a conversation
-    if (conversationId && !loadingMoreMessages) {
+    const currentLastId = messages && messages.length > 0 ? messages[messages.length - 1]?._id : null;
+    const currentConvId = selectedConversation
+      ? (selectedConversation.conversationId || selectedConversation.otherUser?._id || selectedConversation._id)
+      : null;
+
+    const prevLastId = prevLastMessageIdRef.current;
+    const prevConvId = prevConversationIdRef.current;
+
+    const conversationChanged = !!currentConvId && currentConvId !== prevConvId;
+    const appendedAtBottom = !!prevLastId && !!currentLastId && currentLastId !== prevLastId;
+
+    if (conversationChanged) {
+      // When switching/opening a conversation, always scroll to bottom
       scrollToBottom();
-      return;
+    } else if (appendedAtBottom && !loadingMoreMessages && isNearBottom()) {
+      // Only auto-scroll if a new message was appended at bottom and user is near bottom
+      scrollToBottom();
     }
 
-    // Only scroll for new appended messages when user is near bottom
-    if (!loadingMoreMessages && isNearBottom()) {
-      scrollToBottom();
-    }
-  }, [lastMessageId, conversationId, loadingMoreMessages]);
+    prevLastMessageIdRef.current = currentLastId;
+    prevConversationIdRef.current = currentConvId;
+  }, [messages, selectedConversation, loadingMoreMessages]);
 
   // Auto-scroll to bottom when typing indicator appears or disappears
   // But don't scroll when loading more messages (pagination)
