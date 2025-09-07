@@ -31,6 +31,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import LoadingAnimation from "../components/LoadingAnimation";
 import {
   Send as SendIcon,
   Search as SearchIcon,
@@ -93,6 +94,8 @@ const Messages = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -229,6 +232,7 @@ const Messages = () => {
     console.log(
       "fetchConversations called - making API request to /api/messages/conversations"
     );
+    setLoadingConversations(true);
     try {
       console.log(
         "Making axios GET request to /api/messages/conversations with token:",
@@ -261,6 +265,8 @@ const Messages = () => {
       }
 
       setError("Failed to load conversations");
+    } finally {
+      setLoadingConversations(false);
     }
   }, [token]);
 
@@ -345,6 +351,9 @@ const Messages = () => {
       "Making API call to:",
       `/api/messages/conversation/${otherUserId}?page=${page}&limit=20`
     );
+
+    // Set loading state
+    setLoadingMessages(true);
 
     if (page === 1) {
       setMessages([]);
@@ -441,6 +450,8 @@ const Messages = () => {
       console.error("Error response:", err.response?.data);
       console.error("Error status:", err.response?.status);
       setError("Failed to load messages");
+    } finally {
+      setLoadingMessages(false);
     }
   };
 
@@ -1517,11 +1528,19 @@ const Messages = () => {
           </List>
 
           {filteredConversations.length === 0 && (
-            <Box sx={{ p: 3, textAlign: "center" }}>
-              <Typography variant="body2" color="text.secondary">
-                No conversations found
-              </Typography>
-            </Box>
+            loadingConversations ? (
+              <LoadingAnimation 
+                type="conversations" 
+                title="Loading conversations..." 
+                compact={true}
+              />
+            ) : (
+              <Box sx={{ p: 3, textAlign: "center" }}>
+                <Typography variant="body2" color="text.secondary">
+                  No conversations found
+                </Typography>
+              </Box>
+            )
           )}
         </Box>
       </Box>
@@ -3016,27 +3035,22 @@ const Messages = () => {
             </Box>
           </>
         ) : (
-          /* Welcome Screen */
-          <Box
-            sx={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              bgcolor: "#f8f9fa",
-              textAlign: "center",
-            }}
-          >
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h4" color="text.secondary" gutterBottom>
-                Welcome to GigLink Messages
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Select a conversation to start messaging
-              </Typography>
-            </Box>
-          </Box>
+          /* Welcome Screen or Loading */
+          loadingMessages ? (
+            <LoadingAnimation 
+              type="welcome" 
+              title="Loading conversation..." 
+              subtitle="Please wait while we fetch your messages"
+              showIcon={true}
+            />
+          ) : (
+            <LoadingAnimation 
+              type="welcome" 
+              title="Welcome to GigLink Messages" 
+              subtitle="Select a conversation to start messaging"
+              showIcon={true}
+            />
+          )
         )}
       </Box>
 
