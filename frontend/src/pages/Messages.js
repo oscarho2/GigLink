@@ -719,11 +719,12 @@ const Messages = () => {
   }, [messages, selectedConversation, loadingMoreMessages]);
 
   // Auto-scroll to bottom when typing indicator appears or disappears
+  // But don't scroll when loading more messages (pagination)
   useEffect(() => {
-    if (selectedConversation) {
+    if (selectedConversation && !loadingMoreMessages) {
       scrollToBottom();
     }
-  }, [isTyping, selectedConversation]);
+  }, [isTyping, selectedConversation, loadingMoreMessages]);
 
   // Reset mobile conversation view when screen size changes to desktop
   useEffect(() => {
