@@ -122,7 +122,11 @@ router.get('/conversation/:otherUserId', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const otherUserId = req.params.otherUserId;
-    console.log('GET /conversation called for user:', userId, 'with otherUser:', otherUserId);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    console.log('GET /conversation called for user:', userId, 'with otherUser:', otherUserId, 'page:', page, 'limit:', limit);
     
     // Validate other user exists
     const otherUser = await User.findById(otherUserId).select('name email');
@@ -133,6 +137,10 @@ router.get('/conversation/:otherUserId', auth, async (req, res) => {
     const conversationId = Message.generateConversationId(userId, otherUserId);
     console.log('Generated conversationId:', conversationId);
     
+    // Get total count for pagination info
+    const totalMessages = await Message.countDocuments({ conversationId });
+    
+    // Fetch messages with pagination (most recent first, then reverse for display)
     const messages = await Message.find({ conversationId })
       .populate('sender', 'name email')
       .populate('recipient', 'name email')
@@ -144,18 +152,33 @@ router.get('/conversation/:otherUserId', auth, async (req, res) => {
           select: 'name email'
         }
       })
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: -1 }) // Most recent first
+      .skip(skip)
+      .limit(limit);
     
-    console.log('Found messages for conversation:', messages.length);
+    // Reverse to show oldest to newest in the returned batch
+    const reversedMessages = messages.reverse();
     
-    // Mark messages as read for the current user
-    await Message.updateMany(
-      { conversationId, recipient: userId, read: false },
-      { read: true }
-    );
+    console.log('Found messages for conversation:', reversedMessages.length, 'of', totalMessages, 'total');
     
-    // Return just the messages array (frontend expects this format)
-    res.json(messages);
+    // Mark messages as read for the current user (only for first page)
+    if (page === 1) {
+      await Message.updateMany(
+        { conversationId, recipient: userId, read: false },
+        { read: true }
+      );
+    }
+    
+    // Return messages with pagination info
+    res.json({
+      messages: reversedMessages,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalMessages / limit),
+        totalMessages,
+        hasMore: page < Math.ceil(totalMessages / limit)
+      }
+    });
   } catch (error) {
     console.error('Error fetching conversation:', error);
     res.status(500).json({ message: 'Server error' });

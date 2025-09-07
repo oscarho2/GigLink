@@ -16,13 +16,20 @@ import {
   Avatar,
   Paper,
   Divider,
-  Skeleton
+  Skeleton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  IconButton
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import WorkIcon from '@mui/icons-material/Work';
 import StarIcon from '@mui/icons-material/Star';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import ClearIcon from '@mui/icons-material/Clear';
 
 // Memoized MusicianCard component for better performance
 const MusicianCard = memo(({ musician, user }) => {
@@ -224,6 +231,19 @@ const Discover = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    location: '',
+    instrument: '',
+    genre: '',
+    experience: ''
+  });
+  
+  // Filter options
+  const locations = ["London", "Manchester", "Birmingham", "Liverpool", "Edinburgh", "Glasgow"];
+  const instruments = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals"];
+  const genres = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk"];
+  const experienceLevels = ["Beginner", "Intermediate", "Advanced", "Professional"];
 
 
 
@@ -256,22 +276,65 @@ const Discover = () => {
   const handleSearch = useCallback((event) => {
     setSearchTerm(event.target.value);
   }, []);
+  
+  // Filter handlers
+  const handleFilterChange = useCallback((filterName, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterName]: value
+    }));
+  }, []);
+  
+  const resetFilters = useCallback(() => {
+    setFilters({
+      location: '',
+      instrument: '',
+      genre: '',
+      experience: ''
+    });
+  }, []);
 
   // Memoized filtered musicians (including current user)
   const filteredMusicians = useMemo(() => {
-    // Include all musicians, including current user
-    const allMusicians = musicians;
+    let result = [...musicians];
     
-    if (!searchTerm.trim()) return allMusicians;
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(musician =>
+        musician.user.name.toLowerCase().includes(term) ||
+        (musician.skills && musician.skills.some(skill => skill.toLowerCase().includes(term))) ||
+        (musician.user.instruments && musician.user.instruments.some(instrument => instrument.toLowerCase().includes(term))) ||
+        (musician.user.genres && musician.user.genres.some(genre => genre.toLowerCase().includes(term)))
+      );
+    }
     
-    const term = searchTerm.toLowerCase();
-    return allMusicians.filter(musician =>
-      musician.user.name.toLowerCase().includes(term) ||
-      (musician.skills && musician.skills.some(skill => skill.toLowerCase().includes(term))) ||
-      (musician.instruments && musician.instruments.some(instrument => instrument.toLowerCase().includes(term))) ||
-      (musician.genres && musician.genres.some(genre => genre.toLowerCase().includes(term)))
-    );
-  }, [musicians, searchTerm]);
+    // Apply location filter
+    if (filters.location) {
+      result = result.filter(musician => musician.user.location === filters.location);
+    }
+    
+    // Apply instrument filter
+    if (filters.instrument) {
+      result = result.filter(musician => 
+        musician.user.instruments && musician.user.instruments.includes(filters.instrument)
+      );
+    }
+    
+    // Apply genre filter
+    if (filters.genre) {
+      result = result.filter(musician => 
+        musician.user.genres && musician.user.genres.includes(filters.genre)
+      );
+    }
+    
+    // Apply experience filter
+    if (filters.experience) {
+      result = result.filter(musician => musician.experience === filters.experience);
+    }
+    
+    return result;
+  }, [musicians, searchTerm, filters]);
 
   if (loading) {
     return (
@@ -336,28 +399,179 @@ const Discover = () => {
         <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
           Discover Musicians
         </Typography>
-        <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+        <Typography variant="subtitle1" sx={{ opacity: 0.9, mb: 3 }}>
           Connect with talented musicians for your next collaboration
         </Typography>
+        
+        {/* Filter Toggle Button */}
+        <Box sx={{ mb: showFilters ? 3 : 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Button
+            variant="outlined"
+            startIcon={<FilterListIcon />}
+            onClick={() => setShowFilters(!showFilters)}
+            sx={{
+              borderColor: 'rgba(255, 255, 255, 0.5)',
+              color: 'white',
+              '&:hover': {
+                borderColor: 'rgba(255, 255, 255, 0.7)',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              },
+            }}
+          >
+            {showFilters ? 'Hide Filters' : 'Show Filters'}
+          </Button>
+          {(filters.location || filters.instrument || filters.genre || filters.experience) && (
+            <Button
+              variant="text"
+              startIcon={<ClearIcon />}
+              onClick={resetFilters}
+              sx={{
+                color: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+              }}
+            >
+              Clear Filters
+            </Button>
+          )}
+        </Box>
       </Paper>
 
       {/* Search Bar */}
-      <Paper elevation={1} sx={{ p: 2, mb: 4 }}>
-        <TextField
-          variant="outlined"
-          placeholder="Search by name, instrument, genre, or skills..."
-          value={searchTerm}
-          onChange={handleSearch}
-          fullWidth
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon color="primary" />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Paper>
+      <TextField
+        fullWidth
+        placeholder="Search musicians by name, skills, instruments, or genres..."
+        value={searchTerm}
+        onChange={handleSearch}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon sx={{ color: 'text.secondary' }} />
+            </InputAdornment>
+          ),
+        }}
+        sx={{
+          mb: 4,
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 2,
+          },
+        }}
+      />
+
+      {/* Filter Section */}
+       {showFilters && (
+         <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, sm: 3, md: 4 }, borderRadius: 2 }}>
+           <Box 
+             sx={{ 
+               display: 'flex', 
+               flexDirection: { xs: 'column', sm: 'row' },
+               justifyContent: 'space-between', 
+               alignItems: { xs: 'flex-start', sm: 'center' }, 
+               mb: { xs: 2, sm: 2 },
+               gap: { xs: 1.5, sm: 0 }
+             }}
+           >
+             <Typography 
+               variant="h6" 
+               fontWeight="bold"
+               sx={{
+                 fontSize: { xs: '1.125rem', sm: '1.25rem' }
+               }}
+             >
+               Filter Musicians
+             </Typography>
+             <Button 
+               variant="outlined" 
+               onClick={resetFilters}
+               sx={{ 
+                 color: '#1a365d', 
+                 borderColor: '#1a365d',
+                 fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+                 minHeight: { xs: 36, sm: 40 },
+                 px: { xs: 2, sm: 3 },
+                 alignSelf: { xs: 'stretch', sm: 'auto' }
+               }}
+             >
+               Reset Filters
+             </Button>
+           </Box>
+           
+           <Grid container spacing={{ xs: 2, sm: 3 }}>
+            <Grid item xs={12} sm={6} md={3}>
+               <FormControl fullWidth>
+                 <InputLabel>Location</InputLabel>
+                 <Select
+                   value={filters.location}
+                   label="Location"
+                   onChange={(e) => handleFilterChange('location', e.target.value)}
+                 >
+                  <MenuItem value="">All Locations</MenuItem>
+                  {locations.map((location) => (
+                    <MenuItem key={location} value={location}>
+                      {location}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} md={3}>
+               <FormControl fullWidth>
+                 <InputLabel>Instrument</InputLabel>
+                 <Select
+                   value={filters.instrument}
+                   label="Instrument"
+                   onChange={(e) => handleFilterChange('instrument', e.target.value)}
+                 >
+                  <MenuItem value="">All Instruments</MenuItem>
+                  {instruments.map((instrument) => (
+                    <MenuItem key={instrument} value={instrument}>
+                      {instrument}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} md={3}>
+               <FormControl fullWidth>
+                 <InputLabel>Genre</InputLabel>
+                 <Select
+                   value={filters.genre}
+                   label="Genre"
+                   onChange={(e) => handleFilterChange('genre', e.target.value)}
+                 >
+                  <MenuItem value="">All Genres</MenuItem>
+                  {genres.map((genre) => (
+                    <MenuItem key={genre} value={genre}>
+                      {genre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} md={3}>
+               <FormControl fullWidth>
+                 <InputLabel>Experience</InputLabel>
+                 <Select
+                   value={filters.experience}
+                   label="Experience"
+                   onChange={(e) => handleFilterChange('experience', e.target.value)}
+                 >
+                  <MenuItem value="">All Levels</MenuItem>
+                  {experienceLevels.map((level) => (
+                    <MenuItem key={level} value={level}>
+                      {level}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
 
       {/* Musicians Grid */}
       <Grid container spacing={3}>
