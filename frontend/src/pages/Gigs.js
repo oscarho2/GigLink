@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   Container, 
   Grid,
@@ -17,7 +17,8 @@ import {
   Slider,
   CardActions,
   Avatar,
-  IconButton
+  IconButton,
+  InputAdornment
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -31,6 +32,7 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import PersonIcon from '@mui/icons-material/Person';
 import ClearIcon from '@mui/icons-material/Clear';
+import SearchIcon from '@mui/icons-material/Search';
 
 const Gigs = () => {
   const { isAuthenticated, user } = useAuth();
@@ -38,6 +40,7 @@ const Gigs = () => {
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState('dateAsc');
+  const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     location: '',
     minFee: 0,
@@ -82,12 +85,29 @@ const Gigs = () => {
     fetchGigs();
   }, []);
 
+  // Search handler
+  const handleSearch = useCallback((event) => {
+    setSearchTerm(event.target.value);
+  }, []);
+
   // Use useMemo to memoize the filtered gigs
   const filteredGigs = useMemo(() => {
     // Skip filtering if gigs array is empty
     if (gigs.length === 0) return [];
 
     let result = [...gigs];
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(gig =>
+        gig.title.toLowerCase().includes(term) ||
+        gig.description.toLowerCase().includes(term) ||
+        gig.location.toLowerCase().includes(term) ||
+        (gig.instruments && gig.instruments.some(instrument => instrument.toLowerCase().includes(term))) ||
+        (gig.genres && gig.genres.some(genre => genre.toLowerCase().includes(term)))
+      );
+    }
 
     // Filter by location
     if (filters.location) {
@@ -148,7 +168,7 @@ const Gigs = () => {
     }
 
     return result;
-  }, [filters, gigs, sort]);
+  }, [filters, gigs, sort, searchTerm]);
   
   // Handle filter changes
   const handleFilterChange = (name, value) => {
@@ -275,6 +295,34 @@ dateTo: '',
           </Box>
         </Box>
       </Paper>
+      
+      {/* Search Bar */}
+      <Box sx={{ mb: 4 }}>
+        <TextField
+          fullWidth
+          placeholder="Search gigs by title, description, location, instruments, or genres..."
+          value={searchTerm}
+          onChange={handleSearch}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: '#1a365d' }} />
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: '#1a365d',
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: '#1a365d',
+              },
+            },
+          }}
+        />
+      </Box>
       
       {/* Filter Section */}
       {showFilters && (

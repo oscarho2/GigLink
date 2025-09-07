@@ -98,6 +98,23 @@ router.get('/:id', async (req, res) => {
       }
     }
 
+    // For non-owners, include only the current user's application status (if any)
+    if (!isOwner && token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decodedForStatus = jwt.verify(token, process.env.JWT_SECRET);
+        const myId = decodedForStatus.user.id;
+        const myApp = Array.isArray(gig.applicants)
+          ? gig.applicants.find(a => ((a.user && a.user.toString) ? a.user.toString() : a.user) === myId)
+          : null;
+        if (myApp) {
+          gigObj.yourApplicationStatus = myApp.status || 'pending';
+        }
+      } catch (err) {
+        // ignore token parsing errors here
+      }
+    }
+
     if (!isOwner) {
       delete gigObj.applicants; // Hide applicants from non-owners
     }
@@ -320,6 +337,54 @@ router.post('/:id/undo/:applicantId', auth, async (req, res) => {
     await gig.save();
     
     res.json({ msg: 'Applicant acceptance undone', gig });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/gigs/user/applications
+// @desc    Get current user's gig applications
+// @access  Private
+router.get('/user/applications', auth, async (req, res) => {
+  try {
+    const gigs = await Gig.find({
+      'applicants.user': req.user.id
+    })
+    .populate('user', ['name', 'avatar'])
+    .populate('applicants.user', ['name', 'avatar'])
+    .sort({ 'applicants.date': -1 });
+
+    // Map to include only the current user's application status and gig details
+    const userApplications = gigs.map(gig => {
+      const userApplication = gig.applicants.find(
+        app => app.user._id.toString() === req.user.id
+      );
+      
+      return {
+        _id: gig._id,
+        title: gig.title,
+        venue: gig.venue,
+        location: gig.location,
+        date: gig.date,
+        time: gig.time,
+        payment: gig.payment,
+        instruments: gig.instruments,
+        genres: gig.genres,
+        description: gig.description,
+        isFilled: gig.isFilled,
+        poster: gig.user,
+        applicationStatus: userApplication.status,
+        applicationDate: userApplication.date,
+        applicationMessage: userApplication.message,
+        // Check if someone else was accepted
+        acceptedByOther: gig.applicants.some(
+          app => app.status === 'accepted' && app.user._id.toString() !== req.user.id
+        )
+      };
+    });
+
+    res.json(userApplications);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

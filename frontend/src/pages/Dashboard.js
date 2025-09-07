@@ -39,6 +39,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import PaymentIcon from '@mui/icons-material/Payment';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
@@ -74,6 +76,10 @@ const Dashboard = () => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [linksLoading, setLinksLoading] = useState(true);
+  
+  // Gig applications state
+  const [applications, setApplications] = useState([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
 
   const handleDeleteAccount = () => {
     setDeleteDialogStep(1);
@@ -189,6 +195,20 @@ const Dashboard = () => {
       console.error('Error fetching links data:', err);
     } finally {
       setLinksLoading(false);
+    }
+  };
+
+  const fetchApplicationsData = async () => {
+    try {
+      setApplicationsLoading(true);
+      const res = await axios.get('/api/gigs/user/applications', {
+        headers: { 'x-auth-token': token }
+      });
+      setApplications(res.data);
+    } catch (err) {
+      console.error('Error fetching applications data:', err);
+    } finally {
+      setApplicationsLoading(false);
     }
   };
 
@@ -313,6 +333,9 @@ const Dashboard = () => {
         
         // Fetch links data
         await fetchLinksData();
+        
+        // Fetch user's gig applications
+        await fetchApplicationsData();
       } catch (err) {
         console.error('Error fetching data:', err);
       } finally {
@@ -866,6 +889,147 @@ const Dashboard = () => {
 
         </Grid>
       </Grid>
+
+      {/* Gig Applications Section */}
+      <Card sx={{ mt: 4 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">
+              <WorkIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+              My Gig Applications
+            </Typography>
+          </Box>
+          
+          <Divider sx={{ mb: 2 }} />
+          
+          {applicationsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <Typography>Loading applications...</Typography>
+            </Box>
+          ) : applications.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+              No gig applications yet. Start applying to gigs to see them here!
+            </Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {applications.map((application) => {
+                const getStatusColor = (status, acceptedByOther) => {
+                  if (acceptedByOther && status !== 'accepted') return 'error';
+                  switch (status) {
+                    case 'accepted': return 'success';
+                    case 'rejected': return 'error';
+                    default: return 'warning';
+                  }
+                };
+                
+                const getStatusText = (status, acceptedByOther) => {
+                  if (acceptedByOther && status !== 'accepted') return 'Position Filled';
+                  switch (status) {
+                    case 'accepted': return 'Accepted';
+                    case 'rejected': return 'Rejected';
+                    default: return 'Pending';
+                  }
+                };
+                
+                return (
+                  <Grid item xs={12} md={6} key={application._id}>
+                    <Card 
+                      sx={{ 
+                        height: '100%',
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: 4
+                        }
+                      }}
+                    >
+                      <CardContent>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                          <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold' }}>
+                            {application.title}
+                          </Typography>
+                          <Chip
+                            label={getStatusText(application.applicationStatus, application.acceptedByOther)}
+                            color={getStatusColor(application.applicationStatus, application.acceptedByOther)}
+                            size="small"
+                            sx={{ fontWeight: 'bold' }}
+                          />
+                        </Box>
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          <LocationOnIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {application.venue} • {application.location}
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          <CalendarTodayIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {application.date} {application.time && `• ${application.time}`}
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                          <PaymentIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {application.payment}
+                          </Typography>
+                        </Box>
+                        
+                        {application.instruments && application.instruments.length > 0 && (
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                              Instruments:
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {application.instruments.slice(0, 3).map((instrument, index) => (
+                                <Chip
+                                  key={index}
+                                  label={instrument}
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                />
+                              ))}
+                              {application.instruments.length > 3 && (
+                                <Chip
+                                  label={`+${application.instruments.length - 3} more`}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                              )}
+                            </Box>
+                          </Box>
+                        )}
+                        
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                          Applied: {new Date(application.applicationDate).toLocaleDateString()}
+                        </Typography>
+                        
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                          Posted by: {application.poster?.name || 'Unknown'}
+                        </Typography>
+                      </CardContent>
+                      
+                      <CardActions>
+                        <Button
+                          component={RouterLink}
+                          to={`/gigs/${application._id}`}
+                          size="small"
+                          variant="outlined"
+                        >
+                          View Gig
+                        </Button>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Multi-step Delete Account Dialog */}
       {/* Step 1: Initial Warning */}
