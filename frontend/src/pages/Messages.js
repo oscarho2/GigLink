@@ -752,7 +752,7 @@ const Messages = () => {
     const conversationChanged = !!currentConvId && currentConvId !== prevConvId;
     const appendedAtBottom = !!prevLastId && !!currentLastId && currentLastId !== prevLastId;
 
-    if (conversationChanged) {
+    if (conversationChanged && !loadingMoreMessages && !justLoadedMoreRef.current) {
       // When switching/opening a conversation, always scroll to bottom
       scrollToBottom();
     } else if (
