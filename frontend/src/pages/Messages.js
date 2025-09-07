@@ -892,7 +892,7 @@ const Messages = () => {
           const highlightedText = text.replace(regex, (match, p1, offset) => {
             const matchIndex = matches.length;
             matches.push({ element: messageEl, text: match, offset });
-            return `<span class="search-highlight" data-match-index="${matchIndex}" style="background-color: #e0e0e0; border-radius: 3px;">${match}</span>`;
+            return `<span class="search-highlight" data-match-index="${matchIndex}" style="background-color: #e0e0e0;">${match}</span>`;
           });
           const wrapper = document.createElement("span");
           wrapper.innerHTML = highlightedText;
