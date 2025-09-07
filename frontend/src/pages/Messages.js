@@ -456,13 +456,20 @@ const Messages = () => {
 
       // Maintain scroll position after loading new messages
       if (container) {
-        const newScrollHeight = container.scrollHeight;
-        const scrollDifference = newScrollHeight - previousScrollHeight;
-        container.scrollTop = container.scrollTop + scrollDifference;
+        // Use requestAnimationFrame to ensure DOM has updated
+        requestAnimationFrame(() => {
+          const newScrollHeight = container.scrollHeight;
+          const scrollDifference = newScrollHeight - previousScrollHeight;
+          container.scrollTop = container.scrollTop + scrollDifference;
+          
+          // Set loading to false after scroll position is adjusted
+          setLoadingMoreMessages(false);
+        });
+      } else {
+        setLoadingMoreMessages(false);
       }
     } catch (err) {
       console.error("Error loading more messages:", err);
-    } finally {
       setLoadingMoreMessages(false);
     }
   };
