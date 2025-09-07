@@ -711,11 +711,12 @@ const Messages = () => {
   };
 
   // Auto-scroll to bottom when conversation is opened or messages change
+  // But don't scroll when loading more messages (pagination)
   useEffect(() => {
-    if (selectedConversation && messages && messages.length > 0) {
+    if (selectedConversation && messages && messages.length > 0 && !loadingMoreMessages) {
       scrollToBottom();
     }
-  }, [messages, selectedConversation]);
+  }, [messages, selectedConversation, loadingMoreMessages]);
 
   // Auto-scroll to bottom when typing indicator appears or disappears
   useEffect(() => {
