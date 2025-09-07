@@ -974,7 +974,13 @@ const Messages = () => {
 
   // Navigate to specific date in conversation
   const navigateToDate = (date) => {
-    if (!messages || messages.length === 0) return;
+    if (!messages || messages.length === 0) {
+      console.log('No messages available for date navigation');
+      return;
+    }
+    
+    console.log('Navigating to date:', date);
+    console.log('Total messages:', messages.length);
     
     const targetDate = moment(date).startOf('day');
     let closestMessageIndex = -1;
@@ -993,7 +999,10 @@ const Messages = () => {
     
     if (closestMessageIndex !== -1) {
       const messageId = messages[closestMessageIndex]._id;
+      console.log('Found closest message:', messageId, 'at index:', closestMessageIndex);
       scrollToMessage(messageId);
+    } else {
+      console.log('No closest message found');
     }
     
     setShowDatePicker(false);
@@ -1034,7 +1043,16 @@ const Messages = () => {
   const scrollToMessage = (messageId) => {
     const messageElement = document.getElementById(`message-${messageId}`);
     if (messageElement) {
-      messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Calculate navbar height offset (64px for desktop, 56px for mobile)
+      const navbarHeight = window.innerWidth >= 600 ? 64 : 56;
+      const elementPosition = messageElement.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - navbarHeight - 20; // Extra 20px padding
+      
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
+      
       // Highlight the message briefly
       messageElement.style.backgroundColor = "#fff3cd";
       setTimeout(() => {
