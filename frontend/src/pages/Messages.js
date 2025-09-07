@@ -110,6 +110,10 @@ const Messages = () => {
   const [longPressTimer, setLongPressTimer] = useState(null);
   const [showReactionPicker, setShowReactionPicker] = useState(null);
   const [acceptedApplicants, setAcceptedApplicants] = useState(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const [totalMessages, setTotalMessages] = useState(0);
 
   const handleMessageContextMenu = (event, message) => {
     event.preventDefault();
@@ -121,6 +125,72 @@ const Messages = () => {
   useEffect(() => {
     console.log('replyToMessage state changed:', replyToMessage);
   }, [replyToMessage]);
+
+  // Populate acceptedApplicants when messages are loaded
+  useEffect(() => {
+    const populateAcceptedApplicants = async () => {
+      // Wait for user to be populated before running, as it's needed for non-owner view
+      if (!messages || messages.length === 0 || !token || !user) return;
+      
+      const gigIds = new Set();
+      
+      // Collect all unique gig IDs from gig application messages
+      messages.forEach(message => {
+        if (message.messageType === 'gig_application' && message.gigApplication?.gigId) {
+          gigIds.add(message.gigApplication.gigId);
+        }
+      });
+      
+      if (gigIds.size === 0) return;
+      
+      try {
+        // Fetch gig data for each unique gig ID
+        const gigPromises = Array.from(gigIds).map(gigId => 
+          axios.get(`/api/gigs/${gigId}`, {
+            headers: { 'x-auth-token': token }
+          })
+        );
+        
+        const gigResponses = await Promise.all(gigPromises);
+        const newAcceptedApplicants = new Set();
+        
+        // Extract accepted applicants from all gigs
+        gigResponses.forEach(response => {
+          const gig = response.data;
+          const gigId = gig?._id || gig?.id;
+          if (gig?.applicants && Array.isArray(gig.applicants)) {
+            gig.applicants.forEach(applicant => {
+              if (applicant.status === 'accepted') {
+                const applicantId = typeof applicant.user === 'string' ? applicant.user : applicant.user?._id;
+                if (applicantId && gigId) {
+                  newAcceptedApplicants.add(`${gigId}:${applicantId}`);
+                }
+              }
+            });
+          } else if (gigId && gig?.yourApplicationStatus === 'accepted') {
+            // Non-owner view: include current user's accepted status
+            const currentUserId = user?.id || user?._id;
+            if (currentUserId) {
+              newAcceptedApplicants.add(`${gigId}:${currentUserId}`);
+            }
+          }
+        });
+        
+        console.log('=== ACCEPTED APPLICANTS DEBUG ===');
+        console.log('Current user:', user);
+        console.log('Current user ID:', user?.id || user?._id);
+        console.log('Populated acceptedApplicants keys:', Array.from(newAcceptedApplicants));
+        console.log('=== END ACCEPTED APPLICANTS DEBUG ===');
+        setAcceptedApplicants(newAcceptedApplicants);
+      } catch (err) {
+        console.error('Error fetching gig data for accepted applicants:', err);
+      }
+    };
+    
+    populateAcceptedApplicants();
+  }, [messages, token, user]);
+
+
 
   
   const messagesEndRef = useRef(null);
@@ -166,7 +236,7 @@ const Messages = () => {
     if (existingConversation) {
       // If conversation exists, just select it
       setSelectedConversation({ _id: userId });
-      fetchMessages(userId);
+      fetchMessages(userId, 1, false);
     } else {
       try {
         // Fetch user details for new conversation
@@ -223,20 +293,39 @@ const Messages = () => {
   };
 
   // Fetch messages for a conversation
-  const fetchMessages = async (otherUserId) => {
+  const fetchMessages = async (otherUserId, page = 1, append = false) => {
     console.log('=== FETCH MESSAGES CALLED ===');
-    console.log('fetchMessages called with otherUserId:', otherUserId);
+    console.log('fetchMessages called with otherUserId:', otherUserId, 'page:', page, 'append:', append);
     console.log('Token available:', token ? 'YES' : 'NO');
-    console.log('Making API call to:', `/api/messages/conversation/${otherUserId}`);
+    console.log('Making API call to:', `/api/messages/conversation/${otherUserId}?page=${page}&limit=20`);
+    
+    if (page === 1) {
+      setMessages([]);
+      setCurrentPage(1);
+      setHasMoreMessages(true);
+    }
+    
     try {
-      const response = await axios.get(`/api/messages/conversation/${otherUserId}`, {
+      const response = await axios.get(`/api/messages/conversation/${otherUserId}?page=${page}&limit=20`, {
         headers: { 'x-auth-token': token }
       });
       console.log('=== API RESPONSE RECEIVED ===');
       console.log('Messages response:', response.data);
       console.log('Response status:', response.status);
-      console.log('Number of messages:', response.data?.length || 0);
-      setMessages(Array.isArray(response.data) ? response.data : []);
+      
+      const { messages: newMessages, pagination } = response.data;
+      console.log('Number of messages:', newMessages?.length || 0);
+      console.log('Pagination info:', pagination);
+      
+      if (append) {
+        setMessages(prev => [...newMessages, ...prev]);
+      } else {
+        setMessages(Array.isArray(newMessages) ? newMessages : []);
+      }
+      
+      setCurrentPage(pagination.currentPage);
+      setHasMoreMessages(pagination.hasMore);
+      setTotalMessages(pagination.totalMessages);
       
       // Find the full conversation object from conversations array
       const fullConversation = conversations.find(conv => conv.otherUser?._id === otherUserId);
@@ -289,7 +378,7 @@ const Messages = () => {
           setSelectedConversation({ _id: otherUserId });
         }
       }
-      console.log('Messages state updated, count:', response.data.length);
+      console.log('Messages state updated, count:', newMessages.length);
     } catch (err) {
       console.error('=== ERROR FETCHING MESSAGES ===');
       console.error('Error fetching messages:', err);
@@ -298,6 +387,49 @@ const Messages = () => {
       setError('Failed to load messages');
     }
   };
+
+  // Load more messages (for pagination)
+  const loadMoreMessages = async () => {
+    if (!selectedConversation || !hasMoreMessages || loadingMoreMessages) return;
+    
+    const container = messagesContainerRef.current;
+    const previousScrollHeight = container ? container.scrollHeight : 0;
+    
+    setLoadingMoreMessages(true);
+    try {
+      await fetchMessages(selectedConversation._id, currentPage + 1, true);
+      
+      // Maintain scroll position after loading new messages
+      if (container) {
+        const newScrollHeight = container.scrollHeight;
+        const scrollDifference = newScrollHeight - previousScrollHeight;
+        container.scrollTop = container.scrollTop + scrollDifference;
+      }
+    } catch (err) {
+      console.error('Error loading more messages:', err);
+    } finally {
+      setLoadingMoreMessages(false);
+    }
+  };
+
+  // Handle scroll to load more messages
+  const handleScroll = useCallback((e) => {
+    const { scrollTop } = e.target;
+    
+    // Load more messages when scrolled to top (with 100px threshold)
+    if (scrollTop < 100 && hasMoreMessages && !loadingMoreMessages) {
+      loadMoreMessages();
+    }
+  }, [hasMoreMessages, loadingMoreMessages, selectedConversation, loadMoreMessages]);
+
+  // Add scroll event listener to messages container
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
 
   // Send a message
   const sendMessage = async () => {
@@ -313,7 +445,10 @@ const Messages = () => {
       });
       
       setNewMessage('');
-      fetchMessages(selectedConversation._id);
+      // Reset pagination and fetch latest messages
+      setCurrentPage(1);
+      setHasMoreMessages(true);
+      fetchMessages(selectedConversation._id, 1, false);
       fetchConversations();
     } catch (err) {
       console.error('Error sending message:', err);
@@ -350,7 +485,7 @@ const Messages = () => {
       window.location.href = '/login';
     }
     console.log('=== Messages useEffect END ===');
-  }, [token, fetchConversations]);
+  }, [token, fetchConversations, user]);
 
   // Socket event listeners
   useEffect(() => {
@@ -455,7 +590,7 @@ const Messages = () => {
       socket.off('message_status_update');
       socket.off('user_typing');
     };
-  }, [socket, selectedConversation]);
+  }, [socket, selectedConversation, user, token]);
 
   // Handle joining/leaving conversations
   useEffect(() => {
@@ -785,7 +920,8 @@ const Messages = () => {
   // Handle accepting/undoing applicant for gig
   const handleAcceptApplicant = async (gigId, applicantId) => {
     try {
-      const isAccepted = acceptedApplicants.has(applicantId);
+      const key = `${gigId}:${applicantId}`;
+      const isAccepted = acceptedApplicants.has(key);
       
       if (isAccepted) {
         // Undo acceptance
@@ -794,7 +930,7 @@ const Messages = () => {
         });
         setAcceptedApplicants(prev => {
           const newSet = new Set(prev);
-          newSet.delete(applicantId);
+          newSet.delete(key);
           return newSet;
         });
         showNotification('Applicant acceptance undone!', 'success');
@@ -803,7 +939,7 @@ const Messages = () => {
         await axios.post(`/api/gigs/${gigId}/accept/${applicantId}`, {}, {
           headers: { 'x-auth-token': token }
         });
-        setAcceptedApplicants(prev => new Set(prev).add(applicantId));
+        setAcceptedApplicants(prev => new Set(prev).add(key));
         showNotification('Applicant accepted successfully!', 'success');
       }
     } catch (err) {
@@ -1055,7 +1191,7 @@ const Messages = () => {
                       // No unread messages, set to current time
                       setLastReadTimestamp(moment());
                     }
-                    fetchMessages(conversation.otherUser._id);
+                    fetchMessages(conversation.otherUser._id, 1, false);
                     // Show conversation view on mobile
                     if (isMobile) {
                       setShowMobileConversation(true);
@@ -1242,6 +1378,21 @@ const Messages = () => {
                 flexDirection: 'column',
                 gap: 1
               }}>
+              {/* Loading indicator for pagination */}
+              {loadingMoreMessages && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              )}
+              
+              {/* Load more messages indicator */}
+              {hasMoreMessages && !loadingMoreMessages && messages.length > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Scroll up to load more messages
+                  </Typography>
+                </Box>
+              )}
               {(() => {
                 console.log('Rendering messages:', messages, 'Array?', Array.isArray(messages), 'Length:', messages?.length);
                 return messages && Array.isArray(messages) && messages
@@ -1346,9 +1497,21 @@ const Messages = () => {
                             cursor: 'pointer',
                             '&:hover': {
                               boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+                            },
+                            // Extend hover area to bridge gap to buttons
+                            '&::after': {
+                              content: '""',
+                              position: 'absolute',
+                              top: '-10px',
+                              bottom: '-10px',
+                              left: isOwn ? '-80px' : '100%',
+                              right: isOwn ? '100%' : '-80px',
+                              width: '80px',
+                              zIndex: 998
                             }
                           }}
                         >
+
                           {/* Reply indicator - nested bubble */}
                           {message.replyTo && (
                             <Paper
@@ -1565,34 +1728,8 @@ const Messages = () => {
                                 
                                 <Divider sx={{ my: 1.5 }} />
                                 
-                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                                   {/* Accept Button - only show for gig owner */}
-                                  {(() => {
-                                    const currentUserId = (user?.id || user?._id)?.toString();
-                                    const gigOwnerId = message.gigApplication.gigOwnerId?.toString();
-                                    const recipientId = (message.recipient?._id || message.recipient)?.toString();
-                                    const isGigOwner = !!currentUserId && ((gigOwnerId && currentUserId === gigOwnerId) || (recipientId && currentUserId === recipientId));
-                                    const isAccepted = acceptedApplicants.has(message.sender._id);
-                                    
-                                    return isGigOwner && (
-                                      <Button
-                                        variant="contained"
-                                        size="small"
-                                        onClick={() => handleAcceptApplicant(message.gigApplication.gigId, message.sender._id)}
-                                        sx={{
-                                          bgcolor: isAccepted ? '#4caf50' : '#1976d2',
-                                          color: 'white',
-                                          '&:hover': {
-                                            bgcolor: isAccepted ? '#388e3c' : '#1565c0'
-                                          },
-                                          textTransform: 'none'
-                                        }}
-                                      >
-                                        {isAccepted ? 'Undo' : 'Accept'}
-                                      </Button>
-                                    );
-                                  })()}
-                                  
                                   <Button
                                     component={Link}
                                     to={`/gigs/${message.gigApplication.gigId}`}
@@ -1610,6 +1747,71 @@ const Messages = () => {
                                   >
                                     View Gig Details
                                   </Button>
+                                  
+                                  {/* Accepted indicator for applicant (sender or current user) */}
+                                   {(() => {
+                                     const gigId = message.gigApplication?.gigId;
+                                     const senderId = (message.sender && (message.sender._id || message.sender))?.toString();
+                                     const currentUserId = (user?.id || user?._id)?.toString();
+                                     const keySender = gigId && senderId ? `${gigId}:${senderId}` : null;
+                                     const keyCurrentUser = gigId && currentUserId ? `${gigId}:${currentUserId}` : null;
+                                     const shouldShow = (keySender && acceptedApplicants.has(keySender)) || (keyCurrentUser && acceptedApplicants.has(keyCurrentUser));
+                                     console.log('=== ACCEPTED TAG DISPLAY DEBUG ===');
+                                     console.log('Message:', message);
+                                     console.log('User object:', user);
+                                     console.log('Accepted indicator check:', {
+                                       gigId,
+                                       senderId,
+                                       currentUserId,
+                                       keySender,
+                                       keyCurrentUser,
+                                       hasSenderAccepted: keySender ? acceptedApplicants.has(keySender) : false,
+                                       hasCurrentUserAccepted: keyCurrentUser ? acceptedApplicants.has(keyCurrentUser) : false,
+                                       acceptedApplicants: Array.from(acceptedApplicants),
+                                       shouldShow
+                                     });
+                                     console.log('=== END ACCEPTED TAG DISPLAY DEBUG ===');
+                                     return shouldShow && (
+                                       <Chip
+                                         label="Accepted"
+                                         size="small"
+                                         sx={{
+                                           bgcolor: '#4caf50',
+                                           color: 'white',
+                                           fontSize: '0.75rem',
+                                           height: 24,
+                                           fontWeight: 'bold'
+                                         }}
+                                       />
+                                     );
+                                   })()}
+                                  
+                                  {(() => {
+                                    const currentUserId = (user?.id || user?._id)?.toString();
+                                    const gigOwnerId = message.gigApplication.gigOwnerId?.toString();
+                                    const recipientId = (message.recipient?._id || message.recipient)?.toString();
+                                    const isGigOwner = !!currentUserId && ((gigOwnerId && currentUserId === gigOwnerId) || (recipientId && currentUserId === recipientId));
+                                    const compositeKey = `${message.gigApplication.gigId}:${message.sender._id}`;
+                                    const isAccepted = acceptedApplicants.has(compositeKey);
+                                    
+                                    return isGigOwner && (
+                                      <Button
+                                        variant="contained"
+                                        size="small"
+                                        onClick={() => handleAcceptApplicant(message.gigApplication.gigId, message.sender._id)}
+                                        sx={{
+                                          bgcolor: isAccepted ? '#757575' : '#1976d2',
+                                          color: 'white',
+                                          '&:hover': {
+                                            bgcolor: isAccepted ? '#616161' : '#1565c0'
+                                          },
+                                          textTransform: 'none'
+                                        }}
+                                      >
+                                        {isAccepted ? 'Undo' : 'Accept'}
+                                      </Button>
+                                    );
+                                  })()}
                                 </Box>
                               </CardContent>
                             </Card>
@@ -1683,7 +1885,18 @@ const Messages = () => {
                               flexDirection: isOwn ? 'row' : 'row-reverse',
                               alignItems: 'center',
                               gap: 0.5,
-                              zIndex: 1000
+                              zIndex: 1000,
+                              // Add invisible bridge to prevent hover loss
+                              '&::before': {
+                                content: '""',
+                                position: 'absolute',
+                                top: '-10px',
+                                bottom: '-10px',
+                                left: isOwn ? '80px' : '-20px',
+                                right: isOwn ? '-20px' : '80px',
+                                width: '20px',
+                                zIndex: 999
+                              }
                             }}
                           >
                             {/* Emoji face button - closest to bubble */}
