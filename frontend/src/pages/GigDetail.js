@@ -17,8 +17,10 @@ import { formatPayment } from '../utils/currency';
 
 const GigDetail = () => {
   const { id } = useParams();
-  const { user, isAuthenticated, token } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
+  
+
 
   const [gig, setGig] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,7 @@ const GigDetail = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState('');
   const [hasApplied, setHasApplied] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState(null); // 'pending', 'accepted', 'rejected'
 
   useEffect(() => {
     const fetchGig = async () => {
@@ -37,19 +40,37 @@ const GigDetail = () => {
           headers: { 'x-auth-token': token },
         });
         setGig(res.data);
-        const uid = (user?.id || user?._id)?.toString();
-        const applied = !!(
-          uid &&
-          Array.isArray(res.data.applicants) &&
-          res.data.applicants.some((applicant) => {
-            const aUser = applicant?.user;
-            if (!aUser) return false;
-            if (typeof aUser === 'string') return aUser === uid;
-            if (typeof aUser === 'object' && aUser._id) return aUser._id.toString() === uid;
-            try { return aUser.toString() === uid; } catch { return false; }
-          })
-        );
-        setHasApplied(applied);
+        
+        // Check if user has applied using the yourApplicationStatus field
+        if (res.data.yourApplicationStatus) {
+          setHasApplied(true);
+          setApplicationStatus(res.data.yourApplicationStatus);
+        } else {
+          // Fallback: check applicants array if user is the gig owner
+          // Check if user has already applied using yourApplicationStatus first
+          if (res.data.yourApplicationStatus) {
+            setHasApplied(true);
+            setApplicationStatus(res.data.yourApplicationStatus);
+          } else if (res.data.applicants && user?.id) {
+            // Fallback to checking applicants array (for gig owners)
+            const uid = (user?.id || user?._id)?.toString();
+            const userApplication = res.data.applicants.find((applicant) => {
+              const aUser = applicant?.user;
+              if (!aUser) return false;
+              if (typeof aUser === 'string') return aUser === uid;
+              if (typeof aUser === 'object' && aUser._id) return aUser._id.toString() === uid;
+              try { return aUser.toString() === uid; } catch { return false; }
+            });
+            
+            if (userApplication) {
+              setHasApplied(true);
+              setApplicationStatus(userApplication.status || 'pending');
+            }
+          } else {
+            setHasApplied(false);
+            setApplicationStatus(null);
+          }
+        }
       } catch (err) {
         console.error(err);
         if (err.response) {
@@ -64,8 +85,10 @@ const GigDetail = () => {
       }
     };
 
-    fetchGig();
-  }, [id, user]);
+    if (token) {
+      fetchGig();
+    }
+  }, [id, user, token]);
 
   const handleApplyClick = () => {
     if (!isAuthenticated) {
@@ -101,6 +124,7 @@ const GigDetail = () => {
       const res = await axios.get(`/api/gigs/${id}`);
       setGig(res.data);
       setHasApplied(true);
+      setApplicationStatus('pending'); // New applications start as pending
       
       setApplyStatus('success');
     } catch (err) {
@@ -108,6 +132,21 @@ const GigDetail = () => {
       if (err.response?.data?.msg === 'Already applied to this gig') {
         setApplyStatus('duplicate');
         setHasApplied(true);
+        // Try to get the current application status
+        const res = await axios.get(`/api/gigs/${id}`);
+        const uid = (user?.id || user?._id)?.toString();
+        if (uid && Array.isArray(res.data.applicants)) {
+          const userApplication = res.data.applicants.find((applicant) => {
+            const aUser = applicant?.user;
+            if (!aUser) return false;
+            if (typeof aUser === 'string') return aUser === uid;
+            if (typeof aUser === 'object' && aUser._id) return aUser._id.toString() === uid;
+            try { return aUser.toString() === uid; } catch { return false; }
+          });
+          if (userApplication) {
+            setApplicationStatus(userApplication.status || 'pending');
+          }
+        }
       } else {
         setApplyStatus('error');
       }
@@ -719,29 +758,43 @@ const GigDetail = () => {
             }}
           >
             {!isPoster && (
-              <Button 
-                variant="contained" 
-                size="large"
-                onClick={handleApplyClick}
-                sx={{
-                  py: { xs: 1.25, sm: 1.5 }, 
-                  px: { xs: 3, sm: 4, md: 5 }, 
-                  borderRadius: 2,
-                  fontSize: { xs: '1rem', sm: '1.1rem' },
-                  fontWeight: 'bold',
-                  bgcolor: '#2c5282',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                  width: { xs: '100%', sm: 'auto' },
-                  minHeight: { xs: 48, sm: 'auto' },
-                  '&:hover': {
-                    bgcolor: '#1a365d',
-                    boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
-                  }
-                }}
-                disabled={isPoster || hasApplied}
-              >
-                {hasApplied ? 'Already Applied' : 'Apply for this Gig'}
-              </Button>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: { xs: '100%', sm: 'auto' } }}>
+                {hasApplied && applicationStatus && (
+                  <Chip
+                    label={`Application Status: ${applicationStatus.charAt(0).toUpperCase() + applicationStatus.slice(1)}`}
+                    color={applicationStatus === 'accepted' ? 'success' : applicationStatus === 'rejected' ? 'error' : 'warning'}
+                    sx={{
+                      fontWeight: 'bold',
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                      py: 1,
+                      px: 2
+                    }}
+                  />
+                )}
+                <Button 
+                  variant="contained" 
+                  size="large"
+                  onClick={handleApplyClick}
+                  sx={{
+                    py: { xs: 1.25, sm: 1.5 }, 
+                    px: { xs: 3, sm: 4, md: 5 }, 
+                    borderRadius: 2,
+                    fontSize: { xs: '1rem', sm: '1.1rem' },
+                    fontWeight: 'bold',
+                    bgcolor: '#2c5282',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    width: { xs: '100%', sm: 'auto' },
+                    minHeight: { xs: 48, sm: 'auto' },
+                    '&:hover': {
+                      bgcolor: '#1a365d',
+                      boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
+                    }
+                  }}
+                  disabled={isPoster || hasApplied}
+                >
+                   {hasApplied ? 'Already Applied' : 'Apply for this Gig'}
+                </Button>
+              </Box>
             )}
             {isPoster && (
               <>

@@ -105,13 +105,16 @@ router.get('/:id', async (req, res) => {
         const decodedForStatus = jwt.verify(token, process.env.JWT_SECRET);
         const myId = decodedForStatus.user.id;
         const myApp = Array.isArray(gig.applicants)
-          ? gig.applicants.find(a => ((a.user && a.user.toString) ? a.user.toString() : a.user) === myId)
+          ? gig.applicants.find(a => {
+              const userId = a.user && a.user._id ? a.user._id.toString() : (a.user && a.user.toString ? a.user.toString() : a.user);
+              return userId === myId;
+            })
           : null;
         if (myApp) {
           gigObj.yourApplicationStatus = myApp.status || 'pending';
         }
       } catch (err) {
-        // ignore token parsing errors here
+        console.error('DEBUG: Error in status check:', err);
       }
     }
 
@@ -202,7 +205,8 @@ router.post('/:id/apply', auth, async (req, res) => {
     
     gig.applicants.unshift({
       user: req.user.id,
-      message: req.body.message
+      message: req.body.message,
+      status: 'pending'
     });
     
     await gig.save();
