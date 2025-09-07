@@ -717,18 +717,37 @@ const Messages = () => {
     }
   };
 
+  // Track last message and conversation to control auto-scroll behavior
+  const isNearBottom = () => {
+    const c = messagesContainerRef.current;
+    if (!c) return true;
+    return c.scrollTop + c.clientHeight >= c.scrollHeight - 100;
+  };
+
+  const lastMessageId = messages && messages.length > 0 ? messages[messages.length - 1]?._id : null;
+  const conversationId = selectedConversation
+    ? (selectedConversation.conversationId || selectedConversation.otherUser?._id || selectedConversation._id)
+    : null;
+
   // Auto-scroll to bottom when conversation is opened or messages change
   // But don't scroll when loading more messages (pagination)
   useEffect(() => {
-    if (selectedConversation && messages && messages.length > 0 && !loadingMoreMessages) {
+    // Always scroll when switching/opening a conversation
+    if (conversationId && !loadingMoreMessages) {
+      scrollToBottom();
+      return;
+    }
+
+    // Only scroll for new appended messages when user is near bottom
+    if (!loadingMoreMessages && isNearBottom()) {
       scrollToBottom();
     }
-  }, [messages, selectedConversation, loadingMoreMessages]);
+  }, [lastMessageId, conversationId, loadingMoreMessages]);
 
   // Auto-scroll to bottom when typing indicator appears or disappears
   // But don't scroll when loading more messages (pagination)
   useEffect(() => {
-    if (selectedConversation && !loadingMoreMessages) {
+    if (selectedConversation && !loadingMoreMessages && isNearBottom()) {
       scrollToBottom();
     }
   }, [isTyping, selectedConversation, loadingMoreMessages]);
