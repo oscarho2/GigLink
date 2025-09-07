@@ -127,7 +127,10 @@ const Home = () => {
               cursor: isLoading ? 'not-allowed' : 'pointer'
             }}
           >
-            {isLoading ? 'Signing in...' : 'Continue with Google'}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/images/google-logo.svg" alt="Google logo" style={{ marginRight: '8px', height: '20px' }} />
+              {isLoading ? 'Signing in...' : 'Continue with Google'}
+            </Box>
           </Button>
           <Button
             component={RouterLink}

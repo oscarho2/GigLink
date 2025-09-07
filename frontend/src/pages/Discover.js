@@ -112,8 +112,11 @@ const MusicianCard = memo(({ musician, user }) => {
                         key={`instrument-${index}`}
                         label={instrument}
                         size="small"
-                        color="primary"
-                        variant="filled"
+                        variant="outlined"
+                        sx={{
+                          borderColor: '#1a365d',
+                          color: '#1a365d'
+                        }}
                       />
                     ))}
                     {musician.user.instruments.length > 3 && (
@@ -142,8 +145,11 @@ const MusicianCard = memo(({ musician, user }) => {
                         key={`genre-${index}`}
                         label={genre}
                         size="small"
-                        color="secondary"
                         variant="outlined"
+                        sx={{
+                          borderColor: '#1a365d',
+                          color: '#1a365d'
+                        }}
                       />
                     ))}
                     {musician.user.genres.length > 3 && (
@@ -162,7 +168,7 @@ const MusicianCard = memo(({ musician, user }) => {
 
         {/* Experience */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <WorkIcon sx={{ mr: 0.5, color: 'primary.main', fontSize: '1rem' }} />
+          <WorkIcon sx={{ mr: 0.5, color: '#1a365d', fontSize: '1rem' }} />
           <Typography variant="caption" color="text.secondary">
             {musician.experience || 'Beginner'}
           </Typography>
@@ -177,9 +183,9 @@ const MusicianCard = memo(({ musician, user }) => {
           variant="contained"
           fullWidth
           sx={{
-            bgcolor: 'primary.main',
+            bgcolor: '#1a365d',
             '&:hover': {
-              bgcolor: 'primary.dark'
+              bgcolor: '#2c5282'
             }
           }}
         >
