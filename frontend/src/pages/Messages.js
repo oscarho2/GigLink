@@ -451,7 +451,8 @@ const Messages = () => {
 
     setLoadingMoreMessages(true);
     try {
-      await fetchMessages(selectedConversation._id, currentPage + 1, true);
+      const otherUserId = selectedConversation.otherUser?._id || selectedConversation._id;
+      await fetchMessages(otherUserId, currentPage + 1, true);
 
       // Maintain scroll position after loading new messages
       if (container) {
@@ -499,10 +500,11 @@ const Messages = () => {
 
     setSending(true);
     try {
+      const otherUserId = selectedConversation.otherUser?._id || selectedConversation._id;
       await axios.post(
         "/api/messages/send",
         {
-          recipient: selectedConversation._id,
+          recipient: otherUserId,
           content: newMessage,
         },
         {
@@ -514,7 +516,7 @@ const Messages = () => {
       // Reset pagination and fetch latest messages
       setCurrentPage(1);
       setHasMoreMessages(true);
-      fetchMessages(selectedConversation._id, 1, false);
+      fetchMessages(otherUserId, 1, false);
       fetchConversations();
     } catch (err) {
       console.error("Error sending message:", err);
