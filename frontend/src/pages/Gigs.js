@@ -535,7 +535,6 @@ dateTo: '',
               <Card 
               sx={{ 
                 height: '100%',
-                maxHeight: { xs: 'none', sm: '500px' },
                 display: 'flex', 
                 flexDirection: 'column',
                 borderRadius: { xs: 1.5, sm: 2 },

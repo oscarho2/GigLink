@@ -37,7 +37,6 @@ const MusicianCard = memo(({ musician, user }) => {
     <Card 
       sx={{ 
         height: '100%',
-        maxHeight: '500px',
         display: 'flex', 
         flexDirection: 'column',
         transition: 'transform 0.2s, box-shadow 0.2s',
