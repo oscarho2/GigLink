@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Fade, Zoom, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Typography, Fade, useTheme, useMediaQuery } from '@mui/material';
 import { keyframes } from '@mui/system';
 
 // Keyframe animations
@@ -18,14 +18,7 @@ const pulse = keyframes`
   }
 `;
 
-const float = keyframes`
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-`;
+
 
 const shimmer = keyframes`
   0% {
@@ -51,7 +44,6 @@ const LoadingAnimation = ({
   type = 'welcome', // 'welcome' or 'conversations'
   title,
   subtitle,
-  showIcon = true,
   compact = false 
 }) => {
   const theme = useTheme();
@@ -95,29 +87,7 @@ const LoadingAnimation = ({
     </Box>
   );
 
-  const renderFloatingIcon = () => (
-    <Box
-      sx={{
-        width: compact ? 40 : 60,
-        height: compact ? 40 : 60,
-        borderRadius: '50%',
-        bgcolor: theme.palette.primary.main,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        mb: 2,
-        animation: `${float} 3s ease-in-out infinite`,
-        boxShadow: `0 4px 20px ${theme.palette.primary.main}30`,
-      }}
-    >
-      <Typography
-        variant={compact ? 'h6' : 'h4'}
-        sx={{ color: 'white', fontWeight: 'bold' }}
-      >
-        💬
-      </Typography>
-    </Box>
-  );
+
 
   if (type === 'conversations') {
     return (
@@ -161,11 +131,7 @@ const LoadingAnimation = ({
           animation: `${fadeInUp} 0.8s ease-out`,
         }}
       >
-        {showIcon && (
-          <Zoom in timeout={600}>
-            <Box>{renderFloatingIcon()}</Box>
-          </Zoom>
-        )}
+
         
         <Box sx={{ mb: 3, maxWidth: 400 }}>
           <Typography 
