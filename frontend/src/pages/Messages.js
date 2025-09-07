@@ -30,6 +30,7 @@ import {
   Divider,
   useMediaQuery,
   useTheme,
+  Popover,
 } from "@mui/material";
 import LoadingAnimation from "../components/LoadingAnimation";
 import {
@@ -135,6 +136,8 @@ const Messages = () => {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [totalMessages, setTotalMessages] = useState(0);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const handleMessageContextMenu = (event, message) => {
     event.preventDefault();
@@ -949,23 +952,51 @@ const Messages = () => {
     }
   };
 
-  // Navigate to next match
+  // Navigate to next match (down arrow - chronologically later)
   const navigateToNextMatch = () => {
     if (searchMatches.length === 0) return;
-    const nextIndex = (currentMatchIndex + 1) % searchMatches.length;
+    // Don't navigate if already at the last match (bottom)
+    if (currentMatchIndex >= searchMatches.length - 1) return;
+    const nextIndex = currentMatchIndex + 1;
     setCurrentMatchIndex(nextIndex);
     highlightCurrentMatch(nextIndex);
   };
 
-  // Navigate to previous match
+  // Navigate to previous match (up arrow - chronologically earlier)
   const navigateToPrevMatch = () => {
     if (searchMatches.length === 0) return;
-    const prevIndex =
-      currentMatchIndex === 0
-        ? searchMatches.length - 1
-        : currentMatchIndex - 1;
+    // Don't navigate if already at the first match (top)
+    if (currentMatchIndex <= 0) return;
+    const prevIndex = currentMatchIndex - 1;
     setCurrentMatchIndex(prevIndex);
     highlightCurrentMatch(prevIndex);
+  };
+
+  // Navigate to specific date in conversation
+  const navigateToDate = (date) => {
+    if (!messages || messages.length === 0) return;
+    
+    const targetDate = moment(date).startOf('day');
+    let closestMessageIndex = -1;
+    let minDifference = Infinity;
+    
+    // Find the message closest to the selected date
+    messages.forEach((message, index) => {
+      const messageDate = moment(message.createdAt).startOf('day');
+      const difference = Math.abs(targetDate.diff(messageDate, 'days'));
+      
+      if (difference < minDifference) {
+        minDifference = difference;
+        closestMessageIndex = index;
+      }
+    });
+    
+    if (closestMessageIndex !== -1) {
+      const messageId = messages[closestMessageIndex]._id;
+      scrollToMessage(messageId);
+    }
+    
+    setShowDatePicker(false);
   };
 
   // Handle message search input
@@ -1659,31 +1690,68 @@ const Messages = () => {
                         minWidth: "fit-content",
                       }}
                     >
-                      <Typography
-                        variant="caption"
-                        sx={{ color: "text.secondary", whiteSpace: "nowrap" }}
-                      >
-                        {currentMatchIndex + 1} of {searchMatches.length}
-                      </Typography>
                       <IconButton
                         size="small"
                         onClick={navigateToPrevMatch}
-                        disabled={searchMatches.length === 0}
+                        disabled={searchMatches.length === 0 || currentMatchIndex <= 0}
                       >
                         <ArrowUpIcon fontSize="small" />
                       </IconButton>
                       <IconButton
                         size="small"
                         onClick={navigateToNextMatch}
-                        disabled={searchMatches.length === 0}
+                        disabled={searchMatches.length === 0 || currentMatchIndex >= searchMatches.length - 1}
                       >
                         <ArrowDownIcon fontSize="small" />
                       </IconButton>
                     </Box>
                   )}
+                  <IconButton
+                    size="small"
+                    onClick={(e) => setShowDatePicker(e.currentTarget)}
+                    title="Navigate to date"
+                  >
+                    <CalendarTodayIcon fontSize="small" />
+                  </IconButton>
                 </Box>
               </Box>
             )}
+
+            {/* Date Picker Popover */}
+            <Popover
+              open={Boolean(showDatePicker)}
+              anchorEl={showDatePicker}
+              onClose={() => setShowDatePicker(false)}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'center',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'center',
+              }}
+            >
+              <Box sx={{ p: 2, minWidth: 200 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Navigate to Date
+                </Typography>
+                <TextField
+                  type="date"
+                  fullWidth
+                  size="small"
+                  value={selectedDate || ''}
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    if (e.target.value) {
+                      navigateToDate(e.target.value);
+                    }
+                  }}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Box>
+            </Popover>
 
             {/* Messages Area */}
             <Box
