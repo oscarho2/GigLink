@@ -17,7 +17,7 @@ import { formatPayment } from '../utils/currency';
 
 const GigDetail = () => {
   const { id } = useParams();
-  const { user, token } = useAuth();
+  const { user, token, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   
 
