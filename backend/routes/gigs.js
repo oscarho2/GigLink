@@ -289,6 +289,36 @@ router.post('/:id/accept/:applicantId', auth, async (req, res) => {
     
     await gig.save();
     
+    // Emit socket event to notify about application status change
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        console.log(`Emitting application_status_update for accept: gigId=${gig._id}, applicantId=${req.params.applicantId}, status=accepted`);
+        
+        // Notify the accepted applicant
+        io.to(req.params.applicantId).emit('application_status_update', {
+          gigId: gig._id,
+          applicantId: req.params.applicantId,
+          status: 'accepted',
+          gigTitle: gig.title
+        });
+        
+        // Notify the gig owner
+        io.to(req.user.id).emit('application_status_update', {
+          gigId: gig._id,
+          applicantId: req.params.applicantId,
+          status: 'accepted',
+          gigTitle: gig.title
+        });
+        
+        console.log(`Socket events emitted to applicant ${req.params.applicantId} and owner ${req.user.id}`);
+      } else {
+        console.log('Socket.io instance not found');
+      }
+    } catch (emitErr) {
+      console.error('Failed to emit application status update:', emitErr);
+    }
+    
     res.json({ msg: 'Applicant accepted and gig marked as filled', gig });
   } catch (err) {
     console.error(err.message);
@@ -335,6 +365,36 @@ router.post('/:id/undo/:applicantId', auth, async (req, res) => {
     }
     
     await gig.save();
+    
+    // Emit socket event to notify about application status change
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        console.log(`Emitting application_status_update for undo: gigId=${gig._id}, applicantId=${req.params.applicantId}, status=pending`);
+        
+        // Notify the applicant whose acceptance was undone
+        io.to(req.params.applicantId).emit('application_status_update', {
+          gigId: gig._id,
+          applicantId: req.params.applicantId,
+          status: 'pending',
+          gigTitle: gig.title
+        });
+        
+        // Notify the gig owner
+        io.to(req.user.id).emit('application_status_update', {
+          gigId: gig._id,
+          applicantId: req.params.applicantId,
+          status: 'pending',
+          gigTitle: gig.title
+        });
+        
+        console.log(`Socket events emitted to applicant ${req.params.applicantId} and owner ${req.user.id}`);
+      } else {
+        console.log('Socket.io instance not found');
+      }
+    } catch (emitErr) {
+      console.error('Failed to emit application status update:', emitErr);
+    }
     
     res.json({ msg: 'Applicant acceptance undone', gig });
   } catch (err) {

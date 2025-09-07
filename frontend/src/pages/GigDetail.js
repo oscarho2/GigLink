@@ -406,6 +406,24 @@ const GigDetail = () => {
                   {Array.isArray(gig.applicants) && gig.applicants.map((applicant) => {
                     const applicantUserId = (typeof applicant.user === 'string') ? applicant.user : applicant.user?._id;
                     const isAccepted = applicant?.status === 'accepted';
+                    const status = applicant?.status || 'pending';
+                    
+                    const getStatusColor = (status) => {
+                      switch (status) {
+                        case 'accepted': return 'success';
+                        case 'rejected': return 'error';
+                        default: return 'warning';
+                      }
+                    };
+                    
+                    const getStatusText = (status) => {
+                      switch (status) {
+                        case 'accepted': return 'Accepted';
+                        case 'rejected': return 'Rejected';
+                        default: return 'Pending';
+                      }
+                    };
+                    
                     return (
                       <Paper key={applicantUserId} sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Box 
@@ -416,6 +434,7 @@ const GigDetail = () => {
                             alignItems: 'center', 
                             textDecoration: 'none', 
                             color: 'inherit',
+                            flex: 1,
                             '&:hover': {
                               opacity: 0.8
                             }
@@ -431,12 +450,21 @@ const GigDetail = () => {
                           >
                             {typeof applicant.user === 'object' ? applicant.user.name?.charAt(0) : 'U'}
                           </Avatar>
-                          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                            {typeof applicant.user === 'object' ? applicant.user.name : applicantUserId}
-                          </Typography>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                              {typeof applicant.user === 'object' ? applicant.user.name : applicantUserId}
+                            </Typography>
+                          </Box>
                         </Box>
-                        {(!gig.isFilled || isAccepted) && (
-                          <Button
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                           <Chip
+                             label={getStatusText(status)}
+                             color={getStatusColor(status)}
+                             size="small"
+                             sx={{ fontWeight: 'bold' }}
+                           />
+                           {(!gig.isFilled || isAccepted) && (
+                             <Button
                             variant="contained"
                             color={isAccepted ? 'secondary' : 'primary'}
                             onClick={() => handleAcceptApplicant(applicantUserId)}
@@ -451,8 +479,9 @@ const GigDetail = () => {
                           >
                             {isAccepted ? 'Undo' : 'Accept'}
                           </Button>
-                        )}
-                      </Paper>
+                            )}
+                          </Box>
+                        </Paper>
                     );
                   })}
                 </Box>
