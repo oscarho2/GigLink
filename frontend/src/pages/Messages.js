@@ -223,6 +223,7 @@ const Messages = () => {
   const prevLastMessageIdRef = useRef(null);
   const messageInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const justLoadedMoreRef = useRef(false);
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
     console.log(
@@ -450,8 +451,10 @@ const Messages = () => {
 
     const container = messagesContainerRef.current;
     const previousScrollHeight = container ? container.scrollHeight : 0;
+    const previousScrollTop = container ? container.scrollTop : 0;
 
     setLoadingMoreMessages(true);
+    justLoadedMoreRef.current = true;
     try {
       const otherUserId = selectedConversation.otherUser?._id || selectedConversation._id;
       await fetchMessages(otherUserId, currentPage + 1, true);
@@ -462,17 +465,26 @@ const Messages = () => {
         requestAnimationFrame(() => {
           const newScrollHeight = container.scrollHeight;
           const scrollDifference = newScrollHeight - previousScrollHeight;
-          container.scrollTop = container.scrollTop + scrollDifference;
+          container.scrollTop = previousScrollTop + scrollDifference;
           
           // Set loading to false after scroll position is adjusted
           setLoadingMoreMessages(false);
+          setTimeout(() => {
+            justLoadedMoreRef.current = false;
+          }, 400);
         });
       } else {
         setLoadingMoreMessages(false);
+        setTimeout(() => {
+          justLoadedMoreRef.current = false;
+        }, 400);
       }
     } catch (err) {
       console.error("Error loading more messages:", err);
       setLoadingMoreMessages(false);
+      setTimeout(() => {
+        justLoadedMoreRef.current = false;
+      }, 400);
     }
   };
 
@@ -743,7 +755,12 @@ const Messages = () => {
     if (conversationChanged) {
       // When switching/opening a conversation, always scroll to bottom
       scrollToBottom();
-    } else if (appendedAtBottom && !loadingMoreMessages && isNearBottom()) {
+    } else if (
+      appendedAtBottom &&
+      !loadingMoreMessages &&
+      !justLoadedMoreRef.current &&
+      isNearBottom()
+    ) {
       // Only auto-scroll if a new message was appended at bottom and user is near bottom
       scrollToBottom();
     }
@@ -755,7 +772,12 @@ const Messages = () => {
   // Auto-scroll to bottom when typing indicator appears or disappears
   // But don't scroll when loading more messages (pagination)
   useEffect(() => {
-    if (selectedConversation && !loadingMoreMessages && isNearBottom()) {
+    if (
+      selectedConversation &&
+      !loadingMoreMessages &&
+      !justLoadedMoreRef.current &&
+      isNearBottom()
+    ) {
       scrollToBottom();
     }
   }, [isTyping, selectedConversation, loadingMoreMessages]);
