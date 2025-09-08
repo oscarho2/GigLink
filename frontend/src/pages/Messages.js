@@ -60,6 +60,7 @@ import { useSocket } from "../context/SocketContext";
 import { Link } from "react-router-dom";
 import { formatPayment } from "../utils/currency";
 import moment from "moment";
+import MediaDocumentsLinks from "../components/MediaDocumentsLinks";
 
 const Messages = () => {
   const { user, token } = useAuth();
@@ -117,6 +118,8 @@ const Messages = () => {
   const [selectedMessageForReaction, setSelectedMessageForReaction] =
     useState(null);
   const [messageMenuAnchor, setMessageMenuAnchor] = useState(null);
+  const [showMediaDialog, setShowMediaDialog] = useState(false);
+  const [headerMenuAnchor, setHeaderMenuAnchor] = useState(null);
   const [selectedMessageForMenu, setSelectedMessageForMenu] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
@@ -1669,7 +1672,9 @@ const Messages = () => {
                 </IconButton>
                 <IconButton></IconButton>
                 <IconButton></IconButton>
-                <IconButton>
+                <IconButton
+                  onClick={(e) => setHeaderMenuAnchor(e.currentTarget)}
+                >
                   <MoreVertIcon />
                 </IconButton>
               </Box>
@@ -3287,6 +3292,31 @@ const Messages = () => {
           <ReplyIcon sx={{ mr: 1 }} /> Reply
         </MenuItem>
       </Menu>
+
+      {/* Header Menu */}
+      <Menu
+        anchorEl={headerMenuAnchor}
+        open={Boolean(headerMenuAnchor)}
+        onClose={() => setHeaderMenuAnchor(null)}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem
+          onClick={() => {
+            setShowMediaDialog(true);
+            setHeaderMenuAnchor(null);
+          }}
+        >
+          <Typography>View Media, Documents & Links</Typography>
+        </MenuItem>
+      </Menu>
+
+      {/* Media Documents Links Dialog */}
+      <MediaDocumentsLinks
+        open={showMediaDialog}
+        onClose={() => setShowMediaDialog(false)}
+        messages={messages}
+      />
 
       {/* Emoji Picker Menu */}
       <Menu
