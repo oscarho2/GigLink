@@ -34,6 +34,7 @@ import {
   Download as DownloadIcon
 } from '@mui/icons-material';
 import moment from 'moment';
+import AuthenticatedImage from './AuthenticatedImage';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -124,12 +125,14 @@ const MediaDocumentsLinks = ({ open, onClose, messages = [] }) => {
       <Grid item xs={6} sm={4} md={3} key={item.id}>
         <Card sx={{ height: '100%', cursor: 'pointer' }} onClick={() => window.open(item.url, '_blank')}>
           {item.type === 'image' ? (
-            <CardMedia
-              component="img"
-              height={120}
-              image={item.url}
+            <AuthenticatedImage
+              src={item.url}
               alt={item.fileName}
-              sx={{ objectFit: 'cover' }}
+              sx={{ 
+                width: '100%',
+                height: 120,
+                objectFit: 'cover'
+              }}
             />
           ) : item.type === 'video' ? (
             <Box sx={{ position: 'relative', height: 120, bgcolor: 'grey.200', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
