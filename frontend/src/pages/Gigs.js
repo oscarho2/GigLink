@@ -99,14 +99,21 @@ const Gigs = () => {
 
     // Apply search filter
     if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(gig =>
-        gig.title.toLowerCase().includes(term) ||
-        gig.description.toLowerCase().includes(term) ||
-        gig.location.toLowerCase().includes(term) ||
-        (gig.instruments && gig.instruments.some(instrument => instrument.toLowerCase().includes(term))) ||
-        (gig.genres && gig.genres.some(genre => genre.toLowerCase().includes(term)))
-      );
+      const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+      result = result.filter(gig => {
+        const searchableText = [
+          gig.title || '',
+          gig.description || '',
+          gig.location || '',
+          gig.venue || '',
+          gig.user?.name || '',
+          ...(gig.instruments || []),
+          ...(gig.genres || [])
+        ].join(' ').toLowerCase();
+        
+        // Check if all search words are found in the searchable text
+        return searchWords.every(word => searchableText.includes(word));
+      });
     }
 
     // Filter by location
@@ -540,7 +547,6 @@ dateTo: '',
                 borderRadius: { xs: 1.5, sm: 2 },
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                 transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                position: 'relative',
                 backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'inherit',
                 opacity: gig.isFilled ? 0.7 : 1,
                 '&:hover': {
@@ -554,9 +560,7 @@ dateTo: '',
                 color: 'white', 
                 p: { xs: 1.5, sm: 2 }, 
                 borderTopLeftRadius: { xs: 6, sm: 8 }, 
-                borderTopRightRadius: { xs: 6, sm: 8 },
-                zIndex: 2,
-                position: 'relative'
+                borderTopRightRadius: { xs: 6, sm: 8 }
               }}>
                 <Typography 
                   variant="h5" 
@@ -578,7 +582,7 @@ dateTo: '',
                 transition: 'filter 0.3s ease'
               }}>
                 <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
                       <Avatar 
                         src={gig.user?.avatar} 
@@ -630,6 +634,9 @@ dateTo: '',
                         {new Date(gig.date).toLocaleDateString('en-GB')}
                       </Typography>
                     </Box>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
                       <LocationOnIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
                       <Typography 

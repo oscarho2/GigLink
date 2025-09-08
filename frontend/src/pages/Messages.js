@@ -61,6 +61,7 @@ import { Link } from "react-router-dom";
 import { formatPayment } from "../utils/currency";
 import moment from "moment";
 import MediaDocumentsLinks from "../components/MediaDocumentsLinks";
+import AuthenticatedImage from "../components/AuthenticatedImage";
 
 const Messages = () => {
   const { user, token } = useAuth();
@@ -799,6 +800,16 @@ const Messages = () => {
     }
   }, [isTyping, selectedConversation, loadingMoreMessages]);
 
+  // Auto-scroll to bottom when MediaDocumentsLinks dialog closes
+  useEffect(() => {
+    if (!showMediaDialog && selectedConversation) {
+      // Small delay to ensure dialog is fully closed
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    }
+  }, [showMediaDialog, selectedConversation]);
+
   // Reset mobile conversation view when screen size changes to desktop
   useEffect(() => {
     if (!isMobile && showMobileConversation) {
@@ -885,21 +896,24 @@ const Messages = () => {
     const messageElements = document.querySelectorAll('[id^="message-"]');
     const matches = [];
 
-    messageElements.forEach((messageEl) => {
+    // Convert NodeList to Array in DOM order (oldest to newest)
+    const messageElementsArray = Array.from(messageElements);
+    
+    messageElementsArray.forEach((messageEl) => {
       const textNodes = getTextNodes(messageEl);
       textNodes.forEach((textNode) => {
         const text = textNode.textContent;
-        const regex = new RegExp(
-          `(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-          "gi"
-        );
+        const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`(${escaped})`, "gi");
 
-        if (regex.test(text)) {
-          const highlightedText = text.replace(regex, (match, p1, offset) => {
-            const matchIndex = matches.length;
-            matches.push({ element: messageEl, text: match, offset });
-            return `<span class="search-highlight" data-match-index="${matchIndex}" style="background-color: #e0e0e0;">${match}</span>`;
-          });
+        let found = false;
+        const highlightedText = text.replace(regex, (match, p1, offset) => {
+          const matchIndex = matches.length;
+          matches.push({ element: messageEl, text: match, offset });
+          found = true;
+          return `<span class="search-highlight" data-match-index="${matchIndex}" style="background-color: #e0e0e0;">${match}</span>`;
+        });
+        if (found) {
           const wrapper = document.createElement("span");
           wrapper.innerHTML = highlightedText;
           textNode.parentNode.replaceChild(wrapper, textNode);
@@ -908,11 +922,14 @@ const Messages = () => {
     });
 
     setSearchMatches(matches);
-    setCurrentMatchIndex(0);
+
+    // With DOM order (oldest->newest), newest match is at the end
+    const startIndex = matches.length > 0 ? matches.length - 1 : 0;
+    setCurrentMatchIndex(startIndex);
 
     // Highlight current match and scroll to it
     if (matches.length > 0) {
-      highlightCurrentMatch(0);
+      highlightCurrentMatch(startIndex);
     }
   };
 
@@ -955,20 +972,20 @@ const Messages = () => {
     }
   };
 
-  // Navigate to next match (down arrow - chronologically later)
+  // Navigate to next match (down arrow - to newer messages)
+  // With DOM order (oldest->newest), going to newer means increasing the index
   const navigateToNextMatch = () => {
     if (searchMatches.length === 0) return;
-    // Don't navigate if already at the last match (bottom)
     if (currentMatchIndex >= searchMatches.length - 1) return;
     const nextIndex = currentMatchIndex + 1;
     setCurrentMatchIndex(nextIndex);
     highlightCurrentMatch(nextIndex);
   };
 
-  // Navigate to previous match (up arrow - chronologically earlier)
+  // Navigate to previous match (up arrow - to older messages)
+  // With DOM order (oldest->newest), going to older means decreasing the index
   const navigateToPrevMatch = () => {
     if (searchMatches.length === 0) return;
-    // Don't navigate if already at the first match (top)
     if (currentMatchIndex <= 0) return;
     const prevIndex = currentMatchIndex - 1;
     setCurrentMatchIndex(prevIndex);
@@ -1562,8 +1579,27 @@ const Messages = () => {
                           noWrap
                           sx={{ maxWidth: "200px" }}
                         >
-                          {conversation.lastMessage?.content ||
-                            "No messages yet"}
+                          {(() => {
+                            const lastMsg = conversation.lastMessage;
+                            if (!lastMsg) return "No messages yet";
+                            
+                            // Show media type for file attachments
+                            if (lastMsg.fileUrl && lastMsg.mimeType) {
+                              if (lastMsg.mimeType.startsWith('image/')) {
+                                return "📷 Photo";
+                              } else if (lastMsg.mimeType.startsWith('video/')) {
+                                return "🎬 Video";
+                              } else if (lastMsg.mimeType.startsWith('audio/')) {
+                                return "🎵 Audio";
+                              } else {
+                                return "📄 Document";
+                              }
+                            }
+                            
+                            // Show text content for regular messages
+                            return lastMsg.content || "No messages yet";
+                          })()
+                          }
                         </Typography>
                         {conversation.unreadCount > 0 && (
                           <Badge
@@ -1695,6 +1731,15 @@ const Messages = () => {
                     placeholder="Find in conversation..."
                     value={messageSearchTerm}
                     onChange={handleMessageSearch}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        navigateToPrevMatch();
+                      } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        navigateToNextMatch();
+                      }
+                    }}
                     size="small"
                     InputProps={{
                       startAdornment: (
@@ -2084,8 +2129,7 @@ const Messages = () => {
 
                                     {/* File attachment */}
                                     {message.mimeType?.startsWith("image/") ? (
-                                      <Box
-                                        component="img"
+                                      <AuthenticatedImage
                                         src={message.fileUrl}
                                         alt={message.fileName}
                                         sx={{
