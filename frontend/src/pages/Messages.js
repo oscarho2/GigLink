@@ -363,9 +363,20 @@ const Messages = () => {
     setLoadingMessages(true);
 
     if (page === 1) {
+      // Clear messages immediately and set selected conversation to prevent race conditions
       setMessages([]);
       setCurrentPage(1);
       setHasMoreMessages(true);
+      
+      // Find and set the conversation immediately to prevent cross-chat message loading
+      const fullConversation = conversations.find(
+        (conv) => conv.otherUser?._id === otherUserId
+      );
+      if (fullConversation) {
+        setSelectedConversation(fullConversation);
+      } else {
+        setSelectedConversation({ _id: otherUserId });
+      }
     }
 
     try {
@@ -399,7 +410,10 @@ const Messages = () => {
       );
       console.log("Full conversation found:", fullConversation);
       if (fullConversation) {
-        setSelectedConversation(fullConversation);
+        // Update selected conversation with full details if not already set
+        if (!selectedConversation || selectedConversation._id !== fullConversation.otherUser?._id) {
+          setSelectedConversation(fullConversation);
+        }
 
         // Join the conversation for real-time updates
         joinConversation(fullConversation.conversationId);
@@ -743,9 +757,16 @@ const Messages = () => {
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
-      // Scroll only the message container div to the bottom
-      messagesContainerRef.current.scrollTop =
-        messagesContainerRef.current.scrollHeight;
+      // Use double requestAnimationFrame to ensure DOM is fully updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            // Scroll only the message container div to the bottom
+            messagesContainerRef.current.scrollTop =
+              messagesContainerRef.current.scrollHeight;
+          }
+        });
+      });
     }
   };
 
@@ -755,6 +776,18 @@ const Messages = () => {
     if (!c) return true;
     return c.scrollTop + c.clientHeight >= c.scrollHeight - 100;
   };
+
+  // Handle image load for last message to ensure proper scroll positioning
+  const handleImageLoad = useCallback((messageId) => {
+    const lastMessageId = messages && messages.length > 0 ? messages[messages.length - 1]?._id : null;
+    // If this is the last message, always scroll to bottom after image loads
+    // This ensures proper positioning when conversation first loads with an image as last message
+    if (messageId === lastMessageId) {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    }
+  }, [messages]);
 
   // Auto-scroll to bottom when conversation is opened or messages change
   // But don't scroll when loading more messages (pagination)
@@ -771,8 +804,34 @@ const Messages = () => {
     const appendedAtBottom = !!prevLastId && !!currentLastId && currentLastId !== prevLastId;
 
     if (conversationChanged && !loadingMoreMessages && !justLoadedMoreRef.current) {
-      // When switching/opening a conversation, always scroll to bottom
-      scrollToBottom();
+      // When switching conversations, handle the transition smoothly
+      if (messagesContainerRef.current) {
+        if (messages && messages.length > 0) {
+          // Messages are loaded, do smooth transition
+          messagesContainerRef.current.style.opacity = '0';
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (messagesContainerRef.current) {
+                messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+                messagesContainerRef.current.style.opacity = '1';
+              }
+            });
+          });
+        } else {
+          // No messages yet, keep container hidden until messages load
+          messagesContainerRef.current.style.opacity = '0';
+        }
+      }
+    } else if (!conversationChanged && messages && messages.length > 0 && messagesContainerRef.current && messagesContainerRef.current.style.opacity === '0') {
+      // Messages loaded for current conversation, show them
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+            messagesContainerRef.current.style.opacity = '1';
+          }
+        });
+      });
     } else if (
       appendedAtBottom &&
       !loadingMoreMessages &&
@@ -2142,6 +2201,7 @@ const Messages = () => {
                                         onClick={() =>
                                           window.open(message.fileUrl, "_blank")
                                         }
+                                        onLoad={() => handleImageLoad(message._id)}
                                       />
                                     ) : message.mimeType?.startsWith(
                                         "video/"

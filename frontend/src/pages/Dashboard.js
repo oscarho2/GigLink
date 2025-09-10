@@ -730,7 +730,20 @@ const Dashboard = () => {
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">
+                <Typography 
+                  variant="h6"
+                  component={RouterLink}
+                  to="/links"
+                  sx={{
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      color: 'primary.main',
+                      textDecoration: 'underline'
+                    }
+                  }}
+                >
                   <PeopleIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
                   Links
                 </Typography>

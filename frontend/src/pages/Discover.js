@@ -395,45 +395,75 @@ const Discover = () => {
           color: 'white'
         }}
       >
-        <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
-          Discover Musicians
-        </Typography>
-        <Typography variant="subtitle1" sx={{ opacity: 0.9, mb: 3 }}>
-          Connect with talented musicians for your next collaboration
-        </Typography>
-        
-        {/* Filter Toggle Button */}
-        <Box sx={{ mb: showFilters ? 3 : 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Button
-            variant="outlined"
-            startIcon={<FilterListIcon />}
-            onClick={() => setShowFilters(!showFilters)}
-            sx={{
-              borderColor: 'rgba(255, 255, 255, 0.5)',
-              color: 'white',
-              '&:hover': {
-                borderColor: 'rgba(255, 255, 255, 0.7)',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              },
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', md: 'row' },
+            justifyContent: 'space-between', 
+            alignItems: { xs: 'flex-start', md: 'center' },
+            gap: { xs: 2, md: 0 }
+          }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+              Discover Musicians
+            </Typography>
+            <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+              Connect with talented musicians for your next collaboration
+            </Typography>
+          </Box>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'row', sm: 'row' },
+              gap: { xs: 1.5, sm: 2 },
+              width: { xs: '100%', md: 'auto' },
+              justifyContent: { xs: 'stretch', md: 'flex-end' }
             }}
           >
-            {showFilters ? 'Hide Filters' : 'Show Filters'}
-          </Button>
-          {(filters.location || filters.instrument || filters.genre || filters.experience) && (
             <Button
-              variant="text"
-              startIcon={<ClearIcon />}
-              onClick={resetFilters}
+              variant="contained"
+              startIcon={<FilterListIcon />}
+              onClick={() => setShowFilters(!showFilters)}
               sx={{
-                color: 'rgba(255, 255, 255, 0.9)',
+                py: { xs: 1, sm: 1.2 },
+                px: { xs: 2, sm: 3 },
+                borderRadius: 2,
+                fontWeight: 'bold',
+                fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+                minHeight: { xs: 40, sm: 44 },
+                flex: { xs: 1, md: 'none' },
+                bgcolor: '#1a365d',
                 '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                },
+                  bgcolor: '#2c5282'
+                }
               }}
             >
-              Clear Filters
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
             </Button>
-          )}
+            {(filters.location || filters.instrument || filters.genre || filters.experience) && (
+              <Button
+                variant="contained"
+                startIcon={<ClearIcon />}
+                onClick={resetFilters}
+                sx={{
+                  py: { xs: 1, sm: 1.2 },
+                  px: { xs: 2, sm: 3 },
+                  borderRadius: 2,
+                  fontWeight: 'bold',
+                  fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+                  minHeight: { xs: 40, sm: 44 },
+                  flex: { xs: 1, md: 'none' },
+                  bgcolor: '#64748b',
+                  '&:hover': {
+                    bgcolor: '#475569'
+                  }
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+          </Box>
         </Box>
       </Paper>
 

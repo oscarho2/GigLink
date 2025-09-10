@@ -246,7 +246,7 @@ dateTo: '',
                 lineHeight: { xs: 1.4, sm: 1.5 }
               }}
             >
-              Find the perfect musical gig across the United Kingdom
+              Find the gigs across the United Kingdom
             </Typography>
           </Box>
           <Box 

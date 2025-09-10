@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 
-const AuthenticatedImage = ({ src, alt, sx, onClick, ...props }) => {
+const AuthenticatedImage = ({ src, alt, sx, onClick, onLoad, ...props }) => {
   const [imageSrc, setImageSrc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -93,6 +93,7 @@ const AuthenticatedImage = ({ src, alt, sx, onClick, ...props }) => {
       alt={alt}
       sx={sx}
       onClick={onClick}
+      onLoad={onLoad}
       {...props}
     />
   );
