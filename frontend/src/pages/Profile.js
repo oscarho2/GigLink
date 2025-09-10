@@ -50,11 +50,11 @@ const Profile = () => {
         const transformedProfile = {
           name: profileData.user?.name || user?.name || 'User',
           avatar: profileData.user?.avatar || user?.avatar || '',
-          bio: profileData.bio || 'Professional musician and event organizer with years of experience in the music industry.',
-          location: profileData.user?.location || 'Location not specified',
+          bio: profileData.bio || '',
+          location: profileData.user?.location || '',
           instruments: profileData.user?.instruments || profileData.skills?.filter(skill => ['Piano', 'Guitar', 'Vocals', 'Drums', 'Bass', 'Violin', 'Saxophone'].includes(skill)) || ['Piano', 'Guitar'],
           genres: profileData.user?.genres || ['Rock', 'Jazz', 'Blues'],
-          experience: profileData.experience || 'Senior',
+    
           videos: profileData.videos || [
             { title: 'Live at Jazz Club', url: 'https://youtube.com/watch?v=123' },
             { title: 'Studio Session', url: 'https://youtube.com/watch?v=456' }
@@ -327,17 +327,19 @@ const Profile = () => {
             >
               {profile.name}
             </Typography>
-            <Typography 
-              variant="body2" 
-              color="textSecondary" 
-              sx={{ 
-                mb: { xs: 1.5, sm: 2 },
-                fontSize: { xs: '0.875rem', sm: '0.875rem' },
-                textAlign: 'center'
-              }}
-            >
-              {profile.location}
-            </Typography>
+            {profile.location && (
+              <Typography 
+                variant="body2" 
+                color="textSecondary" 
+                sx={{ 
+                  mb: { xs: 1.5, sm: 2 },
+                  fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                  textAlign: 'center'
+                }}
+              >
+                {profile.location}
+              </Typography>
+            )}
             {isOwnProfile ? (
               <Button
                 component={RouterLink}
@@ -361,27 +363,31 @@ const Profile = () => {
           </Grid>
           
           <Grid item xs={12} md={8}>
-            <Typography 
-              variant="h6" 
-              gutterBottom
-              sx={{
-                fontSize: { xs: '1.125rem', sm: '1.25rem' },
-                fontWeight: 600
-              }}
-            >
-              Bio
-            </Typography>
-            <Typography 
-              paragraph 
-              sx={{ 
-                whiteSpace: 'pre-wrap',
-                fontSize: { xs: '0.875rem', sm: '1rem' },
-                lineHeight: { xs: 1.5, sm: 1.6 },
-                mb: { xs: 2, sm: 2 }
-              }}
-            >
-              {profile.bio}
-            </Typography>
+            {profile.bio && (
+              <>
+                <Typography 
+                  variant="h6" 
+                  gutterBottom
+                  sx={{
+                    fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                    fontWeight: 600
+                  }}
+                >
+                  Bio
+                </Typography>
+                <Typography 
+                  paragraph 
+                  sx={{ 
+                    whiteSpace: 'pre-wrap',
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                    lineHeight: { xs: 1.5, sm: 1.6 },
+                    mb: { xs: 2, sm: 2 }
+                  }}
+                >
+                  {profile.bio}
+                </Typography>
+              </>
+            )}
             
             <Typography 
               variant="h6" 
@@ -432,26 +438,7 @@ const Profile = () => {
                 />
               ))}
             </Box>
-            
-            <Typography 
-              variant="h6" 
-              gutterBottom
-              sx={{
-                fontSize: { xs: '1.125rem', sm: '1.25rem' },
-                fontWeight: 600
-              }}
-            >
-              Experience
-            </Typography>
-            <Typography 
-              paragraph
-              sx={{
-                fontSize: { xs: '0.875rem', sm: '1rem' },
-                lineHeight: { xs: 1.5, sm: 1.6 }
-              }}
-            >
-              {profile.experience}
-            </Typography>
+
           </Grid>
         </Grid>
       </Paper>

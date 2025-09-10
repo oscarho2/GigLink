@@ -32,16 +32,7 @@ const profileUpdates = [
           description: 'Focused on jazz piano and composition'
         }
       ],
-      experience: [
-        {
-          title: 'Session Musician',
-          company: 'Various Recording Studios',
-          location: 'New York, NY',
-          from: new Date('2019-06-01'),
-          current: true,
-          description: 'Professional session pianist for jazz and contemporary recordings'
-        }
-      ],
+
       skills: ['Jazz Piano', 'Composition', 'Music Theory', 'Improvisation', 'Recording']
     }
   },
@@ -67,24 +58,7 @@ const profileUpdates = [
           description: 'Intensive guitar performance and songwriting program'
         }
       ],
-      experience: [
-        {
-          title: 'Guitar Instructor',
-          company: 'Music & Arts',
-          location: 'Los Angeles, CA',
-          from: new Date('2020-01-01'),
-          current: true,
-          description: 'Teaching guitar to students of all ages and skill levels'
-        },
-        {
-          title: 'Wedding Musician',
-          company: 'Freelance',
-          location: 'Los Angeles, CA',
-          from: new Date('2019-06-01'),
-          current: true,
-          description: 'Performing at weddings and private events'
-        }
-      ],
+
       skills: ['Acoustic Guitar', 'Electric Guitar', 'Songwriting', 'Music Education', 'Live Performance']
     }
   },
@@ -110,25 +84,7 @@ const profileUpdates = [
           description: 'Comprehensive bass guitar program with focus on various genres'
         }
       ],
-      experience: [
-        {
-          title: 'Touring Bassist',
-          company: 'The Groove Collective',
-          location: 'Various Cities',
-          from: new Date('2018-08-01'),
-          to: new Date('2023-12-31'),
-          current: false,
-          description: 'Toured nationally with funk/rock band'
-        },
-        {
-          title: 'Studio Musician',
-          company: 'Freelance',
-          location: 'San Francisco, CA',
-          from: new Date('2024-01-01'),
-          current: true,
-          description: 'Recording bass tracks for various artists and projects'
-        }
-      ],
+
       skills: ['Bass Guitar', 'Funk', 'Rock', 'Jazz', 'Studio Recording', 'Live Performance']
     }
   },
@@ -163,16 +119,7 @@ const profileUpdates = [
           description: 'Classical violin training with chamber music emphasis'
         }
       ],
-      experience: [
-        {
-          title: 'Principal Violinist',
-          company: 'Chicago Symphony Orchestra',
-          location: 'Chicago, IL',
-          from: new Date('2019-09-01'),
-          current: true,
-          description: 'Principal violin position in world-renowned orchestra'
-        }
-      ],
+
       skills: ['Classical Violin', 'Chamber Music', 'Orchestra Performance', 'Music Theory', 'Sight Reading']
     }
   },
@@ -198,24 +145,7 @@ const profileUpdates = [
           description: 'Intensive rock guitar program with focus on technique and songwriting'
         }
       ],
-      experience: [
-        {
-          title: 'Lead Guitarist',
-          company: 'Thunder Road Band',
-          location: 'Austin, TX',
-          from: new Date('2017-01-01'),
-          current: true,
-          description: 'Lead guitarist for established rock band with regular touring schedule'
-        },
-        {
-          title: 'Guitar Teacher',
-          company: 'Austin Music Academy',
-          location: 'Austin, TX',
-          from: new Date('2016-06-01'),
-          current: true,
-          description: 'Teaching electric and acoustic guitar to intermediate and advanced students'
-        }
-      ],
+
       skills: ['Electric Guitar', 'Rock', 'Blues', 'Songwriting', 'Live Performance', 'Music Education']
     }
   }

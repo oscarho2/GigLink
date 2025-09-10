@@ -23,6 +23,7 @@ import {
   Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -44,6 +45,7 @@ function TabPanel({ children, value, index, ...other }) {
 
 const LinksPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const [links, setLinks] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -254,7 +256,21 @@ const LinksPage = () => {
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary={linkData.link.name}
+                    primary={
+                      <Typography
+                        component="span"
+                        sx={{
+                          cursor: 'pointer',
+                          color: 'primary.main',
+                          '&:hover': {
+                            textDecoration: 'underline'
+                          }
+                        }}
+                        onClick={() => navigate(`/profile/${linkData.link.id}`)}
+                      >
+                        {linkData.link.name}
+                      </Typography>
+                    }
                     secondary={`Connected ${new Date(linkData.connectedAt).toLocaleDateString()}`}
                   />
                   <ListItemSecondaryAction>
@@ -288,7 +304,21 @@ const LinksPage = () => {
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary={request.requester.name}
+                    primary={
+                      <Typography
+                        component="span"
+                        sx={{
+                          cursor: 'pointer',
+                          color: 'primary.main',
+                          '&:hover': {
+                            textDecoration: 'underline'
+                          }
+                        }}
+                        onClick={() => navigate(`/profile/${request.requester._id || request.requester.id}`)}
+                      >
+                        {request.requester.name}
+                      </Typography>
+                    }
                     secondary={
                       <>
                         {request.note && (
@@ -339,7 +369,21 @@ const LinksPage = () => {
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary={request.recipient.name}
+                    primary={
+                      <Typography
+                        component="span"
+                        sx={{
+                          cursor: 'pointer',
+                          color: 'primary.main',
+                          '&:hover': {
+                            textDecoration: 'underline'
+                          }
+                        }}
+                        onClick={() => navigate(`/profile/${request.recipient._id || request.recipient.id}`)}
+                      >
+                        {request.recipient.name}
+                      </Typography>
+                    }
                     secondary={
                       <>
                         {request.note && (

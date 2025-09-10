@@ -4,7 +4,7 @@ GigLink is a social media platform designed specifically for professional musici
 
 ## Features
 
-- **User Profiles**: Create detailed profiles showcasing your musical experience, skills, and portfolio
+- **User Profiles**: Create detailed profiles showcasing your musical skills and portfolio
 - **Media Uploads**: Share videos of performances and recordings
 - **Gig Board**: Post and search for gig opportunities
 - **Dep Network**: Find substitute musicians or offer your services

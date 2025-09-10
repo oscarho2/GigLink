@@ -211,7 +211,7 @@ const Navbar = () => {
                 <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🎵 Browse Gigs</Typography>
               </MenuItem>
               <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/discover">
-                <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🔍 Discover Musicians</Typography>
+                <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🔍 Discover Links</Typography>
               </MenuItem>
               
               {/* User-specific sections */}
@@ -230,18 +230,7 @@ const Navbar = () => {
                   </MenuItem>
                 </>
               )}
-              {!isAuthenticated && (
-                <>
-                  <Box sx={{ borderTop: '1px solid rgba(0,0,0,0.08)', my: 1, mx: 2 }} />
-                  <Typography sx={{ px: 3, py: 1, fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Get Started</Typography>
-                  <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/login">
-                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d', fontWeight: 600 }}>🔐 Sign In</Typography>
-                  </MenuItem>
-                  <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/register">
-                    <Typography textAlign="left" sx={{ width: '100%', color: '#2c5282', fontWeight: 600 }}>✨ Join Now</Typography>
-                  </MenuItem>
-                </>
-              )}
+
             </Menu>
           </Box>
           
@@ -277,6 +266,52 @@ const Navbar = () => {
           >
             GigLink
           </Typography>
+          
+          {/* Mobile Guest Buttons */}
+          {!isAuthenticated && (
+            <Box sx={{ 
+              display: { xs: 'flex', md: 'none' },
+              gap: 1,
+              ml: 'auto'
+            }}>
+              <Button
+                component={RouterLink}
+                to="/login"
+                size="small"
+                sx={{ 
+                  color: 'white', 
+                  bgcolor: '#1a365d',
+                  minWidth: 'auto',
+                  px: 2,
+                  py: 0.5,
+                  fontSize: '0.75rem',
+                  '&:hover': {
+                    bgcolor: '#2c5282'
+                  }
+                }}
+              >
+                Sign In
+              </Button>
+              <Button
+                component={RouterLink}
+                to="/register"
+                size="small"
+                sx={{ 
+                  color: 'white', 
+                  bgcolor: '#2c5282',
+                  minWidth: 'auto',
+                  px: 2,
+                  py: 0.5,
+                  fontSize: '0.75rem',
+                  '&:hover': {
+                    bgcolor: '#3182ce'
+                  }
+                }}
+              >
+                Join Now
+              </Button>
+            </Box>
+          )}
           
           {isAuthenticated && user && (
             <>
@@ -351,7 +386,7 @@ const Navbar = () => {
                 }
               }}
             >
-              Discover Musicians
+              Discover Links
             </Button>
           </Box>
 

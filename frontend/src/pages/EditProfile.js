@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, Paper, TextField, Button, Grid, Chip, Autocomplete, Alert, Card, CardContent, CardActions, Divider, IconButton } from '@mui/material';
+import { Container, Typography, Box, Paper, TextField, Button, Grid, Chip, Autocomplete, Alert, Card, CardContent, CardActions, Divider, IconButton, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, VideoLibrary as VideoLibraryIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import countries from 'world-countries';
 
 const EditProfile = () => {
   const { user, token, isAuthenticated, loading: authLoading } = useAuth();
@@ -22,13 +23,30 @@ const EditProfile = () => {
   const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
   const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
   
+  // Create location options from world countries data
+  const locationOptions = countries.map(country => {
+    const countryName = country.name.common;
+    const cities = country.capital ? country.capital : [];
+    const locations = [countryName];
+    
+    // Add major cities if available
+    if (cities.length > 0) {
+      cities.forEach(city => {
+        locations.push(`${city}, ${countryName}`);
+      });
+    }
+    
+    return locations;
+  }).flat().sort();
+  
   const [formData, setFormData] = useState({
     name: '',
     location: '',
     bio: '',
+    isMusician: '',
     instruments: [],
     genres: [],
-    experience: '',
+
     videos: []
   });
   const [error, setError] = useState('');
@@ -78,9 +96,10 @@ const EditProfile = () => {
           name: profileData.user?.name || user?.name || '',
           location: profileData.user?.location || user?.location || '',
           bio: profileData.bio || '',
+          isMusician: profileData.user?.isMusician || user?.isMusician || (normalizedInstruments.length > 0 || normalizedGenres.length > 0 ? 'yes' : 'no'),
           instruments: normalizedInstruments,
           genres: normalizedGenres,
-          experience: profileData.experience || '',
+
           videos: profileData.videos || []
         });
       } catch (err) {
@@ -92,9 +111,9 @@ const EditProfile = () => {
           name: user?.name || '',
           location: user?.location || '',
           bio: '',
+          isMusician: user?.isMusician || (fallbackInstruments.length > 0 || fallbackGenres.length > 0 ? 'yes' : 'no'),
           instruments: fallbackInstruments,
           genres: fallbackGenres,
-          experience: '',
           videos: []
         });
       } finally {
@@ -118,6 +137,21 @@ const EditProfile = () => {
 
   const handleGenresChange = (event, newValue) => {
     setFormData({ ...formData, genres: newValue });
+  };
+
+  const handleLocationChange = (event, newValue) => {
+    setFormData({ ...formData, location: newValue || '' });
+  };
+
+  const handleMusicianChange = (event) => {
+    const isMusician = event.target.value;
+    setFormData({ 
+      ...formData, 
+      isMusician,
+      // Clear instruments and genres if not a musician
+      instruments: isMusician === 'no' ? [] : formData.instruments,
+      genres: isMusician === 'no' ? [] : formData.genres
+    });
   };
 
   const handleVideoChange = (e) => {
@@ -155,8 +189,9 @@ const EditProfile = () => {
         name: formData.name,
         bio: formData.bio,
         skills: Array.isArray(formData.instruments) ? formData.instruments : [],
-        experience: formData.experience,
+  
         location: formData.location,
+        isMusician: formData.isMusician,
         instruments: Array.isArray(formData.instruments) ? formData.instruments : [],
         genres: Array.isArray(formData.genres) ? formData.genres : [],
         videos: Array.isArray(formData.videos) ? formData.videos : []
@@ -226,13 +261,25 @@ const EditProfile = () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Location"
-                name="location"
+              <Autocomplete
+                options={locationOptions}
                 value={formData.location}
-                onChange={handleChange}
-                variant="outlined"
+                onChange={handleLocationChange}
+                freeSolo={false}
+                disableClearable={false}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="outlined"
+                    label="Location"
+                    placeholder="Select your location"
+                  />
+                )}
+                filterOptions={(options, { inputValue }) => {
+                  return options.filter(option =>
+                    option.toLowerCase().includes(inputValue.toLowerCase())
+                  ).slice(0, 50); // Limit to 50 results for performance
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -247,58 +294,72 @@ const EditProfile = () => {
                 variant="outlined"
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                multiple
-                options={instrumentOptions}
-                value={formData.instruments}
-                onChange={handleInstrumentsChange}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
-                    <Chip variant="outlined" label={option} {...getTagProps({ index })} />
-                  ))
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    variant="outlined"
-                    label="Instruments"
-                    placeholder="Add instruments"
-                  />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                multiple
-                options={genreOptions}
-                value={formData.genres}
-                onChange={handleGenresChange}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
-                    <Chip variant="outlined" label={option} {...getTagProps({ index })} />
-                  ))
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    variant="outlined"
-                    label="Genres"
-                    placeholder="Add genres"
-                  />
-                )}
-              />
-            </Grid>
+            
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Experience"
-                name="experience"
-                value={formData.experience}
-                onChange={handleChange}
-                variant="outlined"
-              />
+              <FormControl component="fieldset">
+                <FormLabel component="legend">Are you a musician?</FormLabel>
+                <RadioGroup
+                  row
+                  value={formData.isMusician}
+                  onChange={handleMusicianChange}
+                >
+                  <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+                  <FormControlLabel value="no" control={<Radio />} label="No" />
+                </RadioGroup>
+              </FormControl>
             </Grid>
+            
+            {formData.isMusician === 'yes' && (
+              <>
+                {/* Skills Section */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" sx={{ mt: 2, mb: 2 }}>Skills</Typography>
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <Autocomplete
+                    multiple
+                    options={instrumentOptions}
+                    value={formData.instruments}
+                    onChange={handleInstrumentsChange}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => (
+                        <Chip variant="outlined" label={option} {...getTagProps({ index })} />
+                      ))
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="outlined"
+                        label="Instruments"
+                        placeholder="Add instruments"
+                      />
+                    )}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Autocomplete
+                    multiple
+                    options={genreOptions}
+                    value={formData.genres}
+                    onChange={handleGenresChange}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => (
+                        <Chip variant="outlined" label={option} {...getTagProps({ index })} />
+                      ))
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="outlined"
+                        label="Genres"
+                        placeholder="Add genres"
+                      />
+                    )}
+                  />
+                </Grid>
+              </>
+            )}
             
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>

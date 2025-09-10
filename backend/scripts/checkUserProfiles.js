@@ -29,7 +29,7 @@ const checkUserProfiles = async () => {
         console.log(`  Bio: ${profile.bio ? profile.bio.substring(0, 100) + '...' : 'Not set'}`);
         console.log(`  Instruments: ${profile.instruments ? profile.instruments.join(', ') : 'None'}`);
         console.log(`  Genres: ${profile.genres ? profile.genres.join(', ') : 'None'}`);
-        console.log(`  Experience: ${profile.experience || 'Not set'}`);
+    
       } else {
         console.log('No profile found');
       }

@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import WorkIcon from '@mui/icons-material/Work';
+
 import StarIcon from '@mui/icons-material/Star';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -69,36 +69,40 @@ const MusicianCard = memo(({ musician, user }) => {
           <Typography variant="h6" component="h2" align="center" gutterBottom>
             {musician.user.name}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <LocationOnIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
-            <Typography variant="body2" color="text.secondary">
-              {musician.user.location || 'Location not specified'}
-            </Typography>
-          </Box>
+          {musician.user.location && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <LocationOnIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
+              <Typography variant="body2" color="text.secondary">
+                {musician.user.location}
+              </Typography>
+            </Box>
+          )}
         </Box>
 
         <Divider sx={{ mb: 2 }} />
 
         {/* Bio */}
-        <Typography 
-          variant="body2" 
-          color="text.secondary" 
-          paragraph 
-          sx={{ 
-            textAlign: 'center', 
-            mb: 2, 
-            whiteSpace: 'pre-wrap',
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            maxHeight: '4.5em',
-            lineHeight: '1.5em'
-          }}
-        >
-          {musician.bio || 'Professional musician available for collaborations'}
-        </Typography>
+        {musician.bio && (
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            paragraph 
+            sx={{ 
+              textAlign: 'center', 
+              mb: 2, 
+              whiteSpace: 'pre-wrap',
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxHeight: '4.5em',
+              lineHeight: '1.5em'
+            }}
+          >
+            {musician.bio}
+          </Typography>
+        )}
 
         {/* Skills - Two Column Layout */}
         {((musician.user?.instruments && musician.user.instruments.length > 0) || 
@@ -172,13 +176,7 @@ const MusicianCard = memo(({ musician, user }) => {
           </Grid>
         )}
 
-        {/* Experience */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <WorkIcon sx={{ mr: 0.5, color: '#1a365d', fontSize: '1rem' }} />
-          <Typography variant="caption" color="text.secondary">
-            {musician.experience || 'Beginner'}
-          </Typography>
-        </Box>
+
 
       </CardContent>
       
@@ -226,7 +224,7 @@ const MusicianCardSkeleton = () => (
 
 const Discover = () => {
   const { user } = useAuth();
-  const [musicians, setMusicians] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -235,19 +233,19 @@ const Discover = () => {
     location: '',
     instrument: '',
     genre: '',
-    experience: ''
+    userType: ''
   });
   
   // Filter options
   const locations = ["London", "Manchester", "Birmingham", "Liverpool", "Edinburgh", "Glasgow"];
   const instruments = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals"];
   const genres = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk"];
-  const experienceLevels = ["Beginner", "Intermediate", "Advanced", "Professional"];
+
 
 
 
   // Memoized fetch function
-  const fetchMusicians = useCallback(async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       console.log('Fetching musicians from API...');
@@ -258,7 +256,7 @@ const Discover = () => {
       }
       const data = await response.json();
       console.log('API response:', data);
-      setMusicians(data);
+      setUsers(data);
     } catch (err) {
       console.error('Error fetching musicians:', err);
       setError('Failed to fetch musicians.');
@@ -268,8 +266,8 @@ const Discover = () => {
   }, []);
 
   useEffect(() => {
-    fetchMusicians();
-  }, [fetchMusicians]);
+    fetchUsers();
+  }, [fetchUsers]);
 
   // Memoized search handler
   const handleSearch = useCallback((event) => {
@@ -289,13 +287,13 @@ const Discover = () => {
       location: '',
       instrument: '',
       genre: '',
-      experience: ''
+
     });
   }, []);
 
   // Memoized filtered musicians (including current user)
-  const filteredMusicians = useMemo(() => {
-    let result = [...musicians];
+  const filteredUsers = useMemo(() => {
+    let result = [...users];
     
     // Apply search filter
     if (searchTerm.trim()) {
@@ -327,13 +325,13 @@ const Discover = () => {
       );
     }
     
-    // Apply experience filter
-    if (filters.experience) {
-      result = result.filter(musician => musician.experience === filters.experience);
+    // Apply user type filter
+    if (filters.userType) {
+      result = result.filter(musician => musician.userType === filters.userType);
     }
     
     return result;
-  }, [musicians, searchTerm, filters]);
+  }, [users, searchTerm, filters]);
 
   if (loading) {
     return (
@@ -406,7 +404,7 @@ const Discover = () => {
         >
           <Box sx={{ flex: 1 }}>
             <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
-              Discover Musicians
+              Discover Links
             </Typography>
             <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
               Connect with talented musicians for your next collaboration
@@ -441,7 +439,7 @@ const Discover = () => {
             >
               {showFilters ? 'Hide Filters' : 'Show Filters'}
             </Button>
-            {(filters.location || filters.instrument || filters.genre || filters.experience) && (
+            {(filters.location || filters.instrument || filters.genre) && (
               <Button
                 variant="contained"
                 startIcon={<ClearIcon />}
@@ -470,7 +468,7 @@ const Discover = () => {
       {/* Search Bar */}
       <TextField
         fullWidth
-        placeholder="Search musicians by name, skills, instruments, or genres..."
+        placeholder="Search users by name, instruments, or genres..."
         value={searchTerm}
         onChange={handleSearch}
         InputProps={{
@@ -508,7 +506,7 @@ const Discover = () => {
                  fontSize: { xs: '1.125rem', sm: '1.25rem' }
                }}
              >
-               Filter Musicians
+               Filter Links
              </Typography>
              <Button 
                variant="outlined" 
@@ -583,42 +581,40 @@ const Discover = () => {
             
             <Grid item xs={12} sm={6} md={3}>
                <FormControl fullWidth>
-                 <InputLabel>Experience</InputLabel>
+                 <InputLabel>User Type</InputLabel>
                  <Select
-                   value={filters.experience}
-                   label="Experience"
-                   onChange={(e) => handleFilterChange('experience', e.target.value)}
+                   value={filters.userType}
+                   label="User Type"
+                   onChange={(e) => handleFilterChange('userType', e.target.value)}
                  >
-                  <MenuItem value="">All Levels</MenuItem>
-                  {experienceLevels.map((level) => (
-                    <MenuItem key={level} value={level}>
-                      {level}
-                    </MenuItem>
-                  ))}
+                  <MenuItem value="">All Users</MenuItem>
+                  <MenuItem value="Musician">Musicians</MenuItem>
+                  <MenuItem value="Booker">Bookers</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
+
           </Grid>
         </Paper>
       )}
 
-      {/* Musicians Grid */}
+      {/* Users Grid */}
       <Grid container spacing={3}>
-        {filteredMusicians.map((musician) => (
+        {filteredUsers.map((musician) => (
           <Grid item xs={12} sm={6} md={4} key={musician._id}>
             <MusicianCard musician={musician} user={user} />
           </Grid>
         ))}
       </Grid>
 
-      {filteredMusicians.length === 0 && !loading && !error && (
+      {filteredUsers.length === 0 && !loading && !error && (
         <Paper elevation={1} sx={{ p: 4, textAlign: 'center', mt: 4 }}>
           <MusicNoteIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            No musicians found
+            No users found
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Try adjusting your search terms or browse all available musicians.
+            Try adjusting your search terms or browse all available users.
           </Typography>
         </Paper>
       )}

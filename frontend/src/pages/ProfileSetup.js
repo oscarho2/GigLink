@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, Paper, TextField, Button, Grid, Autocomplete, Alert, Stepper, Step, StepLabel } from '@mui/material';
+import { Container, Typography, Box, Paper, TextField, Button, Grid, Autocomplete, Alert, Stepper, Step, StepLabel, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -12,14 +12,13 @@ const ProfileSetup = () => {
   // Predefined options for instruments and genres
   const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
   const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
-  const experienceOptions = ["Beginner", "Intermediate", "Advanced", "Professional"];
   
   const [formData, setFormData] = useState({
     location: '',
     bio: '',
+    isMusician: '',
     instruments: [],
     genres: [],
-    experience: 'Beginner',
     availability: 'Available'
   });
   
@@ -30,9 +29,9 @@ const ProfileSetup = () => {
         ...prevData,
         location: user.location || '',
         bio: user.bio || `Hi, I'm ${user.name}! I'm excited to connect with fellow musicians and explore new opportunities in the music world.`,
+        isMusician: user.isMusician || '',
         instruments: user.instruments || [],
-        genres: user.genres || [],
-        experience: user.experience || 'Beginner'
+        genres: user.genres || []
       }));
     }
   }, [user]);
@@ -40,7 +39,7 @@ const ProfileSetup = () => {
   const [loading, setLoading] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
 
-  const steps = ['Basic Info', 'Skills & Experience', 'Complete Setup'];
+  const steps = ['Basic Info', 'Skills', 'Complete Setup'];
 
   const handleChange = (e) => {
     setFormData({
@@ -60,13 +59,13 @@ const ProfileSetup = () => {
   const handleNext = () => {
     if (activeStep === 0) {
       // Validate basic info
-      if (!formData.location.trim() || !formData.bio.trim()) {
+      if (!formData.location.trim() || !formData.bio.trim() || !formData.isMusician) {
         setError('Please fill in all required fields');
         return;
       }
     } else if (activeStep === 1) {
-      // Validate skills
-      if (formData.instruments.length === 0 || formData.genres.length === 0) {
+      // Validate skills only if user is a musician
+      if (formData.isMusician === 'yes' && (formData.instruments.length === 0 || formData.genres.length === 0)) {
         setError('Please select at least one instrument and one genre');
         return;
       }
@@ -94,7 +93,8 @@ const ProfileSetup = () => {
           availability: formData.availability,
           location: formData.location,
           instruments: formData.instruments,
-          genres: formData.genres
+          genres: formData.genres,
+          isMusician: formData.isMusician
         }, {
           headers: { 'x-auth-token': token }
         });
@@ -107,7 +107,8 @@ const ProfileSetup = () => {
             availability: formData.availability,
             location: formData.location,
             instruments: formData.instruments,
-            genres: formData.genres
+            genres: formData.genres,
+            isMusician: formData.isMusician
           }, {
             headers: { 'x-auth-token': token }
           });
@@ -166,9 +167,23 @@ const ProfileSetup = () => {
                 onChange={handleChange}
                 multiline
                 rows={4}
-                placeholder="Tell other musicians about yourself, your experience, and what you're looking for..."
+                placeholder="Tell other musicians about yourself and what you're looking for..."
                 required
               />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl component="fieldset">
+                <FormLabel component="legend">Are you a musician?</FormLabel>
+                <RadioGroup
+                  row
+                  name="isMusician"
+                  value={formData.isMusician}
+                  onChange={handleChange}
+                >
+                  <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+                  <FormControlLabel value="no" control={<Radio />} label="No" />
+                </RadioGroup>
+              </FormControl>
             </Grid>
           </Grid>
         );
@@ -177,58 +192,52 @@ const ProfileSetup = () => {
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
-                Your musical skills
+                {formData.isMusician === 'yes' ? 'Your musical skills' : 'Your skills'}
               </Typography>
             </Grid>
-            <Grid item xs={12}>
-              <Autocomplete
-                multiple
-                options={instrumentOptions}
-                value={formData.instruments}
-                onChange={handleInstrumentsChange}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Instruments"
-                    placeholder="Select your instruments"
-                    required
+            {formData.isMusician === 'yes' && (
+              <>
+                <Grid item xs={12}>
+                  <Autocomplete
+                    multiple
+                    options={instrumentOptions}
+                    value={formData.instruments}
+                    onChange={handleInstrumentsChange}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Instruments"
+                        placeholder="Select your instruments"
+                        required
+                      />
+                    )}
                   />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Autocomplete
-                multiple
-                options={genreOptions}
-                value={formData.genres}
-                onChange={handleGenresChange}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Genres"
-                    placeholder="Select your preferred genres"
-                    required
-                  />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                options={experienceOptions}
-                value={formData.experience}
-                onChange={(event, newValue) => {
-                  setFormData({ ...formData, experience: newValue || 'Beginner' });
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Experience Level"
-                    required
-                  />
-                )}
-              />
-            </Grid>
-
+                </Grid>
+                 <Grid item xs={12}>
+                   <Autocomplete
+                     multiple
+                     options={genreOptions}
+                     value={formData.genres}
+                     onChange={handleGenresChange}
+                     renderInput={(params) => (
+                       <TextField
+                         {...params}
+                         label="Genres"
+                         placeholder="Select your preferred genres"
+                         required
+                       />
+                     )}
+                   />
+                 </Grid>
+              </>
+            )}
+            {formData.isMusician === 'no' && (
+              <Grid item xs={12}>
+                <Typography variant="body1" color="textSecondary">
+                  Great! You can still connect with musicians and explore opportunities on GigLink.
+                </Typography>
+              </Grid>
+            )}
           </Grid>
         );
       case 2:
@@ -264,14 +273,20 @@ const ProfileSetup = () => {
                 <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Bio:</Typography>
                 <Typography variant="body2" gutterBottom>{formData.bio}</Typography>
                 
-                <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Instruments:</Typography>
-                <Typography variant="body2" gutterBottom>{formData.instruments.join(', ')}</Typography>
+                <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Are you a musician?</Typography>
+                <Typography variant="body2" gutterBottom>{formData.isMusician === 'yes' ? 'Yes' : 'No'}</Typography>
                 
-                <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Genres:</Typography>
-                <Typography variant="body2" gutterBottom>{formData.genres.join(', ')}</Typography>
-                
-                <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Experience:</Typography>
-                <Typography variant="body2" gutterBottom>{formData.experience}</Typography>
+                {formData.isMusician === 'yes' && (
+                  <>
+                    <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Instruments:</Typography>
+                    <Typography variant="body2" gutterBottom>{formData.instruments.join(', ')}</Typography>
+                    
+                    <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Genres:</Typography>
+                    <Typography variant="body2" gutterBottom>{formData.genres.join(', ')}</Typography>
+                    
+
+                  </>
+                )}
                 
 
               </Paper>
