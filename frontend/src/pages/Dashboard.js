@@ -545,7 +545,21 @@ const Dashboard = () => {
           <Card sx={{ mb: 4 }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">
+                <Typography 
+                  variant="h6" 
+                  component={RouterLink} 
+                  to="/my-gigs"
+                  sx={{ 
+                    textDecoration: 'none', 
+                    color: 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                    '&:hover': {
+                      color: 'primary.main',
+                      cursor: 'pointer'
+                    }
+                  }}
+                >
                   <WorkIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
                   My Gigs
                 </Typography>
@@ -907,7 +921,21 @@ const Dashboard = () => {
       <Card sx={{ mt: 4 }}>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
+            <Typography 
+              variant="h6" 
+              component={RouterLink} 
+              to="/my-gigs"
+              sx={{ 
+                textDecoration: 'none', 
+                color: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                '&:hover': {
+                  color: 'primary.main',
+                  cursor: 'pointer'
+                }
+              }}
+            >
               <WorkIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
               My Gig Applications
             </Typography>
