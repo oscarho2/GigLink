@@ -29,6 +29,7 @@ import Gigs from './pages/Gigs';
 import GigDetail from './pages/GigDetail';
 import CreateGig from './pages/CreateGig';
 import EditGig from './pages/EditGig';
+import MyGigs from './pages/MyGigs';
 import Messages from './pages/Messages';
 import NotFound from './pages/NotFound';
 
@@ -105,6 +106,7 @@ function App() {
                 <Route path="/gigs/:id" element={<GigDetail />} />
                 <Route path="/gigs/:id/edit" element={<PrivateRoute><EditGig /></PrivateRoute>} />
                 <Route path="/create-gig" element={<PrivateRoute><CreateGig /></PrivateRoute>} />
+                <Route path="/my-gigs" element={<PrivateRoute><MyGigs /></PrivateRoute>} />
                 <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
                 <Route path="/links" element={<PrivateRoute><LinksPage /></PrivateRoute>} />
                 <Route path="*" element={<NotFound />} />
