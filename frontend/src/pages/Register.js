@@ -14,6 +14,11 @@ import InputAdornment from '@mui/material/InputAdornment';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import Alert from '@mui/material/Alert';
+import FormControl from '@mui/material/FormControl';
+import FormLabel from '@mui/material/FormLabel';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Radio from '@mui/material/Radio';
 import AuthContext from '../context/AuthContext';
 
 const Register = () => {
@@ -21,7 +26,8 @@ const Register = () => {
     name: '',
     email: '',
     password: '',
-    password2: ''
+    password2: '',
+    isMusician: ''
   });
   const [error, setError] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
@@ -36,7 +42,7 @@ const Register = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const { name, email, password, password2 } = formData;
+  const { name, email, password, password2, isMusician } = formData;
 
   const onChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -76,7 +82,12 @@ const Register = () => {
       return;
     }
     
-    const result = await register({ name, email, password });
+    if (!isMusician) {
+      setError('Please select whether you are a musician or not');
+      return;
+    }
+    
+    const result = await register({ name, email, password, isMusician });
      if (result && result.success) {
        navigate('/profile-setup');
      } else if (result.error) {
@@ -246,6 +257,41 @@ const Register = () => {
                   ),
                 }}
               />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl component="fieldset" fullWidth sx={{ mt: 2 }}>
+                <FormLabel component="legend" sx={{ 
+                  fontSize: { xs: '1rem', sm: '1rem' },
+                  fontWeight: 500,
+                  color: 'text.primary',
+                  mb: 1
+                }}>
+                  Are you a musician?
+                </FormLabel>
+                <RadioGroup
+                  row
+                  name="isMusician"
+                  value={isMusician}
+                  onChange={onChange}
+                  sx={{
+                    '& .MuiFormControlLabel-label': {
+                      fontSize: { xs: '1rem', sm: '1rem' }
+                    }
+                  }}
+                >
+                  <FormControlLabel 
+                    value="yes" 
+                    control={<Radio />} 
+                    label="Yes" 
+                    sx={{ mr: 3 }}
+                  />
+                  <FormControlLabel 
+                    value="no" 
+                    control={<Radio />} 
+                    label="No" 
+                  />
+                </RadioGroup>
+              </FormControl>
             </Grid>
           </Grid>
           <Button

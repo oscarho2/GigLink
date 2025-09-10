@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, Navigate } from 'react-router-dom';
 import Container from '@mui/material/Container';
 import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
@@ -401,36 +401,40 @@ const Dashboard = () => {
                 <Typography variant="h6" component="h2" align="center" gutterBottom>
                   {profile?.user?.name || user?.name}
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <LocationOnIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {profile?.user?.location || user?.location || 'Location not specified'}
-                  </Typography>
-                </Box>
+                {(profile?.user?.location || user?.location) && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <LocationOnIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {profile?.user?.location || user?.location}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
 
               <Divider sx={{ mb: 2 }} />
 
               {/* Bio */}
-              <Typography 
-                variant="body2" 
-                color="text.secondary" 
-                paragraph 
-                sx={{ 
-                  textAlign: 'center', 
-                  mb: 2, 
-                  whiteSpace: 'pre-wrap',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 3,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  maxHeight: '4.5em',
-                  lineHeight: '1.5em'
-                }}
-              >
-                {profile?.bio || user?.bio || 'Professional musician available for collaborations'}
-              </Typography>
+              {(profile?.bio || user?.bio) && (
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  paragraph 
+                  sx={{ 
+                    textAlign: 'center', 
+                    mb: 2, 
+                    whiteSpace: 'pre-wrap',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxHeight: '4.5em',
+                    lineHeight: '1.5em'
+                  }}
+                >
+                  {profile?.bio || user?.bio}
+                </Typography>
+              )}
 
               {/* Skills - Two Column Layout */}
               {(((profile?.user?.instruments || user?.instruments) && (profile?.user?.instruments || user?.instruments).length > 0) || 
@@ -498,13 +502,7 @@ const Dashboard = () => {
                 </Grid>
               )}
 
-              {/* Experience */}
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <WorkIcon sx={{ mr: 0.5, color: 'primary.main', fontSize: '1rem' }} />
-                <Typography variant="caption" color="text.secondary">
-                  {profile?.experience || user?.experience || 'Beginner'}
-                </Typography>
-              </Box>
+
 
             </CardContent>
             <CardActions sx={{ 
@@ -597,7 +595,21 @@ const Dashboard = () => {
                               sx={{ mr: 2 }}
                             />
                             <ListItemText
-                              primary={request.requester?.name}
+                              primary={
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    cursor: 'pointer',
+                                    color: 'primary.main',
+                                    '&:hover': {
+                                      textDecoration: 'underline'
+                                    }
+                                  }}
+                                  onClick={() => navigate(`/profile/${request.requester?._id || request.requester?.id}`)}
+                                >
+                                  {request.requester?.name}
+                                </Typography>
+                              }
                               secondary={request.requester?.email}
                             />
                             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -647,7 +659,21 @@ const Dashboard = () => {
                               sx={{ mr: 2 }}
                             />
                             <ListItemText
-                              primary={link.name}
+                              primary={
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    cursor: 'pointer',
+                                    color: 'primary.main',
+                                    '&:hover': {
+                                      textDecoration: 'underline'
+                                    }
+                                  }}
+                                  onClick={() => navigate(`/profile/${link._id}`)}
+                                >
+                                  {link.name}
+                                </Typography>
+                              }
                               secondary={link.email}
                             />
                             <IconButton
@@ -688,7 +714,21 @@ const Dashboard = () => {
                               sx={{ mr: 2 }}
                             />
                             <ListItemText
-                              primary={request.recipient?.name}
+                              primary={
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    cursor: 'pointer',
+                                    color: 'primary.main',
+                                    '&:hover': {
+                                      textDecoration: 'underline'
+                                    }
+                                  }}
+                                  onClick={() => navigate(`/profile/${request.recipient?._id || request.recipient?.id}`)}
+                                >
+                                  {request.recipient?.name}
+                                </Typography>
+                              }
                               secondary="Request pending..."
                             />
                             <IconButton
@@ -1205,7 +1245,7 @@ const Dashboard = () => {
               value={passwordData.newPassword}
               onChange={handlePasswordChange}
               required
-              helperText="Must contain at least 8 characters with uppercase, lowercase, number, and special character"
+              helperText="Must contain at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)"
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">

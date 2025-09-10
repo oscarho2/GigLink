@@ -12,7 +12,7 @@ mongoose.connect(process.env.MONGO_URI, {
 const mockGigs = [
   {
     title: 'Jazz Night at Blue Note',
-    description: 'Looking for a talented pianist to join our jazz trio for a weekly residency at the famous Blue Note club. Must be comfortable with improvisation and have experience with jazz standards.',
+    description: 'Looking for a talented pianist to join our jazz trio for a weekly residency at the famous Blue Note club. Must be comfortable with improvisation and familiar with jazz standards.',
     venue: 'Blue Note Jazz Club',
     location: 'New York, NY',
     date: '2025-09-15',
@@ -20,7 +20,7 @@ const mockGigs = [
     payment: '$200',
     instruments: ['Piano'],
     genres: ['Jazz'],
-    requirements: 'Professional level, experience with jazz standards'
+    requirements: 'Professional level, jazz standards knowledge'
   },
   {
     title: 'Wedding Reception Band',
@@ -32,7 +32,7 @@ const mockGigs = [
     payment: '$300',
     instruments: ['Drums'],
     genres: ['Pop', 'Rock'],
-    requirements: 'Intermediate level, own drum kit preferred'
+    requirements: 'Own drum kit preferred'
   },
   {
     title: 'Country Music Festival',
@@ -44,7 +44,7 @@ const mockGigs = [
     payment: '$250',
     instruments: ['Bass Guitar'],
     genres: ['Country'],
-    requirements: 'Professional level, festival experience preferred'
+    requirements: 'Professional level, festival background preferred'
   },
   {
     title: 'Classical Chamber Concert',
@@ -56,7 +56,7 @@ const mockGigs = [
     payment: '$180',
     instruments: ['Violin'],
     genres: ['Classical'],
-    requirements: 'Professional level, chamber music experience required'
+    requirements: 'Professional level, chamber music background required'
   },
   {
     title: 'Rock Band Audition',
@@ -80,7 +80,7 @@ const mockGigs = [
     payment: '$220',
     instruments: ['Piano', 'Guitar'],
     genres: ['Jazz', 'Pop'],
-    requirements: 'Intermediate level, background music experience'
+    requirements: 'Background music skills'
   }
 ];
 

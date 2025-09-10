@@ -214,7 +214,7 @@ const Home = () => {
                   Professional Profile
                 </Typography>
                 <Typography>
-                  Create a detailed profile showcasing your musical experience, skills, and portfolio.
+                  Create a detailed profile showcasing your musical skills and portfolio.
                   Upload videos of your performances to demonstrate your talent.
                 </Typography>
               </CardContent>

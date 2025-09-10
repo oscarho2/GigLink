@@ -26,10 +26,10 @@ async function testExistingUserPrefill() {
     
     // Update the user with some profile data
     existingUser.location = 'New York, NY';
-    existingUser.bio = 'Experienced guitarist and songwriter';
+    existingUser.bio = 'Guitarist and songwriter';
     existingUser.instruments = ['Guitar', 'Vocals'];
     existingUser.genres = ['Rock', 'Blues', 'Folk'];
-    existingUser.experience = 'Advanced';
+
     
     await existingUser.save();
     console.log('✓ Updated user with profile data');
@@ -53,7 +53,7 @@ async function testExistingUserPrefill() {
     console.log(`- Location: "${fullUserData.location || '(empty - to be filled by user)'}"`); 
     console.log(`- Instruments: [${fullUserData.instruments?.join(', ') || '(empty - to be selected by user)'}]`);
     console.log(`- Genres: [${fullUserData.genres?.join(', ') || '(empty - to be selected by user)'}]`);
-    console.log(`- Experience: "${fullUserData.experience || 'Beginner'}"`); 
+ 
     
     console.log('\n✓ Existing user profile pre-fill test completed successfully!');
     

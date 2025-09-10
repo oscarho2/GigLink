@@ -19,8 +19,8 @@ const mockUsers = [
     location: 'New York, NY',
     instruments: ['Guitar', 'Vocals'],
     genres: ['Rock', 'Blues'],
-    bio: 'Experienced guitarist and vocalist with 10+ years in the music industry.',
-    experience: 'Professional',
+    bio: 'Guitarist and vocalist with 10+ years in the music industry.',
+
     isAvailableForGigs: true
   },
   {
@@ -31,7 +31,7 @@ const mockUsers = [
     instruments: ['Piano', 'Keyboard'],
     genres: ['Jazz', 'Classical'],
     bio: 'Classically trained pianist with a passion for jazz improvisation.',
-    experience: 'Professional',
+
     isAvailableForGigs: true
   },
   {
@@ -42,7 +42,7 @@ const mockUsers = [
     instruments: ['Drums'],
     genres: ['Rock', 'Pop', 'Funk'],
     bio: 'Dynamic drummer looking to collaborate with creative musicians.',
-    experience: 'Intermediate',
+
     isAvailableForGigs: true
   },
   {
@@ -53,7 +53,7 @@ const mockUsers = [
     instruments: ['Bass Guitar'],
     genres: ['Country', 'Rock'],
     bio: 'Bass player with a love for country and rock music.',
-    experience: 'Professional',
+
     isAvailableForGigs: true
   },
   {
@@ -64,7 +64,7 @@ const mockUsers = [
     instruments: ['Violin', 'Fiddle'],
     genres: ['Folk', 'Country', 'Classical'],
     bio: 'Versatile violinist comfortable in multiple genres.',
-    experience: 'Professional',
+
     isAvailableForGigs: true
   }
 ];

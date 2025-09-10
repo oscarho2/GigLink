@@ -55,6 +55,7 @@ const Settings = () => {
   // Delete account state
   const [deleteDialogStep, setDeleteDialogStep] = useState(0); // 0: closed, 1: first warning, 2: final confirmation
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const handleSettingChange = (setting) => (event) => {
     setSettings({
@@ -127,6 +128,7 @@ const Settings = () => {
   const handleCloseDeleteDialog = () => {
     setDeleteDialogStep(0);
     setIsDeleting(false);
+    setDeleteConfirmText('');
   };
 
   const handleNextStep = () => {
@@ -295,7 +297,7 @@ const Settings = () => {
               type={showNewPassword ? 'text' : 'password'}
               value={passwordData.newPassword}
               onChange={handlePasswordInputChange}
-              helperText="Must be at least 8 characters with uppercase, lowercase, number, and special character"
+              helperText="Must be at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)"
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
@@ -369,11 +371,22 @@ const Settings = () => {
             </Typography>
           )}
           {deleteDialogStep === 2 && (
-            <Typography color="error" sx={{ fontWeight: 'bold' }}>
-              FINAL WARNING: This will permanently delete your account and ALL associated data.
-              <br /><br />
-              Type "DELETE" below to confirm:
-            </Typography>
+            <>
+              <Typography color="error" sx={{ fontWeight: 'bold' }}>
+                FINAL WARNING: This will permanently delete your account and ALL associated data.
+                <br /><br />
+                Type "DELETE" below to confirm:
+              </Typography>
+              <TextField
+                fullWidth
+                margin="normal"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE to confirm"
+                variant="outlined"
+                sx={{ mt: 2 }}
+              />
+            </>
           )}
         </DialogContent>
         <DialogActions>
@@ -390,7 +403,7 @@ const Settings = () => {
               onClick={handleFinalDelete} 
               color="error" 
               variant="contained"
-              disabled={isDeleting}
+              disabled={isDeleting || deleteConfirmText !== 'DELETE'}
             >
               {isDeleting ? 'Deleting...' : 'DELETE ACCOUNT'}
             </Button>

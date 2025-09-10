@@ -31,7 +31,7 @@ async function testProfilePrefill() {
       console.log('- Location: (empty - to be filled by user)');
       console.log('- Instruments: (empty - to be selected by user)');
       console.log('- Genres: (empty - to be selected by user)');
-      console.log('- Experience: "Beginner" (default)');
+      
       
       console.log('\n✓ Profile pre-fill functionality test completed successfully!');
       
@@ -57,7 +57,7 @@ async function testProfilePrefill() {
         console.log('- Location: (empty - to be filled by user)');
         console.log('- Instruments: (empty - to be selected by user)');
         console.log('- Genres: (empty - to be selected by user)');
-        console.log('- Experience: "Beginner" (default)');
+
         
         console.log('\n✓ Profile pre-fill functionality test completed successfully!');
       } else {
