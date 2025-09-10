@@ -540,9 +540,183 @@ const Dashboard = () => {
           </Card>
         </Grid>
         
-        {/* Right Column - Gigs */}
+        {/* Right Column - Links */}
         <Grid item xs={12} md={6} lg={8}>
           <Card sx={{ mb: 4 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography 
+                  variant="h6"
+                  component={RouterLink}
+                  to="/links"
+                  sx={{
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      color: 'primary.main',
+                      textDecoration: 'underline'
+                    }
+                  }}
+                >
+                  <PeopleIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+                  Links
+                </Typography>
+              </Box>
+              
+              <Divider sx={{ mb: 2 }} />
+              
+              {linksLoading ? (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                  Loading links...
+                </Typography>
+              ) : (
+                <>
+                  {/* Pending Link Requests */}
+                  {pendingRequests.length > 0 && (
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PersonAddIcon fontSize="small" />
+                        Pending Requests ({pendingRequests.length})
+                      </Typography>
+                      <List>
+                        {pendingRequests.map(request => (
+                          <ListItem
+                            key={request._id}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              mb: 1,
+                              p: 2
+                            }}
+                          >
+                            <Avatar
+                              src={request.requester?.avatar}
+                              alt={request.requester?.name}
+                              sx={{ mr: 2 }}
+                            />
+                            <ListItemText
+                              primary={request.requester?.name}
+                              secondary={request.requester?.email}
+                            />
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <IconButton
+                                onClick={() => handleAcceptRequest(request._id)}
+                                color="success"
+                                size="small"
+                              >
+                                <CheckCircleIcon />
+                              </IconButton>
+                              <IconButton
+                                onClick={() => handleDeclineRequest(request._id)}
+                                color="error"
+                                size="small"
+                              >
+                                <CancelIcon />
+                              </IconButton>
+                            </Box>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+                  
+                  {/* Current Links */}
+                  {links.length > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PeopleIcon fontSize="small" />
+                        Links ({links.length})
+                      </Typography>
+                      <List>
+                        {links.map(link => (
+                          <ListItem
+                            key={link._id}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              mb: 1,
+                              p: 2
+                            }}
+                          >
+                            <Avatar
+                              src={link.avatar}
+                              alt={link.name}
+                              sx={{ mr: 2 }}
+                            />
+                            <ListItemText
+                              primary={link.name}
+                              secondary={link.email}
+                            />
+                            <IconButton
+                              onClick={() => handleRemoveLink(link.linkId)}
+                              color="error"
+                              size="small"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+                  
+                  {/* Sent Requests */}
+                  {sentRequests.length > 0 && (
+                    <Box>
+                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <SearchIcon fontSize="small" />
+                        Sent Requests ({sentRequests.length})
+                      </Typography>
+                      <List>
+                        {sentRequests.map(request => (
+                          <ListItem
+                            key={request._id}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              mb: 1,
+                              p: 2
+                            }}
+                          >
+                            <Avatar
+                              src={request.recipient?.avatar}
+                              alt={request.recipient?.name}
+                              sx={{ mr: 2 }}
+                            />
+                            <ListItemText
+                              primary={request.recipient?.name}
+                              secondary="Request pending..."
+                            />
+                            <IconButton
+                              onClick={() => handleRemoveLink(request._id)}
+                              color="error"
+                              size="small"
+                            >
+                              <CancelIcon />
+                            </IconButton>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+                  
+                  {/* No Links Message */}
+                  {links.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && (
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                      No links yet. Start connecting with other musicians!
+                    </Typography>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* My Gigs Section */}
+          <Card>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography 
@@ -556,7 +730,8 @@ const Dashboard = () => {
                     alignItems: 'center',
                     '&:hover': {
                       color: 'primary.main',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      textDecoration: 'underline'
                     }
                   }}
                 >
@@ -739,180 +914,6 @@ const Dashboard = () => {
               )}
             </CardContent>
           </Card>
-          
-          {/* Links Section */}
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography 
-                  variant="h6"
-                  component={RouterLink}
-                  to="/links"
-                  sx={{
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      color: 'primary.main',
-                      textDecoration: 'underline'
-                    }
-                  }}
-                >
-                  <PeopleIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-                  Links
-                </Typography>
-              </Box>
-              
-              <Divider sx={{ mb: 2 }} />
-              
-              {linksLoading ? (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                  Loading links...
-                </Typography>
-              ) : (
-                <>
-                  {/* Pending Link Requests */}
-                  {pendingRequests.length > 0 && (
-                    <Box sx={{ mb: 3 }}>
-                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <PersonAddIcon fontSize="small" />
-                        Pending Requests ({pendingRequests.length})
-                      </Typography>
-                      <List>
-                        {pendingRequests.map(request => (
-                          <ListItem
-                            key={request._id}
-                            sx={{
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              borderRadius: 1,
-                              mb: 1,
-                              p: 2
-                            }}
-                          >
-                            <Avatar
-                              src={request.requester?.avatar}
-                              alt={request.requester?.name}
-                              sx={{ mr: 2 }}
-                            />
-                            <ListItemText
-                              primary={request.requester?.name}
-                              secondary={request.requester?.email}
-                            />
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                              <IconButton
-                                onClick={() => handleAcceptRequest(request._id)}
-                                color="success"
-                                size="small"
-                              >
-                                <CheckCircleIcon />
-                              </IconButton>
-                              <IconButton
-                                onClick={() => handleDeclineRequest(request._id)}
-                                color="error"
-                                size="small"
-                              >
-                                <CancelIcon />
-                              </IconButton>
-                            </Box>
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Box>
-                  )}
-                  
-                  {/* Current Links */}
-                  {links.length > 0 && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <PeopleIcon fontSize="small" />
-                        Links ({links.length})
-                      </Typography>
-                      <List>
-                        {links.map(link => (
-                          <ListItem
-                            key={link._id}
-                            sx={{
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              borderRadius: 1,
-                              mb: 1,
-                              p: 2
-                            }}
-                          >
-                            <Avatar
-                              src={link.avatar}
-                              alt={link.name}
-                              sx={{ mr: 2 }}
-                            />
-                            <ListItemText
-                              primary={link.name}
-                              secondary={link.email}
-                            />
-                            <IconButton
-                              onClick={() => handleRemoveLink(link.linkId)}
-                              color="error"
-                              size="small"
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Box>
-                  )}
-                  
-                  {/* Sent Requests */}
-                  {sentRequests.length > 0 && (
-                    <Box>
-                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <SearchIcon fontSize="small" />
-                        Sent Requests ({sentRequests.length})
-                      </Typography>
-                      <List>
-                        {sentRequests.map(request => (
-                          <ListItem
-                            key={request._id}
-                            sx={{
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              borderRadius: 1,
-                              mb: 1,
-                              p: 2
-                            }}
-                          >
-                            <Avatar
-                              src={request.recipient?.avatar}
-                              alt={request.recipient?.name}
-                              sx={{ mr: 2 }}
-                            />
-                            <ListItemText
-                              primary={request.recipient?.name}
-                              secondary="Request pending..."
-                            />
-                            <IconButton
-                              onClick={() => handleRemoveLink(request._id)}
-                              color="error"
-                              size="small"
-                            >
-                              <CancelIcon />
-                            </IconButton>
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Box>
-                  )}
-                  
-                  {/* No Links Message */}
-                  {links.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && (
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                      No links yet. Start connecting with other musicians!
-                    </Typography>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
 
         </Grid>
       </Grid>
@@ -932,7 +933,8 @@ const Dashboard = () => {
                 alignItems: 'center',
                 '&:hover': {
                   color: 'primary.main',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
                 }
               }}
             >
