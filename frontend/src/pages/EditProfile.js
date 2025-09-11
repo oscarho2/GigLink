@@ -4,7 +4,25 @@ import { Add as AddIcon, Delete as DeleteIcon, VideoLibrary as VideoLibraryIcon 
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import countries from 'world-countries';
+
+// UK cities and towns list
+const ukLocationOptions = [
+  'London', 'Birmingham', 'Manchester', 'Liverpool', 'Leeds', 'Sheffield', 'Bristol', 'Glasgow', 'Edinburgh', 'Newcastle upon Tyne',
+  'Cardiff', 'Belfast', 'Nottingham', 'Leicester', 'Coventry', 'Bradford', 'Stoke-on-Trent', 'Wolverhampton', 'Plymouth', 'Southampton',
+  'Reading', 'Derby', 'Dudley', 'Northampton', 'Portsmouth', 'Preston', 'Luton', 'Aberdeen', 'Milton Keynes', 'Sunderland',
+  'Norwich', 'Walsall', 'Bournemouth', 'Southend-on-Sea', 'Swindon', 'Dundee', 'Huddersfield', 'Poole', 'Oxford', 'Middlesbrough',
+  'Blackpool', 'Bolton', 'Ipswich', 'York', 'West Bromwich', 'Slough', 'Gloucester', 'Watford', 'Rotherham', 'Cambridge',
+  'Exeter', 'Eastbourne', 'Sutton Coldfield', 'Blackburn', 'Colchester', 'Oldham', 'St Helens', 'Woking', 'Chelmsford', 'Basildon',
+  'Worthing', 'Rochdale', 'Solihull', 'Crawley', 'Gillingham', 'Stockport', 'Birkenhead', 'Maidstone', 'Hastings', 'High Wycombe',
+  'Doncaster', 'Cheltenham', 'Darlington', 'Chesterfield', 'Warrington', 'Stevenage', 'Gateshead', 'Harrogate', 'Hartlepool', 'Nuneaton',
+  'Loughborough', 'Scunthorpe', 'Grimsby', 'Bath', 'Telford', 'Burnley', 'Gloucester', 'Mansfield', 'Carlisle', 'Shrewsbury',
+  'Bangor', 'Wrexham', 'Swansea', 'Newport', 'Stirling', 'Inverness', 'Perth', 'Paisley', 'East Kilbride', 'Livingston',
+  'Hamilton', 'Cumbernauld', 'Kirkcaldy', 'Dunfermline', 'Ayr', 'Kilmarnock', 'Greenock', 'Coatbridge', 'Glenrothes', 'Airdrie',
+  'Falkirk', 'Irvine', 'Dumfries', 'Motherwell', 'Rutherglen', 'Wishaw', 'Clydebank', 'Bearsden', 'Cambuslang', 'Bishopbriggs',
+  'Musselburgh', 'Arbroath', 'Elgin', 'Forfar', 'Montrose', 'Bathgate', 'Alloa', 'Inverurie', 'Westhill', 'Stonehaven',
+  'Peterhead', 'Fraserburgh', 'Buckie', 'Forres', 'Nairn', 'Dingwall', 'Thurso', 'Wick', 'Fort William', 'Oban',
+  'Campbeltown', 'Stranraer', 'Newton Stewart', 'Annan', 'Lockerbie', 'Moffat', 'Sanquhar', 'Thornhill', 'Langholm', 'Gretna'
+].sort();
 
 const EditProfile = () => {
   const { user, token, isAuthenticated, loading: authLoading } = useAuth();
@@ -22,22 +40,6 @@ const EditProfile = () => {
   // Predefined options for instruments and genres
   const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
   const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
-  
-  // Create location options from world countries data
-  const locationOptions = countries.map(country => {
-    const countryName = country.name.common;
-    const cities = country.capital ? country.capital : [];
-    const locations = [countryName];
-    
-    // Add major cities if available
-    if (cities.length > 0) {
-      cities.forEach(city => {
-        locations.push(`${city}, ${countryName}`);
-      });
-    }
-    
-    return locations;
-  }).flat().sort();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -183,6 +185,19 @@ const EditProfile = () => {
     setSuccess('');
     console.log('handleSubmit called');
     console.log('Form data before transformation:', formData);
+    
+    // Validation: If user is a musician, they must select at least one instrument and one genre
+    if (formData.isMusician === 'yes') {
+      if (!formData.instruments || formData.instruments.length === 0) {
+        setError('Musicians must select at least one instrument.');
+        return;
+      }
+      if (!formData.genres || formData.genres.length === 0) {
+        setError('Musicians must select at least one genre.');
+        return;
+      }
+    }
+    
     try {
       // Transform form data to match backend expectations
       const updateData = {
@@ -262,7 +277,7 @@ const EditProfile = () => {
             </Grid>
             <Grid item xs={12} sm={6}>
               <Autocomplete
-                options={locationOptions}
+                options={ukLocationOptions}
                 value={formData.location}
                 onChange={handleLocationChange}
                 freeSolo={false}
@@ -272,10 +287,13 @@ const EditProfile = () => {
                     {...params}
                     variant="outlined"
                     label="Location"
-                    placeholder="Select your location"
+                    placeholder="Start typing to see UK cities..."
                   />
                 )}
                 filterOptions={(options, { inputValue }) => {
+                  if (!inputValue || inputValue.length === 0) {
+                    return []; // Show no options until typing starts
+                  }
                   return options.filter(option =>
                     option.toLowerCase().includes(inputValue.toLowerCase())
                   ).slice(0, 50); // Limit to 50 results for performance

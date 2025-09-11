@@ -4,6 +4,25 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+// UK cities and towns list
+const ukLocationOptions = [
+  'London', 'Birmingham', 'Manchester', 'Liverpool', 'Leeds', 'Sheffield', 'Bristol', 'Glasgow', 'Edinburgh', 'Newcastle upon Tyne',
+  'Cardiff', 'Belfast', 'Nottingham', 'Leicester', 'Coventry', 'Bradford', 'Stoke-on-Trent', 'Wolverhampton', 'Plymouth', 'Southampton',
+  'Reading', 'Derby', 'Dudley', 'Northampton', 'Portsmouth', 'Preston', 'Luton', 'Aberdeen', 'Milton Keynes', 'Sunderland',
+  'Norwich', 'Walsall', 'Bournemouth', 'Southend-on-Sea', 'Swindon', 'Dundee', 'Huddersfield', 'Poole', 'Oxford', 'Middlesbrough',
+  'Blackpool', 'Bolton', 'Ipswich', 'York', 'West Bromwich', 'Slough', 'Gloucester', 'Watford', 'Rotherham', 'Cambridge',
+  'Exeter', 'Eastbourne', 'Sutton Coldfield', 'Blackburn', 'Colchester', 'Oldham', 'St Helens', 'Woking', 'Chelmsford', 'Basildon',
+  'Worthing', 'Rochdale', 'Solihull', 'Crawley', 'Gillingham', 'Stockport', 'Birkenhead', 'Maidstone', 'Hastings', 'High Wycombe',
+  'Doncaster', 'Cheltenham', 'Darlington', 'Chesterfield', 'Warrington', 'Stevenage', 'Gateshead', 'Harrogate', 'Hartlepool', 'Nuneaton',
+  'Loughborough', 'Scunthorpe', 'Grimsby', 'Bath', 'Telford', 'Burnley', 'Gloucester', 'Mansfield', 'Carlisle', 'Shrewsbury',
+  'Bangor', 'Wrexham', 'Swansea', 'Newport', 'Stirling', 'Inverness', 'Perth', 'Paisley', 'East Kilbride', 'Livingston',
+  'Hamilton', 'Cumbernauld', 'Kirkcaldy', 'Dunfermline', 'Ayr', 'Kilmarnock', 'Greenock', 'Coatbridge', 'Glenrothes', 'Airdrie',
+  'Falkirk', 'Irvine', 'Dumfries', 'Motherwell', 'Rutherglen', 'Wishaw', 'Clydebank', 'Bearsden', 'Cambuslang', 'Bishopbriggs',
+  'Musselburgh', 'Arbroath', 'Elgin', 'Forfar', 'Montrose', 'Bathgate', 'Alloa', 'Inverurie', 'Westhill', 'Stonehaven',
+  'Peterhead', 'Fraserburgh', 'Buckie', 'Forres', 'Nairn', 'Dingwall', 'Thurso', 'Wick', 'Fort William', 'Oban',
+  'Campbeltown', 'Stranraer', 'Newton Stewart', 'Annan', 'Lockerbie', 'Moffat', 'Sanquhar', 'Thornhill', 'Langholm', 'Gretna'
+].sort();
+
 const ProfileSetup = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
@@ -148,14 +167,30 @@ const ProfileSetup = () => {
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Location"
-                name="location"
+              <Autocomplete
+                options={ukLocationOptions}
                 value={formData.location}
-                onChange={handleChange}
-                placeholder="e.g., London"
-                required
+                onChange={(event, newValue) => {
+                  setFormData({ ...formData, location: newValue || '' });
+                }}
+                freeSolo={false}
+                disableClearable={false}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Location"
+                    placeholder="Start typing to see UK cities..."
+                    required
+                  />
+                )}
+                filterOptions={(options, { inputValue }) => {
+                  if (!inputValue || inputValue.length === 0) {
+                    return []; // Show no options until typing starts
+                  }
+                  return options.filter(option =>
+                    option.toLowerCase().includes(inputValue.toLowerCase())
+                  ).slice(0, 50); // Limit to 50 results for performance
+                }}
               />
             </Grid>
             <Grid item xs={12}>
