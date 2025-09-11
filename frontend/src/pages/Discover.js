@@ -258,8 +258,8 @@ const Discover = () => {
       console.log('API response:', data);
       setUsers(data);
     } catch (err) {
-      console.error('Error fetching musicians:', err);
-      setError('Failed to fetch musicians.');
+      console.error('Error fetching users:', err);
+      setError('Failed to fetch users.');
     } finally {
       setLoading(false);
     }
@@ -589,7 +589,7 @@ const Discover = () => {
                  >
                   <MenuItem value="">All Users</MenuItem>
                   <MenuItem value="Musician">Musicians</MenuItem>
-                  <MenuItem value="Booker">Bookers</MenuItem>
+                  <MenuItem value="Other">Other</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
