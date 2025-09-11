@@ -65,7 +65,7 @@ router.post(
         name: name.trim(),
         email: normalizedEmail,
         password,
-        isMusician: isMusician || ''
+        isMusician: isMusician === 'yes' ? 'yes' : 'no'
       });
       await user.save();
 

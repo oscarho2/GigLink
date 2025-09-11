@@ -38,7 +38,7 @@ const UserSchema = new mongoose.Schema({
   isMusician: {
     type: String,
     enum: ['yes', 'no'],
-    default: ''
+    default: 'no'
   },
   website: {
     type: String

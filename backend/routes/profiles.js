@@ -151,7 +151,7 @@ router.get('/', async (req, res) => {
   try {
     const dbProfiles = await Profile.find().populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
     
-    // Return all users (musicians and bookers)
+    // Return all users (musicians and others)
     
     // Transform database profiles to match frontend expectations
     const transformedProfiles = dbProfiles.map(profile => ({
@@ -167,7 +167,7 @@ router.get('/', async (req, res) => {
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
-      userType: profile.user.isMusician === 'yes' ? 'Musician' : 'Booker',
+      userType: profile.user.isMusician === 'yes' ? 'Musician' : 'Other',
       hourlyRate: 60, // Default rate
       availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
