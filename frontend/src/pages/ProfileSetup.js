@@ -135,10 +135,6 @@ const ProfileSetup = () => {
     }
   };
 
-  const handleSkip = () => {
-    // Allow user to skip profile setup and go to dashboard
-    navigate('/dashboard');
-  };
 
   const renderStepContent = (step) => {
     switch (step) {
@@ -338,9 +334,7 @@ const ProfileSetup = () => {
                   Back
                 </Button>
               )}
-              <Button onClick={handleSkip} color="secondary">
-                Skip for now
-              </Button>
+
             </Box>
             
             <Box>
