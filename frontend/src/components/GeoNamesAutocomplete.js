@@ -8,7 +8,10 @@ const GeoNamesAutocomplete = ({
   style = {},
   disabled = false 
 }) => {
-  const [inputValue, setInputValue] = useState(value || '');
+  const [inputValue, setInputValue] = useState(() => {
+    const cleanValue = value && value.trim() && value !== 'Location not specified' ? value : '';
+    return cleanValue;
+  });
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,7 +42,9 @@ const GeoNamesAutocomplete = ({
   const GEONAMES_API_URL = 'http://api.geonames.org/searchJSON'; // Note: HTTPS may have CORS issues in development
 
   useEffect(() => {
-    setInputValue(value || '');
+    // Handle empty, null, undefined, or "Location not specified" values
+    const cleanValue = value && value.trim() && value !== 'Location not specified' ? value : '';
+    setInputValue(cleanValue);
   }, [value]);
 
   const fetchSuggestions = async (query) => {
@@ -203,15 +208,18 @@ const GeoNamesAutocomplete = ({
       const listElement = listRef.current;
       const selectedElement = listElement.children[index];
       if (selectedElement) {
-        const listRect = listElement.getBoundingClientRect();
-        const itemRect = selectedElement.getBoundingClientRect();
+        const itemHeight = selectedElement.offsetHeight;
+        const itemTop = selectedElement.offsetTop;
+        const listHeight = listElement.clientHeight;
+        const scrollTop = listElement.scrollTop;
         
-        if (itemRect.bottom > listRect.bottom) {
-          // Scroll down if item is below visible area
-          listElement.scrollTop += itemRect.bottom - listRect.bottom;
-        } else if (itemRect.top < listRect.top) {
-          // Scroll up if item is above visible area
-          listElement.scrollTop -= listRect.top - itemRect.top;
+        // Check if item is below visible area
+        if (itemTop + itemHeight > scrollTop + listHeight) {
+          listElement.scrollTop = itemTop + itemHeight - listHeight;
+        }
+        // Check if item is above visible area
+        else if (itemTop < scrollTop) {
+          listElement.scrollTop = itemTop;
         }
       }
     }

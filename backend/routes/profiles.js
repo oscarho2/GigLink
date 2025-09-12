@@ -1,8 +1,52 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
+
+// Configure multer for photo uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadsDir = path.join(__dirname, '../uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const name = path.basename(file.originalname, ext);
+    cb(null, name + '-' + uniqueSuffix + ext);
+  }
+});
+
+const photoFilter = (req, file, cb) => {
+  const allowedTypes = {
+    'image/jpeg': true,
+    'image/jpg': true,
+    'image/png': true,
+    'image/gif': true,
+    'image/webp': true
+  };
+  
+  if (allowedTypes[file.mimetype]) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files are allowed'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: photoFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit for photos
+  }
+});
 
 // @route   GET api/profiles/me
 // @desc    Get current user's profile
@@ -32,7 +76,8 @@ router.get('/me', auth, async (req, res) => {
       hourlyRate: 60, // Default rate
       availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
-      videos: profile.videos || []
+      videos: profile.videos || [],
+      photos: profile.photos || []
     };
     
     res.json(transformedProfile);
@@ -306,6 +351,92 @@ router.delete('/me', auth, async (req, res) => {
   } catch (err) {
     console.error('Delete account error:', err.message);
     console.error('Full error:', err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/profiles/photos
+// @desc    Upload a photo to profile
+// @access  Private
+router.post('/photos', auth, upload.single('photo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No photo file provided' });
+    }
+
+    const photoUrl = `/api/upload/files/${req.file.filename}`;
+    const caption = req.body.caption || '';
+
+    let profile = await Profile.findOne({ user: req.user.id });
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    const newPhoto = {
+      url: photoUrl,
+      caption: caption,
+      date: new Date()
+    };
+
+    profile.photos.push(newPhoto);
+    await profile.save();
+
+    res.json({ message: 'Photo uploaded successfully', photo: newPhoto });
+  } catch (err) {
+    console.error('Photo upload error:', err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/profiles/avatar
+// @desc    Update profile picture
+// @access  Private
+router.put('/avatar', auth, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No avatar file provided' });
+    }
+
+    const avatarUrl = `/api/upload/files/${req.file.filename}`;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { avatar: avatarUrl },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ message: 'Profile picture updated successfully', avatar: avatarUrl });
+  } catch (err) {
+    console.error('Avatar update error:', err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   DELETE api/profiles/photos/:photoId
+// @desc    Delete a photo from profile
+// @access  Private
+router.delete('/photos/:photoId', auth, async (req, res) => {
+  try {
+    let profile = await Profile.findOne({ user: req.user.id });
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    const photoIndex = profile.photos.findIndex(photo => photo._id.toString() === req.params.photoId);
+    if (photoIndex === -1) {
+      return res.status(404).json({ message: 'Photo not found' });
+    }
+
+    profile.photos.splice(photoIndex, 1);
+    await profile.save();
+
+    res.json({ message: 'Photo deleted successfully' });
+  } catch (err) {
+    console.error('Photo delete error:', err.message);
     res.status(500).send('Server Error');
   }
 });

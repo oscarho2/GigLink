@@ -28,6 +28,21 @@ const ProfileSchema = new mongoose.Schema({
       }
     }
   ],
+  photos: [
+    {
+      url: {
+        type: String,
+        required: true
+      },
+      caption: {
+        type: String
+      },
+      date: {
+        type: Date,
+        default: Date.now
+      }
+    }
+  ],
   education: [
     {
       school: {

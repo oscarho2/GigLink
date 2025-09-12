@@ -443,19 +443,21 @@ const Profile = () => {
         </Grid>
       </Paper>
       
-      <Typography 
-        variant="h5" 
-        gutterBottom
-        sx={{
-          fontSize: { xs: '1.5rem', sm: '2.125rem' },
-          fontWeight: 600,
-          mb: { xs: 2, sm: 3 }
-        }}
-      >
-        Videos
-      </Typography>
-      <Grid container spacing={{ xs: 2, sm: 3 }}>
-        {profile.videos.map((video, index) => (
+      {profile.videos && profile.videos.length > 0 && (
+        <>
+          <Typography 
+            variant="h5" 
+            gutterBottom
+            sx={{
+              fontSize: { xs: '1.5rem', sm: '2.125rem' },
+              fontWeight: 600,
+              mb: { xs: 2, sm: 3 }
+            }}
+          >
+            Videos
+          </Typography>
+          <Grid container spacing={{ xs: 2, sm: 3 }}>
+            {profile.videos.map((video, index) => (
           <Grid item xs={12} sm={6} key={index}>
             <Paper 
               elevation={2} 
@@ -513,8 +515,60 @@ const Profile = () => {
               </Button>
             </Paper>
           </Grid>
-        ))}
-      </Grid>
+        ))}          </Grid>        </>      )}      
+      {profile.photos && profile.photos.length > 0 && (
+        <>
+          <Typography 
+            variant="h5" 
+            gutterBottom
+            sx={{
+              fontSize: { xs: '1.5rem', sm: '2.125rem' },
+              fontWeight: 600,
+              mb: { xs: 2, sm: 3 },
+              mt: { xs: 3, sm: 4 }
+            }}
+          >
+            Photos
+          </Typography>
+          <Grid container spacing={{ xs: 2, sm: 3 }}>
+            {profile.photos.map((photo, index) => (
+              <Grid item xs={12} sm={6} md={4} key={photo._id || index}>
+                <Paper 
+                  elevation={2} 
+                  sx={{ 
+                    overflow: 'hidden',
+                    borderRadius: 2
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={`http://localhost:5001${photo.url}`}
+                    alt={photo.caption || 'Profile photo'}
+                    sx={{
+                      width: '100%',
+                      height: { xs: 200, sm: 250 },
+                      objectFit: 'cover'
+                    }}
+                  />
+                  {photo.caption && (
+                    <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary"
+                        sx={{
+                          fontSize: { xs: '0.875rem', sm: '0.875rem' }
+                        }}
+                      >
+                        {photo.caption}
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        </>
+      )}
       
       <Snackbar
         open={snackbar.open}
