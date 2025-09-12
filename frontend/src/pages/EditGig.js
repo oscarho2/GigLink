@@ -14,6 +14,7 @@ import {
   Box
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
+import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 
 const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
 const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
@@ -164,7 +165,14 @@ function EditGig() {
               <TextField fullWidth label="Venue" name="venue" value={formData.venue} onChange={handleChange} variant="outlined" required />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Location" name="location" value={formData.location} onChange={handleChange} variant="outlined" required />
+              <GeoNamesAutocomplete
+                value={formData.location}
+                onChange={(location) => {
+                  setFormData({ ...formData, location });
+                }}
+                placeholder="Enter gig location"
+                style={{ width: '100%' }}
+              />
             </Grid>
             
             <Grid item xs={12} sm={6}>

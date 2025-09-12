@@ -30,6 +30,7 @@ import StarIcon from '@mui/icons-material/Star';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
+import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 
 // Memoized MusicianCard component for better performance
 const MusicianCard = memo(({ musician, user }) => {
@@ -526,21 +527,29 @@ const Discover = () => {
            
            <Grid container spacing={{ xs: 2, sm: 3 }}>
             <Grid item xs={12} sm={6} md={3}>
-               <FormControl fullWidth>
-                 <InputLabel>Location</InputLabel>
-                 <Select
-                   value={filters.location}
-                   label="Location"
-                   onChange={(e) => handleFilterChange('location', e.target.value)}
-                 >
-                  <MenuItem value="">All Locations</MenuItem>
-                  {locations.map((location) => (
-                    <MenuItem key={location} value={location}>
-                      {location}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Box sx={{ position: 'relative' }}>
+                <GeoNamesAutocomplete
+                  value={filters.location}
+                  onChange={(location) => handleFilterChange('location', location)}
+                  placeholder="All Locations"
+                  style={{ width: '100%' }}
+                />
+                {filters.location && (
+                  <IconButton
+                    size="small"
+                    onClick={() => handleFilterChange('location', '')}
+                    sx={{
+                      position: 'absolute',
+                      right: 8,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      zIndex: 1001
+                    }}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>

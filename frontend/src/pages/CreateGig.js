@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Typography, Paper, TextField, Button, Grid, Alert, Autocomplete, InputAdornment, Box } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 
 
 const CreateGig = () => {
@@ -101,7 +102,14 @@ const CreateGig = () => {
               <TextField fullWidth label="Venue" name="venue" value={formData.venue} onChange={handleChange} variant="outlined" required />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Location" name="location" value={formData.location} onChange={handleChange} variant="outlined" required />
+              <GeoNamesAutocomplete
+                value={formData.location}
+                onChange={(location) => {
+                  setFormData({ ...formData, location });
+                }}
+                placeholder="Enter gig location"
+                style={{ width: '100%' }}
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Date" name="date" type="date" InputLabelProps={{ shrink: true }} value={formData.date} onChange={handleChange} variant="outlined" required />

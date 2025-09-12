@@ -33,6 +33,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import PersonIcon from '@mui/icons-material/Person';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
+import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 
 const Gigs = () => {
   const { isAuthenticated, user } = useAuth();
@@ -378,21 +379,30 @@ dateTo: '',
           <Grid container spacing={{ xs: 2, sm: 3 }}>
               {/* Location Filter */}
               <Grid item xs={12} sm={6} md={4}>
-              <FormControl fullWidth>
-                <InputLabel id="location-label">Location</InputLabel>
-                <Select
-                  labelId="location-label"
-                  value={filters.location}
-                  label="Location"
-                  onChange={(e) => handleFilterChange('location', e.target.value)}
-                >
-                  <MenuItem value="">Any Location</MenuItem>
-                  {locations.map((loc) => (
-                    <MenuItem key={loc} value={loc}>{loc}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+                <Box sx={{ position: 'relative' }}>
+                  <GeoNamesAutocomplete
+                    value={filters.location}
+                    onChange={(location) => handleFilterChange('location', location)}
+                    placeholder="Any Location"
+                    style={{ width: '100%' }}
+                  />
+                  {filters.location && (
+                    <IconButton
+                      size="small"
+                      onClick={() => handleFilterChange('location', '')}
+                      sx={{
+                        position: 'absolute',
+                        right: 8,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        zIndex: 1001
+                      }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
+              </Grid>
             
             {/* Date Filter */}
             <Grid item xs={12} sm={6} md={3}>
