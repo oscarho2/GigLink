@@ -32,13 +32,18 @@ const EditProfile = () => {
     isMusician: '',
     instruments: [],
     genres: [],
-
-    videos: []
+    videos: [],
+    photos: []
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [newVideo, setNewVideo] = useState({ title: '', url: '', description: '' });
   const [showAddVideo, setShowAddVideo] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [photoCaption, setPhotoCaption] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Normalize incoming values to match options (case-insensitive match to use canonical option labels)
   const normalizeValuesToOptions = (values, options) => {
@@ -80,13 +85,13 @@ const EditProfile = () => {
         // Set form data with fetched profile data (no forced casing)
         setFormData({
           name: profileData.user?.name || user?.name || '',
-          location: profileData.user?.location || user?.location || '',
-          bio: profileData.bio || '',
+          location: (profileData.user?.location && profileData.user.location.trim()) || '',
+          bio: (profileData.bio && profileData.bio.trim() && profileData.bio !== 'No bio available') ? profileData.bio : '',
           isMusician: profileData.user?.isMusician || user?.isMusician || (normalizedInstruments.length > 0 || normalizedGenres.length > 0 ? 'yes' : 'no'),
           instruments: normalizedInstruments,
           genres: normalizedGenres,
-
-          videos: profileData.videos || []
+          videos: profileData.videos || [],
+          photos: profileData.photos || []
         });
       } catch (err) {
         console.error('Error fetching profile:', err);
@@ -95,12 +100,13 @@ const EditProfile = () => {
         const fallbackGenres = normalizeValuesToOptions(user?.genres || [], genreOptions);
         setFormData({
           name: user?.name || '',
-          location: user?.location || '',
+          location: (user?.location && user.location.trim()) || '',
           bio: '',
           isMusician: user?.isMusician || (fallbackInstruments.length > 0 || fallbackGenres.length > 0 ? 'yes' : 'no'),
           instruments: fallbackInstruments,
           genres: fallbackGenres,
-          videos: []
+          videos: [],
+          photos: []
         });
       } finally {
         setLoading(false);
@@ -161,6 +167,115 @@ const EditProfile = () => {
   const handleRemoveVideo = (index) => {
     const updatedVideos = formData.videos.filter((_, i) => i !== index);
     setFormData({ ...formData, videos: updatedVideos });
+  };
+
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('Photo file size must be less than 5MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      setSelectedPhoto(file);
+      setError('');
+    }
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!selectedPhoto) return;
+    
+    setUploadingPhoto(true);
+    setError('');
+    
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('photo', selectedPhoto);
+      formDataUpload.append('caption', photoCaption);
+      
+      const response = await axios.post('/api/profiles/photos', formDataUpload, {
+        headers: {
+          'x-auth-token': token,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      // Add the new photo to the formData
+      setFormData({
+        ...formData,
+        photos: [...formData.photos, response.data.photo]
+      });
+      
+      setSelectedPhoto(null);
+      setPhotoCaption('');
+      setSuccess('Photo uploaded successfully!');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error uploading photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = async (photoId, index) => {
+    try {
+      await axios.delete(`/api/profiles/photos/${photoId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      const updatedPhotos = formData.photos.filter((_, i) => i !== index);
+      setFormData({ ...formData, photos: updatedPhotos });
+      setSuccess('Photo removed successfully!');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error removing photo');
+    }
+  };
+
+  const handleAvatarSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('Avatar file size must be less than 5MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      setSelectedAvatar(file);
+      setError('');
+    }
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!selectedAvatar) return;
+    
+    setUploadingAvatar(true);
+    setError('');
+    
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('avatar', selectedAvatar);
+      
+      const response = await axios.put('/api/profiles/avatar', formDataUpload, {
+        headers: {
+          'x-auth-token': token,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      setSelectedAvatar(null);
+      setSuccess('Profile picture updated successfully!');
+      
+      // Refresh the page to show the new avatar
+      window.location.reload();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error updating profile picture');
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -453,6 +568,139 @@ const EditProfile = () => {
               ) : (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
                   You haven't added any videos yet.
+                </Typography>
+              )}
+            </Grid>
+            
+            {/* Profile Picture Section */}
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>Profile Picture</Typography>
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item xs={12} sm={6}>
+                    <input
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      id="avatar-upload"
+                      type="file"
+                      onChange={handleAvatarSelect}
+                    />
+                    <label htmlFor="avatar-upload">
+                      <Button variant="outlined" component="span" fullWidth>
+                        Choose Profile Picture
+                      </Button>
+                    </label>
+                    {selectedAvatar && (
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        Selected: {selectedAvatar.name}
+                      </Typography>
+                    )}
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Button
+                      variant="contained"
+                      onClick={handleAvatarUpload}
+                      disabled={!selectedAvatar || uploadingAvatar}
+                      fullWidth
+                    >
+                      {uploadingAvatar ? 'Uploading...' : 'Update Profile Picture'}
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Card>
+            </Grid>
+            
+            {/* Photos Section */}
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>Photos</Typography>
+              
+              {/* Photo Upload */}
+              <Card variant="outlined" sx={{ p: 2, mb: 2 }}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Add New Photo
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <input
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      id="photo-upload"
+                      type="file"
+                      onChange={handlePhotoSelect}
+                    />
+                    <label htmlFor="photo-upload">
+                      <Button variant="outlined" component="span" fullWidth>
+                        Choose Photo
+                      </Button>
+                    </label>
+                    {selectedPhoto && (
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        Selected: {selectedPhoto.name}
+                      </Typography>
+                    )}
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Caption (Optional)"
+                      value={photoCaption}
+                      onChange={(e) => setPhotoCaption(e.target.value)}
+                      variant="outlined"
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Button
+                      variant="contained"
+                      onClick={handlePhotoUpload}
+                      disabled={!selectedPhoto || uploadingPhoto}
+                      startIcon={<AddIcon />}
+                    >
+                      {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Card>
+              
+              {/* Display Photos */}
+              {formData.photos && formData.photos.length > 0 ? (
+                <Grid container spacing={2}>
+                  {formData.photos.map((photo, index) => (
+                    <Grid item xs={12} sm={6} md={4} key={photo._id || index}>
+                      <Card>
+                        <Box
+                          component="img"
+                          src={`http://localhost:5001${photo.url}`}
+                          alt={photo.caption || 'Profile photo'}
+                          sx={{
+                            width: '100%',
+                            height: 200,
+                            objectFit: 'cover'
+                          }}
+                        />
+                        <CardContent>
+                          {photo.caption && (
+                            <Typography variant="body2" color="text.secondary">
+                              {photo.caption}
+                            </Typography>
+                          )}
+                        </CardContent>
+                        <CardActions>
+                          <IconButton
+                            aria-label="delete"
+                            color="error"
+                            onClick={() => handleRemovePhoto(photo._id, index)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                  You haven't added any photos yet.
                 </Typography>
               )}
             </Grid>
