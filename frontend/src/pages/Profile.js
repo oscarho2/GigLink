@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button, Alert, Snackbar } from '@mui/material';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Link as RouterLink, useParams, useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
+import ChatIcon from '@mui/icons-material/Chat';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
@@ -13,6 +14,7 @@ import axios from 'axios';
 const Profile = () => {
   const { user, token } = useAuth();
   const { id } = useParams(); // Get user ID from URL params
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
@@ -49,7 +51,7 @@ const Profile = () => {
         // Transform backend data to match UI expectations
         const transformedProfile = {
           name: profileData.user?.name || user?.name || 'User',
-          avatar: profileData.user?.avatar || user?.avatar || '',
+          avatar: profileData.user?.avatar || '',
           bio: profileData.bio || '',
           location: profileData.user?.location || '',
           instruments: profileData.user?.instruments || profileData.skills?.filter(skill => ['Piano', 'Guitar', 'Vocals', 'Drums', 'Bass', 'Violin', 'Saxophone'].includes(skill)) || ['Piano', 'Guitar'],
@@ -171,42 +173,75 @@ const Profile = () => {
     }
   };
 
+  const handleStartConversation = () => {
+    navigate('/messages', { state: { startConversationWith: id } });
+  };
+
   const renderLinkButton = () => {
     if (!user || !id) return null;
 
     switch (linkStatus) {
       case 'links':
         return (
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<PersonRemoveIcon />}
-            onClick={handleRemoveLink}
-            size="small"
-            sx={{
-              minHeight: { xs: 40, sm: 32 },
-              fontSize: { xs: '0.875rem', sm: '0.8125rem' },
-              px: { xs: 2, sm: 1.5 }
-            }}
-          >
-             Remove Link
-           </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+            <Button
+              variant="outlined"
+              startIcon={<PersonRemoveIcon />}
+              onClick={handleRemoveLink}
+              size="small"
+              sx={{
+                minHeight: { xs: 40, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                px: { xs: 2, sm: 1.5 }
+              }}
+            >
+               Linked
+             </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ChatIcon />}
+              onClick={handleStartConversation}
+              size="small"
+              sx={{
+                minHeight: { xs: 40, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                px: { xs: 2, sm: 1.5 }
+              }}
+            >
+              Message
+            </Button>
+          </Box>
         );
       case 'pending':
         return (
-          <Button
-            variant="outlined"
-            disabled
-            startIcon={<HourglassEmptyIcon />}
-            size="small"
-            sx={{
-              minHeight: { xs: 40, sm: 32 },
-              fontSize: { xs: '0.875rem', sm: '0.8125rem' },
-              px: { xs: 2, sm: 1.5 }
-            }}
-          >
-            Request Sent
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+            <Button
+              variant="outlined"
+              disabled
+              startIcon={<HourglassEmptyIcon />}
+              size="small"
+              sx={{
+                minHeight: { xs: 40, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                px: { xs: 2, sm: 1.5 }
+              }}
+            >
+              Request Sent
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ChatIcon />}
+              onClick={handleStartConversation}
+              size="small"
+              sx={{
+                minHeight: { xs: 40, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                px: { xs: 2, sm: 1.5 }
+              }}
+            >
+              Message
+            </Button>
+          </Box>
         );
       case 'received':
         return (
@@ -243,19 +278,34 @@ const Profile = () => {
       case 'none':
       default:
         return (
-          <Button
-            variant="contained"
-            startIcon={<PersonAddIcon />}
-            onClick={handleSendLinkRequest}
-            size="small"
-            sx={{
-              minHeight: { xs: 40, sm: 32 },
-              fontSize: { xs: '0.875rem', sm: '0.8125rem' },
-              px: { xs: 2, sm: 1.5 }
-            }}
-          >
-             Add Link
-           </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+            <Button
+              variant="contained"
+              startIcon={<PersonAddIcon />}
+              onClick={handleSendLinkRequest}
+              size="small"
+              sx={{
+                minHeight: { xs: 40, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                px: { xs: 2, sm: 1.5 }
+              }}
+            >
+               Add Link
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ChatIcon />}
+              onClick={handleStartConversation}
+              size="small"
+              sx={{
+                minHeight: { xs: 40, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                px: { xs: 2, sm: 1.5 }
+              }}
+            >
+              Message
+            </Button>
+          </Box>
         );
     }
   };

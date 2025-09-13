@@ -139,6 +139,11 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/'; // Redirect to home page
   };
 
+  // Update avatar in context so UI updates immediately
+  const updateAvatar = (avatarUrl) => {
+    setUser(prev => prev ? { ...prev, avatar: avatarUrl } : prev);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -148,7 +153,8 @@ export const AuthProvider = ({ children }) => {
         user,
         register,
         login,
-        logout
+        logout,
+        updateAvatar
       }}
     >
       {children}

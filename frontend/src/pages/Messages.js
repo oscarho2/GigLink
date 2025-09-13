@@ -57,7 +57,7 @@ import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationContext";
 import { useSocket } from "../context/SocketContext";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { formatPayment } from "../utils/currency";
 import moment from "moment";
 import MediaDocumentsLinks from "../components/MediaDocumentsLinks";
@@ -79,6 +79,9 @@ const Messages = () => {
   } = useSocket();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const location = useLocation();
+  const navigate = useNavigate();
+  const navigationHandledRef = useRef(false);
 
   console.log("=== MESSAGES COMPONENT RENDER ===");
   console.log(
@@ -99,9 +102,59 @@ const Messages = () => {
   const [loading, setLoading] = useState(true);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [showLoadingConversations, setShowLoadingConversations] = useState(false);
+  const [showLoadingMessages, setShowLoadingMessages] = useState(false);
+
+  // Min delay before showing and min visible duration to avoid visual flicker
+  const spinnerMinDelay = 120; // ms before showing
+  const spinnerMinShow = 280; // ms to keep visible once shown
+  const convSpinnerTimerRef = useRef(null);
+  const convSpinnerShownAtRef = useRef(0);
+  const msgSpinnerTimerRef = useRef(null);
+  const msgSpinnerShownAtRef = useRef(0);
+
+  useEffect(() => {
+    if (convSpinnerTimerRef.current) clearTimeout(convSpinnerTimerRef.current);
+    if (loadingConversations) {
+      convSpinnerTimerRef.current = setTimeout(() => {
+        setShowLoadingConversations(true);
+        convSpinnerShownAtRef.current = Date.now();
+      }, spinnerMinDelay);
+    } else {
+      const elapsed = Date.now() - (convSpinnerShownAtRef.current || 0);
+      const remaining = Math.max(0, spinnerMinShow - elapsed);
+      convSpinnerTimerRef.current = setTimeout(() => {
+        setShowLoadingConversations(false);
+      }, remaining);
+    }
+    return () => {
+      if (convSpinnerTimerRef.current) clearTimeout(convSpinnerTimerRef.current);
+    };
+  }, [loadingConversations]);
+
+  useEffect(() => {
+    if (msgSpinnerTimerRef.current) clearTimeout(msgSpinnerTimerRef.current);
+    if (loadingMessages) {
+      msgSpinnerTimerRef.current = setTimeout(() => {
+        setShowLoadingMessages(true);
+        msgSpinnerShownAtRef.current = Date.now();
+      }, spinnerMinDelay);
+    } else {
+      const elapsed = Date.now() - (msgSpinnerShownAtRef.current || 0);
+      const remaining = Math.max(0, spinnerMinShow - elapsed);
+      msgSpinnerTimerRef.current = setTimeout(() => {
+        setShowLoadingMessages(false);
+      }, remaining);
+    }
+    return () => {
+      if (msgSpinnerTimerRef.current) clearTimeout(msgSpinnerTimerRef.current);
+    };
+  }, [loadingMessages]);
+  
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const messageSearchInputRef = useRef(null);
 
   // Test if component is loading
   useEffect(() => {
@@ -127,11 +180,59 @@ const Messages = () => {
   const [uploading, setUploading] = useState(false);
   const [messageSearchTerm, setMessageSearchTerm] = useState("");
   const [showMessageSearch, setShowMessageSearch] = useState(false);
+  // Backup original pagination/messages for restoring after closing search
+  const [preSearchMessages, setPreSearchMessages] = useState(null);
+  const [preSearchCurrentPage, setPreSearchCurrentPage] = useState(null);
+  const [preSearchHasMore, setPreSearchHasMore] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchLoadedAll, setSearchLoadedAll] = useState(false);
+  // Ensure the input focuses when the search UI becomes visible
+  useEffect(() => {
+    if (showMessageSearch) {
+      // Allow DOM to paint, then focus and select
+      requestAnimationFrame(() => {
+        if (messageSearchInputRef.current) {
+          const el = messageSearchInputRef.current;
+          if (typeof el.focus === "function") el.focus();
+          if (typeof el.select === "function") el.select();
+        }
+      });
+      // Fallback focus in case rAF runs before input mounts
+      const tid = setTimeout(() => {
+        if (messageSearchInputRef.current) {
+          const el = messageSearchInputRef.current;
+          if (document.activeElement !== el && typeof el.focus === 'function') el.focus();
+          if (typeof el.select === 'function') el.select();
+        }
+      }, 150);
+      return () => clearTimeout(tid);
+    }
+  }, [showMessageSearch]);
   const [searchMatches, setSearchMatches] = useState([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [lastReadTimestamp, setLastReadTimestamp] = useState(null);
+  // When switching conversations, reset search state and optionally preload
+  useEffect(() => {
+    if (!selectedConversation) return;
+    setSearchMatches([]);
+    setCurrentMatchIndex(0);
+    setSearchLoadedAll(false);
+    if (showMessageSearch) {
+      (async () => {
+        try {
+          await loadEntireConversationForSearch();
+          if (messageSearchTerm.trim()) {
+            findInMessages(messageSearchTerm.trim());
+          }
+        } catch (e) {
+          console.warn('Search preload failed on conversation change:', e);
+        }
+      })();
+    }
+  }, [selectedConversation]);
   const [showMobileConversation, setShowMobileConversation] = useState(false);
   const [replyToMessage, setReplyToMessage] = useState(null);
+  const [navigationProcessed, setNavigationProcessed] = useState(false);
   const [hoveredMessage, setHoveredMessage] = useState(null);
   const [longPressTimer, setLongPressTimer] = useState(null);
   const [showReactionPicker, setShowReactionPicker] = useState(null);
@@ -251,7 +352,34 @@ const Messages = () => {
       console.log("API response received:", response.data);
       console.log("Response status:", response.status);
       console.log("Number of conversations:", response.data?.length || 0);
-      setConversations(Array.isArray(response.data) ? response.data : []);
+      const convs = Array.isArray(response.data) ? response.data : [];
+      // Merge any locally-created placeholder conversations so UI doesn't flash or lose selection
+      setConversations((prev) => {
+        const prevList = Array.isArray(prev) ? prev : [];
+        const placeholders = prevList.filter((c) => c && c.isPlaceholder && (c.otherUser?._id || c.otherUser?.id));
+        const merged = [...convs];
+        placeholders.forEach((ph) => {
+          const phOtherId = ph.otherUser?._id || ph.otherUser?.id;
+          const exists = merged.some((conv) => (conv.otherUser?._id || conv.otherUser?.id) === phOtherId);
+          if (!exists) {
+            merged.unshift(ph);
+          }
+        });
+        return merged;
+      });
+      // If selected is a placeholder and server returned a real conversation for same user, switch selection
+      try {
+        if (selectedConversation?.isPlaceholder && (selectedConversation.otherUser?._id || selectedConversation.otherUser?.id)) {
+          const targetId = selectedConversation.otherUser._id || selectedConversation.otherUser.id;
+          const replacement = convs.find((conv) => (conv.otherUser?._id || conv.otherUser?.id) === targetId);
+          if (replacement) {
+            setSelectedConversation(replacement);
+          }
+        }
+      } catch (e) {
+        console.warn('Error syncing selectedConversation with fetched data:', e);
+      }
+      return convs;
     } catch (err) {
       console.error("Error fetching conversations:", err);
       console.error("Error details:", err.response?.data || err.message);
@@ -268,26 +396,51 @@ const Messages = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("hasLoggedOut");
         window.location.href = "/login";
-        return;
+        return [];
       }
 
       setError("Failed to load conversations");
+      return [];
     } finally {
       setLoadingConversations(false);
     }
   }, [token]);
 
   // Start conversation with selected user
-  const startConversation = async (userId) => {
-    // Check if conversation already exists
+  const startConversation = useCallback(async (userId) => {
+    console.log('=== START CONVERSATION CALLED ===');
+    console.log('userId:', userId);
+    console.log('conversations:', conversations);
+    console.log('current user:', user);
+    console.log('user.id:', user?.id);
+    console.log('user._id:', user?._id);
+    
+    // Validate userId
+    if (!userId) {
+      console.error('No userId provided to startConversation');
+      return;
+    }
+    
+    // Check if conversation already exists (more robust check)
     const existingConversation = conversations.find(
-      (conv) => conv.otherUser?._id === userId
+      (conv) => {
+        const otherUserId = conv.otherUser?._id || conv.otherUser?.id;
+        return otherUserId === userId;
+      }
     );
+    console.log('existingConversation:', existingConversation);
+    
     if (existingConversation) {
-      // If conversation exists, just select it
-      setSelectedConversation({ _id: userId });
+      console.log('Found existing conversation, selecting it');
+      // If conversation exists, select the full conversation object
+      setSelectedConversation(existingConversation);
       fetchMessages(userId, 1, false);
+      // Show mobile conversation view if on mobile
+      if (isMobile) {
+        setShowMobileConversation(true);
+      }
     } else {
+      console.log('No existing conversation found, creating new one');
       try {
         // Fetch user details for new conversation
         const userResponse = await axios.get(`/api/users/${userId}`, {
@@ -296,27 +449,61 @@ const Messages = () => {
         const otherUser = userResponse.data;
 
         // Create new conversation object with consistent ID generation
-        const sortedIds = [user.id, userId].sort();
+        // Handle both user.id and user._id cases
+        const currentUserId = user?.id || user?._id;
+        console.log('currentUserId for conversation:', currentUserId);
+        
+        if (!currentUserId) {
+          console.error('No current user ID found');
+          setError('Unable to start conversation: user not properly authenticated');
+          return;
+        }
+        
+        const sortedIds = [currentUserId, userId].sort();
         const conversationId = sortedIds.join("_");
+        console.log('Generated conversationId:', conversationId);
+        
         const newConversation = {
           conversationId,
           otherUser,
           lastMessage: null,
           unreadCount: 0,
+          isPlaceholder: true,
         };
 
-        // Add to conversations list
-        setConversations((prev) => [newConversation, ...(prev || [])]);
-
-        // Select the new conversation
-        setSelectedConversation({ _id: userId });
-        setMessages([]); // Start with empty messages
+        // Check one more time if conversation was added while we were fetching user data
+        const doubleCheckConversation = conversations.find(
+          (conv) => {
+            const otherUserId = conv.otherUser?._id || conv.otherUser?.id;
+            return otherUserId === userId;
+          }
+        );
+        
+        if (doubleCheckConversation) {
+          console.log('Conversation was created while fetching user data, using existing one');
+          setSelectedConversation(doubleCheckConversation);
+          fetchMessages(userId, 1, false);
+        } else {
+          // Add to conversations list
+          setConversations((prev) => [newConversation, ...(prev || [])]);
+          // Select the new conversation
+          setSelectedConversation(newConversation);
+          setMessages([]); // Start with empty messages
+        }
+        
+        // Show mobile conversation view if on mobile
+        if (isMobile) {
+          setShowMobileConversation(true);
+        }
+        
+        console.log('New conversation created successfully');
       } catch (err) {
         console.error("Error starting new conversation:", err);
+        console.error("Error details:", err.response?.data || err.message);
         setError("Failed to start new conversation");
       }
     }
-  };
+  }, [conversations, user, token, isMobile]);
 
   // Fetch connected users for new conversation
   const fetchConnectedLinks = async () => {
@@ -359,24 +546,35 @@ const Messages = () => {
       `/api/messages/conversation/${otherUserId}?page=${page}&limit=20`
     );
 
+    // Prevent multiple simultaneous requests for the same conversation
+    if (loadingMessages && page === 1) {
+      console.log("Already loading messages, skipping duplicate request");
+      return;
+    }
+
     // Set loading state
     setLoadingMessages(true);
 
     if (page === 1) {
-      // Clear messages immediately and set selected conversation to prevent race conditions
-      setMessages([]);
-      setCurrentPage(1);
-      setHasMoreMessages(true);
-      
       // Find and set the conversation immediately to prevent cross-chat message loading
       const fullConversation = conversations.find(
         (conv) => conv.otherUser?._id === otherUserId
       );
+      
       if (fullConversation) {
-        setSelectedConversation(fullConversation);
+        // Only update if it's a different conversation to prevent flashing
+        if (!selectedConversation || selectedConversation.otherUser?._id !== otherUserId) {
+          setSelectedConversation(fullConversation);
+          // Keep existing messages until new ones arrive to avoid flashing
+        }
       } else {
-        setSelectedConversation({ _id: otherUserId });
+        // For new conversations, set a minimal conversation object
+        setSelectedConversation({ _id: otherUserId, otherUser: { _id: otherUserId } });
+        setMessages([]);
       }
+      
+      setCurrentPage(1);
+      setHasMoreMessages(true);
     }
 
     try {
@@ -411,7 +609,7 @@ const Messages = () => {
       console.log("Full conversation found:", fullConversation);
       if (fullConversation) {
         // Update selected conversation with full details if not already set
-        if (!selectedConversation || selectedConversation._id !== fullConversation.otherUser?._id) {
+        if (!selectedConversation || selectedConversation.otherUser?._id !== fullConversation.otherUser?._id) {
           setSelectedConversation(fullConversation);
         }
 
@@ -591,12 +789,11 @@ const Messages = () => {
     console.log("Messages useEffect triggered, token:", token);
     console.log("Current user:", user);
     console.log("Is authenticated:", token ? "Yes" : "No");
-    console.log("fetchConversations function:", typeof fetchConversations);
-    if (token) {
-      console.log("Token exists, calling fetchConversations");
+    if (token && user) {
+      console.log("Token and user exist, calling fetchConversations");
       fetchConversations();
       setLoading(false);
-    } else {
+    } else if (!token) {
       console.log("No token available, cannot fetch conversations");
       // Clear any invalid token and redirect to login
       localStorage.removeItem("token");
@@ -604,7 +801,96 @@ const Messages = () => {
       window.location.href = "/login";
     }
     console.log("=== Messages useEffect END ===");
-  }, [token, fetchConversations, user]);
+  }, [token, user]);
+
+  // Handle navigation state for starting new conversations
+  useEffect(() => {
+    console.log('=== NAVIGATION STATE EFFECT ===');
+    console.log('location.state:', location.state);
+    console.log('startConversationWith:', location.state?.startConversationWith);
+    console.log('conversations.length:', conversations.length);
+    console.log('loadingConversations:', loadingConversations);
+    console.log('navigationProcessed:', navigationProcessed);
+    
+    if (location.state?.startConversationWith && !navigationProcessed && !loadingConversations && !navigationHandledRef.current) {
+      const userId = location.state.startConversationWith;
+      console.log('Found startConversationWith userId:', userId);
+      
+      // Mark as processed immediately to prevent multiple triggers
+      setNavigationProcessed(true);
+      navigationHandledRef.current = true;
+      
+      // Clear the state immediately to prevent re-triggering (prefer navigate replace)
+      try {
+        navigate(location.pathname, { replace: true, state: null });
+      } catch (e) {
+        console.warn('navigate replace failed, falling back to history.replaceState');
+        window.history.replaceState({}, document.title);
+      }
+      
+      // Check if conversations are loaded
+      if (conversations.length > 0) {
+        console.log('Conversations loaded, starting conversation');
+        startConversation(userId);
+      } else {
+        console.log('Conversations not loaded, fetching first');
+        // If conversations aren't loaded yet, fetch them first
+        fetchConversations().then((fetchedConversations) => {
+          try {
+            const convs = Array.isArray(fetchedConversations) ? fetchedConversations : [];
+            const existingConversation = convs.find((conv) => {
+              const otherUserId = conv.otherUser?._id || conv.otherUser?.id;
+              return otherUserId === userId;
+            });
+            if (existingConversation) {
+              console.log('Found existing conversation after fetching, selecting it');
+              setSelectedConversation(existingConversation);
+              fetchMessages(userId, 1, false);
+              if (isMobile) {
+                setShowMobileConversation(true);
+              }
+            } else {
+              console.log('No existing conversation after fetching, starting new one');
+              startConversation(userId);
+            }
+          } catch (e) {
+            console.error('Error handling fetched conversations, falling back to startConversation:', e);
+            startConversation(userId);
+          }
+        }).catch(error => {
+          console.error('Error fetching conversations for navigation:', error);
+          setNavigationProcessed(false); // Reset on error
+        });
+      }
+    }
+  }, [location.state, conversations, loadingConversations, navigationProcessed]);
+
+  // Handle delayed conversation loading for navigation
+  useEffect(() => {
+    if (navigationHandledRef.current) return;
+    if (location.state?.startConversationWith && navigationProcessed && conversations.length > 0) {
+      const userId = location.state.startConversationWith;
+      console.log('Delayed conversation loading for navigation with userId:', userId);
+      
+      // Check if we need to start the conversation now that conversations are loaded
+      const existingConversation = conversations.find(
+        (conv) => {
+          const otherUserId = conv.otherUser?._id || conv.otherUser?.id;
+          return otherUserId === userId;
+        }
+      );
+      
+      if (existingConversation && !selectedConversation) {
+        console.log('Found existing conversation after loading, selecting it');
+        setSelectedConversation(existingConversation);
+        fetchMessages(userId, 1, false);
+        if (isMobile) {
+          setShowMobileConversation(true);
+        }
+        navigationHandledRef.current = true;
+      }
+    }
+  }, [conversations, location.state, navigationProcessed, selectedConversation, isMobile]);
 
   // Socket event listeners
   useEffect(() => {
@@ -865,7 +1151,7 @@ const Messages = () => {
       // Small delay to ensure dialog is fully closed
       setTimeout(() => {
         scrollToBottom();
-      }, 100);
+      }, 200);
     }
   }, [showMediaDialog, selectedConversation]);
 
@@ -1102,19 +1388,77 @@ const Messages = () => {
     }, 300);
   };
 
+  // Load entire conversation into memory for searching across all messages
+  const loadEntireConversationForSearch = async () => {
+    if (!selectedConversation) return;
+    if (searchLoadedAll) return;
+    try {
+      setSearchLoading(true);
+      const otherUserId = selectedConversation.otherUser?._id || selectedConversation._id;
+
+      const container = messagesContainerRef.current;
+      const prevScrollTop = container ? container.scrollTop : 0;
+      const prevScrollHeight = container ? container.scrollHeight : 0;
+
+      let safetyCounter = 0;
+      while (hasMoreMessages && safetyCounter < 200) {
+        await fetchMessages(otherUserId, currentPage + 1, true);
+        safetyCounter++;
+      }
+
+      if (container) {
+        requestAnimationFrame(() => {
+          const newHeight = container.scrollHeight;
+          const diff = newHeight - prevScrollHeight;
+          container.scrollTop = prevScrollTop + diff;
+        });
+      }
+      setSearchLoadedAll(true);
+    } catch (e) {
+      console.error('Error loading entire conversation for search:', e);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
   // Toggle message search
-  const toggleMessageSearch = () => {
-    setShowMessageSearch(!showMessageSearch);
-    if (showMessageSearch) {
+  const toggleMessageSearch = async () => {
+    const willOpen = !showMessageSearch;
+    setShowMessageSearch(willOpen);
+
+    if (willOpen) {
+      // Backup current list and pagination once
+      if (preSearchMessages === null) {
+        setPreSearchMessages(messages);
+        setPreSearchCurrentPage(currentPage);
+        setPreSearchHasMore(hasMoreMessages);
+      }
+      // Load all pages before searching so we search entire conversation
+      await loadEntireConversationForSearch();
+      // If a term is already typed, run search after full load
+      if (messageSearchTerm.trim()) {
+        findInMessages(messageSearchTerm.trim());
+      }
+    } else {
+      // Closing search: clear UI and restore previous state
       setMessageSearchTerm("");
       setSearchMatches([]);
       setCurrentMatchIndex(0);
-      // Clear any existing highlights
-      const highlightedElements =
-        document.querySelectorAll(".search-highlight");
+      const highlightedElements = document.querySelectorAll(".search-highlight");
       highlightedElements.forEach((el) => {
         el.outerHTML = el.innerHTML;
       });
+
+      // Restore previous messages & pagination if available
+      if (preSearchMessages !== null) {
+        setMessages(preSearchMessages);
+        if (preSearchCurrentPage !== null) setCurrentPage(preSearchCurrentPage);
+        if (preSearchHasMore !== null) setHasMoreMessages(preSearchHasMore);
+      }
+      setPreSearchMessages(null);
+      setPreSearchCurrentPage(null);
+      setPreSearchHasMore(null);
+      setSearchLoadedAll(false);
     }
   };
 
@@ -1453,7 +1797,7 @@ const Messages = () => {
     conv.otherUser?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) {
+  if (loading && !token) {
     return (
       <Box
         display="flex"
@@ -1540,24 +1884,33 @@ const Messages = () => {
                       conversation.otherUser?._id
                     );
                     if (conversation.otherUser?._id) {
-                      // Set the timestamp for "new messages" line based on unread count
-                      // If there are unread messages, set timestamp to show them as new
-                      if (conversation.unreadCount > 0) {
-                        // Set to a time before the last message to show unread messages as new
-                        const lastMessageTime =
-                          conversation.lastMessage?.createdAt;
-                        if (lastMessageTime) {
-                          setLastReadTimestamp(
-                            moment(lastMessageTime).subtract(1, "hour")
-                          );
+                      // Check if this is already the selected conversation
+                      const isAlreadySelected = selectedConversation?.otherUser?._id === conversation.otherUser._id;
+                      
+                      if (!isAlreadySelected) {
+                        // Set selected conversation immediately to prevent race conditions
+                        setSelectedConversation(conversation);
+                        
+                        // Set the timestamp for "new messages" line based on unread count
+                        // If there are unread messages, set timestamp to show them as new
+                        if (conversation.unreadCount > 0) {
+                          // Set to a time before the last message to show unread messages as new
+                          const lastMessageTime =
+                            conversation.lastMessage?.createdAt;
+                          if (lastMessageTime) {
+                            setLastReadTimestamp(
+                              moment(lastMessageTime).subtract(1, "hour")
+                            );
+                          } else {
+                            setLastReadTimestamp(moment().subtract(1, "day"));
+                          }
                         } else {
-                          setLastReadTimestamp(moment().subtract(1, "day"));
+                          // No unread messages, set to current time
+                          setLastReadTimestamp(moment());
                         }
-                      } else {
-                        // No unread messages, set to current time
-                        setLastReadTimestamp(moment());
+                        fetchMessages(conversation.otherUser._id, 1, false);
                       }
-                      fetchMessages(conversation.otherUser._id, 1, false);
+                      
                       // Show conversation view on mobile
                       if (isMobile) {
                         setShowMobileConversation(true);
@@ -1675,19 +2028,15 @@ const Messages = () => {
           </List>
 
           {filteredConversations.length === 0 && (
-            loadingConversations ? (
-              <LoadingAnimation 
-                type="conversations" 
-                title="Loading conversations..." 
-                compact={true}
-              />
-            ) : (
-              <Box sx={{ p: 3, textAlign: "center" }}>
-                <Typography variant="body2" color="text.secondary">
-                  No conversations found
-                </Typography>
-              </Box>
-            )
+            <Box sx={{ p: 3, textAlign: "center" }}>
+              {showLoadingConversations ? (
+                 <CircularProgress size={24} />
+               ) : (
+                 <Typography variant="body2" color="text.secondary">
+                   No conversations found
+                 </Typography>
+               )}
+            </Box>
           )}
         </Box>
       </Box>
@@ -1718,9 +2067,8 @@ const Messages = () => {
                 {isMobile && (
                   <IconButton
                     onClick={() => {
+                      // Only hide the conversation panel on mobile; keep selection and messages to avoid flicker
                       setShowMobileConversation(false);
-                      setSelectedConversation(null);
-                      setMessages([]);
                     }}
                     sx={{ mr: 1 }}
                   >
@@ -1761,7 +2109,7 @@ const Messages = () => {
               </Box>
               <Box>
                 <IconButton
-                  onClick={() => setShowMessageSearch(!showMessageSearch)}
+                  onClick={toggleMessageSearch}
                 >
                   <SearchIcon />
                 </IconButton>
@@ -1800,10 +2148,16 @@ const Messages = () => {
                       }
                     }}
                     size="small"
+                    autoFocus
+                    inputRef={messageSearchInputRef}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <SearchIcon />
+                          {searchLoading ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            <SearchIcon />
+                          )}
                         </InputAdornment>
                       ),
                     }}
@@ -1892,8 +2246,25 @@ const Messages = () => {
                 display: "flex",
                 flexDirection: "column",
                 gap: 1,
+                position: "relative",
               }}
             >
+              {showLoadingMessages && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    bgcolor: "rgba(255,255,255,0.6)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 2,
+                    pointerEvents: "none",
+                  }}
+                >
+                  <CircularProgress size={28} />
+                </Box>
+              )}
               {/* Loading indicator for pagination */}
               {loadingMoreMessages && (
                 <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
@@ -1926,16 +2297,6 @@ const Messages = () => {
                   messages &&
                   Array.isArray(messages) &&
                   messages
-                    .filter(
-                      (message) =>
-                        !messageSearchTerm ||
-                        message.content
-                          ?.toLowerCase()
-                          .includes(messageSearchTerm.toLowerCase()) ||
-                        message.fileName
-                          ?.toLowerCase()
-                          .includes(messageSearchTerm.toLowerCase())
-                    )
                     .map((message, index) => {
                       const isOwn = message.sender?._id === user.id;
                       const showAvatar =
@@ -3231,7 +3592,7 @@ const Messages = () => {
           </>
         ) : (
           /* Welcome Screen or Loading */
-          loadingMessages ? (
+          showLoadingMessages ? (
             <LoadingAnimation 
               type="welcome" 
               title="Loading conversation..." 
