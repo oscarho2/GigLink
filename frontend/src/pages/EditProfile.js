@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, Paper, TextField, Button, Grid, Chip, Autocomplete, Alert, Card, CardContent, CardActions, Divider, IconButton, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, VideoLibrary as VideoLibraryIcon } from '@mui/icons-material';
+import React, { useState, useEffect, useRef } from 'react';
+import { Container, Typography, Box, Paper, TextField, Button, Grid, Chip, Autocomplete, Alert, Card, CardContent, CardActions, Divider, IconButton, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Add as AddIcon, Delete as DeleteIcon, VideoLibrary as VideoLibraryIcon, PhotoCamera } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+import ReactCrop from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 
 
 const EditProfile = () => {
-  const { user, token, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, token, isAuthenticated, loading: authLoading, updateAvatar } = useAuth();
   const navigate = useNavigate();
 
   // Redirect to login if not authenticated
@@ -44,6 +46,13 @@ const EditProfile = () => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState(null);
+  const [crop, setCrop] = useState();
+  const [completedCrop, setCompletedCrop] = useState(null);
+  const imgRef = useRef(null);
+
+
 
   // Normalize incoming values to match options (case-insensitive match to use canonical option labels)
   const normalizeValuesToOptions = (values, options) => {
@@ -244,9 +253,143 @@ const EditProfile = () => {
         setError('Please select a valid image file');
         return;
       }
-      setSelectedAvatar(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImageToCrop(reader.result);
+        setShowCropModal(true);
+      };
+      reader.readAsDataURL(file);
       setError('');
     }
+  };
+
+  function centerCrop(mediaWidth, mediaHeight, aspect) {
+    const mediaAspect = mediaWidth / mediaHeight;
+    let crop = { x: 0, y: 0, width: 0, height: 0, unit: 'px' };
+
+    if (mediaAspect > aspect) {
+        crop.width = mediaHeight * aspect;
+        crop.height = mediaHeight;
+        crop.x = (mediaWidth - crop.width) / 2;
+        crop.y = 0;
+    } else {
+        crop.width = mediaWidth;
+        crop.height = mediaWidth / aspect;
+        crop.x = 0;
+        crop.y = (mediaHeight - crop.height) / 2;
+    }
+    return crop;
+  }
+
+  function onImageLoad(e) {
+    imgRef.current = e.currentTarget;
+    const { width, height } = e.currentTarget;
+    const newCrop = centerCrop(width, height, 1);
+    setCrop(newCrop);
+    setCompletedCrop(newCrop);
+  }
+
+  const handleCropComplete = (crop) => {
+    setCompletedCrop(crop);
+  };
+
+  const handleCropChange = (crop) => {
+    setCrop(crop);
+  };
+
+  const getCroppedImg = (image, crop) => {
+    console.log('getCroppedImg called', { image, crop });
+    const canvas = document.createElement('canvas');
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+    canvas.width = crop.width;
+    canvas.height = crop.height;
+    const ctx = canvas.getContext('2d');
+
+    ctx.drawImage(
+      image,
+      crop.x * scaleX,
+      crop.y * scaleY,
+      crop.width * scaleX,
+      crop.height * scaleY,
+      0,
+      0,
+      crop.width,
+      crop.height
+    );
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          console.log('Cropped image blob created:', blob);
+          resolve(blob);
+        } else {
+          console.error('Canvas to Blob conversion failed');
+          resolve(null);
+        }
+      }, 'image/jpeg', 0.95);
+    });
+  };
+
+  const handleCropConfirm = async () => {
+    console.log('handleCropConfirm called', { completedCrop, imgRef });
+
+    if (!imgRef.current) {
+        console.error("Image ref is not set!");
+        setError("An error occurred while cropping. Please try again.");
+        return;
+    }
+
+    if (!completedCrop || !completedCrop.width || !completedCrop.height) {
+        console.error("Crop dimensions are not valid!", completedCrop);
+        setError("Please make a selection on the image to crop.");
+        return;
+    }
+
+    setUploadingAvatar(true);
+      
+      try {
+        const croppedImageBlob = await getCroppedImg(imgRef.current, completedCrop);
+        console.log('croppedImageBlob in handleCropConfirm:', croppedImageBlob);
+        if (!croppedImageBlob) {
+          setError('Could not crop image. Please try again.');
+          setUploadingAvatar(false);
+          return;
+        }
+        const formDataUpload = new FormData();
+        formDataUpload.append('avatar', croppedImageBlob, 'avatar.jpg');
+        
+        // Use token from AuthContext to avoid null/invalid localStorage values
+        const response = await axios.put('/api/profiles/avatar', formDataUpload, {
+          headers: {
+            // Let the browser set the correct multipart boundary automatically
+            'x-auth-token': token
+          }
+        });
+        
+        console.log('Avatar upload response:', response);
+        if (response.data.avatar) {
+          setSuccess('Profile picture updated successfully!');
+          setShowCropModal(false);
+          setImageToCrop(null);
+          setCompletedCrop(null);
+          // Update the form/profile preview locally
+          setFormData(prev => ({ ...prev, avatar: response.data.avatar }));
+          setProfile(prev => prev ? { ...prev, user: { ...prev.user, avatar: response.data.avatar, profilePicture: response.data.avatar } } : prev);
+          updateAvatar(response.data.avatar);
+        }
+      } catch (error) {
+        console.error('Avatar upload error:', error?.response?.status, error?.response?.data || error);
+        setError('Failed to update profile picture. Please try again.');
+      } finally {
+        setUploadingAvatar(false);
+      }
+  };
+
+  const handleCropCancel = () => {
+    setShowCropModal(false);
+    setImageToCrop(null);
+    setCompletedCrop(null);
   };
 
   const handleAvatarUpload = async () => {
@@ -261,16 +404,20 @@ const EditProfile = () => {
       
       const response = await axios.put('/api/profiles/avatar', formDataUpload, {
         headers: {
-          'x-auth-token': token,
-          'Content-Type': 'multipart/form-data'
+          // Let the browser set the correct multipart boundary automatically
+          'x-auth-token': token
         }
       });
       
       setSelectedAvatar(null);
       setSuccess('Profile picture updated successfully!');
+      if (response.data?.avatar) {
+        updateAvatar(response.data.avatar);
+        setProfile(prev => prev ? { ...prev, user: { ...prev.user, avatar: response.data.avatar, profilePicture: response.data.avatar } } : prev);
+      }
       
-      // Refresh the page to show the new avatar
-      window.location.reload();
+      // No page reload; the UI should reflect changes immediately via state and context updates
+      // ...
     } catch (err) {
       setError(err.response?.data?.message || 'Error updating profile picture');
     } finally {
@@ -364,6 +511,113 @@ const EditProfile = () => {
       <Paper elevation={3} sx={{ p: 3 }}>
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
           <Grid container spacing={2}>
+            {/* Profile Picture Section - Moved to Top */}
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Profile Picture</Typography>
+              <Card variant="outlined" sx={{ p: 3, mb: 3 }}>
+                <Grid container spacing={3} alignItems="center">
+                  {/* Preview Section */}
+                  <Grid item xs={12} sm={4}>
+                    <Box
+                      sx={{
+                        width: 120,
+                        height: 120,
+                        borderRadius: '50%',
+                        border: '3px solid #e0e0e0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        mx: 'auto',
+                        bgcolor: '#f5f5f5',
+                        position: 'relative'
+                      }}
+                    >
+                      {selectedAvatar ? (
+                        <Box
+                          component="img"
+                          src={URL.createObjectURL(selectedAvatar)}
+                          alt="Profile preview"
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                        />
+                      ) : (profile?.user?.avatar || profile?.user?.profilePicture) ? (
+                        <Box
+                          component="img"
+                          src={`http://localhost:5001${profile.user.avatar || profile.user.profilePicture}`}
+                          alt="Current profile picture"
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                          No Image
+                        </Typography>
+                      )}
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
+                      {selectedAvatar ? 'Preview' : 'Current'}
+                    </Typography>
+                  </Grid>
+                  
+                  {/* Upload Controls */}
+                  <Grid item xs={12} sm={8}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <input
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          id="avatar-upload"
+                          type="file"
+                          onChange={handleAvatarSelect}
+                        />
+                        <label htmlFor="avatar-upload">
+                          <Button 
+                            variant="outlined" 
+                            component="span" 
+                            fullWidth
+                            sx={{ mb: 1 }}
+                          >
+                            Choose New Picture
+                          </Button>
+                        </label>
+                      </Grid>
+                      
+                      {selectedAvatar && (
+                        <Grid item xs={12}>
+                          <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                            Selected: {selectedAvatar.name}
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                              variant="contained"
+                              onClick={handleAvatarUpload}
+                              disabled={uploadingAvatar}
+                              sx={{ flex: 1 }}
+                            >
+                              {uploadingAvatar ? 'Uploading...' : 'Upload Picture'}
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              onClick={() => setSelectedAvatar(null)}
+                              disabled={uploadingAvatar}
+                            >
+                              Cancel
+                            </Button>
+                          </Box>
+                        </Grid>
+                      )}
+                    </Grid>
+                  </Grid>
+                </Grid>
+              </Card>
+            </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -572,43 +826,7 @@ const EditProfile = () => {
               )}
             </Grid>
             
-            {/* Profile Picture Section */}
-            <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>Profile Picture</Typography>
-              <Card variant="outlined" sx={{ p: 2 }}>
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} sm={6}>
-                    <input
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      id="avatar-upload"
-                      type="file"
-                      onChange={handleAvatarSelect}
-                    />
-                    <label htmlFor="avatar-upload">
-                      <Button variant="outlined" component="span" fullWidth>
-                        Choose Profile Picture
-                      </Button>
-                    </label>
-                    {selectedAvatar && (
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        Selected: {selectedAvatar.name}
-                      </Typography>
-                    )}
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Button
-                      variant="contained"
-                      onClick={handleAvatarUpload}
-                      disabled={!selectedAvatar || uploadingAvatar}
-                      fullWidth
-                    >
-                      {uploadingAvatar ? 'Uploading...' : 'Update Profile Picture'}
-                    </Button>
-                  </Grid>
-                </Grid>
-              </Card>
-            </Grid>
+
             
             {/* Photos Section */}
             <Grid item xs={12}>
@@ -721,6 +939,51 @@ const EditProfile = () => {
           </Grid>
         </Box>
       </Paper>
+      
+      {/* Image Crop Modal */}
+      <Dialog
+        open={showCropModal}
+        onClose={handleCropCancel}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Crop Your Profile Picture</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+            {imageToCrop && (
+              <ReactCrop
+                  crop={crop}
+                  onChange={handleCropChange}
+                  onComplete={handleCropComplete}
+                  circularCrop
+                  keepSelection={true}
+                  aspect={1}
+                >
+                <img
+                  ref={imgRef}
+                  src={imageToCrop}
+                  onLoad={onImageLoad}
+                  alt="Crop preview"
+                  style={{ maxWidth: '100%', maxHeight: '400px' }}
+                />
+              </ReactCrop>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCropCancel} color="secondary">
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCropConfirm} 
+            color="primary" 
+            variant="contained"
+            disabled={!completedCrop || uploadingAvatar}
+          >
+            {uploadingAvatar ? 'Uploading...' : 'Confirm & Upload'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
