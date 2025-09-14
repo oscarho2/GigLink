@@ -18,23 +18,26 @@ import {
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import { useAuth } from '../context/AuthContext';
 
 const UserLinks = () => {
   const { userId } = useParams();
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [user, setUser] = useState(null);
   const [links, setLinks] = useState([]);
+  const [mutualLinks, setMutualLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetchUserAndLinks();
-  }, [userId]);
+  }, [userId, token]);
 
   const fetchUserAndLinks = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const authToken = token || localStorage.getItem('token');
       
       // Fetch user profile
       const userResponse = await fetch(`http://localhost:5001/api/users/${userId}`);
@@ -46,10 +49,10 @@ const UserLinks = () => {
       const userData = await userResponse.json();
       setUser(userData);
  
-      // Fetch user's links
+      // Fetch user's links (the viewed user's connections)
       const linksResponse = await fetch(`http://localhost:5001/api/links/user/${userId}`, {
         headers: {
-          'x-auth-token': token
+          'x-auth-token': authToken
         }
       });
       
@@ -59,6 +62,30 @@ const UserLinks = () => {
       
       const linksData = await linksResponse.json();
       setLinks(linksData);
+
+      // Fetch current (authenticated) user's links to compute mutual links
+      let myLinksData = { links: [] };
+      try {
+        const myLinksResponse = await fetch(`http://localhost:5001/api/links/links`, {
+          headers: {
+            'x-auth-token': authToken
+          }
+        });
+        if (myLinksResponse.ok) {
+          myLinksData = await myLinksResponse.json();
+        }
+      } catch (e) {
+        // If this fails, we can still render the page without mutual links
+        console.warn('Failed to fetch current user links for mutual calculation:', e);
+      }
+
+      // Build sets of connection ids for intersection
+      const targetConnections = linksData.map(link => (
+        link.requester._id === userId ? link.recipient : link.requester
+      ));
+      const myLinkIds = new Set((myLinksData.links || []).map(item => item.link?.id));
+      const mutual = targetConnections.filter(u => u && myLinkIds.has(u._id));
+      setMutualLinks(mutual);
     } catch (error) {
       console.error('Error fetching user links:', error);
       setError(error.message);
@@ -109,9 +136,67 @@ const UserLinks = () => {
           </Typography>
         </Box>
 
-
-
         <Divider sx={{ mb: 3 }} />
+
+        {/* Mutual Links section */}
+        {mutualLinks.length > 0 && (
+          <>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Mutual Links ({mutualLinks.length})
+            </Typography>
+            <List>
+              {mutualLinks.map((m) => (
+                <ListItem
+                  key={m._id}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'grey.200',
+                    borderRadius: 1,
+                    mb: 1,
+                    cursor: 'pointer',
+                    '&:hover': {
+                      bgcolor: 'grey.50'
+                    }
+                  }}
+                  onClick={() => handleUserClick(m._id)}
+                >
+                  <ListItemAvatar>
+                    <Avatar src={m.profilePicture} alt={m.name}>
+                      {m.name?.charAt(0)}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Typography variant="subtitle1" fontWeight="medium">
+                        {m.name}
+                      </Typography>
+                    }
+                    secondary={
+                      <Box>
+                        {m.bio && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                            {m.bio.length > 100 ? `${m.bio.substring(0, 100)}...` : m.bio}
+                          </Typography>
+                        )}
+                        {m.instruments && m.instruments.length > 0 && (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                            {m.instruments.slice(0, 3).map((instrument, index) => (
+                              <Chip key={index} label={instrument} size="small" variant="outlined" />
+                            ))}
+                            {m.instruments.length > 3 && (
+                              <Chip label={`+${m.instruments.length - 3} more`} size="small" variant="outlined" color="primary" />
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+            <Divider sx={{ mb: 3 }} />
+          </>
+        )}
 
         {/* Links list */}
         <Typography variant="h6" sx={{ mb: 2 }}>
