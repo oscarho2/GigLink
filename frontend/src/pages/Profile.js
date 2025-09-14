@@ -245,7 +245,7 @@ const Profile = () => {
                 px: { xs: 2, sm: 1.5 }
               }}
             >
-              Cancel Request
+              Requested
             </Button>
             <Button
               variant="outlined"
