@@ -20,6 +20,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import LinksPage from './pages/Links';
+import UserLinks from './pages/UserLinks';
 import PrivateRoute from './components/PrivateRoute';
 import EditProfile from './pages/EditProfile';
 import ProfileSetup from './pages/ProfileSetup';
@@ -109,6 +110,7 @@ function App() {
                 <Route path="/my-gigs" element={<PrivateRoute><MyGigs /></PrivateRoute>} />
                 <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
                 <Route path="/links" element={<PrivateRoute><LinksPage /></PrivateRoute>} />
+                <Route path="/user/:userId/links" element={<PrivateRoute><UserLinks /></PrivateRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Box>

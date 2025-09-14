@@ -100,6 +100,12 @@ router.get('/conversations', auth, async (req, res) => {
           lastMessage: message,
           unreadCount: 0
         });
+      } else {
+        // Update with more recent message if this one is newer
+        const existingConversation = conversationsMap.get(conversationId);
+        if (new Date(message.createdAt) > new Date(existingConversation.lastMessage.createdAt)) {
+          existingConversation.lastMessage = message;
+        }
       }
       
       // Count unread messages for this user
@@ -108,7 +114,9 @@ router.get('/conversations', auth, async (req, res) => {
       }
     });
     
-    const conversations = Array.from(conversationsMap.values());
+    // Sort conversations by last message timestamp (most recent first)
+    const conversations = Array.from(conversationsMap.values())
+      .sort((a, b) => new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt));
     console.log('Returning conversations:', conversations.length);
     res.json(conversations);
   } catch (error) {

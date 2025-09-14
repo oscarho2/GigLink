@@ -12,6 +12,7 @@ const messageRoutes = require('./routes/messages');
 const profileRoutes = require('./routes/profiles');
 const uploadRoutes = require('./routes/upload');
 const linkRoutes = require('./routes/links');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +27,8 @@ const PORT = process.env.PORT || 5001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Serve static uploads (public)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/users', userRoutes);

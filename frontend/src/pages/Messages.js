@@ -335,6 +335,7 @@ const Messages = () => {
   const messageInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const justLoadedMoreRef = useRef(false);
+  const searchDebounceRef = useRef(null);
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
     console.log(
@@ -663,6 +664,7 @@ const Messages = () => {
         }
       }
       console.log("Messages state updated, count:", newMessages.length);
+      return pagination;
     } catch (err) {
       console.error("=== ERROR FETCHING MESSAGES ===");
       console.error("Error fetching messages:", err);
@@ -1378,12 +1380,12 @@ const Messages = () => {
     const term = e.target.value;
     setMessageSearchTerm(term);
 
-    // Debounce search
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+    // Debounce search (separate from typing indicator)
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
     }
 
-    typingTimeoutRef.current = setTimeout(() => {
+    searchDebounceRef.current = setTimeout(() => {
       findInMessages(term);
     }, 300);
   };
@@ -1401,8 +1403,14 @@ const Messages = () => {
       const prevScrollHeight = container ? container.scrollHeight : 0;
 
       let safetyCounter = 0;
-      while (hasMoreMessages && safetyCounter < 200) {
-        await fetchMessages(otherUserId, currentPage + 1, true);
+      let localPage = currentPage;
+      let localHasMore = hasMoreMessages;
+      while (localHasMore && safetyCounter < 200) {
+        const pagination = await fetchMessages(otherUserId, localPage + 1, true);
+        if (!pagination) break;
+        if (pagination.currentPage === localPage) break;
+        localHasMore = Boolean(pagination.hasMore);
+        localPage = pagination.currentPage;
         safetyCounter++;
       }
 
@@ -1448,6 +1456,10 @@ const Messages = () => {
       highlightedElements.forEach((el) => {
         el.outerHTML = el.innerHTML;
       });
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
 
       // Restore previous messages & pagination if available
       if (preSearchMessages !== null) {

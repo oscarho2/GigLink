@@ -391,7 +391,8 @@ router.post('/photos', auth, upload.single('photo'), async (req, res) => {
 // @route   PUT api/profiles/avatar
 // @desc    Update profile picture
 // @access  Private
-router.put('/avatar', auth, upload.single('avatar'), async (req, res) => {
+// Renamed legacy handler to avoid duplicate route registration
+router.put('/avatar-legacy', auth, upload.single('avatar'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No avatar file provided' });
@@ -421,23 +422,73 @@ router.put('/avatar', auth, upload.single('avatar'), async (req, res) => {
 // @access  Private
 router.delete('/photos/:photoId', auth, async (req, res) => {
   try {
-    let profile = await Profile.findOne({ user: req.user.id });
+    const profile = await Profile.findOne({ user: req.user.id });
+    
     if (!profile) {
       return res.status(404).json({ message: 'Profile not found' });
     }
-
+    
+    // Find and remove the photo
     const photoIndex = profile.photos.findIndex(photo => photo._id.toString() === req.params.photoId);
+    
     if (photoIndex === -1) {
       return res.status(404).json({ message: 'Photo not found' });
     }
-
+    
+    // Get the photo to delete the file
+    const photoToDelete = profile.photos[photoIndex];
+    
+    // Remove photo from array
     profile.photos.splice(photoIndex, 1);
     await profile.save();
-
+    
+    // Delete the actual file
+    const filePath = path.join(__dirname, '..', photoToDelete.url);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    
     res.json({ message: 'Photo deleted successfully' });
   } catch (err) {
-    console.error('Photo delete error:', err.message);
-    res.status(500).send('Server Error');
+    console.error(err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT api/profiles/avatar
+// @desc    Update profile picture
+// @access  Private
+router.put('/avatar', auth, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+    
+    // Update user's profile picture
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Delete old profile picture if it exists
+    if (user.avatar && user.avatar.startsWith('/uploads/')) {
+      const oldFilePath = path.join(__dirname, '..', user.avatar);
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+      }
+    }
+    
+    // Update user's avatar
+    user.avatar = `/uploads/${req.file.filename}`;
+    await user.save();
+    
+    res.json({ 
+      message: 'Profile picture updated successfully',
+      avatar: user.avatar
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
