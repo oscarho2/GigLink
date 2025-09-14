@@ -371,8 +371,6 @@ const Dashboard = () => {
           <Card 
             sx={{ 
               mb: 2,
-              height: '100%',
-              maxHeight: '500px',
               display: 'flex', 
               flexDirection: 'column',
               transition: 'transform 0.2s, box-shadow 0.2s',
@@ -382,9 +380,9 @@ const Dashboard = () => {
               }
             }}
           >
-            <CardContent sx={{ flexGrow: 1 }}>
+            <CardContent sx={{ p: 2, pb: 1.5 }}>
               {/* Profile Header */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
                 <Avatar
                   src={profile?.user?.avatar || user?.avatar}
                   alt={profile?.user?.name || user?.name}
@@ -411,7 +409,7 @@ const Dashboard = () => {
                 )}
               </Box>
 
-              <Divider sx={{ mb: 2 }} />
+              <Divider sx={{ mb: 1.5 }} />
 
               {/* Bio */}
               {(profile?.bio || user?.bio) && (
@@ -421,7 +419,7 @@ const Dashboard = () => {
                   paragraph 
                   sx={{ 
                     textAlign: 'center', 
-                    mb: 2, 
+                    mb: 1.5, 
                     whiteSpace: 'pre-wrap',
                     display: '-webkit-box',
                     WebkitLineClamp: 3,
@@ -439,7 +437,7 @@ const Dashboard = () => {
               {/* Skills - Two Column Layout */}
               {(((profile?.user?.instruments || user?.instruments) && (profile?.user?.instruments || user?.instruments).length > 0) || 
                 ((profile?.user?.genres || user?.genres) && (profile?.user?.genres || user?.genres).length > 0)) && (
-                <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid container spacing={2}>
                   {/* Left Half - Instruments */}
                   <Grid item xs={12} sm={6}>
                     {(profile?.user?.instruments || user?.instruments) && (profile?.user?.instruments || user?.instruments).length > 0 && (
@@ -501,14 +499,13 @@ const Dashboard = () => {
                   </Grid>
                 </Grid>
               )}
-
-
-
             </CardContent>
             <CardActions sx={{ 
               flexDirection: { xs: 'column', sm: 'row' },
               gap: { xs: 1.5, sm: 2 },
-              p: { xs: 2, sm: 2 }
+              px: { xs: 2, sm: 2 },
+              pt: { xs: 1, sm: 1.25 },
+              pb: { xs: 2, sm: 2 }
             }}>
               <Button
                 component={RouterLink}

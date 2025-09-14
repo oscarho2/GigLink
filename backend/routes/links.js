@@ -22,7 +22,7 @@ router.post('/request', auth, async (req, res) => {
     }
 
     // Check if link already exists
-    const existingLink = await Link.areLinked(requesterId, recipientId);
+    const existingLink = await Link.findLink(requesterId, recipientId);
     if (existingLink) {
       if (existingLink.status === 'accepted') {
         return res.status(400).json({ message: 'You are already linked with this user' });
@@ -330,7 +330,7 @@ router.get('/status/:userId', auth, async (req, res) => {
       return res.json({ status: 'self' });
     }
 
-    const link = await Link.areLinked(userId, otherUserId);
+    const link = await Link.findLink(userId, otherUserId);
     
     if (!link) {
       return res.json({ status: 'none' });
@@ -372,6 +372,41 @@ router.get('/pending-count', auth, async (req, res) => {
     res.json({ count: pendingCount });
   } catch (error) {
     console.error('Error getting pending link requests count:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get a specific user's links (public endpoint for viewing other users' connections)
+router.get('/user/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const links = await Link.getLinks(userId);
+
+    // Format the response to include both users in each link
+    const formattedLinks = links.map(link => ({
+      _id: link._id,
+      requester: {
+        _id: link.requester._id,
+        name: link.requester.name,
+        profilePicture: link.requester.profilePicture,
+        bio: link.requester.bio,
+        instruments: link.requester.instruments
+      },
+      recipient: {
+        _id: link.recipient._id,
+        name: link.recipient.name,
+        profilePicture: link.recipient.profilePicture,
+        bio: link.recipient.bio,
+        instruments: link.recipient.instruments
+      },
+      status: link.status,
+      createdAt: link.createdAt,
+      respondedAt: link.respondedAt
+    }));
+
+    res.json(formattedLinks);
+  } catch (error) {
+    console.error('Error fetching user links:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

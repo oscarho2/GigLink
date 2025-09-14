@@ -8,6 +8,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PeopleIcon from '@mui/icons-material/People';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
@@ -173,6 +174,24 @@ const Profile = () => {
     }
   };
 
+  const handleCancelRequest = async () => {
+    try {
+      if (!linkId) {
+        setSnackbar({ open: true, message: 'Link ID not found', severity: 'error' });
+        return;
+      }
+      await axios.delete(`/api/links/${linkId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      setLinkStatus('none');
+      setLinkId(null);
+      setSnackbar({ open: true, message: 'Link request cancelled', severity: 'info' });
+    } catch (err) {
+      console.error('Error cancelling request:', err);
+      setSnackbar({ open: true, message: 'Failed to cancel request', severity: 'error' });
+    }
+  };
+
   const handleStartConversation = () => {
     navigate('/messages', { state: { startConversationWith: id } });
   };
@@ -217,8 +236,8 @@ const Profile = () => {
           <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
             <Button
               variant="outlined"
-              disabled
               startIcon={<HourglassEmptyIcon />}
+              onClick={handleCancelRequest}
               size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
@@ -226,7 +245,7 @@ const Profile = () => {
                 px: { xs: 2, sm: 1.5 }
               }}
             >
-              Request Sent
+              Cancel Request
             </Button>
             <Button
               variant="outlined"
@@ -245,25 +264,40 @@ const Profile = () => {
         );
       case 'received':
         return (
-          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<CheckCircleIcon />}
-              onClick={handleAcceptLinkRequest}
-              size="small"
-              sx={{
-                minHeight: { xs: 40, sm: 32 },
-                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
-                px: { xs: 2, sm: 1.5 }
-              }}
-            >
-              Accept
-            </Button>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<CheckCircleIcon />}
+                onClick={handleAcceptLinkRequest}
+                size="small"
+                sx={{
+                  minHeight: { xs: 40, sm: 32 },
+                  fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                  px: { xs: 2, sm: 1.5 }
+                }}
+              >
+                Accept
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleDeclineLinkRequest}
+                size="small"
+                sx={{
+                  minHeight: { xs: 40, sm: 32 },
+                  fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                  px: { xs: 2, sm: 1.5 }
+                }}
+              >
+                Decline
+              </Button>
+            </Box>
             <Button
               variant="outlined"
-              color="error"
-              onClick={handleDeclineLinkRequest}
+              startIcon={<ChatIcon />}
+              onClick={handleStartConversation}
               size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
@@ -271,7 +305,7 @@ const Profile = () => {
                 px: { xs: 2, sm: 1.5 }
               }}
             >
-              Decline
+              Message
             </Button>
           </Box>
         );
@@ -337,13 +371,13 @@ const Profile = () => {
       <Paper 
         elevation={3} 
         sx={{ 
-          p: { xs: 2, sm: 3 }, 
-          mb: { xs: 3, sm: 4 }, 
-          maxHeight: { xs: 'none', md: '600px' }, 
-          overflow: { xs: 'visible', md: 'auto' }
+          p: { xs: 1.5, sm: 2, md: 3 }, 
+          mb: { xs: 3, sm: 4 },
+          overflow: 'visible',
+          pb: { xs: 1, sm: 1.25, md: 1.5 }
         }}
       >
-        <Grid container spacing={{ xs: 2, sm: 3 }}>
+        <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
           <Grid 
             item 
             xs={12} 
@@ -352,7 +386,8 @@ const Profile = () => {
               display: 'flex', 
               flexDirection: 'column', 
               alignItems: 'center',
-              mb: { xs: 2, md: 0 }
+              mb: { xs: 2, md: 0 },
+              pb: 0
             }}
           >
             <Avatar
@@ -391,28 +426,58 @@ const Profile = () => {
               </Typography>
             )}
             {isOwnProfile ? (
-              <Button
-                component={RouterLink}
-                to="/edit-profile"
-                variant="contained"
-                startIcon={<EditIcon />}
-                size="small"
-                sx={{
-                  minHeight: { xs: 40, sm: 32 },
-                  fontSize: { xs: '0.875rem', sm: '0.8125rem' },
-                  px: { xs: 2, sm: 1.5 }
-                }}
-              >
-                Edit Profile
-              </Button>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
+                <Button
+                  component={RouterLink}
+                  to="/edit-profile"
+                  variant="contained"
+                  startIcon={<EditIcon />}
+                  size="small"
+                  sx={{
+                    minHeight: { xs: 40, sm: 32 },
+                    fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                    px: { xs: 2, sm: 1.5 }
+                  }}
+                >
+                  Edit Profile
+                </Button>
+                <Button
+                  component={RouterLink}
+                  to={`/user/${id || user._id || user.id}/links`}
+                  variant="outlined"
+                  startIcon={<PeopleIcon />}
+                  size="small"
+                  sx={{
+                    minHeight: { xs: 40, sm: 32 },
+                    fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                    px: { xs: 2, sm: 1.5 }
+                  }}
+                >
+                  Links
+                </Button>
+              </Box>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
                 {renderLinkButton()}
+                <Button
+                  component={RouterLink}
+                  to={`/user/${id || user._id || user.id}/links`}
+                  variant="outlined"
+                  startIcon={<PeopleIcon />}
+                  size="small"
+                  sx={{
+                    minHeight: { xs: 40, sm: 32 },
+                    fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                    px: { xs: 2, sm: 1.5 }
+                  }}
+                >
+                  Links
+                </Button>
               </Box>
             )}
           </Grid>
           
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={8} sx={{ pb: 0 }}>
             {profile.bio && (
               <>
                 <Typography 
@@ -434,29 +499,27 @@ const Profile = () => {
                     mb: { xs: 2, sm: 2 }
                   }}
                 >
-                  {profile.bio}
+                  {profile.bio.length > 200 ? `${profile.bio.substring(0, 200)}...` : profile.bio}
                 </Typography>
               </>
             )}
             
             <Typography 
               variant="h6" 
-              gutterBottom
               sx={{
                 fontSize: { xs: '1.125rem', sm: '1.25rem' },
-                fontWeight: 600
+                fontWeight: 600,
+                mb: 1
               }}
             >
               Instruments
             </Typography>
-            <Box sx={{ mb: { xs: 2, sm: 2 } }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 0.75, sm: 1 }, mb: 0 }}>
               {profile.instruments.map((instrument, index) => (
                 <Chip 
                   key={index} 
                   label={instrument} 
                   sx={{ 
-                    mr: { xs: 0.75, sm: 1 }, 
-                    mb: { xs: 0.75, sm: 1 },
                     fontSize: { xs: '0.75rem', sm: '0.8125rem' },
                     height: { xs: 28, sm: 32 }
                   }} 
@@ -466,22 +529,20 @@ const Profile = () => {
             
             <Typography 
               variant="h6" 
-              gutterBottom
               sx={{
                 fontSize: { xs: '1.125rem', sm: '1.25rem' },
-                fontWeight: 600
+                fontWeight: 600,
+                mb: 1
               }}
             >
               Genres
             </Typography>
-            <Box sx={{ mb: { xs: 2, sm: 2 } }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 0.75, sm: 1 }, mb: 0 }}>
               {profile.genres.map((genre, index) => (
                 <Chip 
                   key={index} 
                   label={genre} 
                   sx={{ 
-                    mr: { xs: 0.75, sm: 1 }, 
-                    mb: { xs: 0.75, sm: 1 },
                     fontSize: { xs: '0.75rem', sm: '0.8125rem' },
                     height: { xs: 28, sm: 32 }
                   }} 
@@ -575,7 +636,7 @@ const Profile = () => {
               fontSize: { xs: '1.5rem', sm: '2.125rem' },
               fontWeight: 600,
               mb: { xs: 2, sm: 3 },
-              mt: { xs: 3, sm: 4 }
+              mt: 0
             }}
           >
             Photos

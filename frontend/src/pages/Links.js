@@ -15,12 +15,16 @@ import {
   Divider,
   Alert,
   Paper,
-  Button
+  Button,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import {
   Check as CheckIcon,
   Close as CloseIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Search as SearchIcon,
+  PersonAdd as PersonAddIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -50,9 +54,11 @@ const LinksPage = () => {
   const [links, setLinks] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
-
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     loadLinks();
@@ -210,6 +216,62 @@ const LinksPage = () => {
     setSuccess('');
   };
 
+  const searchUsers = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5001/api/links/search?q=${encodeURIComponent(query)}`, {
+        headers: {
+          'x-auth-token': token
+        }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSearchResults(data.users || []);
+      } else {
+        setError(data.message);
+      }
+    } catch (error) {
+      setError('Error searching users');
+    }
+    setSearchLoading(false);
+  };
+
+  const sendLinkRequest = async (userId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5001/api/links/request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-auth-token': token
+        },
+        body: JSON.stringify({ recipientId: userId })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccess('Link request sent successfully!');
+        loadSentRequests(); // Refresh sent requests
+        // Remove user from search results
+        setSearchResults(prev => prev.filter(user => user._id !== userId));
+      } else {
+        setError(data.message);
+      }
+    } catch (error) {
+      setError('Error sending link request');
+    }
+  };
+
+  const handleSearchChange = (event) => {
+    const query = event.target.value;
+    setSearchQuery(query);
+    searchUsers(query);
+  };
+
 
 
 
@@ -237,6 +299,7 @@ const LinksPage = () => {
             <Tab label={`Links (${links.length})`} />
             <Tab label={`Requests (${pendingRequests.length})`} />
             <Tab label={`Sent (${sentRequests.length})`} />
+            <Tab label="Find Users" />
           </Tabs>
         </Box>
 
@@ -412,6 +475,113 @@ const LinksPage = () => {
           )}
         </TabPanel>
 
+        {/* Find Users Tab */}
+        <TabPanel value={tabValue} index={3}>
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              placeholder="Search for musicians to connect with..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
+            />
+          </Box>
+
+          {searchLoading ? (
+            <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
+              Searching...
+            </Typography>
+          ) : searchResults.length === 0 && searchQuery ? (
+            <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
+              No users found matching "{searchQuery}"
+            </Typography>
+          ) : searchQuery === '' ? (
+            <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
+              Start typing to search for musicians to connect with
+            </Typography>
+          ) : (
+            <List>
+              {searchResults.map((user) => {
+                // Check if user is already linked or has pending request
+                const isLinked = links.some(link => link.link.id === user._id);
+                const hasPendingRequest = sentRequests.some(req => req.recipient._id === user._id || req.recipient.id === user._id);
+                const hasIncomingRequest = pendingRequests.some(req => req.requester._id === user._id || req.requester.id === user._id);
+                
+                return (
+                  <ListItem key={user._id}>
+                    <ListItemAvatar>
+                      <Avatar src={user.avatar}>
+                        {user.name.charAt(0).toUpperCase()}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography
+                          component="span"
+                          sx={{
+                            cursor: 'pointer',
+                            color: 'primary.main',
+                            '&:hover': {
+                              textDecoration: 'underline'
+                            }
+                          }}
+                          onClick={() => navigate(`/profile/${user._id}`)}
+                        >
+                          {user.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <>
+                          {user.bio && (
+                            <Typography variant="body2" color="text.secondary">
+                              {user.bio.length > 100 ? `${user.bio.substring(0, 100)}...` : user.bio}
+                            </Typography>
+                          )}
+                          {user.instruments && user.instruments.length > 0 && (
+                            <Typography variant="caption" color="text.secondary">
+                              {user.instruments.join(', ')}
+                            </Typography>
+                          )}
+                        </>
+                      }
+                    />
+                    <ListItemSecondaryAction>
+                      {isLinked ? (
+                        <Button disabled size="small">
+                          Connected
+                        </Button>
+                      ) : hasPendingRequest ? (
+                        <Button disabled size="small">
+                          Request Sent
+                        </Button>
+                      ) : hasIncomingRequest ? (
+                        <Button disabled size="small">
+                          Request Received
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => sendLinkRequest(user._id)}
+                          color="primary"
+                          size="small"
+                          startIcon={<PersonAddIcon />}
+                        >
+                          Connect
+                        </Button>
+                      )}
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                );
+              })}
+            </List>
+          )}
+        </TabPanel>
 
       </Paper>
     </Container>
