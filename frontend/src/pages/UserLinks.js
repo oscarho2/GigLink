@@ -115,7 +115,7 @@ const UserLinks = () => {
 
         {/* Links list */}
         <Typography variant="h6" sx={{ mb: 2 }}>
-          Connections ({links.length})
+          Links ({links.length})
         </Typography>
 
         {links.length === 0 ? (
