@@ -71,16 +71,17 @@ const MyGigs = () => {
   const location = useLocation();
 
   // Tab state
-  const [tabValue, setTabValue] = useState(0);
+  const [tabValue, setTabValue] = useState(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const tab = queryParams.get('tab');
+    return tab === 'applications' ? 1 : 0;
+  });
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const tab = queryParams.get('tab');
-    if (tab === 'applications') {
-      setTabValue(1);
-    } else {
-      setTabValue(0);
-    }
+    const newTabValue = tab === 'applications' ? 1 : 0;
+    setTabValue(newTabValue);
   }, [location]);
   
   // State for gigs and applications
@@ -102,6 +103,9 @@ const MyGigs = () => {
   // Handle tab change
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+    // Update URL to reflect tab change
+    const newTab = newValue === 1 ? 'applications' : 'gigs';
+    navigate(`/my-gigs?tab=${newTab}`, { replace: true });
   };
 
   // Fetch user's gigs
@@ -376,6 +380,7 @@ const MyGigs = () => {
                           {gig.isFilled ? 'FILLED: ' : ''}{gig.title}
                         </Typography>
                       }
+                      secondaryTypographyProps={{ component: 'div' }}
                       secondary={
                         <Box component="div">
                           <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, mb: 0.5 }}>

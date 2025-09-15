@@ -602,7 +602,7 @@ const Dashboard = () => {
                 </Button>
                 <Button
                   component={RouterLink}
-                  to="/my-gigs"
+                  to="/my-gigs?tab=gigs"
                   variant="outlined"
                   startIcon={<WorkIcon />}
                   sx={{ 
@@ -858,7 +858,7 @@ const Dashboard = () => {
                 <Typography 
                   variant="h6" 
                   component={RouterLink} 
-                  to="/my-gigs?tab=applications"
+                  to="/my-gigs?tab=gigs"
                   sx={{ 
                     textDecoration: 'none', 
                     color: 'inherit',
