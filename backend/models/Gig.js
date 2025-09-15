@@ -34,6 +34,19 @@ const GigSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // New: currency code for payment (e.g., GBP, USD, EUR)
+  currency: {
+    type: String,
+    default: 'GBP'
+  },
+  // New: support multiple schedules (date with start and optional end time)
+  schedules: [
+    {
+      date: { type: String },
+      startTime: { type: String },
+      endTime: { type: String }
+    }
+  ],
   instruments: [{
     type: String,
     required: true

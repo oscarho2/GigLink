@@ -29,6 +29,8 @@ const Profile = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, action: null, message: '' });
   const [photoModal, setPhotoModal] = useState({ open: false, photoUrl: '', caption: '', currentIndex: 0 });
+  const [userGigs, setUserGigs] = useState([]);
+  const [gigsLoading, setGigsLoading] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -67,7 +69,10 @@ const Profile = () => {
           videos: profileData.videos || [
             { title: 'Live at Jazz Club', url: 'https://youtube.com/watch?v=123' },
             { title: 'Studio Session', url: 'https://youtube.com/watch?v=456' }
-          ]
+          ],
+          availability: profileData.availability || '',
+          hourlyRate: profileData.hourlyRate || null,
+          userId: profileData.user?._id || user?._id || user?.id || null
         };
         
         setProfile(transformedProfile);
@@ -112,6 +117,29 @@ const Profile = () => {
 
     checkLinkStatus();
   }, [user, token, id, isOwnProfile]);
+
+  // New: fetch user's gigs to display dates/times including extra dates
+  useEffect(() => {
+    const fetchUserGigs = async () => {
+      if (!profile || !profile.userId) return;
+      try {
+        setGigsLoading(true);
+        const res = await axios.get('/api/gigs');
+        const targetId = id || profile.userId;
+        const gigs = Array.isArray(res.data) ? res.data.filter(g => {
+          const ownerId = g.user && (g.user._id || g.user);
+          return ownerId && ownerId.toString() === targetId;
+        }) : [];
+        setUserGigs(gigs);
+      } catch (e) {
+        console.error('Failed to fetch user gigs:', e);
+        setUserGigs([]);
+      } finally {
+        setGigsLoading(false);
+      }
+    };
+    fetchUserGigs();
+  }, [profile, id]);
 
   const handleSendLinkRequest = async () => {
     try {
@@ -477,6 +505,24 @@ const Profile = () => {
                 {profile.location}
               </Typography>
             )}
+            {/* New: Availability and rate chips */}
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center', mb: { xs: 1.5, sm: 2 } }}>
+              {profile.availability ? (
+                <Chip 
+                  label={profile.availability}
+                  color={profile.availability === 'Available' ? 'success' : 'default'}
+                  size="small"
+                  variant="outlined"
+                />
+              ) : null}
+              {typeof profile.hourlyRate === 'number' ? (
+                <Chip 
+                  label={`£${profile.hourlyRate}/hr`}
+                  size="small"
+                  variant="outlined"
+                />
+              ) : null}
+            </Box>
             {isOwnProfile ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
                 <Button
@@ -745,6 +791,54 @@ const Profile = () => {
           </Grid>
         </>
       )}
+
+      {/* New: User Gigs with dates/times including extra dates and end times */}
+      {gigsLoading ? (
+        <Typography sx={{ mb: { xs: 2, sm: 3 } }}>Loading gigs...</Typography>
+      ) : userGigs && userGigs.length > 0 ? (
+        <>
+          <Typography 
+            variant="h5" 
+            gutterBottom
+            sx={{
+              fontSize: { xs: '1.5rem', sm: '2.125rem' },
+              fontWeight: 600,
+              mb: { xs: 2, sm: 3 }
+            }}
+          >
+            Gigs
+          </Typography>
+          <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
+            {userGigs.map((gig) => (
+              <Grid item xs={12} key={gig._id}>
+                <Paper elevation={2} sx={{ p: { xs: 1.5, sm: 2 } }}>
+                  <Typography variant="h6" sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' }, fontWeight: 500, mb: 1 }}>
+                    {gig.title}
+                  </Typography>
+                  {/* Primary date/time fallback */}
+                  {(!Array.isArray(gig.schedules) || gig.schedules.length === 0) && (
+                    <Typography variant="body2" color="text.secondary">
+                      {gig.date ? new Date(gig.date).toLocaleDateString() : 'Date TBD'}{gig.time ? ` • ${gig.time}` : ''}
+                    </Typography>
+                  )}
+                  {/* Multiple schedules including end time and extra dates */}
+                  {Array.isArray(gig.schedules) && gig.schedules.length > 0 && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      {gig.schedules.map((s, idx) => (
+                        <Typography key={idx} variant="body2" color="text.secondary">
+                          {(s.date ? new Date(s.date).toLocaleDateString() : 'Date TBD')}
+                          {s.startTime ? ` • ${s.startTime}` : ''}
+                          {s.endTime ? ` - ${s.endTime}` : ''}
+                        </Typography>
+                      ))}
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        </>
+      ) : null}
 
       {/* Confirmation Dialog */}
       <Dialog

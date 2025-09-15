@@ -2242,6 +2242,10 @@ const Messages = () => {
                   InputLabelProps={{
                     shrink: true,
                   }}
+                  sx={{
+                    '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
+                    '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                  }}
                 />
               </Box>
             </Popover>
@@ -2789,7 +2793,8 @@ const Messages = () => {
                                             >
                                               {formatPayment(
                                                 message.gigApplication
-                                                  .gigPayment
+                                                  .gigPayment,
+                                                message.gigApplication?.currency || 'GBP'
                                               )}
                                             </Typography>
                                           </Box>

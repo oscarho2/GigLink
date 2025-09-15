@@ -354,6 +354,7 @@ const GigDetail = () => {
                 </Typography>
               </Box>
               
+              {gig.requirements && (typeof gig.requirements === 'string' ? gig.requirements.trim() !== '' : true) && (
               <Box sx={{ mb: { xs: 3, sm: 4 } }}>
                 <Typography 
                   variant="h5" 
@@ -386,6 +387,7 @@ const GigDetail = () => {
                   </Typography>
                 </Box>
               </Box>
+              )}
               
               <Box sx={{ mb: { xs: 3, sm: 4 } }}>
                 <Typography 
@@ -557,67 +559,112 @@ const GigDetail = () => {
                   mb: { xs: 2.5, sm: 3 } 
                 }}
               >
+                {((Array.isArray(gig.schedules) && gig.schedules.length > 0) || gig.date) && (
                 <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
-                    <CalendarTodayIcon 
-                      color="primary" 
-                      sx={{ 
-                        mr: 1,
-                        fontSize: { xs: '1.125rem', sm: '1.25rem' }
-                      }} 
-                    />
+                   <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                     <CalendarTodayIcon 
+                       color="primary" 
+                       sx={{ 
+                         mr: 1,
+                         fontSize: { xs: '1.125rem', sm: '1.25rem' }
+                       }} 
+                     />
+                     <Typography 
+                       variant="body1" 
+                       fontWeight="medium"
+                       sx={{
+                         fontSize: { xs: '0.875rem', sm: '1rem' }
+                       }}
+                     >
+                       Date
+                     </Typography>
+                   </Box>
+                   <Box 
+                     sx={{ 
+                       ml: { xs: 3.5, sm: 4 }
+                     }}
+                   >
+                     {/* Show multiple schedules if provided, otherwise fallback to single date */}
+                     {Array.isArray(gig.schedules) && gig.schedules.length > 0 ? (
+                       gig.schedules.length === 1 ? (
+                         // Single schedule: show date then time underneath
+                         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                           <Typography variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                             {(gig.schedules[0].date ? new Date(gig.schedules[0].date).toLocaleDateString() : 'Date TBD')}
+                           </Typography>
+                           {gig.schedules[0].startTime && (
+                             <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, mt: 0.5 }}>
+                               {gig.schedules[0].startTime}{gig.schedules[0].endTime ? ` - ${gig.schedules[0].endTime}` : ''}
+                             </Typography>
+                           )}
+                         </Box>
+                       ) : (
+                         // Multiple schedules: show each date with time
+                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                           {gig.schedules.map((s, idx) => (
+                             <Typography key={idx} variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                               {(s.date ? new Date(s.date).toLocaleDateString() : 'Date TBD')}
+                               {s.startTime ? ` • ${s.startTime}` : ''}
+                               {s.endTime ? ` - ${s.endTime}` : ''}
+                             </Typography>
+                           ))}
+                         </Box>
+                       )
+                     ) : (
+                       // Fallback to single date/time: show date then time underneath
+                       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                         <Typography 
+                           variant="body1"
+                           sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                         >
+                           {new Date(gig.date).toLocaleDateString()}
+                         </Typography>
+                         {gig.time && (
+                           <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, mt: 0.5 }}>
+                             {gig.time}
+                           </Typography>
+                         )}
+                       </Box>
+                     )}
+                   </Box>
+                   </Box>
+                )}
+                  
+                  {/* Only render the single Time section if there are multiple schedules and no times in schedules */}
+                  {Array.isArray(gig.schedules) && gig.schedules.length > 1 && !gig.schedules.some(s => s.startTime) && Boolean(gig.time) && (
+                  <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                      <AccessTimeIcon 
+                        color="primary" 
+                        sx={{ 
+                          mr: 1,
+                          fontSize: { xs: '1.125rem', sm: '1.25rem' }
+                        }} 
+                      />
+                      <Typography 
+                        variant="body1" 
+                        fontWeight="medium"
+                        sx={{
+                          fontSize: { xs: '0.875rem', sm: '1rem' }
+                        }}
+                      >
+                        Time
+                      </Typography>
+                    </Box>
                     <Typography 
                       variant="body1" 
-                      fontWeight="medium"
-                      sx={{
+                      sx={{ 
+                        ml: { xs: 3.5, sm: 4 },
                         fontSize: { xs: '0.875rem', sm: '1rem' }
                       }}
                     >
-                      Date
+                      {gig.time}
                     </Typography>
                   </Box>
-                  <Typography 
-                    variant="body1" 
-                    sx={{ 
-                      ml: { xs: 3.5, sm: 4 },
-                      fontSize: { xs: '0.875rem', sm: '1rem' }
-                    }}
-                  >
-                    {new Date(gig.date).toLocaleDateString()}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
-                    <AccessTimeIcon 
-                      color="primary" 
-                      sx={{ 
-                        mr: 1,
-                        fontSize: { xs: '1.125rem', sm: '1.25rem' }
-                      }} 
-                    />
-                    <Typography 
-                      variant="body1" 
-                      fontWeight="medium"
-                      sx={{
-                        fontSize: { xs: '0.875rem', sm: '1rem' }
-                      }}
-                    >
-                      Time
-                    </Typography>
-                  </Box>
-                  <Typography 
-                    variant="body1" 
-                    sx={{ 
-                      ml: { xs: 3.5, sm: 4 },
-                      fontSize: { xs: '0.875rem', sm: '1rem' }
-                    }}
-                  >
-                    {gig.time}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
+                  )}
+                  
+                  {(gig.payment !== undefined && gig.payment !== null && gig.payment !== '') && (
+                  <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
                     <PaymentIcon 
                       color="primary" 
@@ -644,9 +691,10 @@ const GigDetail = () => {
                       fontSize: { xs: '1rem', sm: '1.125rem' }
                     }}
                   >
-                    {formatPayment(gig.payment)}
+                    {formatPayment(gig.payment, gig.currency || 'GBP')}
                   </Typography>
                 </Box>
+                  )}
                 
                 <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
@@ -688,6 +736,7 @@ const GigDetail = () => {
                   bgcolor: '#f5f5f5' 
                 }}
               >
+                {Array.isArray(gig.instruments) && gig.instruments.length > 0 && (
                 <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
                     <MusicNoteIcon 
@@ -725,7 +774,9 @@ const GigDetail = () => {
                     ))}
                   </Box>
                 </Box>
+                )}
                 
+                {Array.isArray(gig.genres) && gig.genres.length > 0 && (
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
                     <MusicNoteIcon 
@@ -763,6 +814,7 @@ const GigDetail = () => {
                     ))}
                   </Box>
                 </Box>
+                )}
               </Paper>
             </Grid>
           </Grid>

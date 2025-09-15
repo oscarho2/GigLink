@@ -1,29 +1,34 @@
-// Utility function to format payment with £ symbol
-export const formatPayment = (payment) => {
-  if (!payment) return '£0';
-  
-  // If payment already starts with £, return as is
-  if (typeof payment === 'string' && payment.startsWith('£')) {
+// Utility mapping for currency symbols
+const CURRENCY_SYMBOLS = {
+  GBP: '£',
+  USD: '$',
+  EUR: '€',
+  JPY: '¥',
+  AUD: 'A$',
+  CAD: 'C$'
+};
+
+export const formatPaymentWithCurrency = (amount, currency = 'GBP') => {
+  const sym = CURRENCY_SYMBOLS[currency] || '';
+  if (amount == null || amount === '') return `${sym}0`;
+  const numericValue = typeof amount === 'string' ? parseFloat(amount.replace(/[^\d.\-]/g, '')) : amount;
+  if (isNaN(numericValue)) return `${sym}${amount}`;
+  return `${sym}${numericValue}`;
+};
+
+// Backward compatible: formatPayment kept for existing usages but will try to parse the currency from string if prefixed
+export const formatPayment = (payment, currency = 'GBP') => {
+  if (typeof payment === 'string' && /^[£$€¥]/.test(payment)) {
+    // already has a symbol, return as-is
     return payment;
   }
-  
-  // If it's a number or string number, add £ prefix
-  const numericValue = typeof payment === 'string' ? parseFloat(payment) : payment;
-  if (!isNaN(numericValue)) {
-    return `£${numericValue}`;
-  }
-  
-  // If it's already a formatted string without £, add £ prefix
-  return `£${payment}`;
+  return formatPaymentWithCurrency(payment, currency);
 };
 
 // Utility function to extract numeric value from payment for sorting/filtering
 export const getPaymentValue = (payment) => {
   if (!payment) return 0;
-  
-  // Remove £ symbol, commas, and any other non-numeric characters except decimal point
-  const cleanedPayment = payment.toString().replace(/[£,]/g, '');
+  const cleanedPayment = payment.toString().replace(/[^\d.\-]/g, '');
   const numericValue = parseFloat(cleanedPayment);
-  
   return isNaN(numericValue) ? 0 : numericValue;
 };
