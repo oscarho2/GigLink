@@ -21,6 +21,9 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Paper from '@mui/material/Paper';
 import AddIcon from '@mui/icons-material/Add';
 import WorkIcon from '@mui/icons-material/Work';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -45,6 +48,25 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import AuthContext from '../context/AuthContext';
 import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
+
+// TabPanel component for links section
+function TabPanel({ children, value, index, ...other }) {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`dashboard-links-tabpanel-${index}`}
+      aria-labelledby={`dashboard-links-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 2 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
 
 const Dashboard = () => {
   const { user, isAuthenticated, loading: authLoading, token, logout } = useContext(AuthContext);
@@ -75,6 +97,11 @@ const Dashboard = () => {
   // Links state
   const [links, setLinks] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [linksTabValue, setLinksTabValue] = useState(0);
+
+  const handleLinksTabChange = (event, newValue) => {
+    setLinksTabValue(newValue);
+  };
   const [sentRequests, setSentRequests] = useState([]);
   const [linksLoading, setLinksLoading] = useState(true);
   
@@ -636,74 +663,27 @@ const Dashboard = () => {
                 </Typography>
               ) : (
                 <Box sx={{ maxHeight: 400, overflow: 'auto', pr: 1 }}>
-                  {/* Pending Link Requests */}
-                  {pendingRequests.length > 0 && (
-                    <Box sx={{ mb: 3 }}>
-                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <PersonAddIcon fontSize="small" />
-                        Pending Requests ({pendingRequests.length})
+                  <Paper sx={{ width: '100%', mb: 2 }}>
+                    <Tabs
+                      value={linksTabValue}
+                      onChange={handleLinksTabChange}
+                      indicatorColor="primary"
+                      textColor="primary"
+                      variant="fullWidth"
+                    >
+                      <Tab label={`Links (${links.length})`} />
+                      <Tab label={`Requests (${pendingRequests.length})`} />
+                      <Tab label={`Sent (${sentRequests.length})`} />
+                    </Tabs>
+                  </Paper>
+
+                  {/* Links Tab */}
+                  <TabPanel value={linksTabValue} index={0}>
+                    {links.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                        No links yet. Start connecting with other musicians!
                       </Typography>
-                      <List>
-                        {pendingRequests.map(request => (
-                          <ListItem
-                            key={request._id}
-                            sx={{
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              borderRadius: 1,
-                              mb: 1,
-                              p: 2
-                            }}
-                          >
-                            <Avatar
-                              src={request.requester?.avatar}
-                              alt={request.requester?.name}
-                              sx={{ mr: 2 }}
-                            />
-                            <ListItemText
-                              primary={
-                                <Typography
-                                  component="span"
-                                  sx={{
-                                    cursor: 'pointer',
-                                    color: 'primary.main',
-                                  }}
-                                  onClick={() => navigate(`/profile/${request.requester?._id || request.requester?.id}`)}
-                                >
-                                  {request.requester?.name}
-                                </Typography>
-                              }
-                              secondary={request.requester?.email}
-                            />
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                              <IconButton
-                                onClick={() => handleAcceptRequest(request._id)}
-                                color="success"
-                                size="small"
-                              >
-                                <CheckCircleIcon />
-                              </IconButton>
-                              <IconButton
-                                onClick={() => handleDeclineRequest(request._id)}
-                                color="error"
-                                size="small"
-                              >
-                                <CancelIcon />
-                              </IconButton>
-                            </Box>
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Box>
-                  )}
-                  
-                  {/* Current Links */}
-                  {links.length > 0 && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <PeopleIcon fontSize="small" />
-                        Links ({links.length})
-                      </Typography>
+                    ) : (
                       <List>
                         {links.map(link => (
                           <ListItem
@@ -734,7 +714,6 @@ const Dashboard = () => {
                                   {link.name}
                                 </Typography>
                               }
-                              secondary={link.email}
                             />
                             <IconButton
                               onClick={() => handleRemoveLink(link.linkId)}
@@ -746,16 +725,76 @@ const Dashboard = () => {
                           </ListItem>
                         ))}
                       </List>
-                    </Box>
-                  )}
-                  
-                  {/* Sent Requests */}
-                  {sentRequests.length > 0 && (
-                    <Box>
-                      <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <SearchIcon fontSize="small" />
-                        Sent Requests ({sentRequests.length})
+                    )}
+                  </TabPanel>
+
+                  {/* Pending Requests Tab */}
+                  <TabPanel value={linksTabValue} index={1}>
+                    {pendingRequests.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                        No pending requests.
                       </Typography>
+                    ) : (
+                      <List>
+                        {pendingRequests.map(request => (
+                          <ListItem
+                            key={request._id}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              mb: 1,
+                              p: 2
+                            }}
+                          >
+                            <Avatar
+                              src={request.requester?.avatar}
+                              alt={request.requester?.name}
+                              sx={{ mr: 2 }}
+                            />
+                            <ListItemText
+                              primary={
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    cursor: 'pointer',
+                                    color: 'primary.main',
+                                  }}
+                                  onClick={() => navigate(`/profile/${request.requester?._id || request.requester?.id}`)}
+                                >
+                                  {request.requester?.name}
+                                </Typography>
+                              }
+                            />
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <IconButton
+                                onClick={() => handleAcceptRequest(request._id)}
+                                color="success"
+                                size="small"
+                              >
+                                <CheckCircleIcon />
+                              </IconButton>
+                              <IconButton
+                                onClick={() => handleDeclineRequest(request._id)}
+                                color="error"
+                                size="small"
+                              >
+                                <CancelIcon />
+                              </IconButton>
+                            </Box>
+                          </ListItem>
+                        ))}
+                      </List>
+                    )}
+                  </TabPanel>
+
+                  {/* Sent Requests Tab */}
+                  <TabPanel value={linksTabValue} index={2}>
+                    {sentRequests.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                        No sent requests.
+                      </Typography>
+                    ) : (
                       <List>
                         {sentRequests.map(request => (
                           <ListItem
@@ -801,15 +840,8 @@ const Dashboard = () => {
                           </ListItem>
                         ))}
                       </List>
-                    </Box>
-                  )}
-                  
-                  {/* No Links Message */}
-                  {links.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0 && (
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                      No links yet. Start connecting with other musicians!
-                    </Typography>
-                  )}
+                    )}
+                  </TabPanel>
                 </Box>
               )}
             </CardContent>
