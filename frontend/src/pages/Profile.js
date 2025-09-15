@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button, Alert, Snackbar } from '@mui/material';
+import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
 import { Link as RouterLink, useParams, useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
 import ChatIcon from '@mui/icons-material/Chat';
@@ -23,6 +23,7 @@ const Profile = () => {
   const [linkId, setLinkId] = useState(null);
   const [userRole, setUserRole] = useState(null); // 'requester' or 'recipient'
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, action: null, message: '' });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -156,7 +157,15 @@ const Profile = () => {
     }
   };
 
-  const handleRemoveLink = async () => {
+  const handleRemoveLink = () => {
+    setConfirmDialog({
+      open: true,
+      action: 'removeLink',
+      message: `Are you sure you want to remove your link with ${profile?.name}?`
+    });
+  };
+
+  const executeRemoveLink = async () => {
     try {
       if (!linkId) {
         setSnackbar({ open: true, message: 'Link ID not found', severity: 'error' });
@@ -174,7 +183,15 @@ const Profile = () => {
     }
   };
 
-  const handleCancelRequest = async () => {
+  const handleCancelRequest = () => {
+    setConfirmDialog({
+      open: true,
+      action: 'cancelRequest',
+      message: `Are you sure you want to cancel your link request to ${profile?.name}?`
+    });
+  };
+
+  const executeCancelRequest = async () => {
     try {
       if (!linkId) {
         setSnackbar({ open: true, message: 'Link ID not found', severity: 'error' });
@@ -680,6 +697,42 @@ const Profile = () => {
           </Grid>
         </>
       )}
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={() => setConfirmDialog({ open: false, action: null, message: '' })}
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-description"
+      >
+        <DialogTitle id="confirm-dialog-title">
+          Confirm Action
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="confirm-dialog-description">
+            {confirmDialog.message}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialog({ open: false, action: null, message: '' })} color="primary">
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => {
+              if (confirmDialog.action === 'removeLink') {
+                executeRemoveLink();
+              } else if (confirmDialog.action === 'cancelRequest') {
+                executeCancelRequest();
+              }
+              setConfirmDialog({ open: false, action: null, message: '' });
+            }} 
+            color="primary" 
+            variant="contained"
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
       
       <Snackbar
         open={snackbar.open}

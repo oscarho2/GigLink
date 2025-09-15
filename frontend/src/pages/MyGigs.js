@@ -19,7 +19,9 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Select
+  Select,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -37,9 +39,37 @@ import AuthContext from '../context/AuthContext';
 import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
 
+function TabPanel({ children, value, index, ...other }) {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
+
+function a11yProps(index) {
+  return {
+    id: `simple-tab-${index}`,
+    'aria-controls': `simple-tabpanel-${index}`,
+  };
+}
+
 const MyGigs = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  
+  // Tab state
+  const [tabValue, setTabValue] = useState(0);
   
   // State for gigs and applications
   const [gigs, setGigs] = useState([]);
@@ -56,6 +86,11 @@ const MyGigs = () => {
   // Applicant selection modal state
   const [showApplicantModal, setShowApplicantModal] = useState(false);
   const [selectedGig, setSelectedGig] = useState(null);
+
+  // Handle tab change
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
 
   // Fetch user's gigs
   const fetchGigs = async () => {
@@ -183,9 +218,47 @@ const MyGigs = () => {
         My Gigs
       </Typography>
 
-      {/* Current Gigs Section */}
-      <Card sx={{ mb: 4 }}>
-        <CardContent>
+      {/* Tabbed Gigs and Applications Section */}
+      <Card>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            aria-label="gigs and applications tabs"
+            variant="fullWidth"
+          >
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <WorkIcon fontSize="small" />
+                  My Gigs
+                  <Chip
+                    label={filteredGigs.length}
+                    size="small"
+                    sx={{ bgcolor: '#e3f2fd', color: '#1976d2', fontSize: '0.75rem', height: 20 }}
+                  />
+                </Box>
+              }
+              {...a11yProps(0)}
+            />
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <PersonIcon fontSize="small" />
+                  Applications
+                  <Chip
+                    label={filteredApplications.length}
+                    size="small"
+                    sx={{ bgcolor: '#e8f5e8', color: '#388e3c', fontSize: '0.75rem', height: 20 }}
+                  />
+                </Box>
+              }
+              {...a11yProps(1)}
+            />
+          </Tabs>
+        </Box>
+
+        <TabPanel value={tabValue} index={0}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold' }}>
               <WorkIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
@@ -384,12 +457,9 @@ const MyGigs = () => {
               ))}
             </List>
           )}
-        </CardContent>
-      </Card>
+        </TabPanel>
 
-      {/* Gig Applications Section */}
-      <Card>
-        <CardContent>
+        <TabPanel value={tabValue} index={1}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold' }}>
               <WorkIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
@@ -539,7 +609,7 @@ const MyGigs = () => {
               ))}
             </Grid>
           )}
-        </CardContent>
+        </TabPanel>
       </Card>
 
       {/* Applicant Selection Modal */}

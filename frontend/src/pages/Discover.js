@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 import {
   Container,
   Typography,
@@ -21,11 +22,21 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  IconButton
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import CheckIcon from '@mui/icons-material/Check';
 import StarIcon from '@mui/icons-material/Star';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -33,7 +44,15 @@ import ClearIcon from '@mui/icons-material/Clear';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 
 // Memoized MusicianCard component for better performance
-const MusicianCard = memo(({ musician, user }) => {
+const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
+  const handleCardClick = () => {
+    if (user) {
+      window.location.href = `/profile/${musician.user._id}`;
+    } else {
+      window.location.href = `/login?redirect=/profile/${musician.user._id}`;
+    }
+  };
+
   return (
     <Card 
       sx={{ 
@@ -41,11 +60,13 @@ const MusicianCard = memo(({ musician, user }) => {
         display: 'flex', 
         flexDirection: 'column',
         transition: 'transform 0.2s, box-shadow 0.2s',
+        cursor: 'pointer',
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: 6
         }
       }}
+      onClick={handleCardClick}
     >
       <CardContent sx={{ 
         flexGrow: 1,
@@ -182,20 +203,44 @@ const MusicianCard = memo(({ musician, user }) => {
       </CardContent>
       
       <CardActions sx={{ p: 2, pt: 0 }}>
-        <Button
-          component={Link}
-          to={user ? `/profile/${musician.user._id}` : `/login?redirect=/profile/${musician.user._id}`}
-          variant="contained"
-          fullWidth
-          sx={{
-            bgcolor: '#1a365d',
-            '&:hover': {
-              bgcolor: '#2c5282'
+        {user && user.id !== musician.user._id && (
+          <Button
+            variant={linkStatus === 'linked' ? 'outlined' : 'contained'}
+            fullWidth
+            startIcon={
+              linkStatus === 'pending' ? <HourglassEmptyIcon /> :
+              linkStatus === 'linked' ? <PersonRemoveIcon /> :
+              linkStatus === 'received' ? <PersonAddIcon /> :
+              <PersonAddIcon />
             }
-          }}
-        >
-          View Full Profile
-        </Button>
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (linkStatus === 'pending') {
+                onLinkAction('cancel', musician.user._id, musician.user.name);
+              } else if (linkStatus === 'linked') {
+                onLinkAction('remove', musician.user._id, musician.user.name);
+              } else {
+                onLinkAction('request', musician.user._id, musician.user.name);
+              }
+            }}
+          >
+            {linkStatus === 'pending' ? 'Cancel Request' :
+             linkStatus === 'linked' ? 'Linked' :
+             linkStatus === 'received' ? 'Accept Request' :
+             'Add Link'}
+          </Button>
+        )}
+        {(!user || user.id === musician.user._id) && (
+          <Button
+            variant="contained"
+            fullWidth
+            startIcon={<PersonAddIcon />}
+            disabled={!user}
+          >
+            {!user ? 'Login to Connect' : 'Your Profile'}
+          </Button>
+        )}
       </CardActions>
     </Card>
   );
@@ -237,6 +282,13 @@ const Discover = () => {
     userType: ''
   });
   
+  // Link-related state
+  const [linkStatuses, setLinkStatuses] = useState({});
+  const [linkIds, setLinkIds] = useState({});
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', userId: '', linkId: '' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const token = localStorage.getItem('token');
+  
   // Filter options
   const locations = ["London", "Manchester", "Birmingham", "Liverpool", "Edinburgh", "Glasgow"];
   const instruments = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals"];
@@ -266,9 +318,157 @@ const Discover = () => {
     }
   }, []);
 
+  // Check link status for a specific user
+  const checkLinkStatus = useCallback(async (userId) => {
+    if (!user || !token || !userId || userId === user.id) return;
+    
+    try {
+      const response = await axios.get(`/api/links/status/${userId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      const { status, linkId: responseLink, role } = response.data;
+      
+      let finalStatus = status;
+      if (status === 'pending') {
+        finalStatus = role === 'requester' ? 'pending' : 'received';
+      } else if (status === 'accepted') {
+        finalStatus = 'linked';
+      } else {
+        finalStatus = 'none';
+      }
+      
+      setLinkStatuses(prev => ({ ...prev, [userId]: finalStatus }));
+      if (responseLink) {
+        setLinkIds(prev => ({ ...prev, [userId]: responseLink }));
+      }
+    } catch (err) {
+      console.error('Error checking link status:', err);
+      setLinkStatuses(prev => ({ ...prev, [userId]: 'none' }));
+    }
+  }, [user, token]);
+
+  // Check link statuses for all users
+  const checkAllLinkStatuses = useCallback(async () => {
+    if (!user || !token || users.length === 0) return;
+    
+    for (const musician of users) {
+      if (musician.user._id !== user.id) {
+        await checkLinkStatus(musician.user._id);
+      }
+    }
+  }, [user, token, users, checkLinkStatus]);
+
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  useEffect(() => {
+    if (users.length > 0) {
+      checkAllLinkStatuses();
+    }
+  }, [users, checkAllLinkStatuses]);
+
+  // Link request functions
+  const sendLinkRequest = useCallback(async (userId) => {
+    if (!user || !token) return;
+    
+    try {
+      const response = await axios.post('/api/links/request', 
+        { recipientId: userId },
+        { headers: { 'x-auth-token': token } }
+      );
+      
+      setLinkStatuses(prev => ({ ...prev, [userId]: 'pending' }));
+      setLinkIds(prev => ({ ...prev, [userId]: response.data.linkId }));
+      setSnackbar({ open: true, message: 'Link request sent!', severity: 'success' });
+    } catch (err) {
+      console.error('Error sending link request:', err);
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'Failed to send link request', 
+        severity: 'error' 
+      });
+    }
+  }, [user, token]);
+
+  const cancelLinkRequest = useCallback(async (userId) => {
+    const linkId = linkIds[userId];
+    if (!linkId || !token) return;
+    
+    try {
+      await axios.delete(`/api/links/${linkId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      setLinkStatuses(prev => ({ ...prev, [userId]: 'none' }));
+      setLinkIds(prev => ({ ...prev, [userId]: null }));
+      setSnackbar({ open: true, message: 'Link request cancelled', severity: 'info' });
+    } catch (err) {
+      console.error('Error cancelling link request:', err);
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'Failed to cancel link request', 
+        severity: 'error' 
+      });
+    }
+  }, [linkIds, token]);
+
+  const removeLink = useCallback(async (userId) => {
+    const linkId = linkIds[userId];
+    if (!linkId || !token) return;
+    
+    try {
+      await axios.delete(`/api/links/${linkId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      setLinkStatuses(prev => ({ ...prev, [userId]: 'none' }));
+      setLinkIds(prev => ({ ...prev, [userId]: null }));
+      setSnackbar({ open: true, message: 'Link removed', severity: 'info' });
+    } catch (err) {
+      console.error('Error removing link:', err);
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || 'Failed to remove link', 
+        severity: 'error' 
+      });
+    }
+  }, [linkIds, token]);
+
+  // Confirmation dialog handlers
+  const handleLinkAction = useCallback((action, userId, userName) => {
+    if (action === 'request') {
+      sendLinkRequest(userId);
+    } else if (action === 'cancel' || action === 'remove') {
+      setConfirmDialog({
+        open: true,
+        action,
+        userId,
+        userName,
+        message: action === 'cancel' 
+          ? `Are you sure you want to cancel your link request to ${userName}?`
+          : `Are you sure you want to remove your link with ${userName}?`
+      });
+    }
+  }, [sendLinkRequest]);
+
+  const handleConfirmAction = useCallback(() => {
+    const { action, userId } = confirmDialog;
+    if (action === 'cancel') {
+      cancelLinkRequest(userId);
+    } else if (action === 'remove') {
+      removeLink(userId);
+    }
+    setConfirmDialog({ open: false, action: '', userId: '', userName: '', message: '' });
+  }, [confirmDialog, cancelLinkRequest, removeLink]);
+
+  const handleCloseConfirm = useCallback(() => {
+    setConfirmDialog({ open: false, action: '', userId: '', userName: '', message: '' });
+  }, []);
+
+  const handleCloseSnackbar = useCallback(() => {
+    setSnackbar({ open: false, message: '', severity: 'info' });
+  }, []);
 
   // Memoized search handler
   const handleSearch = useCallback((event) => {
@@ -611,7 +811,12 @@ const Discover = () => {
       <Grid container spacing={3}>
         {filteredUsers.map((musician) => (
           <Grid item xs={12} sm={6} md={4} key={musician._id}>
-            <MusicianCard musician={musician} user={user} />
+            <MusicianCard 
+              musician={musician} 
+              user={user} 
+              linkStatus={linkStatuses[musician.user._id] || 'none'}
+              onLinkAction={handleLinkAction}
+            />
           </Grid>
         ))}
       </Grid>
@@ -627,6 +832,48 @@ const Discover = () => {
           </Typography>
         </Paper>
       )}
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={handleCloseConfirm}
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-description"
+      >
+        <DialogTitle id="confirm-dialog-title">
+          Confirm Action
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="confirm-dialog-description">
+            {confirmDialog.message}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseConfirm} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmAction} color="primary" variant="contained">
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

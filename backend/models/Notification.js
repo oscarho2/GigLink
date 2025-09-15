@@ -13,7 +13,7 @@ const NotificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['comment', 'message', 'gig_response', 'link_request'],
+    enum: ['comment', 'message', 'gig_response', 'gig_application', 'link_request'],
     required: true
   },
   message: {
