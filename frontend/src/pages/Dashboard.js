@@ -575,7 +575,7 @@ const Dashboard = () => {
                 </Button>
                 <Button
                   component={RouterLink}
-                  to="/gigs"
+                  to="/my-gigs"
                   variant="outlined"
                   startIcon={<WorkIcon />}
                   sx={{ 

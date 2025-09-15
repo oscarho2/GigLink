@@ -549,22 +549,27 @@ dateTo: '',
         {filteredGigs.length > 0 ? (
           filteredGigs.map((gig) => (
             <Grid item xs={12} sm={6} md={4} key={gig._id}>
-              <Card 
-              sx={{ 
-                height: '100%',
-                display: 'flex', 
-                flexDirection: 'column',
-                borderRadius: { xs: 1.5, sm: 2 },
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'inherit',
-                opacity: gig.isFilled ? 0.7 : 1,
-                '&:hover': {
-                  transform: gig.isFilled ? 'none' : { xs: 'none', sm: 'translateY(-4px)' },
-                  boxShadow: gig.isFilled ? '0 4px 12px rgba(0,0,0,0.1)' : { xs: '0 4px 12px rgba(0,0,0,0.1)', sm: '0 12px 20px rgba(0,0,0,0.15)' },
-                }
-              }}
-            >
+              <Link 
+                to={isAuthenticated ? `/gigs/${gig._id}` : `/login?redirect=/gigs/${gig._id}`}
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <Card 
+                sx={{ 
+                  height: '100%',
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  borderRadius: { xs: 1.5, sm: 2 },
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                  backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'inherit',
+                  opacity: gig.isFilled ? 0.7 : 1,
+                  cursor: 'pointer',
+                  '&:hover': {
+                    transform: gig.isFilled ? 'none' : { xs: 'none', sm: 'translateY(-4px)' },
+                    boxShadow: gig.isFilled ? '0 4px 12px rgba(0,0,0,0.1)' : { xs: '0 4px 12px rgba(0,0,0,0.1)', sm: '0 12px 20px rgba(0,0,0,0.15)' },
+                  }
+                }}
+                >
               <Box sx={{ 
                 bgcolor: '#1a365d', 
                 color: 'white', 
@@ -594,28 +599,42 @@ dateTo: '',
                 <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
                   <Grid item xs={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
-                      <Avatar 
-                        src={gig.user?.avatar} 
-                        alt={gig.user?.name || 'User'}
-                        sx={{ 
-                          width: { xs: 24, sm: 28 }, 
-                          height: { xs: 24, sm: 28 }, 
-                          mr: 1,
-                          bgcolor: '#1a365d',
-                          fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                        }}
+                      <Link 
+                        to={isAuthenticated ? `/profile/${gig.user?._id}` : `/login?redirect=/profile/${gig.user?._id}`}
+                        style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {!gig.user?.avatar && (gig.user?.name?.charAt(0) || 'U')}
-                      </Avatar>
-                      <Typography 
-                        variant="body1" 
-                        fontWeight="bold"
-                        sx={{
-                          fontSize: { xs: '0.875rem', sm: '1rem' }
-                        }}
-                      >
-                        {gig.user?.name || 'Unknown'}
-                      </Typography>
+                        <Avatar 
+                          src={gig.user?.avatar} 
+                          alt={gig.user?.name || 'User'}
+                          sx={{ 
+                            width: { xs: 24, sm: 28 }, 
+                            height: { xs: 24, sm: 28 }, 
+                            mr: 1,
+                            bgcolor: '#1a365d',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                            transition: 'transform 0.2s',
+                            '&:hover': {
+                              transform: 'scale(1.1)'
+                            }
+                          }}
+                        >
+                          {!gig.user?.avatar && (gig.user?.name?.charAt(0) || 'U')}
+                        </Avatar>
+                        <Typography 
+                          variant="body1" 
+                          fontWeight="bold"
+                          sx={{
+                            fontSize: { xs: '0.875rem', sm: '1rem' },
+                            transition: 'color 0.2s',
+                            '&:hover': {
+                              color: '#1a365d'
+                            }
+                          }}
+                        >
+                          {gig.user?.name || 'Unknown'}
+                        </Typography>
+                      </Link>
                     </Box>
                   </Grid>
                   
@@ -751,8 +770,7 @@ dateTo: '',
                   <Button
                     size="medium"
                     variant="contained"
-                    component={Link}
-                    to={isAuthenticated ? `/gigs/${gig._id}` : `/login?redirect=/gigs/${gig._id}`}
+                    onClick={(e) => e.stopPropagation()}
                     sx={{
                       borderRadius: 2,
                       bgcolor: '#1a365d',
@@ -763,11 +781,12 @@ dateTo: '',
                       '&:hover': { bgcolor: '#2c5282' }
                     }}
                   >
-                    View Details
+                    Apply
                   </Button>
                 </Box>
               </CardActions>
-            </Card>
+                </Card>
+              </Link>
           </Grid>
           ))
         ) : (

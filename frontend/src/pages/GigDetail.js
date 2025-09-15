@@ -399,13 +399,31 @@ const GigDetail = () => {
                 >
                   Posted By
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                <Box 
+                  component={Link} 
+                  to={`/profile/${gig.user._id}`} 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    mt: 1,
+                    textDecoration: 'none', 
+                    color: 'inherit',
+                    transition: 'opacity 0.2s',
+                    '&:hover': {
+                      opacity: 0.8
+                    }
+                  }}
+                >
                   <Avatar 
                     sx={{ 
                       mr: { xs: 1.5, sm: 2 },
                       width: { xs: 36, sm: 40 },
                       height: { xs: 36, sm: 40 },
-                      fontSize: { xs: '1rem', sm: '1.125rem' }
+                      fontSize: { xs: '1rem', sm: '1.125rem' },
+                      transition: 'transform 0.2s',
+                      '&:hover': {
+                        transform: 'scale(1.1)'
+                      }
                     }}
                   >
                     {gig.user.name.charAt(0)}
@@ -413,12 +431,14 @@ const GigDetail = () => {
                   <Typography 
                     variant="body1"
                     sx={{
-                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                      transition: 'color 0.2s',
+                      '&:hover': {
+                        color: '#1a365d'
+                      }
                     }}
                   >
-                    <Link to={`/profile/${gig.user._id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                      {gig.user.name}
-                    </Link>
+                    {gig.user.name}
                   </Typography>
                 </Box>
               </Box>
