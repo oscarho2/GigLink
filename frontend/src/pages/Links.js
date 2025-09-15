@@ -344,7 +344,11 @@ const LinksPage = () => {
                     return (
                       <ListItem key={user._id}>
                         <ListItemAvatar>
-                          <Avatar src={user.avatar}>
+                          <Avatar 
+                            src={user.avatar ? `http://localhost:5001${user.avatar}` : undefined}
+                            sx={{ cursor: 'pointer' }}
+                            onClick={() => navigate(`/profile/${user._id}`)}
+                          >
                             {user.name.charAt(0).toUpperCase()}
                           </Avatar>
                         </ListItemAvatar>
@@ -356,7 +360,7 @@ const LinksPage = () => {
                                 cursor: 'pointer',
                                 color: 'primary.main',
                                 '&:hover': {
-                                  textDecoration: 'underline'
+                                  color: 'primary.dark'
                                 }
                               }}
                               onClick={() => navigate(`/profile/${user._id}`)}
@@ -423,7 +427,11 @@ const LinksPage = () => {
               {links.map((linkData) => (
                 <ListItem key={linkData.linkId}>
                   <ListItemAvatar>
-                    <Avatar src={linkData.link.avatar}>
+                    <Avatar 
+                       src={linkData.link.avatar ? `http://localhost:5001${linkData.link.avatar}` : undefined}
+                       sx={{ cursor: 'pointer' }}
+                       onClick={() => navigate(`/profile/${linkData.link._id}`)}
+                     >
                       {linkData.link.name.charAt(0).toUpperCase()}
                     </Avatar>
                   </ListItemAvatar>
@@ -468,7 +476,11 @@ const LinksPage = () => {
               {pendingRequests.map((request) => (
                 <ListItem key={request.linkId}>
                   <ListItemAvatar>
-                    <Avatar src={request.requester.avatar}>
+                    <Avatar 
+                       src={request.requester.avatar ? `http://localhost:5001${request.requester.avatar}` : undefined}
+                       sx={{ cursor: 'pointer' }}
+                       onClick={() => navigate(`/profile/${request.requester._id}`)}
+                     >
                       {request.requester.name.charAt(0).toUpperCase()}
                     </Avatar>
                   </ListItemAvatar>
@@ -480,7 +492,7 @@ const LinksPage = () => {
                           cursor: 'pointer',
                           color: 'primary.main',
                           '&:hover': {
-                            textDecoration: 'underline'
+                            color: 'primary.dark'
                           }
                         }}
                         onClick={() => navigate(`/profile/${request.requester._id || request.requester.id}`)}
@@ -533,7 +545,11 @@ const LinksPage = () => {
               {sentRequests.map((request) => (
                 <ListItem key={request.linkId}>
                   <ListItemAvatar>
-                    <Avatar src={request.recipient.avatar}>
+                    <Avatar 
+                       src={request.recipient.avatar ? `http://localhost:5001${request.recipient.avatar}` : undefined}
+                       sx={{ cursor: 'pointer' }}
+                       onClick={() => navigate(`/profile/${request.recipient._id}`)}
+                     >
                       {request.recipient.name.charAt(0).toUpperCase()}
                     </Avatar>
                   </ListItemAvatar>
@@ -545,7 +561,7 @@ const LinksPage = () => {
                           cursor: 'pointer',
                           color: 'primary.main',
                           '&:hover': {
-                            textDecoration: 'underline'
+                            color: 'primary.dark'
                           }
                         }}
                         onClick={() => navigate(`/profile/${request.recipient._id || request.recipient.id}`)}
