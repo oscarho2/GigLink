@@ -20,6 +20,7 @@ import {
   IconButton,
   InputAdornment
 } from '@mui/material';
+import { keyframes } from '@mui/system';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -34,6 +35,19 @@ import PersonIcon from '@mui/icons-material/Person';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+
+// Define pulse animation
+const pulse = keyframes`
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+`;
 
 const Gigs = () => {
   const { isAuthenticated, user } = useAuth();
@@ -237,7 +251,7 @@ dateTo: '',
                 lineHeight: { xs: 1.2, sm: 1.3 }
               }}
             >
-              UK Gig Opportunities
+              Gig Opportunities
             </Typography>
             <Typography 
               variant="subtitle1" 
@@ -248,7 +262,7 @@ dateTo: '',
                 lineHeight: { xs: 1.4, sm: 1.5 }
               }}
             >
-              Find the gigs across the United Kingdom
+              Find exciting gig opportunities for musicians
             </Typography>
           </Box>
           <Box 
@@ -293,9 +307,9 @@ dateTo: '',
                 fontSize: { xs: '0.8125rem', sm: '0.875rem' },
                 minHeight: { xs: 40, sm: 44 },
                 flex: { xs: 1, md: 'none' },
-                bgcolor: '#64748b',
+                bgcolor: '#1a365d',
                 '&:hover': {
-                  bgcolor: '#475569'
+                  bgcolor: '#2c5282'
                 }
               }}
             >
@@ -533,25 +547,249 @@ dateTo: '',
       
       {loading ? (
         <Grid container spacing={{ xs: 2, sm: 3 }}>
-          <Grid item xs={12}>
-            <Paper 
-              sx={{ 
-                p: { xs: 3, sm: 4 }, 
-                textAlign: 'center', 
-                borderRadius: 2 
-              }}
-            >
-              <Typography 
-                variant="h6" 
-                color="text.secondary"
-                sx={{
-                  fontSize: { xs: '1.125rem', sm: '1.25rem' }
+          {[...Array(6)].map((_, index) => (
+            <Grid item xs={12} sm={6} md={4} key={index}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  borderRadius: { xs: 1.5, sm: 2 },
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                 }}
               >
-                Loading gigs...
-              </Typography>
-            </Paper>
-          </Grid>
+                <Box sx={{ 
+                  bgcolor: '#f5f5f5', 
+                  p: { xs: 1.5, sm: 2 }, 
+                  borderTopLeftRadius: { xs: 6, sm: 8 }, 
+                  borderTopRightRadius: { xs: 6, sm: 8 },
+                  animation: 'pulse 1.5s ease-in-out infinite'
+                }}>
+                  <Box 
+                    sx={{
+                      height: { xs: 20, sm: 24 },
+                      bgcolor: '#e0e0e0',
+                      borderRadius: 1,
+                      animation: `${pulse} 1.5s ease-in-out infinite`
+                    }}
+                  />
+                </Box>
+                <CardContent sx={{ 
+                  flexGrow: 1, 
+                  p: { xs: 2, sm: 3 }
+                }}>
+                  <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
+                    <Grid item xs={12}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                        <Box 
+                          sx={{
+                            width: { xs: 24, sm: 28 }, 
+                            height: { xs: 24, sm: 28 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: '50%',
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                        <Box 
+                          sx={{
+                            ml: 1,
+                            width: 80,
+                            height: { xs: 16, sm: 18 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                        <Box 
+                          sx={{
+                            width: { xs: 20, sm: 24 },
+                            height: { xs: 20, sm: 24 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            mr: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                        <Box 
+                          sx={{
+                            width: 60,
+                            height: { xs: 16, sm: 18 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                        <Box 
+                          sx={{
+                            width: { xs: 20, sm: 24 },
+                            height: { xs: 20, sm: 24 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            mr: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                        <Box 
+                          sx={{
+                            width: 80,
+                            height: { xs: 16, sm: 18 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                        <Box 
+                          sx={{
+                            width: { xs: 20, sm: 24 },
+                            height: { xs: 20, sm: 24 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            mr: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                        <Box 
+                          sx={{
+                            width: 100,
+                            height: { xs: 16, sm: 18 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Box 
+                          sx={{
+                            width: { xs: 20, sm: 24 },
+                            height: { xs: 20, sm: 24 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            mr: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                        <Box 
+                          sx={{
+                            width: 70,
+                            height: { xs: 16, sm: 18 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+                  </Grid>
+                  
+                  <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 0.75, sm: 1 } }}>
+                        <Box 
+                          sx={{
+                            width: { xs: 18, sm: 20 },
+                            height: { xs: 18, sm: 20 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            mr: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                        <Box 
+                          sx={{
+                            width: 80,
+                            height: { xs: 14, sm: 16 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                      </Box>
+                      <Box sx={{ ml: { xs: 3, sm: 4 }, display: 'flex', gap: 0.5 }}>
+                        {[...Array(2)].map((_, i) => (
+                          <Box 
+                            key={i}
+                            sx={{
+                              width: 50,
+                              height: { xs: 24, sm: 28 },
+                              bgcolor: '#e0e0e0',
+                              borderRadius: 3,
+                              animation: `${pulse} 1.5s ease-in-out infinite`
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 0.75, sm: 1 } }}>
+                        <Box 
+                          sx={{
+                            width: { xs: 18, sm: 20 },
+                            height: { xs: 18, sm: 20 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            mr: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                        <Box 
+                          sx={{
+                            width: 60,
+                            height: { xs: 14, sm: 16 },
+                            bgcolor: '#e0e0e0',
+                            borderRadius: 1,
+                            animation: `${pulse} 1.5s ease-in-out infinite`
+                          }}
+                        />
+                      </Box>
+                      <Box sx={{ ml: { xs: 3, sm: 4 }, display: 'flex', gap: 0.5 }}>
+                        {[...Array(2)].map((_, i) => (
+                          <Box 
+                            key={i}
+                            sx={{
+                              width: 40,
+                              height: { xs: 24, sm: 28 },
+                              bgcolor: '#e0e0e0',
+                              borderRadius: 3,
+                              animation: `${pulse} 1.5s ease-in-out infinite`
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+                
+                <CardActions sx={{ 
+                  p: { xs: 1.5, sm: 2 }, 
+                  pt: 0
+                }}>
+                  <Box 
+                    sx={{
+                      width: '100%',
+                      height: { xs: 40, sm: 44 },
+                      bgcolor: '#e0e0e0',
+                      borderRadius: 2,
+                      animation: `${pulse} 1.5s ease-in-out infinite`
+                    }}
+                  />
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
         </Grid>
       ) : (
         <Grid container spacing={{ xs: 2, sm: 3 }}>

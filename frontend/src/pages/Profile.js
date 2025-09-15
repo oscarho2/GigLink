@@ -505,24 +505,7 @@ const Profile = () => {
                 {profile.location}
               </Typography>
             )}
-            {/* New: Availability and rate chips */}
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center', mb: { xs: 1.5, sm: 2 } }}>
-              {profile.availability ? (
-                <Chip 
-                  label={profile.availability}
-                  color={profile.availability === 'Available' ? 'success' : 'default'}
-                  size="small"
-                  variant="outlined"
-                />
-              ) : null}
-              {typeof profile.hourlyRate === 'number' ? (
-                <Chip 
-                  label={`£${profile.hourlyRate}/hr`}
-                  size="small"
-                  variant="outlined"
-                />
-              ) : null}
-            </Box>
+
             {isOwnProfile ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
                 <Button
@@ -749,30 +732,30 @@ const Profile = () => {
           <Grid container spacing={{ xs: 2, sm: 3 }}>
             {profile.photos.map((photo, index) => (
               <Grid item xs={12} sm={6} md={4} key={photo._id || index}>
-                <Paper 
-                  elevation={2} 
-                  sx={{ 
-                    overflow: 'hidden',
-                    borderRadius: 2
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={`http://localhost:5001${photo.url}`}
-                    alt={photo.caption || 'Profile photo'}
-                    onClick={() => openPhotoModal(`http://localhost:5001${photo.url}`, photo.caption, index)}
-                    sx={{
-                      width: '100%',
-                      height: { xs: 200, sm: 250 },
-                      objectFit: 'cover',
-                      cursor: 'pointer',
-                      transition: 'transform 0.2s ease-in-out',
-                      '&:hover': {
-                        transform: 'scale(1.02)'
-                      }
+                {photo.caption ? (
+                  <Paper 
+                    elevation={2} 
+                    sx={{ 
+                      overflow: 'hidden',
+                      borderRadius: 2
                     }}
-                  />
-                  {photo.caption && (
+                  >
+                    <Box
+                      component="img"
+                      src={`http://localhost:5001${photo.url}`}
+                      alt={photo.caption || 'Profile photo'}
+                      onClick={() => openPhotoModal(`http://localhost:5001${photo.url}`, photo.caption, index)}
+                      sx={{
+                        width: '100%',
+                        height: { xs: 200, sm: 250 },
+                        objectFit: 'cover',
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s ease-in-out',
+                        '&:hover': {
+                          transform: 'scale(1.02)'
+                        }
+                      }}
+                    />
                     <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
                       <Typography 
                         variant="body2" 
@@ -784,8 +767,28 @@ const Profile = () => {
                         {photo.caption}
                       </Typography>
                     </Box>
-                  )}
-                </Paper>
+                  </Paper>
+                ) : (
+                  <Box
+                    component="img"
+                    src={`http://localhost:5001${photo.url}`}
+                    alt="Profile photo"
+                    onClick={() => openPhotoModal(`http://localhost:5001${photo.url}`, photo.caption, index)}
+                    sx={{
+                      width: '100%',
+                      height: { xs: 200, sm: 250 },
+                      objectFit: 'cover',
+                      cursor: 'pointer',
+                      borderRadius: 2,
+                      transition: 'transform 0.2s ease-in-out',
+                      boxShadow: 2,
+                      '&:hover': {
+                        transform: 'scale(1.02)',
+                        boxShadow: 4
+                      }
+                    }}
+                  />
+                )}
               </Grid>
             ))}
           </Grid>
