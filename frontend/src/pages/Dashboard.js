@@ -48,6 +48,7 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import AuthContext from '../context/AuthContext';
 import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
+import UserAvatar from '../components/UserAvatar';
 
 // TabPanel component for links section
 function TabPanel({ children, value, index, ...other }) {
@@ -429,19 +430,11 @@ const Dashboard = () => {
             <CardContent sx={{ p: 2, pb: 1.5 }}>
               {/* Profile Header */}
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
-                <Avatar
-                  src={profile?.user?.avatar || user?.avatar}
-                  alt={profile?.user?.name || user?.name}
-                  sx={{ 
-                    width: 80, 
-                    height: 80, 
-                    mb: 2,
-                    bgcolor: 'primary.main',
-                    fontSize: '2rem'
-                  }}
-                >
-                  {(profile?.user?.name || user?.name)?.charAt(0)}
-                </Avatar>
+                <UserAvatar
+                  user={profile?.user || user}
+                  size={80}
+                  sx={{ mb: 2 }}
+                />
                 <Typography variant="h6" component="h2" align="center" gutterBottom>
                   {profile?.user?.name || user?.name}
                 </Typography>
@@ -696,9 +689,9 @@ const Dashboard = () => {
                               p: 2
                             }}
                           >
-                            <Avatar
-                              src={link.avatar ? `http://localhost:5001${link.avatar}` : undefined}
-                              alt={link.name}
+                            <UserAvatar
+                              user={link}
+                              size={40}
                               sx={{ 
                                 mr: 2,
                                 cursor: 'pointer'
@@ -751,9 +744,9 @@ const Dashboard = () => {
                               p: 2
                             }}
                           >
-                            <Avatar
-                              src={request.requester?.avatar}
-                              alt={request.requester?.name}
+                            <UserAvatar
+                              user={request.requester}
+                              size={40}
                               sx={{ mr: 2 }}
                             />
                             <ListItemText
@@ -811,9 +804,9 @@ const Dashboard = () => {
                               p: 2
                             }}
                           >
-                            <Avatar
-                              src={request.recipient?.avatar}
-                              alt={request.recipient?.name}
+                            <UserAvatar
+                              user={request.recipient}
+                              size={40}
                               sx={{ mr: 2 }}
                             />
                             <ListItemText
