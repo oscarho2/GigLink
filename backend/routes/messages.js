@@ -82,8 +82,8 @@ router.get('/conversations', auth, async (req, res) => {
     const messages = await Message.find({
       $or: [{ sender: userId }, { recipient: userId }]
     })
-    .populate('sender', 'name email')
-    .populate('recipient', 'name email')
+    .populate('sender', 'name email avatar')
+    .populate('recipient', 'name email avatar')
     .sort({ createdAt: -1 });
     
     console.log('Found messages:', messages.length);
@@ -138,7 +138,7 @@ router.get('/conversation/:otherUserId', auth, async (req, res) => {
     console.log('GET /conversation called for user:', userId, 'with otherUser:', otherUserId, 'page:', page, 'limit:', limit);
     
     // Validate other user exists
-    const otherUser = await User.findById(otherUserId).select('name email');
+    const otherUser = await User.findById(otherUserId).select('name email avatar');
     if (!otherUser) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -151,14 +151,14 @@ router.get('/conversation/:otherUserId', auth, async (req, res) => {
     
     // Fetch messages with pagination (most recent first, then reverse for display)
     const messages = await Message.find({ conversationId })
-      .populate('sender', 'name email')
-      .populate('recipient', 'name email')
+      .populate('sender', 'name email avatar')
+      .populate('recipient', 'name email avatar')
       .populate({
         path: 'replyTo',
         select: 'content sender createdAt',
         populate: {
           path: 'sender',
-          select: 'name email'
+          select: 'name email avatar'
         }
       })
       .sort({ createdAt: -1 }) // Most recent first

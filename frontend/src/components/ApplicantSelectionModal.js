@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import UserAvatar from './UserAvatar';
 
 const ApplicantSelectionModal = ({ 
   open, 
@@ -60,9 +61,7 @@ const ApplicantSelectionModal = ({
                     }}
                   >
                     <ListItemAvatar>
-                      <Avatar src={user.profilePicture}>
-                        <PersonIcon />
-                      </Avatar>
+                      <UserAvatar user={user} size={40} />
                     </ListItemAvatar>
                     <ListItemText
                       primary={

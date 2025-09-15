@@ -35,6 +35,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+import UserAvatar from '../components/UserAvatar';
 
 // Define pulse animation
 const pulse = keyframes`
@@ -852,13 +853,9 @@ dateTo: '',
                         navigate(isAuthenticated ? `/profile/${gig.user?._id}` : `/login?redirect=/profile/${gig.user?._id}`);
                       }}
                     >
-                      <Avatar 
-                        src={gig.user?.avatar} 
-                        alt={gig.user?.name || 'User'}
-                        sx={{ 
-                          width: { xs: 24, sm: 28 }, 
-                          height: { xs: 24, sm: 28 }, 
-                        }}
+                      <UserAvatar 
+                        user={gig.user}
+                        size={{ xs: 24, sm: 28 }}
                       />
                       <Typography 
                         variant="subtitle2" 

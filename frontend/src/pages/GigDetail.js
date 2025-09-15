@@ -9,6 +9,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import PersonIcon from '@mui/icons-material/Person';
+import UserAvatar from '../components/UserAvatar';
 
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -416,20 +417,17 @@ const GigDetail = () => {
                     }
                   }}
                 >
-                  <Avatar 
+                  <UserAvatar 
+                    user={gig.user}
+                    size={{ xs: 36, sm: 40 }}
                     sx={{ 
                       mr: { xs: 1.5, sm: 2 },
-                      width: { xs: 36, sm: 40 },
-                      height: { xs: 36, sm: 40 },
-                      fontSize: { xs: '1rem', sm: '1.125rem' },
                       transition: 'transform 0.2s',
                       '&:hover': {
                         transform: 'scale(1.1)'
                       }
                     }}
-                  >
-                    {gig.user.name.charAt(0)}
-                  </Avatar>
+                  />
                   <Typography 
                     variant="body1"
                     sx={{
@@ -501,16 +499,13 @@ const GigDetail = () => {
                             }
                           }}
                         >
-                          <Avatar 
+                          <UserAvatar 
+                            user={typeof applicant.user === 'object' ? applicant.user : { name: 'Unknown', _id: applicantUserId }}
+                            size={40}
                             sx={{ 
-                              mr: 2,
-                              width: 40,
-                              height: 40,
-                              bgcolor: '#1976d2'
+                              mr: 2
                             }}
-                          >
-                            {typeof applicant.user === 'object' ? applicant.user.name?.charAt(0) : 'U'}
-                          </Avatar>
+                          />
                           <Box sx={{ flex: 1 }}>
                             <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
                               {typeof applicant.user === 'object' ? applicant.user.name : applicantUserId}

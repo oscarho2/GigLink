@@ -25,10 +25,10 @@ const checkUserProfiles = async () => {
       
       if (profile) {
         console.log('Profile found:');
-        console.log(`  Location: ${profile.location || 'Not set'}`);
-        console.log(`  Bio: ${profile.bio ? profile.bio.substring(0, 100) + '...' : 'Not set'}`);
-        console.log(`  Instruments: ${profile.instruments ? profile.instruments.join(', ') : 'None'}`);
-        console.log(`  Genres: ${profile.genres ? profile.genres.join(', ') : 'None'}`);
+        console.log(`  Location: ${user.location || 'Not set'}`);
+        console.log(`  Bio: ${user.bio ? user.bio.substring(0, 100) + '...' : 'Not set'}`);
+        console.log(`  Instruments: ${user.instruments ? user.instruments.join(', ') : 'None'}`);
+        console.log(`  Genres: ${user.genres ? user.genres.join(', ') : 'None'}`);
     
       } else {
         console.log('No profile found');

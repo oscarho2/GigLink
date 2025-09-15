@@ -40,6 +40,7 @@ import AuthContext from '../context/AuthContext';
 import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
 import { formatPayment } from '../utils/currency';
+import UserAvatar from '../components/UserAvatar';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -616,18 +617,17 @@ const MyGigs = () => {
                         >
                           Posted by:
                         </Typography>
-                        <Avatar
-                           src={application.poster?.avatar ? `http://localhost:5001${application.poster.avatar}` : undefined}
-                           sx={{ width: 20, height: 20, mr: 1, cursor: 'pointer' }}
+                        <UserAvatar
+                           user={application.poster || { name: 'Unknown' }}
+                           size={20}
+                           sx={{ mr: 1, cursor: 'pointer' }}
                            onClick={(e) => {
                              e.stopPropagation();
                              if (application.poster?._id) {
                                navigate(`/profile/${application.poster._id}`);
                              }
                            }}
-                         >
-                           {application.poster?.name?.charAt(0) || 'U'}
-                         </Avatar>
+                         />
                         <Typography 
                           variant="caption" 
                           color="text.secondary" 
