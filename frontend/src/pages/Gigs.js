@@ -20,7 +20,7 @@ import {
   IconButton,
   InputAdornment
 } from '@mui/material';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { formatPayment, getPaymentValue } from '../utils/currency';
@@ -37,6 +37,7 @@ import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 
 const Gigs = () => {
   const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
   const [showFilters, setShowFilters] = useState(false);
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -420,6 +421,10 @@ dateTo: '',
                     </IconButton>
                   ),
                 }}
+                sx={{
+                  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                }}
               />
             </Grid>
             
@@ -439,13 +444,17 @@ dateTo: '',
                     </IconButton>
                   ),
                 }}
+                sx={{
+                  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                }}
               />
             </Grid>
             
             {/* Fee Range Filter */}
             <Grid item xs={12} sm={6} md={6}>
               <Typography id="fee-range-slider" gutterBottom>
-                Fee Range: £{filters.minFee} - {filters.maxFee === Infinity ? '£2000+' : `£${filters.maxFee}`}
+                Fee Range: {filters.minFee} - {filters.maxFee === Infinity ? '2000+' : `${filters.maxFee}`}
               </Typography>
               <Slider
                 value={[filters.minFee, filters.maxFee === Infinity ? 2000 : filters.maxFee]}
@@ -455,8 +464,8 @@ dateTo: '',
                 }}
                 valueLabelDisplay="auto"
                 valueLabelFormat={(value, index) => {
-                  if (index === 1 && filters.maxFee === Infinity) return '£2000+';
-                  return `£${value}`;
+                  if (index === 1 && filters.maxFee === Infinity) return '2000+';
+                  return `${value}`;
                 }}
                 min={0}
                 max={2000}
@@ -598,43 +607,32 @@ dateTo: '',
               }}>
                 <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
                   <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
-                      <Link 
-                        to={isAuthenticated ? `/profile/${gig.user?._id}` : `/login?redirect=/profile/${gig.user?._id}`}
-                        style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}
-                        onClick={(e) => e.stopPropagation()}
+                    <Box 
+                      sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 }, cursor: 'pointer' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(isAuthenticated ? `/profile/${gig.user?._id}` : `/login?redirect=/profile/${gig.user?._id}`);
+                      }}
+                    >
+                      <Avatar 
+                        src={gig.user?.avatar} 
+                        alt={gig.user?.name || 'User'}
+                        sx={{ 
+                          width: { xs: 24, sm: 28 }, 
+                          height: { xs: 24, sm: 28 }, 
+                        }}
+                      />
+                      <Typography 
+                        variant="subtitle2" 
+                        fontWeight="medium"
+                        sx={{
+                          ml: 1,
+                          fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                          color: gig.isFilled ? 'text.disabled' : 'primary.main'
+                        }}
                       >
-                        <Avatar 
-                          src={gig.user?.avatar} 
-                          alt={gig.user?.name || 'User'}
-                          sx={{ 
-                            width: { xs: 24, sm: 28 }, 
-                            height: { xs: 24, sm: 28 }, 
-                            mr: 1,
-                            bgcolor: '#1a365d',
-                            fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                            transition: 'transform 0.2s',
-                            '&:hover': {
-                              transform: 'scale(1.1)'
-                            }
-                          }}
-                        >
-                          {!gig.user?.avatar && (gig.user?.name?.charAt(0) || 'U')}
-                        </Avatar>
-                        <Typography 
-                          variant="body1" 
-                          fontWeight="bold"
-                          sx={{
-                            fontSize: { xs: '0.875rem', sm: '1rem' },
-                            transition: 'color 0.2s',
-                            '&:hover': {
-                              color: '#1a365d'
-                            }
-                          }}
-                        >
-                          {gig.user?.name || 'Unknown'}
-                        </Typography>
-                      </Link>
+                        {gig.user?.name}
+                      </Typography>
                     </Box>
                   </Grid>
                   
@@ -648,20 +646,72 @@ dateTo: '',
                           fontSize: { xs: '0.875rem', sm: '1rem' }
                         }}
                       >
-                        {formatPayment(gig.payment)}
+                        {formatPayment(gig.payment, gig.currency || 'GBP')}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
                       <CalendarTodayIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
-                      <Typography 
-                        variant="body1" 
-                        fontWeight="bold"
-                        sx={{
-                          fontSize: { xs: '0.875rem', sm: '1rem' }
-                        }}
-                      >
-                        {new Date(gig.date).toLocaleDateString('en-GB')}
-                      </Typography>
+                      <Box>
+                        {Array.isArray(gig.schedules) && gig.schedules.length > 0 ? (
+                          (() => {
+                            const count = gig.schedules.length;
+                            const first = gig.schedules[0];
+                            const last = gig.schedules[count - 1];
+                            const firstDateStr = first.date ? new Date(first.date).toLocaleDateString('en-GB') : 'Date TBD';
+                            const lastDateStr = last.date ? new Date(last.date).toLocaleDateString('en-GB') : 'Date TBD';
+                            
+                            if (count === 1) {
+                              // Single date: show date then time underneath
+                              return (
+                                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                  <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
+                                    {firstDateStr}
+                                  </Typography>
+                                  {first.startTime && (
+                                    <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, lineHeight: 1.2 }}>
+                                      {first.startTime}{first.endTime ? ` - ${first.endTime}` : ''}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              );
+                            } else {
+                              // Multiple dates: three-line format - date, dash, date (no times)
+                              return (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
+                                    {firstDateStr}
+                                  </Typography>
+                                  <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, opacity: 0.7, lineHeight: 1.2 }}>
+                                    —
+                                  </Typography>
+                                  <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
+                                    {lastDateStr}
+                                  </Typography>
+                                </Box>
+                              );
+                            }
+                          })()
+                        ) : (
+                          // Fallback to single date/time: show date then time underneath
+                          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                            <Typography 
+                              variant="body1" 
+                              fontWeight="bold"
+                              sx={{
+                                fontSize: { xs: '0.875rem', sm: '1rem' },
+                                lineHeight: 1.2
+                              }}
+                            >
+                              {new Date(gig.date).toLocaleDateString('en-GB')}
+                            </Typography>
+                            {gig.time && (
+                              <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, lineHeight: 1.2 }}>
+                                {gig.time}
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
                     </Box>
                   </Grid>
                   

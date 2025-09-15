@@ -39,6 +39,7 @@ import {
 import AuthContext from '../context/AuthContext';
 import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
+import { formatPayment } from '../utils/currency';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -398,7 +399,7 @@ const MyGigs = () => {
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <PaymentIcon sx={{ fontSize: '1rem', mr: 0.5, color: 'text.secondary' }} />
                             <span style={{ fontSize: '0.875rem', color: 'rgba(0, 0, 0, 0.6)' }}>
-                              {gig.payment}
+                              {formatPayment(gig.payment, gig.currency || 'GBP')}
                             </span>
                           </Box>
                         </Box>
@@ -573,7 +574,7 @@ const MyGigs = () => {
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                         <PaymentIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
                         <span style={{ fontSize: '0.875rem', color: 'rgba(0, 0, 0, 0.6)' }}>
-                          {application.payment}
+                          {formatPayment(application.payment, application.currency || 'GBP')}
                         </span>
                       </Box>
                       

@@ -11,13 +11,30 @@ import {
   Autocomplete,
   InputAdornment,
   CircularProgress,
-  Box
+  Box,
+  FormControl,
+  Select,
+  MenuItem,
+  InputLabel,
+  IconButton
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
 const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
+
+const currencySymbols = { GBP: '£', USD: '$', EUR: '€', JPY: '¥', AUD: 'A$', CAD: 'C$' };
+const currencyOptions = [
+  { code: 'GBP', label: 'GBP (£)' },
+  { code: 'USD', label: 'USD ($)' },
+  { code: 'EUR', label: 'EUR (€)' },
+  { code: 'JPY', label: 'JPY (¥)' },
+  { code: 'AUD', label: 'AUD (A$)' },
+  { code: 'CAD', label: 'CAD (C$)' }
+];
 
 function EditGig() {
   const { id } = useParams();
@@ -40,6 +57,8 @@ function EditGig() {
     description: '',
     requirements: ''
   });
+  const [currency, setCurrency] = useState('GBP');
+  const [schedules, setSchedules] = useState([{ date: '', startTime: '', endTime: '' }]);
 
   useEffect(() => {
     fetchGig();
@@ -79,6 +98,18 @@ function EditGig() {
           description: gig.description || '',
           requirements: gig.requirements || ''
         });
+        
+        // Set currency if available
+        if (gig.currency) {
+          setCurrency(gig.currency);
+        }
+        
+        // Set schedules if available, otherwise use legacy date/time
+        if (gig.schedules && gig.schedules.length > 0) {
+          setSchedules(gig.schedules);
+        } else if (gig.date || gig.time) {
+          setSchedules([{ date: gig.date || '', startTime: gig.time || '', endTime: '' }]);
+        }
       } else {
         setError('Failed to fetch gig details');
       }
@@ -101,6 +132,18 @@ function EditGig() {
     setFormData({ ...formData, genres: newValue });
   };
 
+  const handleScheduleChange = (index, field, value) => {
+    setSchedules(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
+  };
+
+  const addScheduleRow = () => {
+    setSchedules(prev => [...prev, { date: '', startTime: '', endTime: '' }]);
+  };
+
+  const removeScheduleRow = (index) => {
+    setSchedules(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -108,13 +151,22 @@ function EditGig() {
     setSuccess('');
 
     try {
+      const primaryDate = schedules[0]?.date || formData.date;
+      const primaryTime = schedules[0]?.startTime || formData.time;
+
       const response = await fetch(`http://localhost:5001/api/gigs/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'x-auth-token': token
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          date: primaryDate,
+          time: primaryTime,
+          currency,
+          schedules
+        })
       });
 
       if (response.ok) {
@@ -175,14 +227,91 @@ function EditGig() {
               />
             </Grid>
             
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Date" name="date" type="date" InputLabelProps={{ shrink: true }} value={formData.date} onChange={handleChange} variant="outlined" required />
+            {/* Schedules Section */}
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom>Dates and Times</Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Time" name="time" type="time" InputLabelProps={{ shrink: true }} value={formData.time} onChange={handleChange} variant="outlined" required />
+            {schedules.map((schedule, index) => (
+              <React.Fragment key={index}>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    label="Date"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                    value={schedule.date}
+                    onChange={(e) => handleScheduleChange(index, 'date', e.target.value)}
+                    variant="outlined"
+                    required={index === 0}
+                    sx={{
+                      '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
+                      '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    label="Start Time"
+                    type="time"
+                    InputLabelProps={{ shrink: true }}
+                    value={schedule.startTime}
+                    onChange={(e) => handleScheduleChange(index, 'startTime', e.target.value)}
+                    variant="outlined"
+                    required={index === 0}
+                    sx={{
+                      '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
+                      '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      fullWidth
+                      label="End Time (Optional)"
+                      type="time"
+                      InputLabelProps={{ shrink: true }}
+                      value={schedule.endTime}
+                      onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
+                      variant="outlined"
+                      sx={{
+                        '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
+                        '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                      }}
+                    />
+                    {index > 0 && (
+                      <IconButton aria-label="remove date/time" color="error" onClick={() => removeScheduleRow(index)}>
+                        <DeleteOutlineIcon />
+                      </IconButton>
+                    )}
+                  </Box>
+                </Grid>
+              </React.Fragment>
+            ))}
+            <Grid item xs={12}>
+              <Button variant="text" startIcon={<AddCircleOutlineIcon />} onClick={addScheduleRow}>
+                Add another date/time
+              </Button>
             </Grid>
             
-            <Grid item xs={12}>
+            {/* Currency and Payment */}
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth>
+                <InputLabel id="currency-label">Currency</InputLabel>
+                <Select
+                  labelId="currency-label"
+                  value={currency}
+                  label="Currency"
+                  onChange={(e) => setCurrency(e.target.value)}
+                >
+                  {currencyOptions.map((opt) => (
+                    <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={8}>
               <TextField
                 fullWidth
                 label="Payment"
@@ -193,7 +322,7 @@ function EditGig() {
                 variant="outlined"
                 required
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">£</InputAdornment>,
+                  startAdornment: <InputAdornment position="start">{currencySymbols[currency] || ''}</InputAdornment>,
                 }}
                 inputProps={{
                   min: 0,
@@ -202,16 +331,16 @@ function EditGig() {
                 }}
                 sx={{
                   '& input[type=number]': {
-                    '-moz-appearance': 'textfield',
+                    '-moz-appearance': 'textfield'
                   },
                   '& input[type=number]::-webkit-outer-spin-button': {
                     '-webkit-appearance': 'none',
-                    margin: 0,
+                    margin: 0
                   },
                   '& input[type=number]::-webkit-inner-spin-button': {
                     '-webkit-appearance': 'none',
-                    margin: 0,
-                  },
+                    margin: 0
+                  }
                 }}
               />
             </Grid>
