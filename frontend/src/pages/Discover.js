@@ -59,11 +59,13 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
         height: '100%',
         display: 'flex', 
         flexDirection: 'column',
-        transition: 'transform 0.2s, box-shadow 0.2s',
+        borderRadius: { xs: 1.5, sm: 2 },
+        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
         cursor: 'pointer',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: 6
+          transform: { xs: 'none', sm: 'translateY(-4px)' },
+          boxShadow: { xs: '0 4px 12px rgba(0,0,0,0.1)', sm: '0 12px 20px rgba(0,0,0,0.15)' }
         }
       }}
       onClick={handleCardClick}
@@ -71,7 +73,8 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
       <CardContent sx={{ 
         flexGrow: 1,
         filter: !user ? 'blur(3px)' : 'none',
-        transition: 'filter 0.3s ease'
+        transition: 'filter 0.3s ease',
+        p: { xs: 2, sm: 3 }
       }}>
         {/* Profile Header */}
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
@@ -82,13 +85,23 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
               width: 80, 
               height: 80, 
               mb: 2,
-              bgcolor: 'primary.main',
+              bgcolor: '#1a365d',
               fontSize: '2rem'
             }}
           >
             {musician.user.name.charAt(0)}
           </Avatar>
-          <Typography variant="h6" component="h2" align="center" gutterBottom>
+          <Typography 
+            variant="h6" 
+            component="h2" 
+            fontWeight="bold"
+            sx={{
+              fontSize: { xs: '1.125rem', sm: '1.25rem' },
+              lineHeight: { xs: 1.3, sm: 1.4 },
+              textAlign: 'center',
+              mb: 1
+            }}
+          >
             {musician.user.name}
           </Typography>
           {musician.user.location && (
@@ -147,7 +160,9 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
                         variant="outlined"
                         sx={{
                           borderColor: '#1a365d',
-                          color: '#1a365d'
+                          color: '#1a365d',
+                          fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                          height: { xs: 24, sm: 28 }
                         }}
                       />
                     ))}
@@ -180,7 +195,9 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
                         variant="outlined"
                         sx={{
                           borderColor: '#1a365d',
-                          color: '#1a365d'
+                          color: '#1a365d',
+                          fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                          height: { xs: 24, sm: 28 }
                         }}
                       />
                     ))}
@@ -213,6 +230,15 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
               linkStatus === 'received' ? <PersonAddIcon /> :
               <PersonAddIcon />
             }
+            sx={{
+              bgcolor: linkStatus === 'linked' ? 'transparent' : '#1a365d',
+              borderColor: '#1a365d',
+              color: linkStatus === 'linked' ? '#1a365d' : 'white',
+              '&:hover': {
+                bgcolor: linkStatus === 'linked' ? 'rgba(26, 54, 93, 0.04)' : '#2c5282',
+                borderColor: '#1a365d'
+              }
+            }}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -237,6 +263,12 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
             fullWidth
             startIcon={<PersonAddIcon />}
             disabled={!user}
+            sx={{
+              bgcolor: '#1a365d',
+              '&:hover': {
+                bgcolor: '#2c5282'
+              }
+            }}
           >
             {!user ? 'Login to Connect' : 'Your Profile'}
           </Button>
@@ -552,14 +584,11 @@ const Discover = () => {
             Discover Musicians
           </Typography>
           <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-            Connect with talented musicians in your area
+            Find talented musicians for your next collaboration
           </Typography>
         </Paper>
 
-        {/* Search Bar Skeleton */}
-        <Paper elevation={1} sx={{ p: 3, mb: 4, borderRadius: 2 }}>
-          <Skeleton variant="rounded" height={56} />
-        </Paper>
+
 
         {/* Skeleton Cards */}
         <Grid container spacing={3}>
@@ -605,10 +634,10 @@ const Discover = () => {
         >
           <Box sx={{ flex: 1 }}>
             <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
-              Discover Links
+              Discover Musicians
             </Typography>
             <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-              Connect with talented musicians for your next collaboration
+              Find talented musicians for your next collaboration
             </Typography>
           </Box>
           <Box 
@@ -620,6 +649,7 @@ const Discover = () => {
               justifyContent: { xs: 'stretch', md: 'flex-end' }
             }}
           >
+
             <Button
               variant="contained"
               startIcon={<FilterListIcon />}
@@ -653,9 +683,9 @@ const Discover = () => {
                   fontSize: { xs: '0.8125rem', sm: '0.875rem' },
                   minHeight: { xs: 40, sm: 44 },
                   flex: { xs: 1, md: 'none' },
-                  bgcolor: '#64748b',
+                  bgcolor: '#6b7280',
                   '&:hover': {
-                    bgcolor: '#475569'
+                    bgcolor: '#4b5563'
                   }
                 }}
               >
@@ -669,22 +699,28 @@ const Discover = () => {
       {/* Search Bar */}
       <TextField
         fullWidth
-        placeholder="Search users by name, instruments, or genres..."
+        placeholder="Search musicians by name, instruments, genres, or location..."
         value={searchTerm}
         onChange={handleSearch}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <SearchIcon sx={{ color: 'text.secondary' }} />
+              <SearchIcon sx={{ color: '#1a365d' }} />
             </InputAdornment>
           ),
         }}
         sx={{
-          mb: 4,
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 2,
-          },
-        }}
+            mb: 4,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: '#1a365d',
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: '#1a365d',
+              },
+            },
+          }}
       />
 
       {/* Filter Section */}
@@ -713,8 +749,7 @@ const Discover = () => {
                variant="outlined" 
                onClick={resetFilters}
                sx={{ 
-                 color: '#1a365d', 
-                 borderColor: '#1a365d',
+                 color: '#1a365d',
                  fontSize: { xs: '0.8125rem', sm: '0.875rem' },
                  minHeight: { xs: 36, sm: 40 },
                  px: { xs: 2, sm: 3 },
