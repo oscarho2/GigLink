@@ -14,6 +14,7 @@ import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import { useAuth } from '../context/AuthContext';
+import UserAvatar from '../components/UserAvatar';
 import axios from 'axios';
 
 const Profile = () => {
@@ -61,7 +62,7 @@ const Profile = () => {
         const transformedProfile = {
           name: profileData.user?.name || user?.name || 'User',
           avatar: profileData.user?.avatar || '',
-          bio: profileData.bio || '',
+          bio: (profileData.bio && profileData.bio !== 'No bio available') ? profileData.bio : '',
           location: profileData.user?.location || '',
           instruments: profileData.user?.instruments || profileData.skills?.filter(skill => ['Piano', 'Guitar', 'Vocals', 'Drums', 'Bass', 'Violin', 'Saxophone'].includes(skill)) || ['Piano', 'Guitar'],
           genres: profileData.user?.genres || ['Rock', 'Jazz', 'Blues'],
@@ -470,18 +471,15 @@ const Profile = () => {
               pb: 0
             }}
           >
-            <Avatar
-              src={profile.avatar}
-              alt={profile.name}
+            <UserAvatar
+              user={profile}
+              size={150}
               sx={{ 
                 width: { xs: 120, sm: 150 }, 
-                height: { xs: 120, sm: 150 }, 
-                mb: { xs: 1.5, sm: 2 },
-                fontSize: { xs: '2.5rem', sm: '3rem' }
+                height: { xs: 120, sm: 150 },
+                mb: { xs: 1.5, sm: 2 }
               }}
-            >
-              {profile.name.charAt(0)}
-            </Avatar>
+            />
             <Typography 
               variant="h5" 
               gutterBottom

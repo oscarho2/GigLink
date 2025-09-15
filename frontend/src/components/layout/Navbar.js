@@ -19,6 +19,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import AuthContext from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import NotificationBadge from '../NotificationBadge';
+import UserAvatar from '../UserAvatar';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useContext(AuthContext);
@@ -325,13 +326,11 @@ const Navbar = () => {
                   <NotificationsIcon sx={{ fontSize: 20, color: 'white' }} />
                 </IconButton>
               </NotificationBadge>
-              <Avatar
-                src={user.avatar}
-                alt={user.name}
+              <UserAvatar
+                user={user}
+                size={32}
                 onClick={handleOpenProfileMenu}
                 sx={{
-                  width: 32,
-                  height: 32,
                   ml: 0.5,
                   display: { xs: 'flex', md: 'none' },
                   border: '2px solid rgba(255, 255, 255, 0.2)',
@@ -340,9 +339,7 @@ const Navbar = () => {
                     bgcolor: 'rgba(255, 255, 255, 0.1)'
                   }
                 }}
-              >
-                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </Avatar>
+              />
             </>
           )}
           
@@ -425,13 +422,11 @@ const Navbar = () => {
                     <NotificationsIcon sx={{ color: 'white' }} />
                   </IconButton>
                 </NotificationBadge>
-                <Avatar
-                  src={user.avatar}
-                  alt={user.name}
+                <UserAvatar
+                  user={user}
+                  size={40}
                   onClick={handleOpenProfileMenu}
                   sx={{
-                    width: 40,
-                    height: 40,
                     ml: 1,
                     display: { xs: 'none', md: 'flex' },
                     border: '2px solid rgba(255, 255, 255, 0.2)',
@@ -440,9 +435,7 @@ const Navbar = () => {
                       bgcolor: 'rgba(255, 255, 255, 0.1)'
                     }
                   }}
-                >
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </Avatar>
+                />
                 <Menu
                   anchorEl={anchorElProfile}
                   open={Boolean(anchorElProfile)}

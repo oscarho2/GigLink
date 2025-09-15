@@ -42,6 +42,7 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+import UserAvatar from '../components/UserAvatar';
 
 // Memoized MusicianCard component for better performance
 const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
@@ -78,19 +79,13 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
       }}>
         {/* Profile Header */}
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-          <Avatar
-            src={musician.user.avatar}
-            alt={musician.user.name}
+          <UserAvatar
+            user={musician.user}
+            size={80}
             sx={{ 
-              width: 80, 
-              height: 80, 
-              mb: 2,
-              bgcolor: '#1a365d',
-              fontSize: '2rem'
+              mb: 2
             }}
-          >
-            {musician.user.name.charAt(0)}
-          </Avatar>
+          />
           <Typography 
             variant="h6" 
             component="h2" 
