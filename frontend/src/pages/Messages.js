@@ -62,6 +62,7 @@ import { formatPayment } from "../utils/currency";
 import moment from "moment";
 import MediaDocumentsLinks from "../components/MediaDocumentsLinks";
 import AuthenticatedImage from "../components/AuthenticatedImage";
+import UserAvatar from "../components/UserAvatar";
 
 const Messages = () => {
   const { user, token } = useAuth();
@@ -1946,10 +1947,15 @@ const Messages = () => {
                   }}
                 >
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: "#1976d2", width: 50, height: 50 }}>
-                      {conversation.otherUser?.name?.charAt(0)?.toUpperCase() ||
-                        "U"}
-                    </Avatar>
+                    <UserAvatar
+                      user={conversation.otherUser}
+                      size={50}
+                      onClick={() => {
+                        if (conversation.otherUser?._id) {
+                          navigate(`/profile/${conversation.otherUser._id}`);
+                        }
+                      }}
+                    />
                   </ListItemAvatar>
                   <ListItemText
                     primary={
@@ -2087,25 +2093,16 @@ const Messages = () => {
                     <ArrowBackIcon />
                   </IconButton>
                 )}
-                <Avatar
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    mr: 2,
-                    bgcolor: "#1976d2",
-                    fontSize: "1rem",
+                <UserAvatar
+                  user={selectedConversation?.otherUser}
+                  size={40}
+                  sx={{ mr: 2 }}
+                  onClick={() => {
+                    if (selectedConversation?.otherUser?._id) {
+                      navigate(`/profile/${selectedConversation.otherUser._id}`);
+                    }
                   }}
-                >
-                  {(
-                    selectedConversation?.otherUser?.name ||
-                    conversations.find(
-                      (c) => c.otherUser?._id === selectedConversation._id
-                    )?.otherUser?.name ||
-                    "U"
-                  )
-                    .charAt(0)
-                    .toUpperCase()}
-                </Avatar>
+                />
                 <Box>
                   <Typography variant="subtitle1" fontWeight="500">
                     {selectedConversation?.otherUser?.name ||
@@ -3697,7 +3694,7 @@ const Messages = () => {
                     }}
                   >
                     <ListItemAvatar>
-                      <Avatar>{user.name?.charAt(0)}</Avatar>
+                      <UserAvatar user={user} size={40} />
                     </ListItemAvatar>
                     <ListItemText primary={user.name} secondary={user.email} />
                   </ListItem>
