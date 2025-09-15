@@ -34,6 +34,7 @@ import {
   FilterList as FilterListIcon
 } from '@mui/icons-material';
 import AuthContext from '../context/AuthContext';
+import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
 
 const MyGigs = () => {
@@ -51,6 +52,10 @@ const MyGigs = () => {
   const [applicationSearchTerm, setApplicationSearchTerm] = useState('');
   const [gigStatusFilter, setGigStatusFilter] = useState('all');
   const [applicationStatusFilter, setApplicationStatusFilter] = useState('all');
+  
+  // Applicant selection modal state
+  const [showApplicantModal, setShowApplicantModal] = useState(false);
+  const [selectedGig, setSelectedGig] = useState(null);
 
   // Fetch user's gigs
   const fetchGigs = async () => {
@@ -86,6 +91,21 @@ const MyGigs = () => {
     } finally {
       setApplicationsLoading(false);
     }
+  };
+
+  // Handle opening applicant modal
+  const handleOpenApplicantModal = (gig) => {
+    setSelectedGig(gig);
+    setShowApplicantModal(true);
+  };
+
+  const handleSelectApplicant = async (applicant) => {
+    if (!selectedGig) return;
+    
+    const applicantId = typeof applicant.user === 'string' ? applicant.user : applicant.user?._id;
+    await handleAcceptApplicant(selectedGig._id, applicantId);
+    setShowApplicantModal(false);
+    setSelectedGig(null);
   };
 
   // Handle accepting applicant
@@ -332,13 +352,15 @@ const MyGigs = () => {
                           onClick={(e) => {
                             e.preventDefault();
                             const accepted = Array.isArray(gig.applicants) && gig.applicants.find(a => a.status === 'accepted');
-                            const targetId = accepted
-                              ? (typeof accepted.user === 'string' ? accepted.user : accepted.user?._id)
-                              : (Array.isArray(gig.applicants) && gig.applicants[0]
-                                  ? (typeof gig.applicants[0].user === 'string' ? gig.applicants[0].user : gig.applicants[0].user?._id)
-                                  : null);
-                            if (targetId) {
-                              handleAcceptApplicant(gig._id, targetId);
+                            if (accepted) {
+                              // If someone is already accepted, undo their acceptance
+                              const targetId = typeof accepted.user === 'string' ? accepted.user : accepted.user?._id;
+                              if (targetId) {
+                                handleAcceptApplicant(gig._id, targetId);
+                              }
+                            } else {
+                              // If no one is accepted, open modal to select applicant
+                              handleOpenApplicantModal(gig);
                             }
                           }}
                         >
@@ -519,6 +541,18 @@ const MyGigs = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Applicant Selection Modal */}
+      <ApplicantSelectionModal
+        open={showApplicantModal}
+        onClose={() => {
+          setShowApplicantModal(false);
+          setSelectedGig(null);
+        }}
+        applicants={selectedGig?.applicants || []}
+        onSelectApplicant={handleSelectApplicant}
+        gigTitle={selectedGig?.title || ''}
+      />
     </Container>
   );
 };

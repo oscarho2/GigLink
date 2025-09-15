@@ -19,14 +19,16 @@ export const NotificationProvider = ({ children }) => {
   const [unreadCounts, setUnreadCounts] = useState({
     messages: 0,
     linkRequests: 0,
+    notifications: 0,
     total: 0
   });
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Fetch unread notification counts
   const fetchUnreadCounts = async () => {
     if (!isAuthenticated || !user) {
-      setUnreadCounts({ messages: 0, linkRequests: 0, total: 0 });
+      setUnreadCounts({ messages: 0, linkRequests: 0, notifications: 0, total: 0 });
       return;
     }
 
@@ -50,8 +52,17 @@ export const NotificationProvider = ({ children }) => {
         }
       });
 
+      // Fetch unread notifications count
+      const notificationsResponse = await fetch('/api/notifications/unread', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
       let messagesCount = 0;
       let linkRequestsCount = 0;
+      let notificationsCount = 0;
 
       if (messagesResponse.ok) {
         const messagesData = await messagesResponse.json();
@@ -63,18 +74,49 @@ export const NotificationProvider = ({ children }) => {
         linkRequestsCount = linksData.count || 0;
       }
 
-      const totalCount = messagesCount + linkRequestsCount;
+      if (notificationsResponse.ok) {
+        const notificationsData = await notificationsResponse.json();
+        notificationsCount = notificationsData.count || 0;
+      }
+
+      const totalCount = messagesCount + linkRequestsCount + notificationsCount;
       
       setUnreadCounts({
         messages: messagesCount,
         linkRequests: linkRequestsCount,
+        notifications: notificationsCount,
         total: totalCount
       });
     } catch (error) {
       console.error('Error fetching unread counts:', error);
-      setUnreadCounts({ messages: 0, linkRequests: 0, total: 0 });
+      setUnreadCounts({ messages: 0, linkRequests: 0, notifications: 0, total: 0 });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch all notifications
+  const fetchNotifications = async () => {
+    if (!isAuthenticated || !user) {
+      setNotifications([]);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/notifications', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
     }
   };
 
@@ -82,33 +124,74 @@ export const NotificationProvider = ({ children }) => {
   const updateCount = (type, count) => {
     setUnreadCounts(prev => {
       const newCounts = { ...prev, [type]: count };
-      newCounts.total = newCounts.messages + newCounts.linkRequests;
+      newCounts.total = newCounts.messages + newCounts.linkRequests + newCounts.notifications;
       return newCounts;
     });
   };
 
-  // Mark notifications as read
-  const markAsRead = (type, count = 1) => {
-    setUnreadCounts(prev => {
-      const newCount = Math.max(0, prev[type] - count);
-      const newCounts = { ...prev, [type]: newCount };
-      newCounts.total = newCounts.messages + newCounts.linkRequests;
-      return newCounts;
-    });
+  // Mark notification as read
+  const markAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/notifications/${notificationId}/read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Update local state
+        setNotifications(prev => 
+          prev.map(notif => 
+            notif._id === notificationId ? { ...notif, read: true } : notif
+          )
+        );
+        // Refresh counts
+        fetchUnreadCounts();
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  // Delete notification
+  const deleteNotification = async (notificationId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/notifications/${notificationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Update local state
+        setNotifications(prev => prev.filter(notif => notif._id !== notificationId));
+        // Refresh counts
+        fetchUnreadCounts();
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
   };
 
   // Increment notification count
   const incrementCount = (type, count = 1) => {
     setUnreadCounts(prev => {
       const newCounts = { ...prev, [type]: prev[type] + count };
-      newCounts.total = newCounts.messages + newCounts.linkRequests;
+      newCounts.total = newCounts.messages + newCounts.linkRequests + newCounts.notifications;
       return newCounts;
     });
   };
 
-  // Fetch counts when user authentication changes
+  // Fetch counts and notifications when user authentication changes
   useEffect(() => {
     fetchUnreadCounts();
+    fetchNotifications();
   }, [isAuthenticated, user]);
 
   // Refresh counts periodically (every 30 seconds)
@@ -145,14 +228,38 @@ export const NotificationProvider = ({ children }) => {
       }
     };
 
+    // Listen for new notifications
+    const handleNewNotification = (notification) => {
+      if (notification.recipient === user._id) {
+        // Add to local notifications state
+        setNotifications(prev => [notification, ...prev]);
+        incrementCount('notifications');
+        
+        // Show toast notification
+        const typeMessages = {
+          comment: 'New comment on your post',
+          message: 'New message received',
+          gig_application: 'New application for your gig',
+          link_request: 'New connection request'
+        };
+        
+        showNotification(
+          typeMessages[notification.type] || 'New notification',
+          'info'
+        );
+      }
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('conversation_update', handleConversationUpdate);
     socket.on('message_status_update', handleMessageStatusUpdate);
+    socket.on('newNotification', handleNewNotification);
 
     return () => {
       socket.off('new_message', handleNewMessage);
       socket.off('conversation_update', handleConversationUpdate);
       socket.off('message_status_update', handleMessageStatusUpdate);
+      socket.off('newNotification', handleNewNotification);
     };
   }, [socket, isAuthenticated, user, incrementCount, fetchUnreadCounts]);
 
@@ -176,10 +283,13 @@ export const NotificationProvider = ({ children }) => {
   const value = {
     unreadCounts,
     totalUnreadCount: unreadCounts.total,
+    notifications,
     loading,
     fetchUnreadCounts,
+    fetchNotifications,
     updateCount,
     markAsRead,
+    deleteNotification,
     incrementCount,
     showNotification
   };

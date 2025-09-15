@@ -3,6 +3,7 @@ const router = express.Router();
 const Post = require('../models/Post');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { createNotification } = require('./notifications');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -177,7 +178,27 @@ router.post('/:postId/like', auth, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
+    // Check if user already liked the post
+    const existingLike = post.likes.find(like => like.user.toString() === userId.toString());
+    if (existingLike) {
+      return res.status(400).json({ message: 'Post already liked' });
+    }
+
     await post.addLike(userId);
+    
+    // Create notification for post author (if not liking own post)
+    if (post.author.toString() !== userId) {
+      const liker = await User.findById(userId).select('name');
+      await createNotification(
+        post.author,
+        userId,
+        'like',
+        `${liker.name} liked your post`,
+        postId,
+        'Post',
+        req
+      );
+    }
     
     // Return updated post with populated data
     const updatedPost = await Post.findById(postId)
@@ -249,6 +270,20 @@ router.post('/:postId/comments', auth, async (req, res) => {
     }
 
     await post.addComment(userId, content.trim());
+    
+    // Create notification for post author (if not commenting on own post)
+    if (post.author.toString() !== userId) {
+      const commenter = await User.findById(userId).select('name');
+      await createNotification(
+        post.author,
+        userId,
+        'comment',
+        `${commenter.name} commented on your post`,
+        postId,
+        'Post',
+        req
+      );
+    }
     
     // Return updated post with populated data
     const updatedPost = await Post.findById(postId)

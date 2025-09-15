@@ -6,6 +6,7 @@ const router = express.Router();
 const Message = require('../models/Message');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { createNotification } = require('./notifications');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads/messages');
@@ -298,6 +299,17 @@ router.post('/send', auth, async (req, res) => {
         }
       });
     }
+    
+    // Create notification for message recipient
+    await createNotification(
+      recipientId,
+      senderId,
+      'message',
+      `${message.sender.name} sent you a message`,
+      message._id,
+      'Message',
+      req
+    );
     
     // Emit real-time message to conversation participants
     const io = req.app.get('io');

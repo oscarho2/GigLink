@@ -43,6 +43,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import PaymentIcon from '@mui/icons-material/Payment';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import AuthContext from '../context/AuthContext';
+import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
 
 const Dashboard = () => {
@@ -76,6 +77,10 @@ const Dashboard = () => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [linksLoading, setLinksLoading] = useState(true);
+  
+  // Applicant selection modal state
+  const [showApplicantModal, setShowApplicantModal] = useState(false);
+  const [selectedGig, setSelectedGig] = useState(null);
   
   // Gig applications state
   const [applications, setApplications] = useState([]);
@@ -272,6 +277,20 @@ const Dashboard = () => {
 
   const handleEditGig = (gigId) => {
     navigate(`/gigs/${gigId}/edit`);
+  };
+
+  const handleOpenApplicantModal = (gig) => {
+    setSelectedGig(gig);
+    setShowApplicantModal(true);
+  };
+
+  const handleSelectApplicant = async (applicant) => {
+    if (!selectedGig) return;
+    
+    const applicantId = typeof applicant.user === 'string' ? applicant.user : applicant.user?._id;
+    await handleAcceptApplicant(selectedGig._id, applicantId);
+    setShowApplicantModal(false);
+    setSelectedGig(null);
   };
 
   const handleAcceptApplicant = async (gigId, applicantId) => {
@@ -532,6 +551,56 @@ const Dashboard = () => {
                 Edit Profile
               </Button>
             </CardActions>
+          </Card>
+
+          {/* Navigation Buttons */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                Quick Navigation
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Button
+                  component={RouterLink}
+                  to="/links"
+                  variant="outlined"
+                  startIcon={<PeopleIcon />}
+                  sx={{ 
+                    justifyContent: 'flex-start',
+                    textTransform: 'none',
+                    fontWeight: 500
+                  }}
+                >
+                  Links
+                </Button>
+                <Button
+                  component={RouterLink}
+                  to="/gigs"
+                  variant="outlined"
+                  startIcon={<WorkIcon />}
+                  sx={{ 
+                    justifyContent: 'flex-start',
+                    textTransform: 'none',
+                    fontWeight: 500
+                  }}
+                >
+                  My Gigs
+                </Button>
+                <Button
+                  component={RouterLink}
+                  to="/my-posts"
+                  variant="outlined"
+                  startIcon={<PersonIcon />}
+                  sx={{ 
+                    justifyContent: 'flex-start',
+                    textTransform: 'none',
+                    fontWeight: 500
+                  }}
+                >
+                  My Posts
+                </Button>
+              </Box>
+            </CardContent>
           </Card>
         </Grid>
         
@@ -903,13 +972,15 @@ const Dashboard = () => {
                               onClick={(e) => {
                                 e.preventDefault();
                                 const accepted = Array.isArray(gig.applicants) && gig.applicants.find(a => a.status === 'accepted');
-                                const targetId = accepted
-                                  ? (typeof accepted.user === 'string' ? accepted.user : accepted.user?._id)
-                                  : (Array.isArray(gig.applicants) && gig.applicants[0]
-                                      ? (typeof gig.applicants[0].user === 'string' ? gig.applicants[0].user : gig.applicants[0].user?._id)
-                                      : null);
-                                if (targetId) {
-                                  handleAcceptApplicant(gig._id, targetId);
+                                if (accepted) {
+                                  // If someone is already accepted, undo their acceptance
+                                  const targetId = typeof accepted.user === 'string' ? accepted.user : accepted.user?._id;
+                                  if (targetId) {
+                                    handleAcceptApplicant(gig._id, targetId);
+                                  }
+                                } else {
+                                  // If no one is accepted, open modal to select applicant
+                                  handleOpenApplicantModal(gig);
                                 }
                               }}
                             >
@@ -1326,6 +1397,18 @@ const Dashboard = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Applicant Selection Modal */}
+      <ApplicantSelectionModal
+        open={showApplicantModal}
+        onClose={() => {
+          setShowApplicantModal(false);
+          setSelectedGig(null);
+        }}
+        applicants={selectedGig?.applicants || []}
+        onSelectApplicant={handleSelectApplicant}
+        gigTitle={selectedGig?.title || ''}
+      />
     </Container>
   );
 };
