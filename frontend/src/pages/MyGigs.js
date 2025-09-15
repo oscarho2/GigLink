@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   Container,
   Grid,
@@ -21,7 +21,8 @@ import {
   InputLabel,
   Select,
   Tabs,
-  Tab
+  Tab,
+  Avatar
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -67,9 +68,20 @@ function a11yProps(index) {
 const MyGigs = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  
+  const location = useLocation();
+
   // Tab state
   const [tabValue, setTabValue] = useState(0);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const tab = queryParams.get('tab');
+    if (tab === 'applications') {
+      setTabValue(1);
+    } else {
+      setTabValue(0);
+    }
+  }, [location]);
   
   // State for gigs and applications
   const [gigs, setGigs] = useState([]);
@@ -517,12 +529,14 @@ const MyGigs = () => {
                       height: '100%',
                       display: 'flex',
                       flexDirection: 'column',
+                      cursor: 'pointer',
                       transition: 'transform 0.2s, box-shadow 0.2s',
                       '&:hover': {
                         transform: 'translateY(-4px)',
                         boxShadow: 6
                       }
                     }}
+                    onClick={() => navigate(`/gigs/${application._id}`)}
                   >
                     <CardContent sx={{ flex: 1 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -588,22 +602,48 @@ const MyGigs = () => {
                         Applied: {new Date(application.applicationDate).toLocaleDateString()}
                       </Typography>
                       
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                        Posted by: {application.poster?.name || 'Unknown'}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography 
+                          variant="caption" 
+                          color="text.secondary" 
+                          sx={{ mr: 1 }}
+                        >
+                          Posted by:
+                        </Typography>
+                        <Avatar
+                           src={application.poster?.avatar ? `http://localhost:5001${application.poster.avatar}` : undefined}
+                           sx={{ width: 20, height: 20, mr: 1, cursor: 'pointer' }}
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             if (application.poster?._id) {
+                               navigate(`/profile/${application.poster._id}`);
+                             }
+                           }}
+                         >
+                           {application.poster?.name?.charAt(0) || 'U'}
+                         </Avatar>
+                        <Typography 
+                          variant="caption" 
+                          color="text.secondary" 
+                          sx={{ 
+                            cursor: 'pointer',
+                            '&:hover': {
+                              color: 'primary.dark'
+                            }
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (application.poster?._id) {
+                              navigate(`/profile/${application.poster._id}`);
+                            }
+                          }}
+                        >
+                          {application.poster?.name || 'Unknown'}
+                        </Typography>
+                      </Box>
                     </CardContent>
                     
-                    <CardActions>
-                      <Button
-                        component={RouterLink}
-                        to={`/gigs/${application._id}`}
-                        size="small"
-                        variant="outlined"
-                        fullWidth
-                      >
-                        View Gig Details
-                      </Button>
-                    </CardActions>
+
                   </Card>
                 </Grid>
               ))}

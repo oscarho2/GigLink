@@ -697,9 +697,13 @@ const Dashboard = () => {
                             }}
                           >
                             <Avatar
-                              src={link.avatar}
+                              src={link.avatar ? `http://localhost:5001${link.avatar}` : undefined}
                               alt={link.name}
-                              sx={{ mr: 2 }}
+                              sx={{ 
+                                mr: 2,
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => navigate(`/profile/${link._id}`)}
                             />
                             <ListItemText
                               primary={
@@ -820,7 +824,7 @@ const Dashboard = () => {
                                     cursor: 'pointer',
                                     color: 'primary.main',
                                     '&:hover': {
-                                      textDecoration: 'underline'
+                                      color: 'primary.dark'
                                     }
                                   }}
                                   onClick={() => navigate(`/profile/${request.recipient?._id || request.recipient?.id}`)}
@@ -854,7 +858,7 @@ const Dashboard = () => {
                 <Typography 
                   variant="h6" 
                   component={RouterLink} 
-                  to="/my-gigs"
+                  to="/my-gigs?tab=applications"
                   sx={{ 
                     textDecoration: 'none', 
                     color: 'inherit',
@@ -1061,7 +1065,7 @@ const Dashboard = () => {
             <Typography 
               variant="h6" 
               component={RouterLink} 
-              to="/my-gigs"
+              to="/my-gigs?tab=applications"
               sx={{ 
                 textDecoration: 'none', 
                 color: 'inherit',
@@ -1116,12 +1120,14 @@ const Dashboard = () => {
                     <Card 
                       sx={{ 
                         height: '100%',
+                        cursor: 'pointer',
                         transition: 'transform 0.2s, box-shadow 0.2s',
                         '&:hover': {
                           transform: 'translateY(-2px)',
                           boxShadow: 4
                         }
                       }}
+                      onClick={() => navigate(`/gigs/${application._id}`)}
                     >
                       <CardContent>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -1187,21 +1193,48 @@ const Dashboard = () => {
                           Applied: {new Date(application.applicationDate).toLocaleDateString()}
                         </Typography>
                         
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                          Posted by: {application.poster?.name || 'Unknown'}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary" 
+                            sx={{ mr: 1 }}
+                          >
+                            Posted by:
+                          </Typography>
+                          <Avatar
+                            src={application.poster?.avatar ? `http://localhost:5001${application.poster.avatar}` : undefined}
+                            sx={{ width: 20, height: 20, mr: 1, cursor: 'pointer' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (application.poster?._id) {
+                                navigate(`/profile/${application.poster._id}`);
+                              }
+                            }}
+                          >
+                            {application.poster?.name?.charAt(0) || 'U'}
+                          </Avatar>
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary" 
+                            sx={{ 
+                              cursor: 'pointer',
+                              '&:hover': {
+                                color: 'primary.dark'
+                              }
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (application.poster?._id) {
+                                navigate(`/profile/${application.poster._id}`);
+                              }
+                            }}
+                          >
+                            {application.poster?.name || 'Unknown'}
+                          </Typography>
+                        </Box>
                       </CardContent>
                       
-                      <CardActions>
-                        <Button
-                          component={RouterLink}
-                          to={`/gigs/${application._id}`}
-                          size="small"
-                          variant="outlined"
-                        >
-                          View Gig
-                        </Button>
-                      </CardActions>
+
                     </Card>
                   </Grid>
                 );
