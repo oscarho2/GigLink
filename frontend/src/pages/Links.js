@@ -211,7 +211,10 @@ const LinksPage = () => {
   };
 
   const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+    // Ensure tab value doesn't exceed available tabs (0, 1, 2)
+    if (newValue <= 2) {
+      setTabValue(newValue);
+    }
     setError('');
     setSuccess('');
   };
@@ -299,8 +302,114 @@ const LinksPage = () => {
             <Tab label={`Links (${links.length})`} />
             <Tab label={`Requests (${pendingRequests.length})`} />
             <Tab label={`Sent (${sentRequests.length})`} />
-            <Tab label="Find Users" />
           </Tabs>
+        </Box>
+
+        {/* Permanent Search Box */}
+        <Box sx={{ mt: 2, mb: 3 }}>
+          <TextField
+            fullWidth
+            placeholder="Search for musicians to connect with..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ mb: 2 }}
+          />
+
+          {/* Search Results */}
+          {searchQuery && (
+            <Box sx={{ mb: 2 }}>
+              {searchLoading ? (
+                <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
+                  Searching...
+                </Typography>
+              ) : searchResults.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
+                  No users found matching "{searchQuery}"
+                </Typography>
+              ) : (
+                <List sx={{ bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                  {searchResults.map((user) => {
+                    // Check if user is already linked or has pending request
+                    const isLinked = links.some(link => link.link.id === user._id);
+                    const hasPendingRequest = sentRequests.some(req => req.recipient._id === user._id || req.recipient.id === user._id);
+                    const hasIncomingRequest = pendingRequests.some(req => req.requester._id === user._id || req.requester.id === user._id);
+                    
+                    return (
+                      <ListItem key={user._id}>
+                        <ListItemAvatar>
+                          <Avatar src={user.avatar}>
+                            {user.name.charAt(0).toUpperCase()}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={
+                            <Typography
+                              component="span"
+                              sx={{
+                                cursor: 'pointer',
+                                color: 'primary.main',
+                                '&:hover': {
+                                  textDecoration: 'underline'
+                                }
+                              }}
+                              onClick={() => navigate(`/profile/${user._id}`)}
+                            >
+                              {user.name}
+                            </Typography>
+                          }
+                          secondary={
+                            <>
+                              {user.bio && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {user.bio.length > 100 ? `${user.bio.substring(0, 100)}...` : user.bio}
+                                </Typography>
+                              )}
+                              {user.instruments && user.instruments.length > 0 && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {user.instruments.join(', ')}
+                                </Typography>
+                              )}
+                            </>
+                          }
+                        />
+                        <ListItemSecondaryAction>
+                          {isLinked ? (
+                            <Button disabled size="small">
+                              Connected
+                            </Button>
+                          ) : hasPendingRequest ? (
+                            <Button disabled size="small">
+                              Request Sent
+                            </Button>
+                          ) : hasIncomingRequest ? (
+                            <Button disabled size="small">
+                              Request Received
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => sendLinkRequest(user._id)}
+                              color="primary"
+                              size="small"
+                              startIcon={<PersonAddIcon />}
+                            >
+                              Connect
+                            </Button>
+                          )}
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              )}
+            </Box>
+          )}
         </Box>
 
         {/* Links Tab */}
@@ -475,113 +584,7 @@ const LinksPage = () => {
           )}
         </TabPanel>
 
-        {/* Find Users Tab */}
-        <TabPanel value={tabValue} index={3}>
-          <Box sx={{ mb: 3 }}>
-            <TextField
-              fullWidth
-              placeholder="Search for musicians to connect with..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ mb: 2 }}
-            />
-          </Box>
 
-          {searchLoading ? (
-            <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
-              Searching...
-            </Typography>
-          ) : searchResults.length === 0 && searchQuery ? (
-            <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
-              No users found matching "{searchQuery}"
-            </Typography>
-          ) : searchQuery === '' ? (
-            <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
-              Start typing to search for musicians to connect with
-            </Typography>
-          ) : (
-            <List>
-              {searchResults.map((user) => {
-                // Check if user is already linked or has pending request
-                const isLinked = links.some(link => link.link.id === user._id);
-                const hasPendingRequest = sentRequests.some(req => req.recipient._id === user._id || req.recipient.id === user._id);
-                const hasIncomingRequest = pendingRequests.some(req => req.requester._id === user._id || req.requester.id === user._id);
-                
-                return (
-                  <ListItem key={user._id}>
-                    <ListItemAvatar>
-                      <Avatar src={user.avatar}>
-                        {user.name.charAt(0).toUpperCase()}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Typography
-                          component="span"
-                          sx={{
-                            cursor: 'pointer',
-                            color: 'primary.main',
-                            '&:hover': {
-                              textDecoration: 'underline'
-                            }
-                          }}
-                          onClick={() => navigate(`/profile/${user._id}`)}
-                        >
-                          {user.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <>
-                          {user.bio && (
-                            <Typography variant="body2" color="text.secondary">
-                              {user.bio.length > 100 ? `${user.bio.substring(0, 100)}...` : user.bio}
-                            </Typography>
-                          )}
-                          {user.instruments && user.instruments.length > 0 && (
-                            <Typography variant="caption" color="text.secondary">
-                              {user.instruments.join(', ')}
-                            </Typography>
-                          )}
-                        </>
-                      }
-                    />
-                    <ListItemSecondaryAction>
-                      {isLinked ? (
-                        <Button disabled size="small">
-                          Connected
-                        </Button>
-                      ) : hasPendingRequest ? (
-                        <Button disabled size="small">
-                          Request Sent
-                        </Button>
-                      ) : hasIncomingRequest ? (
-                        <Button disabled size="small">
-                          Request Received
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => sendLinkRequest(user._id)}
-                          color="primary"
-                          size="small"
-                          startIcon={<PersonAddIcon />}
-                        >
-                          Connect
-                        </Button>
-                      )}
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                );
-              })}
-            </List>
-          )}
-        </TabPanel>
 
       </Paper>
     </Container>

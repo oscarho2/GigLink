@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -32,6 +32,8 @@ import CreateGig from './pages/CreateGig';
 import EditGig from './pages/EditGig';
 import MyGigs from './pages/MyGigs';
 import Messages from './pages/Messages';
+import Community from './pages/Community';
+import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
 
 // Route protection
@@ -69,6 +71,49 @@ const theme = createTheme({
   },
 });
 
+// Component to handle conditional footer rendering
+const AppContent = () => {
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh'
+      }}
+    >
+      <Navbar />
+      <Box sx={{ flex: 1 }}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />
+          <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
+          <Route path="/profile-setup" element={<PrivateRoute><ProfileSetup /></PrivateRoute>} />
+          <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+          <Route path="/discover" element={<Discover />} />
+          <Route path="/gigs" element={<Gigs />} />
+          <Route path="/gigs/:id" element={<GigDetail />} />
+          <Route path="/gigs/:id/edit" element={<PrivateRoute><EditGig /></PrivateRoute>} />
+          <Route path="/create-gig" element={<PrivateRoute><CreateGig /></PrivateRoute>} />
+          <Route path="/my-gigs" element={<PrivateRoute><MyGigs /></PrivateRoute>} />
+          <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
+          <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+          <Route path="/links" element={<PrivateRoute><LinksPage /></PrivateRoute>} />
+          <Route path="/user/:userId/links" element={<PrivateRoute><UserLinks /></PrivateRoute>} />
+          <Route path="/community" element={<PrivateRoute><Community /></PrivateRoute>} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Box>
+      {isHomePage && <Footer />}
+    </Box>
+  );
+};
+
 function App() {
   // Disable browser's automatic scroll restoration
   useEffect(() => {
@@ -84,38 +129,7 @@ function App() {
           <ThemeProvider theme={theme}>
           <CssBaseline />
           <Router>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: '100vh'
-            }}
-          >
-            <Navbar />
-            <Box sx={{ flex: 1 }}>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-                <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />
-                <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
-                <Route path="/profile-setup" element={<PrivateRoute><ProfileSetup /></PrivateRoute>} />
-                <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
-                <Route path="/discover" element={<Discover />} />
-                <Route path="/gigs" element={<Gigs />} />
-                <Route path="/gigs/:id" element={<GigDetail />} />
-                <Route path="/gigs/:id/edit" element={<PrivateRoute><EditGig /></PrivateRoute>} />
-                <Route path="/create-gig" element={<PrivateRoute><CreateGig /></PrivateRoute>} />
-                <Route path="/my-gigs" element={<PrivateRoute><MyGigs /></PrivateRoute>} />
-                <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
-                <Route path="/links" element={<PrivateRoute><LinksPage /></PrivateRoute>} />
-                <Route path="/user/:userId/links" element={<PrivateRoute><UserLinks /></PrivateRoute>} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Box>
-            <Footer />
-          </Box>
+            <AppContent />
           </Router>
           </ThemeProvider>
         </NotificationProvider>

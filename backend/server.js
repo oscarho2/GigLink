@@ -12,6 +12,7 @@ const messageRoutes = require('./routes/messages');
 const profileRoutes = require('./routes/profiles');
 const uploadRoutes = require('./routes/upload');
 const linkRoutes = require('./routes/links');
+const postRoutes = require('./routes/posts');
 const path = require('path');
 
 const app = express();
@@ -38,6 +39,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/profiles', profileRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/links', linkRoutes);
+app.use('/api/posts', postRoutes);
 
 // DB Health endpoint
 app.get('/api/health/db', async (req, res) => {
