@@ -254,7 +254,8 @@ router.get('/user/:user_id', async (req, res) => {
       hourlyRate: 60, // Default rate
       availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
-      videos: profile.videos || []
+      videos: profile.videos || [],
+      photos: profile.photos || []
     };
     
     res.json(transformedProfile);

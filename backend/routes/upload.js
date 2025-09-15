@@ -94,10 +94,10 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
   }
 });
 
-// @route   GET /api/upload/files/:filename
+// @route   GET api/upload/files/:filename
 // @desc    Serve uploaded files
-// @access  Private
-router.get('/files/:filename', auth, (req, res) => {
+// @access  Public
+router.get('/files/:filename', (req, res) => {
   try {
     const filename = req.params.filename;
     const filePath = path.join(uploadsDir, filename);

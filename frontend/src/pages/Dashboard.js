@@ -635,7 +635,7 @@ const Dashboard = () => {
                   Loading links...
                 </Typography>
               ) : (
-                <>
+                <Box sx={{ maxHeight: 400, overflow: 'auto', pr: 1 }}>
                   {/* Pending Link Requests */}
                   {pendingRequests.length > 0 && (
                     <Box sx={{ mb: 3 }}>
@@ -667,9 +667,6 @@ const Dashboard = () => {
                                   sx={{
                                     cursor: 'pointer',
                                     color: 'primary.main',
-                                    '&:hover': {
-                                      textDecoration: 'underline'
-                                    }
                                   }}
                                   onClick={() => navigate(`/profile/${request.requester?._id || request.requester?.id}`)}
                                 >
@@ -731,9 +728,6 @@ const Dashboard = () => {
                                   sx={{
                                     cursor: 'pointer',
                                     color: 'primary.main',
-                                    '&:hover': {
-                                      textDecoration: 'underline'
-                                    }
                                   }}
                                   onClick={() => navigate(`/profile/${link._id}`)}
                                 >
@@ -816,7 +810,7 @@ const Dashboard = () => {
                       No links yet. Start connecting with other musicians!
                     </Typography>
                   )}
-                </>
+                </Box>
               )}
             </CardContent>
           </Card>
@@ -858,29 +852,30 @@ const Dashboard = () => {
               <Divider sx={{ mb: 2 }} />
               
               {Array.isArray(gigs) && gigs.length ? (
-                <List>
-                  {gigs.map(gig => (
-                    <ListItem
-                      key={gig._id || gig.id}
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        mb: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        p: 2,
-                        backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'inherit',
-                        opacity: gig.isFilled ? 0.7 : 1,
-                        '&:hover': {
-                          backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'action.hover',
-                          transform: gig.isFilled ? 'none' : 'translateY(-1px)',
-                          boxShadow: gig.isFilled ? 'none' : 2
-                        },
-                        transition: 'all 0.2s ease-in-out'
-                      }}
-                    >
+                <Box sx={{ maxHeight: 400, overflow: 'auto', pr: 1 }}>
+                  <List>
+                    {gigs.map(gig => (
+                      <ListItem
+                        key={gig._id || gig.id}
+                        sx={{
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          mb: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          p: 2,
+                          backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'inherit',
+                          opacity: gig.isFilled ? 0.7 : 1,
+                          '&:hover': {
+                            backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'action.hover',
+                            transform: gig.isFilled ? 'none' : 'translateY(-1px)',
+                            boxShadow: gig.isFilled ? 'none' : 2
+                          },
+                          transition: 'all 0.2s ease-in-out'
+                        }}
+                      >
                       <Box 
                         component={RouterLink}
                         to={`/gigs/${gig._id}`}
@@ -1014,7 +1009,8 @@ const Dashboard = () => {
                       </Box>
                     </ListItem>
                   ))}
-                </List>
+                  </List>
+                </Box>
               ) : (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
                   You haven't posted any gigs yet.
@@ -1062,28 +1058,29 @@ const Dashboard = () => {
               No gig applications yet. Start applying to gigs to see them here!
             </Typography>
           ) : (
-            <Grid container spacing={2}>
-              {applications.map((application) => {
-                const getStatusColor = (status, acceptedByOther) => {
-                  if (acceptedByOther && status !== 'accepted') return 'error';
-                  switch (status) {
-                    case 'accepted': return 'success';
-                    case 'rejected': return 'error';
-                    default: return 'warning';
-                  }
-                };
-                
-                const getStatusText = (status, acceptedByOther) => {
-                  if (acceptedByOther && status !== 'accepted') return 'Position Filled';
-                  switch (status) {
-                    case 'accepted': return 'Accepted';
-                    case 'rejected': return 'Rejected';
-                    default: return 'Pending';
-                  }
-                };
-                
-                return (
-                  <Grid item xs={12} md={6} key={application._id}>
+            <Box sx={{ maxHeight: 500, overflow: 'auto', pr: 1 }}>
+              <Grid container spacing={2}>
+                {applications.map((application) => {
+                  const getStatusColor = (status, acceptedByOther) => {
+                    if (acceptedByOther && status !== 'accepted') return 'error';
+                    switch (status) {
+                      case 'accepted': return 'success';
+                      case 'rejected': return 'error';
+                      default: return 'warning';
+                    }
+                  };
+                  
+                  const getStatusText = (status, acceptedByOther) => {
+                    if (acceptedByOther && status !== 'accepted') return 'Position Filled';
+                    switch (status) {
+                      case 'accepted': return 'Accepted';
+                      case 'rejected': return 'Rejected';
+                      default: return 'Pending';
+                    }
+                  };
+                  
+                  return (
+                    <Grid item xs={12} md={6} key={application._id}>
                     <Card 
                       sx={{ 
                         height: '100%',
@@ -1177,7 +1174,8 @@ const Dashboard = () => {
                   </Grid>
                 );
               })}
-            </Grid>
+              </Grid>
+            </Box>
           )}
         </CardContent>
       </Card>
