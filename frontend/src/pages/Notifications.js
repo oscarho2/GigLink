@@ -23,7 +23,9 @@ import {
   Notifications as NotificationsIcon,
   Work as WorkIcon,
   Link as LinkIcon,
-  AlternateEmail as MentionIcon,
+  Comment as CommentIcon,
+  Message as MessageIcon,
+  Favorite as FavoriteIcon,
   MarkEmailRead as MarkReadIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material';
@@ -84,12 +86,16 @@ const Notifications = () => {
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'gig':
+      case 'gig_application':
         return <WorkIcon />;
-      case 'link':
+      case 'link_request':
         return <LinkIcon />;
-      case 'mention':
-        return <MentionIcon />;
+      case 'comment':
+        return <CommentIcon />;
+      case 'message':
+        return <MessageIcon />;
+      case 'like':
+        return <FavoriteIcon />;
       default:
         return <NotificationsIcon />;
     }
@@ -97,12 +103,16 @@ const Notifications = () => {
 
   const getNotificationColor = (type) => {
     switch (type) {
-      case 'gig':
+      case 'gig_application':
         return '#1976d2';
-      case 'link':
+      case 'link_request':
         return '#388e3c';
-      case 'mention':
+      case 'comment':
         return '#f57c00';
+      case 'message':
+        return '#9c27b0';
+      case 'like':
+        return '#e91e63';
       default:
         return '#757575';
     }
@@ -251,7 +261,7 @@ const Notifications = () => {
                   <WorkIcon fontSize="small" />
                   Gigs
                   <Chip
-                    label={filterNotifications('gig').length}
+                    label={filterNotifications('gig_application').length}
                     size="small"
                     sx={{ bgcolor: '#e3f2fd', color: '#1976d2', fontSize: '0.75rem', height: 20 }}
                   />
@@ -265,7 +275,7 @@ const Notifications = () => {
                   <LinkIcon fontSize="small" />
                   Links
                   <Chip
-                    label={filterNotifications('link').length}
+                    label={filterNotifications('link_request').length}
                     size="small"
                     sx={{ bgcolor: '#e8f5e8', color: '#388e3c', fontSize: '0.75rem', height: 20 }}
                   />
@@ -276,16 +286,30 @@ const Notifications = () => {
             <Tab
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <MentionIcon fontSize="small" />
-                  Mentions
+                  <CommentIcon fontSize="small" />
+                  Comments
                   <Chip
-                    label={filterNotifications('mention').length}
+                    label={filterNotifications('comment').length}
                     size="small"
                     sx={{ bgcolor: '#fff3e0', color: '#f57c00', fontSize: '0.75rem', height: 20 }}
                   />
                 </Box>
               }
               {...a11yProps(3)}
+            />
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <MessageIcon fontSize="small" />
+                  Messages
+                  <Chip
+                    label={filterNotifications('message').length}
+                    size="small"
+                    sx={{ bgcolor: '#f3e5f5', color: '#9c27b0', fontSize: '0.75rem', height: 20 }}
+                  />
+                </Box>
+              }
+              {...a11yProps(4)}
             />
           </Tabs>
         </Box>
@@ -295,13 +319,16 @@ const Notifications = () => {
             {renderNotificationList(filterNotifications('all'))}
           </TabPanel>
           <TabPanel value={tabValue} index={1}>
-            {renderNotificationList(filterNotifications('gig'))}
+            {renderNotificationList(filterNotifications('gig_application'))}
           </TabPanel>
           <TabPanel value={tabValue} index={2}>
-            {renderNotificationList(filterNotifications('link'))}
+            {renderNotificationList(filterNotifications('link_request'))}
           </TabPanel>
           <TabPanel value={tabValue} index={3}>
-            {renderNotificationList(filterNotifications('mention'))}
+            {renderNotificationList(filterNotifications('comment'))}
+          </TabPanel>
+          <TabPanel value={tabValue} index={4}>
+            {renderNotificationList(filterNotifications('message'))}
           </TabPanel>
         </CardContent>
       </Card>

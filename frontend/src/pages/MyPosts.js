@@ -26,12 +26,7 @@ import {
   DialogActions,
   Chip,
   Grid,
-  Autocomplete,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  OutlinedInput
+  Autocomplete
 } from '@mui/material';
 import {
   Favorite as FavoriteIcon,
@@ -39,19 +34,15 @@ import {
   Comment as CommentIcon,
   Send as SendIcon,
   Delete as DeleteIcon,
-  PhotoCamera as PhotoCameraIcon,
-  Videocam as VideocamIcon,
   Add as AddIcon,
-  FilterList as FilterListIcon,
-  ExpandLess as ExpandLessIcon,
-  ExpandMore as ExpandMoreIcon
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
-const Community = () => {
+const MyPosts = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
@@ -61,13 +52,11 @@ const Community = () => {
   const [submitting, setSubmitting] = useState(false);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
   const [selectedGenres, setSelectedGenres] = useState([]);
-  const [filters, setFilters] = useState({ instruments: [], genres: [] });
   const [expandedComments, setExpandedComments] = useState({});
   const [commentTexts, setCommentTexts] = useState({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
   const [createPostModalOpen, setCreatePostModalOpen] = useState(false);
-  const [filtersVisible, setFiltersVisible] = useState(false);
 
   // Predefined options for instruments and genres
   const instrumentOptions = [
@@ -83,27 +72,13 @@ const Community = () => {
   ];
 
   useEffect(() => {
-    fetchPosts();
+    fetchMyPosts();
   }, []);
 
-  useEffect(() => {
-    fetchPosts();
-  }, [filters]);
-
-  const fetchPosts = async () => {
+  const fetchMyPosts = async () => {
     try {
       setLoading(true);
-      const queryParams = new URLSearchParams();
-      
-      if (filters.instruments.length > 0) {
-        queryParams.append('instruments', filters.instruments.join(','));
-      }
-      if (filters.genres.length > 0) {
-        queryParams.append('genres', filters.genres.join(','));
-      }
-      
-      const url = `/api/posts${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-      const response = await fetch(url, {
+      const response = await fetch('/api/posts', {
         headers: {
           'x-auth-token': token
         }
@@ -111,13 +86,15 @@ const Community = () => {
       
       if (response.ok) {
         const data = await response.json();
-        setPosts(data);
+        // Filter to show only current user's posts
+        const myPosts = data.filter(post => post.author._id === user?.id);
+        setPosts(myPosts);
       } else {
         throw new Error('Failed to fetch posts');
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
-      toast.error('Failed to load community posts');
+      toast.error('Failed to load your posts');
     } finally {
       setLoading(false);
     }
@@ -306,8 +283,18 @@ const Community = () => {
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      {/* Create Post Button and My Posts Button */}
-      <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+      {/* Header */}
+      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+        <IconButton onClick={() => navigate('/community')}>
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h4" component="h1">
+          My Posts
+        </Typography>
+      </Box>
+
+      {/* Create Post Button */}
+      <Box sx={{ mb: 3 }}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -316,73 +303,6 @@ const Community = () => {
         >
           Create a Post
         </Button>
-        <Button
-          variant="outlined"
-          onClick={() => navigate('/my-posts')}
-          size="large"
-        >
-          My Posts
-        </Button>
-      </Box>
-
-      {/* Filter Button and Section */}
-      <Box sx={{ mb: 3 }}>
-        <Button
-          variant="outlined"
-          startIcon={<FilterListIcon />}
-          endIcon={filtersVisible ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          onClick={() => setFiltersVisible(!filtersVisible)}
-          sx={{ mb: 2 }}
-        >
-          Filter Posts
-        </Button>
-        
-        <Collapse in={filtersVisible}>
-          <Paper elevation={1} sx={{ p: 3 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Autocomplete
-                  multiple
-                  options={instrumentOptions}
-                  value={filters.instruments}
-                  onChange={(event, newValue) => setFilters(prev => ({ ...prev, instruments: newValue }))}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => (
-                      <Chip key={index} variant="filled" color="primary" label={option} {...getTagProps({ index })} />
-                    ))
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Filter by Instruments"
-                      placeholder="Select instruments to filter"
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Autocomplete
-                  multiple
-                  options={genreOptions}
-                  value={filters.genres}
-                  onChange={(event, newValue) => setFilters(prev => ({ ...prev, genres: newValue }))}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => (
-                      <Chip key={index} variant="filled" color="secondary" label={option} {...getTagProps({ index })} />
-                    ))
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Filter by Genres"
-                      placeholder="Select genres to filter"
-                    />
-                  )}
-                />
-              </Grid>
-            </Grid>
-          </Paper>
-        </Collapse>
       </Box>
 
       {/* Create Post Modal */}
@@ -449,24 +369,18 @@ const Community = () => {
               </Grid>
             </Grid>
             
-            {/* File Upload Section */}
             <Box sx={{ mb: 3 }}>
               <input
-                type="file"
-                multiple
                 accept="image/*,video/*"
-                onChange={handleFileSelect}
                 style={{ display: 'none' }}
-                id="file-upload-modal"
+                id="media-upload"
+                multiple
+                type="file"
+                onChange={handleFileSelect}
               />
-              <label htmlFor="file-upload-modal">
-                <Button
-                  variant="outlined"
-                  component="span"
-                  startIcon={<PhotoCameraIcon />}
-                  sx={{ mr: 1 }}
-                >
-                  Add Media
+              <label htmlFor="media-upload">
+                <Button variant="outlined" component="span">
+                  Add Photos/Videos
                 </Button>
               </label>
               
@@ -501,7 +415,7 @@ const Community = () => {
       {/* Posts Feed */}
       {posts.length === 0 ? (
         <Alert severity="info">
-          No posts yet. Be the first to share something with the community!
+          You haven't created any posts yet. Create your first post to share with the community!
         </Alert>
       ) : (
         posts.map((post) => (
@@ -515,16 +429,14 @@ const Community = () => {
               title={post.author.name}
               subheader={formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
               action={
-                post.author._id === user?.id && (
-                  <IconButton
-                    onClick={() => {
-                      setPostToDelete(post._id);
-                      setDeleteDialogOpen(true);
-                    }}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                )
+                <IconButton
+                  onClick={() => {
+                    setPostToDelete(post._id);
+                    setDeleteDialogOpen(true);
+                  }}
+                >
+                  <DeleteIcon />
+                </IconButton>
               }
             />
             
@@ -579,7 +491,6 @@ const Community = () => {
               <Typography variant="body2" sx={{ mr: 2 }}>
                 {post.commentsCount}
               </Typography>
-              
             </CardActions>
 
             <Collapse in={expandedComments[post._id]} timeout="auto" unmountOnExit>
@@ -673,4 +584,4 @@ const Community = () => {
   );
 };
 
-export default Community;
+export default MyPosts;

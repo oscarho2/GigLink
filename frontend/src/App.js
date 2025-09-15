@@ -33,6 +33,7 @@ import EditGig from './pages/EditGig';
 import MyGigs from './pages/MyGigs';
 import Messages from './pages/Messages';
 import Community from './pages/Community';
+import MyPosts from './pages/MyPosts';
 import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
 
@@ -106,6 +107,7 @@ const AppContent = () => {
           <Route path="/links" element={<PrivateRoute><LinksPage /></PrivateRoute>} />
           <Route path="/user/:userId/links" element={<PrivateRoute><UserLinks /></PrivateRoute>} />
           <Route path="/community" element={<PrivateRoute><Community /></PrivateRoute>} />
+          <Route path="/my-posts" element={<PrivateRoute><MyPosts /></PrivateRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Box>

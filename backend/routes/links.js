@@ -3,6 +3,7 @@ const router = express.Router();
 const Link = require('../models/Link');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { createNotification } = require('./notifications');
 
 // Send link request
 router.post('/request', auth, async (req, res) => {
@@ -44,6 +45,18 @@ router.post('/request', auth, async (req, res) => {
 
     await newLink.save();
     await newLink.populate('requester recipient', 'name email avatar');
+
+    // Create notification for link request recipient
+    const requester = await User.findById(requesterId).select('name');
+    await createNotification(
+      recipientId,
+      requesterId,
+      'link_request',
+      `${requester.name} sent you a link request`,
+      newLink._id,
+      'Link',
+      req
+    );
 
     res.status(201).json({
       message: 'Link request sent successfully',

@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const Gig = require('../models/Gig');
 const User = require('../models/User');
 const Message = require('../models/Message');
+const { createNotification } = require('./notifications');
 
 // @route   POST api/gigs
 // @desc    Create a gig
@@ -30,7 +31,10 @@ router.post('/', auth, async (req, res) => {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const gigs = await Gig.find().populate('user', ['name', 'avatar']).sort({ date: -1 });
+    const gigs = await Gig.find()
+      .populate('user', ['name', 'avatar'])
+      .populate('applicants.user', ['_id', 'name', 'avatar'])
+      .sort({ date: -1 });
     
     // Add applicant count and applicant info for gig owners
     const gigsWithApplicantCount = gigs.map(gig => {
@@ -210,6 +214,18 @@ router.post('/:id/apply', auth, async (req, res) => {
     });
     
     await gig.save();
+
+    // Create notification for gig owner
+    const applicant = await User.findById(req.user.id).select('name');
+    await createNotification(
+      gig.user,
+      req.user.id,
+      'gig_application',
+      `${applicant.name} applied for your gig: ${gig.title}`,
+      gig._id,
+      'Gig',
+      req
+    );
 
     // Also send a gig_application message to the gig owner so they can accept/undo from chat
     try {
