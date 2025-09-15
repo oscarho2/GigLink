@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
+import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton } from '@mui/material';
 import { Link as RouterLink, useParams, useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
 import ChatIcon from '@mui/icons-material/Chat';
@@ -9,6 +9,10 @@ import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PeopleIcon from '@mui/icons-material/People';
+import CloseIcon from '@mui/icons-material/Close';
+import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
@@ -24,6 +28,7 @@ const Profile = () => {
   const [userRole, setUserRole] = useState(null); // 'requester' or 'recipient'
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, action: null, message: '' });
+  const [photoModal, setPhotoModal] = useState({ open: false, photoUrl: '', caption: '', currentIndex: 0 });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -58,7 +63,7 @@ const Profile = () => {
           location: profileData.user?.location || '',
           instruments: profileData.user?.instruments || profileData.skills?.filter(skill => ['Piano', 'Guitar', 'Vocals', 'Drums', 'Bass', 'Violin', 'Saxophone'].includes(skill)) || ['Piano', 'Guitar'],
           genres: profileData.user?.genres || ['Rock', 'Jazz', 'Blues'],
-    
+          photos: profileData.photos || [],
           videos: profileData.videos || [
             { title: 'Live at Jazz Club', url: 'https://youtube.com/watch?v=123' },
             { title: 'Studio Session', url: 'https://youtube.com/watch?v=456' }
@@ -213,6 +218,32 @@ const Profile = () => {
     navigate('/messages', { state: { startConversationWith: id } });
   };
 
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const openPhotoModal = (photoUrl, caption, index) => {
+    setPhotoModal({ open: true, photoUrl, caption, currentIndex: index });
+  };
+
+  const closePhotoModal = () => {
+    setPhotoModal({ open: false, photoUrl: '', caption: '', currentIndex: 0 });
+  };
+
+  const navigatePhoto = (direction) => {
+    const newIndex = direction === 'next' 
+      ? (photoModal.currentIndex + 1) % profile.photos.length
+      : (photoModal.currentIndex - 1 + profile.photos.length) % profile.photos.length;
+    
+    const newPhoto = profile.photos[newIndex];
+    setPhotoModal({
+      ...photoModal,
+      photoUrl: `http://localhost:5001${newPhoto.url}`,
+      caption: newPhoto.caption || '',
+      currentIndex: newIndex
+    });
+  };
+
   const renderLinkButton = () => {
     if (!user || !id) return null;
 
@@ -338,7 +369,11 @@ const Profile = () => {
               sx={{
                 minHeight: { xs: 40, sm: 32 },
                 fontSize: { xs: '0.875rem', sm: '0.8125rem' },
-                px: { xs: 2, sm: 1.5 }
+                px: { xs: 2, sm: 1.5 },
+                bgcolor: '#1a365d',
+                '&:hover': {
+                  bgcolor: '#2c5282'
+                }
               }}
             >
                Add Link
@@ -516,7 +551,7 @@ const Profile = () => {
                     mb: { xs: 2, sm: 2 }
                   }}
                 >
-                  {profile.bio.length > 200 ? `${profile.bio.substring(0, 200)}...` : profile.bio}
+                  {profile.bio}
                 </Typography>
               </>
             )}
@@ -646,18 +681,25 @@ const Profile = () => {
         ))}          </Grid>        </>      )}      
       {profile.photos && profile.photos.length > 0 && (
         <>
-          <Typography 
-            variant="h5" 
-            gutterBottom
-            sx={{
-              fontSize: { xs: '1.5rem', sm: '2.125rem' },
-              fontWeight: 600,
-              mb: { xs: 2, sm: 3 },
-              mt: 0
-            }}
-          >
-            Photos
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 2, sm: 3 } }}>
+            <PhotoLibraryIcon sx={{ mr: 1, fontSize: { xs: '1.5rem', sm: '2rem' } }} />
+            <Typography 
+              variant="h5" 
+              sx={{
+                fontSize: { xs: '1.5rem', sm: '2.125rem' },
+                fontWeight: 600,
+                mr: 2
+              }}
+            >
+              Photos
+            </Typography>
+            <Chip 
+              label={`${profile.photos.length} ${profile.photos.length === 1 ? 'photo' : 'photos'}`}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+          </Box>
           <Grid container spacing={{ xs: 2, sm: 3 }}>
             {profile.photos.map((photo, index) => (
               <Grid item xs={12} sm={6} md={4} key={photo._id || index}>
@@ -672,10 +714,16 @@ const Profile = () => {
                     component="img"
                     src={`http://localhost:5001${photo.url}`}
                     alt={photo.caption || 'Profile photo'}
+                    onClick={() => openPhotoModal(`http://localhost:5001${photo.url}`, photo.caption, index)}
                     sx={{
                       width: '100%',
                       height: { xs: 200, sm: 250 },
-                      objectFit: 'cover'
+                      objectFit: 'cover',
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s ease-in-out',
+                      '&:hover': {
+                        transform: 'scale(1.02)'
+                      }
                     }}
                   />
                   {photo.caption && (
@@ -734,13 +782,118 @@ const Profile = () => {
         </DialogActions>
       </Dialog>
       
+      {/* Photo Modal */}
+      <Dialog
+        open={photoModal.open}
+        onClose={closePhotoModal}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: 'transparent',
+            boxShadow: 'none',
+            overflow: 'visible'
+          }
+        }}
+      >
+        <DialogContent sx={{ p: 0, position: 'relative' }}>
+          <IconButton
+            onClick={closePhotoModal}
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              bgcolor: 'rgba(0, 0, 0, 0.5)',
+              color: 'white',
+              zIndex: 1,
+              '&:hover': {
+                bgcolor: 'rgba(0, 0, 0, 0.7)'
+              }
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+          
+          {profile.photos && profile.photos.length > 1 && (
+            <>
+              <IconButton
+                onClick={() => navigatePhoto('prev')}
+                sx={{
+                  position: 'absolute',
+                  left: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  bgcolor: 'rgba(0, 0, 0, 0.5)',
+                  color: 'white',
+                  zIndex: 1,
+                  '&:hover': {
+                    bgcolor: 'rgba(0, 0, 0, 0.7)'
+                  }
+                }}
+              >
+                <ArrowBackIosIcon />
+              </IconButton>
+              <IconButton
+                onClick={() => navigatePhoto('next')}
+                sx={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  bgcolor: 'rgba(0, 0, 0, 0.5)',
+                  color: 'white',
+                  zIndex: 1,
+                  '&:hover': {
+                    bgcolor: 'rgba(0, 0, 0, 0.7)'
+                  }
+                }}
+              >
+                <ArrowForwardIosIcon />
+              </IconButton>
+            </>
+          )}
+          
+          <Box
+            component="img"
+            src={photoModal.photoUrl}
+            alt={photoModal.caption || 'Profile photo'}
+            sx={{
+              width: '100%',
+              maxHeight: '80vh',
+              objectFit: 'contain',
+              borderRadius: 2
+            }}
+          />
+          
+          {photoModal.caption && (
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                bgcolor: 'rgba(0, 0, 0, 0.7)',
+                color: 'white',
+                p: 2,
+                borderBottomLeftRadius: 8,
+                borderBottomRightRadius: 8
+              }}
+            >
+              <Typography variant="body1">
+                {photoModal.caption}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+      
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        onClose={handleCloseSnackbar}
       >
         <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
         >

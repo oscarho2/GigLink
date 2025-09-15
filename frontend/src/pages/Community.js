@@ -508,11 +508,24 @@ const Community = () => {
           <Card key={post._id} sx={{ mb: 3 }}>
             <CardHeader
               avatar={
-                <Avatar src={post.author.avatar} alt={post.author.name}>
+                <Avatar 
+                  src={post.author.avatar} 
+                  alt={post.author.name}
+                  onClick={() => navigate(`/profile/${post.author._id}`)}
+                  sx={{ cursor: 'pointer' }}
+                >
                   {post.author.name?.charAt(0)}
                 </Avatar>
               }
-              title={post.author.name}
+              title={
+                <Typography 
+                    variant="h6" 
+                    onClick={() => navigate(`/profile/${post.author._id}`)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    {post.author.name}
+                  </Typography>
+              }
               subheader={formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
               action={
                 post.author._id === user?.id && (
@@ -626,7 +639,8 @@ const Community = () => {
                           <Avatar
                             src={comment.user.avatar}
                             alt={comment.user.name}
-                            sx={{ width: 32, height: 32 }}
+                            onClick={() => navigate(`/profile/${comment.user._id}`)}
+                            sx={{ width: 32, height: 32, cursor: 'pointer' }}
                           >
                             {comment.user.name?.charAt(0)}
                           </Avatar>
@@ -634,7 +648,11 @@ const Community = () => {
                         <ListItemText
                           primary={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="subtitle2">
+                              <Typography 
+                                variant="subtitle2"
+                                onClick={() => navigate(`/profile/${comment.user._id}`)}
+                                sx={{ cursor: 'pointer' }}
+                              >
                                 {comment.user.name}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">

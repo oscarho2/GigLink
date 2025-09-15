@@ -42,6 +42,7 @@ const EditProfile = () => {
   const [newVideo, setNewVideo] = useState({ title: '', url: '', description: '' });
   const [showAddVideo, setShowAddVideo] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [photoCaption, setPhotoCaption] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState(null);
@@ -179,18 +180,67 @@ const EditProfile = () => {
   };
 
   const handlePhotoSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setError('Photo file size must be less than 5MB');
-        return;
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      // Validate each file
+      for (let file of files) {
+        if (file.size > 5 * 1024 * 1024) { // 5MB limit
+          setError('Each photo file size must be less than 5MB');
+          return;
+        }
+        if (!file.type.startsWith('image/')) {
+          setError('Please select valid image files only');
+          return;
+        }
       }
-      if (!file.type.startsWith('image/')) {
-        setError('Please select a valid image file');
-        return;
+      
+      if (files.length === 1) {
+        setSelectedPhoto(files[0]);
+        setSelectedPhotos([]);
+      } else {
+        setSelectedPhotos(files);
+        setSelectedPhoto(null);
       }
-      setSelectedPhoto(file);
       setError('');
+    }
+  };
+
+  const handleMultiplePhotoUpload = async () => {
+    if (selectedPhotos.length === 0) return;
+    
+    setUploadingPhoto(true);
+    setError('');
+    
+    try {
+      const uploadPromises = selectedPhotos.map(async (photo) => {
+        const formDataUpload = new FormData();
+        formDataUpload.append('photo', photo);
+        formDataUpload.append('caption', photoCaption);
+        
+        return axios.post('/api/profiles/photos', formDataUpload, {
+          headers: {
+            'x-auth-token': token,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      });
+      
+      const responses = await Promise.all(uploadPromises);
+      
+      // Add all new photos to the formData
+      const newPhotos = responses.map(response => response.data.photo);
+      setFormData({
+        ...formData,
+        photos: [...formData.photos, ...newPhotos]
+      });
+      
+      setSelectedPhotos([]);
+      setPhotoCaption('');
+      setSuccess(`${selectedPhotos.length} photos uploaded successfully!`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error uploading photos');
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -838,24 +888,99 @@ const EditProfile = () => {
                   Add New Photo
                 </Typography>
                 <Grid container spacing={2}>
+                  {/* Single Photo Preview */}
+                  {selectedPhoto && (
+                    <Grid item xs={12}>
+                      <Box
+                        sx={{
+                          width: '100%',
+                          maxWidth: 300,
+                          height: 200,
+                          border: '2px solid #e0e0e0',
+                          borderRadius: 2,
+                          overflow: 'hidden',
+                          mx: 'auto',
+                          mb: 2,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={URL.createObjectURL(selectedPhoto)}
+                          alt="Photo preview"
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                        />
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
+                        Preview: {selectedPhoto.name}
+                      </Typography>
+                    </Grid>
+                  )}
+                  
+                  {/* Multiple Photos Preview */}
+                  {selectedPhotos.length > 0 && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                        Selected {selectedPhotos.length} photos:
+                      </Typography>
+                      <Grid container spacing={1}>
+                        {selectedPhotos.map((photo, index) => (
+                          <Grid item xs={6} sm={4} md={3} key={index}>
+                            <Box
+                              sx={{
+                                width: '100%',
+                                height: 120,
+                                border: '1px solid #e0e0e0',
+                                borderRadius: 1,
+                                overflow: 'hidden',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <Box
+                                component="img"
+                                src={URL.createObjectURL(photo)}
+                                alt={`Preview ${index + 1}`}
+                                sx={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover'
+                                }}
+                              />
+                            </Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}>
+                              {photo.name.length > 15 ? `${photo.name.substring(0, 15)}...` : photo.name}
+                            </Typography>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </Grid>
+                  )}
+                  
                   <Grid item xs={12} sm={6}>
                     <input
                       accept="image/*"
                       style={{ display: 'none' }}
                       id="photo-upload"
                       type="file"
+                      multiple
                       onChange={handlePhotoSelect}
                     />
                     <label htmlFor="photo-upload">
                       <Button variant="outlined" component="span" fullWidth>
-                        Choose Photo
+                        {selectedPhoto || selectedPhotos.length > 0 ? 'Choose Different Photos' : 'Choose Photos'}
                       </Button>
                     </label>
-                    {selectedPhoto && (
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        Selected: {selectedPhoto.name}
-                      </Typography>
-                    )}
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
+                      Select single or multiple photos
+                    </Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField
@@ -865,16 +990,20 @@ const EditProfile = () => {
                       onChange={(e) => setPhotoCaption(e.target.value)}
                       variant="outlined"
                       size="small"
+                      helperText={selectedPhotos.length > 1 ? "Caption will apply to all photos" : ""}
                     />
                   </Grid>
                   <Grid item xs={12}>
                     <Button
                       variant="contained"
-                      onClick={handlePhotoUpload}
-                      disabled={!selectedPhoto || uploadingPhoto}
+                      onClick={selectedPhotos.length > 0 ? handleMultiplePhotoUpload : handlePhotoUpload}
+                      disabled={(!selectedPhoto && selectedPhotos.length === 0) || uploadingPhoto}
                       startIcon={<AddIcon />}
+                      fullWidth
                     >
-                      {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                      {uploadingPhoto ? 'Uploading...' : 
+                        selectedPhotos.length > 0 ? `Upload ${selectedPhotos.length} Photos` : 'Upload Photo'
+                      }
                     </Button>
                   </Grid>
                 </Grid>

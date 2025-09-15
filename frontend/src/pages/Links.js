@@ -434,9 +434,6 @@ const LinksPage = () => {
                         sx={{
                           cursor: 'pointer',
                           color: 'primary.main',
-                          '&:hover': {
-                            textDecoration: 'underline'
-                          }
                         }}
                         onClick={() => navigate(`/profile/${linkData.link.id}`)}
                       >
