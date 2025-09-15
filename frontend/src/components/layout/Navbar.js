@@ -26,7 +26,6 @@ const Navbar = () => {
   const navigate = useNavigate();
   const [anchorElNav, setAnchorElNav] = useState(null);
   const [anchorElProfile, setAnchorElProfile] = useState(null);
-  const [anchorElNotifications, setAnchorElNotifications] = useState(null);
 
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
@@ -63,12 +62,8 @@ const Navbar = () => {
     navigate('/settings');
   };
 
-  const handleOpenNotificationsMenu = (event) => {
-    setAnchorElNotifications(event.currentTarget);
-  };
-
-  const handleCloseNotificationsMenu = () => {
-    setAnchorElNotifications(null);
+  const handleNotificationsClick = () => {
+    navigate('/notifications');
   };
 
   const guestLinks = (
@@ -112,7 +107,6 @@ const Navbar = () => {
     <Box sx={{ display: 'flex', alignItems: 'center' }}>
       <Button color="inherit" component={RouterLink} to="/dashboard">Dashboard</Button>
       <Button color="inherit" component={RouterLink} to="/messages">Messages</Button>
-      <Button color="inherit" component={RouterLink} to="/links">Links</Button>
     </Box>
   );
 
@@ -126,7 +120,7 @@ const Navbar = () => {
             variant="h6"
             noWrap
             component={RouterLink}
-            to="/"
+            to={isAuthenticated ? "/community" : "/"}
             sx={{
               mr: 2,
               display: { xs: 'none', md: 'flex' },
@@ -207,6 +201,9 @@ const Navbar = () => {
               }}
             >
               {/* Public Pages */}
+              <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/community">
+                <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🌐 Community</Typography>
+              </MenuItem>
               <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/gigs">
                 <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🎵 Browse Gigs</Typography>
               </MenuItem>
@@ -225,9 +222,7 @@ const Navbar = () => {
                   <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/messages">
                     <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>💬 Messages</Typography>
                   </MenuItem>
-                  <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/links">
-                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>👥 Links</Typography>
-                  </MenuItem>
+
                 </>
               )}
 
@@ -244,7 +239,7 @@ const Navbar = () => {
             variant="h6"
             noWrap
             component={RouterLink}
-            to="/"
+            to={isAuthenticated ? "/community" : "/"}
             sx={{
               mr: 2,
               display: { xs: 'flex', md: 'none' },
@@ -317,7 +312,7 @@ const Navbar = () => {
             <>
               <NotificationBadge count={totalUnreadCount}>
                 <IconButton
-                  onClick={handleOpenNotificationsMenu}
+                  onClick={handleNotificationsClick}
                   sx={{
                     p: 0.5,
                     ml: 1,
@@ -358,6 +353,21 @@ const Navbar = () => {
             justifyContent: 'center',
             gap: 2
           }}>
+            <Button
+              component={RouterLink}
+              to="/community"
+              sx={{ 
+                my: 2, 
+                color: 'white', 
+                display: 'block',
+                bgcolor: 'transparent',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              Community
+            </Button>
             <Button
               component={RouterLink}
               to="/gigs"
@@ -402,7 +412,7 @@ const Navbar = () => {
               <>
                 <NotificationBadge count={totalUnreadCount}>
                   <IconButton
-                    onClick={handleOpenNotificationsMenu}
+                    onClick={handleNotificationsClick}
                     sx={{
                       p: 1,
                       ml: 1,
@@ -415,40 +425,6 @@ const Navbar = () => {
                     <NotificationsIcon sx={{ color: 'white' }} />
                   </IconButton>
                 </NotificationBadge>
-                <Menu
-                  anchorEl={anchorElNotifications}
-                  open={Boolean(anchorElNotifications)}
-                  onClose={handleCloseNotificationsMenu}
-                  sx={{
-                    mt: '45px'
-                  }}
-                  anchorOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                  }}
-                  transformOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                  }}
-                >
-                   {totalUnreadCount === 0 ? (
-                     <MenuItem onClick={handleCloseNotificationsMenu}>
-                       No notifications
-                     </MenuItem>
-                   ) : (
-                     <>
-                       <MenuItem onClick={handleCloseNotificationsMenu}>
-                         Messages ({totalUnreadCount})
-                       </MenuItem>
-                       <MenuItem onClick={handleCloseNotificationsMenu}>
-                         Friend Requests
-                       </MenuItem>
-                       <MenuItem onClick={handleCloseNotificationsMenu}>
-                         Mark All as Read
-                       </MenuItem>
-                     </>
-                   )}
-                 </Menu>
                 <Avatar
                   src={user.avatar}
                   alt={user.name}
