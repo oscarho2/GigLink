@@ -116,6 +116,7 @@ router.get('/', auth, async (req, res) => {
     const posts = await Post.find(filter)
       .populate('author', 'name avatar email')
       .populate('comments.user', 'name avatar')
+      .populate('comments.replies.user', 'name avatar')
       .populate('comments.likes.user', 'name')
       .populate('likes.user', 'name')
       .sort({ createdAt: -1 })
@@ -159,6 +160,7 @@ router.get('/user/:userId', auth, async (req, res) => {
     const posts = await Post.find({ author: userId })
       .populate('author', 'name avatar email')
       .populate('comments.user', 'name avatar')
+      .populate('comments.replies.user', 'name avatar')
       .populate('comments.likes.user', 'name')
       .populate('likes.user', 'name')
       .sort({ createdAt: -1 })
@@ -555,6 +557,7 @@ router.post('/:postId/comments/:commentId/replies', auth, async (req, res) => {
       .populate('author', 'name avatar email')
       .populate('comments.user', 'name avatar')
       .populate('comments.replies.user', 'name avatar')
+      .populate('comments.replies.likes.user', 'name')
       .populate('comments.likes.user', 'name')
       .populate('likes.user', 'name');
 
@@ -563,16 +566,155 @@ router.post('/:postId/comments/:commentId/replies', auth, async (req, res) => {
     postObj.likesCount = updatedPost.likes.length;
     postObj.commentsCount = updatedPost.comments.length;
     
-    // Add like status for each comment
+    // Add like status for each comment and reply
     postObj.comments = postObj.comments.map(comment => ({
       ...comment,
       isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
-      likesCount: comment.likes.length
+      likesCount: comment.likes.length,
+      replies: comment.replies.map(reply => ({
+        ...reply,
+        isLikedByUser: reply.likes.some(like => like.user._id.toString() === userId),
+        likesCount: reply.likes.length
+      }))
     }));
 
     res.json(postObj);
   } catch (error) {
     console.error('Error adding reply:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/posts/:postId/comments/:commentId/replies/:replyId/like
+// @desc    Like/unlike a reply
+// @access  Private
+router.put('/:postId/comments/:commentId/replies/:replyId/like', auth, async (req, res) => {
+  try {
+    const { postId, commentId, replyId } = req.params;
+    const userId = req.user.id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    const reply = comment.replies.id(replyId);
+    if (!reply) {
+      return res.status(404).json({ message: 'Reply not found' });
+    }
+
+    const existingLike = reply.likes.find(like => like.user.toString() === userId);
+    
+    if (existingLike) {
+      await post.removeReplyLike(commentId, replyId, userId);
+    } else {
+      await post.addReplyLike(commentId, replyId, userId);
+    }
+    
+    // Return updated post with populated data
+    const updatedPost = await Post.findById(postId)
+      .populate('author', 'name avatar email')
+      .populate('comments.user', 'name avatar')
+      .populate('comments.replies.user', 'name avatar')
+      .populate('comments.replies.likes.user', 'name')
+      .populate('comments.likes.user', 'name')
+      .populate('likes.user', 'name');
+
+    const postObj = updatedPost.toObject();
+    postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
+    postObj.likesCount = updatedPost.likes.length;
+    postObj.commentsCount = updatedPost.comments.length;
+    
+    // Add like status for each comment and reply
+    postObj.comments = postObj.comments.map(comment => ({
+      ...comment,
+      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
+      likesCount: comment.likes.length,
+      replies: comment.replies.map(reply => ({
+        ...reply,
+        isLikedByUser: reply.likes.some(like => like.user._id.toString() === userId),
+        likesCount: reply.likes.length
+      }))
+    }));
+
+    res.json(postObj);
+  } catch (error) {
+    console.error('Error toggling reply like:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/posts/:postId/comments/:commentId/replies/:replyId
+// @desc    Delete a reply
+// @access  Private
+router.delete('/:postId/comments/:commentId/replies/:replyId', auth, async (req, res) => {
+  try {
+    const { postId, commentId, replyId } = req.params;
+    const userId = req.user.id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    const reply = comment.replies.id(replyId);
+    if (!reply) {
+      return res.status(404).json({ message: 'Reply not found' });
+    }
+
+    // Check if user is the author of the reply or the post
+    if (reply.user.toString() !== userId && post.author.toString() !== userId) {
+      return res.status(403).json({ message: 'Not authorized to delete this reply' });
+    }
+
+    // Remove the reply
+    comment.replies.pull(replyId);
+    await post.save();
+
+    // Return updated post with populated data
+    const updatedPost = await Post.findById(postId)
+      .populate('author', 'name avatar email')
+      .populate('comments.user', 'name avatar')
+      .populate('comments.replies.user', 'name avatar')
+      .populate('likes.user', 'name');
+
+    // Add like status and counts
+    const postObj = updatedPost.toObject();
+    postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
+    postObj.likesCount = updatedPost.likes.length;
+    postObj.commentsCount = updatedPost.comments.length;
+
+    // Add comment like status and reply like status
+    postObj.comments = postObj.comments.map(comment => {
+      const commentObj = { ...comment };
+      commentObj.isLikedByUser = comment.likes.some(like => like.user.toString() === userId);
+      commentObj.likesCount = comment.likes.length;
+      
+      if (comment.replies) {
+        commentObj.replies = comment.replies.map(reply => {
+          const replyObj = { ...reply };
+          replyObj.isLikedByUser = reply.likes.some(like => like.user.toString() === userId);
+          replyObj.likesCount = reply.likes.length;
+          return replyObj;
+        });
+      }
+      
+      return commentObj;
+    });
+
+    res.json(postObj);
+  } catch (error) {
+    console.error('Error deleting reply:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
