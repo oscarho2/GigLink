@@ -80,7 +80,7 @@ const Community = () => {
   const [replyTexts, setReplyTexts] = useState({});
   const [commentMenuAnchor, setCommentMenuAnchor] = useState(null);
   const [selectedComment, setSelectedComment] = useState(null);
-  const [pinnedComments, setPinnedComments] = useState({});
+
   const [replyMenuAnchor, setReplyMenuAnchor] = useState(null);
   const [selectedReply, setSelectedReply] = useState(null);
   const [selectedCommentForReply, setSelectedCommentForReply] = useState(null);
@@ -132,6 +132,23 @@ const Community = () => {
       if (response.ok) {
         const data = await response.json();
         setPosts(data);
+        
+        // Initialize commentLikes state with actual like status from server
+        const initialCommentLikes = {};
+        data.forEach(post => {
+          post.comments.forEach(comment => {
+            initialCommentLikes[comment._id] = comment.isLikedByUser || false;
+            // Also initialize reply likes if they have isLikedByUser property
+            if (comment.replies) {
+              comment.replies.forEach(reply => {
+                if (reply.isLikedByUser !== undefined) {
+                  initialCommentLikes[reply._id] = reply.isLikedByUser;
+                }
+              });
+            }
+          });
+        });
+        setCommentLikes(initialCommentLikes);
       } else {
         if (response.status === 401) {
           toast.error('Authentication expired. Please log in again.');
@@ -400,13 +417,40 @@ const Community = () => {
     setSelectedComment(null);
   };
 
-  const handlePinComment = () => {
-    if (selectedComment) {
-      setPinnedComments(prev => ({
-        ...prev,
-        [selectedComment._id]: !prev[selectedComment._id]
-      }));
-      toast.success(pinnedComments[selectedComment._id] ? 'Comment unpinned' : 'Comment pinned');
+  const handlePinComment = async () => {
+    if (!selectedComment) return;
+
+    // Find the post that contains this comment
+    const post = posts.find(p => p.comments.some(c => c._id === selectedComment._id));
+    if (!post) {
+      toast.error('Post not found');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5001/api/posts/${post._id}/comments/${selectedComment._id}/pin`, {
+        method: 'PUT',
+        headers: {
+          'x-auth-token': token
+        }
+      });
+
+      if (response.ok) {
+        const updatedPost = await response.json();
+        setPosts(prev => prev.map(p => 
+          p._id === updatedPost._id ? updatedPost : p
+        ));
+        const comment = updatedPost.comments.find(c => c._id === selectedComment._id);
+        toast.success(comment?.pinned ? 'Comment pinned' : 'Comment unpinned');
+      } else if (response.status === 403) {
+        toast.error('Only the post author can pin comments');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Failed to pin comment');
+      }
+    } catch (error) {
+      console.error('Error pinning comment:', error);
+      toast.error('Failed to pin comment');
     }
     handleCommentMenuClose();
   };
@@ -437,6 +481,18 @@ const Community = () => {
         );
         if (selectedPost && selectedPost._id === post._id) {
           setSelectedPost(updatedPost);
+        }
+        
+        // Update commentLikes state for the reply
+        const updatedComment = updatedPost.comments.find(c => c._id === commentId);
+        if (updatedComment) {
+          const updatedReply = updatedComment.replies.find(r => r._id === replyId);
+          if (updatedReply) {
+            setCommentLikes(prev => ({
+              ...prev,
+              [replyId]: updatedReply.isLikedByUser || false
+            }));
+          }
         }
       } else {
         const errorData = await response.json();
@@ -1314,8 +1370,8 @@ const Community = () => {
                   <List>
                     {post.comments
                       .sort((a, b) => {
-                        const aIsPinned = pinnedComments[a._id];
-                        const bIsPinned = pinnedComments[b._id];
+                        const aIsPinned = a.pinned;
+                        const bIsPinned = b.pinned;
                         if (aIsPinned && !bIsPinned) return -1;
                         if (!aIsPinned && bIsPinned) return 1;
                         // If both have same pin status, sort by creation date (newest first)
@@ -1348,43 +1404,47 @@ const Community = () => {
                             }
                             secondary={
                               <Box>
-                                <Typography variant="body2" sx={{ mb: 1 }}>
-                                  {comment.content}
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                  <Button
-                                     size="small"
-                                     onClick={() => handleReplyToComment(comment._id)}
-                                     sx={{ 
-                                       textTransform: 'none',
-                                       minWidth: 'auto',
-                                       padding: '2px 8px',
-                                       fontSize: '0.75rem'
-                                     }}
-                                   >
-                                     Reply
-                                   </Button>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    {pinnedComments[comment._id] && (
+                                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                                  <Typography variant="body2" sx={{ flex: 1, mr: 2 }}>
+                                    {comment.content}
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                                    {comment.pinned && (
                                       <PushPinIcon fontSize="small" color="primary" />
                                     )}
                                     <IconButton
                                       size="small"
                                       onClick={() => handleCommentLike(post._id, comment._id)}
                                       color={commentLikes[comment._id] ? "error" : "default"}
+                                      sx={{ p: 0.5 }}
                                     >
                                       {commentLikes[comment._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
                                     </IconButton>
-                                    <Typography variant="caption" sx={{ mr: 1 }}>
+                                    <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
                                       {comment.likesCount || 0}
                                     </Typography>
                                     <IconButton
                                       size="small"
                                       onClick={(e) => handleCommentMenuClick(e, comment)}
+                                      sx={{ p: 0.5 }}
                                     >
                                       <MoreVertIcon fontSize="small" />
                                     </IconButton>
                                   </Box>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <Button
+                                    size="small"
+                                    onClick={() => handleReplyToComment(comment._id)}
+                                    sx={{ 
+                                      textTransform: 'none',
+                                      minWidth: 'auto',
+                                      padding: '2px 8px',
+                                      fontSize: '0.75rem'
+                                    }}
+                                  >
+                                    Reply
+                                  </Button>
                                 </Box>
                               </Box>
                             }
@@ -1463,10 +1523,32 @@ const Community = () => {
                                   }
                                   secondary={
                                     <Box>
-                                      <Typography variant="body2" sx={{ fontSize: '0.875rem', mb: 1 }}>
-                                        {reply.content}
-                                      </Typography>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                        <Typography variant="body2" sx={{ fontSize: '0.875rem', flex: 1 }}>
+                                          {reply.content}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleReplyLike(comment._id, reply._id)}
+                                            color={commentLikes[reply._id] ? "error" : "default"}
+                                            sx={{ p: 0.5 }}
+                                          >
+                                            {commentLikes[reply._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                                          </IconButton>
+                                          <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
+                                            {reply.likesCount || 0}
+                                          </Typography>
+                                          <IconButton
+                                            size="small"
+                                            onClick={(e) => handleReplyMenuClick(e, comment._id, reply._id)}
+                                            sx={{ p: 0.5 }}
+                                          >
+                                            <MoreVertIcon fontSize="small" />
+                                          </IconButton>
+                                        </Box>
+                                      </Box>
+                                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                         <Button
                                           size="small"
                                           onClick={() => handleReplyToReply(comment._id, reply._id, reply.user?.name || 'Unknown User')}
@@ -1474,29 +1556,12 @@ const Community = () => {
                                             textTransform: 'none',
                                             minWidth: 'auto',
                                             padding: '2px 8px',
-                                            fontSize: '0.75rem'
+                                            fontSize: '0.75rem',
+                                            mt: 0.5
                                           }}
                                         >
                                           Reply
                                         </Button>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                           <IconButton
-                                             size="small"
-                                             onClick={() => handleReplyLike(comment._id, reply._id)}
-                                             color={reply.isLikedByUser ? "error" : "default"}
-                                           >
-                                             {reply.isLikedByUser ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
-                                           </IconButton>
-                                           <Typography variant="caption" sx={{ mr: 1 }}>
-                                             {reply.likesCount || 0}
-                                           </Typography>
-                                           <IconButton
-                                             size="small"
-                                             onClick={(e) => handleReplyMenuClick(e, comment._id, reply._id)}
-                                           >
-                                             <MoreVertIcon fontSize="small" />
-                                           </IconButton>
-                                         </Box>
                                       </Box>
                                     </Box>
                                   }
@@ -1583,10 +1648,16 @@ const Community = () => {
           horizontal: 'right',
         }}
       >
-        <MenuItem onClick={handlePinComment}>
-          <PushPinIcon sx={{ mr: 1, color: pinnedComments[selectedComment?._id] ? '#1976d2' : '#666' }} />
-          {pinnedComments[selectedComment?._id] ? 'Unpin Comment' : 'Pin Comment'}
-        </MenuItem>
+        {/* Only show pin option if current user is the post author */}
+        {(() => {
+          const post = posts.find(p => p.comments.some(c => c._id === selectedComment?._id));
+          return post && post.author._id === user?.id && (
+            <MenuItem onClick={handlePinComment}>
+              <PushPinIcon sx={{ mr: 1, color: selectedComment?.pinned ? '#1976d2' : '#666' }} />
+              {selectedComment?.pinned ? 'Unpin Comment' : 'Pin Comment'}
+            </MenuItem>
+          );
+        })()}
         <MenuItem onClick={handleDeleteComment}>
           <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
           Delete Comment
