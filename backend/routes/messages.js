@@ -306,7 +306,7 @@ router.post('/send', auth, async (req, res) => {
       senderId,
       'message',
       `${message.sender.name} sent you a message`,
-      message._id,
+      senderId, // Use sender ID so notification can open conversation with sender
       'Message',
       req
     );

@@ -117,7 +117,14 @@ const createNotification = async (recipientId, senderId, type, message, relatedI
     // Emit real-time notification if socket.io is available
     if (req && req.app && req.app.get('io')) {
       const io = req.app.get('io');
+      console.log(`Emitting notification to user ${recipientId.toString()}:`, {
+        type: notification.type,
+        message: notification.message,
+        sender: notification.sender.name
+      });
       io.to(recipientId.toString()).emit('newNotification', notification);
+    } else {
+      console.log('Socket.io not available for notification emission');
     }
     
     return notification;
