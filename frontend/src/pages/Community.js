@@ -47,7 +47,8 @@ import {
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
   MoreVert as MoreVertIcon,
-  Reply as ReplyIcon
+  Reply as ReplyIcon,
+  PushPin as PushPinIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -77,6 +78,9 @@ const Community = () => {
   const [selectedPost, setSelectedPost] = useState(null);
   const [commentLikes, setCommentLikes] = useState({});
   const [replyTexts, setReplyTexts] = useState({});
+  const [commentMenuAnchor, setCommentMenuAnchor] = useState(null);
+  const [selectedComment, setSelectedComment] = useState(null);
+  const [pinnedComments, setPinnedComments] = useState({});
 
   // Predefined options for instruments and genres
   const instrumentOptions = [
@@ -277,6 +281,112 @@ const Community = () => {
     setPostToDelete(selectedPost._id);
     setDeleteDialogOpen(true);
     handlePostMenuClose();
+  };
+
+  const handleCommentLike = async (commentId) => {
+    try {
+      const isLiked = commentLikes[commentId];
+      const method = isLiked ? 'DELETE' : 'POST';
+      const response = await fetch(`/api/comments/${commentId}/like`, {
+        method,
+        headers: {
+          'x-auth-token': token
+        }
+      });
+
+      if (response.ok) {
+        setCommentLikes(prev => ({
+          ...prev,
+          [commentId]: !isLiked
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling comment like:', error);
+      toast.error('Failed to update comment like');
+    }
+  };
+
+  const handleReplyToComment = (commentId) => {
+    setReplyingTo(commentId);
+  };
+
+  const handleReplySubmit = async (commentId) => {
+    const replyText = replyTexts[commentId];
+    if (!replyText?.trim()) return;
+
+    try {
+      const response = await fetch(`/api/comments/${commentId}/replies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-auth-token': token
+        },
+        body: JSON.stringify({ content: replyText })
+      });
+
+      if (response.ok) {
+        const updatedComment = await response.json();
+        // Update the posts state to reflect the new reply
+        setPosts(prev => prev.map(post => ({
+          ...post,
+          comments: post.comments.map(comment => 
+            comment._id === commentId ? updatedComment : comment
+          )
+        })));
+        setReplyTexts(prev => ({ ...prev, [commentId]: '' }));
+        setReplyingTo(null);
+      }
+    } catch (error) {
+      console.error('Error adding reply:', error);
+      toast.error('Failed to add reply');
+    }
+  };
+
+  const handleCommentMenuClick = (event, comment) => {
+    setCommentMenuAnchor(event.currentTarget);
+    setSelectedComment(comment);
+  };
+
+  const handleCommentMenuClose = () => {
+    setCommentMenuAnchor(null);
+    setSelectedComment(null);
+  };
+
+  const handlePinComment = () => {
+    if (selectedComment) {
+      setPinnedComments(prev => ({
+        ...prev,
+        [selectedComment._id]: !prev[selectedComment._id]
+      }));
+      toast.success(pinnedComments[selectedComment._id] ? 'Comment unpinned' : 'Comment pinned');
+    }
+    handleCommentMenuClose();
+  };
+
+  const handleDeleteComment = async () => {
+    if (!selectedComment) return;
+
+    try {
+      const response = await fetch(`/api/comments/${selectedComment._id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-auth-token': token
+        }
+      });
+
+      if (response.ok) {
+        // Remove comment from posts state
+        setPosts(prev => prev.map(post => ({
+          ...post,
+          comments: post.comments.filter(comment => comment._id !== selectedComment._id)
+        })));
+        toast.success('Comment deleted successfully');
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast.error('Failed to delete comment');
+    }
+    handleCommentMenuClose();
   };
 
   const toggleComments = (postId) => {
@@ -1043,32 +1153,153 @@ const Community = () => {
                 {post.comments && post.comments.length > 0 && (
                   <List>
                     {post.comments.map((comment) => (
-                      <ListItem key={comment._id} alignItems="flex-start">
-                        <ListItemAvatar>
-                          <UserAvatar
-                            user={comment.user}
-                            size={32}
-                            onClick={() => navigate(`/profile/${comment.user._id}`)}
+                      <Box key={comment._id}>
+                        <ListItem alignItems="flex-start">
+                          <ListItemAvatar>
+                            <UserAvatar
+                              user={comment.user}
+                              size={32}
+                              onClick={() => navigate(`/profile/${comment.user._id}`)}
+                            />
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography 
+                                  variant="subtitle2"
+                                  onClick={() => navigate(`/profile/${comment.user._id}`)}
+                                  sx={{ cursor: 'pointer' }}
+                                >
+                                  {comment.user.name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                                </Typography>
+                              </Box>
+                            }
+                            secondary={
+                              <Box>
+                                <Typography variant="body2" sx={{ mb: 1 }}>
+                                  {comment.content}
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleCommentLike(comment._id)}
+                                      color={commentLikes[comment._id] ? "error" : "default"}
+                                    >
+                                      {commentLikes[comment._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                                    </IconButton>
+                                    <Typography variant="caption" sx={{ mr: 2 }}>
+                                      {comment.likesCount || 0}
+                                    </Typography>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleReplyToComment(comment._id)}
+                                    >
+                                      <ReplyIcon fontSize="small" />
+                                    </IconButton>
+                                    <Typography variant="caption">
+                                      Reply
+                                    </Typography>
+                                  </Box>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {pinnedComments[comment._id] && (
+                                      <PushPinIcon fontSize="small" color="primary" />
+                                    )}
+                                    <IconButton
+                                      size="small"
+                                      onClick={(e) => handleCommentMenuClick(e, comment)}
+                                    >
+                                      <MoreVertIcon fontSize="small" />
+                                    </IconButton>
+                                  </Box>
+                                </Box>
+                              </Box>
+                            }
                           />
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={
+                        </ListItem>
+                        
+                        {/* Reply Input */}
+                        {replyingTo === comment._id && (
+                          <Box sx={{ ml: 6, mb: 2 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography 
-                                variant="subtitle2"
-                                onClick={() => navigate(`/profile/${comment.user._id}`)}
-                                sx={{ cursor: 'pointer' }}
+                              <UserAvatar
+                                user={user}
+                                size={24}
+                              />
+                              <TextField
+                                fullWidth
+                                size="small"
+                                placeholder="Write a reply..."
+                                value={replyTexts[comment._id] || ''}
+                                onChange={(e) => setReplyTexts(prev => ({
+                                  ...prev,
+                                  [comment._id]: e.target.value
+                                }))}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleReplySubmit(comment._id);
+                                  }
+                                }}
+                              />
+                              <IconButton
+                                size="small"
+                                onClick={() => handleReplySubmit(comment._id)}
+                                disabled={!replyTexts[comment._id]?.trim()}
                               >
-                                {comment.user.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-                              </Typography>
+                                <SendIcon fontSize="small" />
+                              </IconButton>
+                              <Button
+                                size="small"
+                                onClick={() => setReplyingTo(null)}
+                              >
+                                Cancel
+                              </Button>
                             </Box>
-                          }
-                          secondary={comment.content}
-                        />
-                      </ListItem>
+                          </Box>
+                        )}
+                        
+                        {/* Nested Replies */}
+                        {comment.replies && comment.replies.length > 0 && (
+                          <Box sx={{ ml: 4 }}>
+                            {comment.replies.map((reply) => (
+                              <ListItem key={reply._id} alignItems="flex-start">
+                                <ListItemAvatar>
+                                  <UserAvatar
+                                    user={reply.user}
+                                    size={24}
+                                    onClick={() => navigate(`/profile/${reply.user._id}`)}
+                                  />
+                                </ListItemAvatar>
+                                <ListItemText
+                                  primary={
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Typography 
+                                        variant="subtitle2"
+                                        onClick={() => navigate(`/profile/${reply.user._id}`)}
+                                        sx={{ cursor: 'pointer', fontSize: '0.875rem' }}
+                                      >
+                                        {reply.user.name}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
+                                      </Typography>
+                                    </Box>
+                                  }
+                                  secondary={
+                                    <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                                      {reply.content}
+                                    </Typography>
+                                  }
+                                />
+                              </ListItem>
+                            ))}
+                          </Box>
+                        )}
+                      </Box>
                     ))}
                   </List>
                 )}
@@ -1095,6 +1326,30 @@ const Community = () => {
         <MenuItem onClick={handleDeleteClick}>
           <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
           Delete Post
+        </MenuItem>
+      </Menu>
+
+      {/* Comment Menu */}
+      <Menu
+        anchorEl={commentMenuAnchor}
+        open={Boolean(commentMenuAnchor)}
+        onClose={handleCommentMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        <MenuItem onClick={handlePinComment}>
+          <PushPinIcon sx={{ mr: 1, color: pinnedComments[selectedComment?._id] ? '#1976d2' : '#666' }} />
+          {pinnedComments[selectedComment?._id] ? 'Unpin Comment' : 'Pin Comment'}
+        </MenuItem>
+        <MenuItem onClick={handleDeleteComment}>
+          <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
+          Delete Comment
         </MenuItem>
       </Menu>
 
