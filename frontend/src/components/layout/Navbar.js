@@ -311,7 +311,7 @@ const Navbar = () => {
           
           {isAuthenticated && user && (
             <>
-              <NotificationBadge count={totalUnreadCount}>
+              {/* <NotificationBadge count={totalUnreadCount}> */}
                 <IconButton
                   onClick={handleNotificationsClick}
                   sx={{
@@ -325,7 +325,7 @@ const Navbar = () => {
                 >
                   <NotificationsIcon sx={{ fontSize: 20, color: 'white' }} />
                 </IconButton>
-              </NotificationBadge>
+              {/* </NotificationBadge> */}
               <UserAvatar
                 user={user}
                 size={32}
