@@ -59,6 +59,36 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  notificationPreferences: {
+    emailNotifications: {
+      type: Boolean,
+      default: true
+    },
+    pushNotifications: {
+      type: Boolean,
+      default: false
+    },
+    commentNotifications: {
+      type: Boolean,
+      default: true
+    },
+    messageNotifications: {
+      type: Boolean,
+      default: true
+    },
+    gigResponseNotifications: {
+      type: Boolean,
+      default: true
+    },
+    gigApplicationNotifications: {
+      type: Boolean,
+      default: true
+    },
+    linkRequestNotifications: {
+      type: Boolean,
+      default: true
+    }
+  },
   date: {
     type: Date,
     default: Date.now

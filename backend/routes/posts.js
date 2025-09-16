@@ -113,7 +113,14 @@ router.get('/', auth, async (req, res) => {
       filter.genres = { $in: genreArray };
     }
 
-    const posts = await Post.getPostsWithDetails(limit, skip, filter);
+    const posts = await Post.find(filter)
+      .populate('author', 'name avatar email')
+      .populate('comments.user', 'name avatar')
+      .populate('comments.likes.user', 'name')
+      .populate('likes.user', 'name')
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(skip);
     
     // Add like status for current user
     const postsWithLikeStatus = posts.map(post => {
@@ -121,6 +128,14 @@ router.get('/', auth, async (req, res) => {
       postObj.isLikedByUser = post.likes.some(like => like.user._id.toString() === req.user.id);
       postObj.likesCount = post.likes.length;
       postObj.commentsCount = post.comments.length;
+      
+      // Add like status for each comment
+      postObj.comments = postObj.comments.map(comment => ({
+        ...comment,
+        isLikedByUser: comment.likes.some(like => like.user._id.toString() === req.user.id),
+        likesCount: comment.likes.length
+      }));
+      
       return postObj;
     });
 
@@ -144,6 +159,7 @@ router.get('/user/:userId', auth, async (req, res) => {
     const posts = await Post.find({ author: userId })
       .populate('author', 'name avatar email')
       .populate('comments.user', 'name avatar')
+      .populate('comments.likes.user', 'name')
       .populate('likes.user', 'name')
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -155,6 +171,14 @@ router.get('/user/:userId', auth, async (req, res) => {
       postObj.isLikedByUser = post.likes.some(like => like.user._id.toString() === req.user.id);
       postObj.likesCount = post.likes.length;
       postObj.commentsCount = post.comments.length;
+      
+      // Add like status for each comment
+      postObj.comments = postObj.comments.map(comment => ({
+        ...comment,
+        isLikedByUser: comment.likes.some(like => like.user._id.toString() === req.user.id),
+        likesCount: comment.likes.length
+      }));
+      
       return postObj;
     });
 
@@ -289,12 +313,20 @@ router.post('/:postId/comments', auth, async (req, res) => {
     const updatedPost = await Post.findById(postId)
       .populate('author', 'name avatar email')
       .populate('comments.user', 'name avatar')
+      .populate('comments.likes.user', 'name')
       .populate('likes.user', 'name');
 
     const postObj = updatedPost.toObject();
     postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
     postObj.likesCount = updatedPost.likes.length;
     postObj.commentsCount = updatedPost.comments.length;
+    
+    // Add like status for each comment
+    postObj.comments = postObj.comments.map(comment => ({
+      ...comment,
+      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
+      likesCount: comment.likes.length
+    }));
 
     res.json(postObj);
   } catch (error) {
@@ -332,16 +364,167 @@ router.delete('/:postId/comments/:commentId', auth, async (req, res) => {
     const updatedPost = await Post.findById(postId)
       .populate('author', 'name avatar email')
       .populate('comments.user', 'name avatar')
+      .populate('comments.likes.user', 'name')
       .populate('likes.user', 'name');
 
     const postObj = updatedPost.toObject();
     postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
     postObj.likesCount = updatedPost.likes.length;
     postObj.commentsCount = updatedPost.comments.length;
+    
+    // Add like status for each comment
+    postObj.comments = postObj.comments.map(comment => ({
+      ...comment,
+      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
+      likesCount: comment.likes.length
+    }));
 
     res.json(postObj);
   } catch (error) {
     console.error('Error deleting comment:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/posts/:postId/comments/:commentId/like
+// @desc    Like a comment
+// @access  Private
+router.post('/:postId/comments/:commentId/like', auth, async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const userId = req.user.id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    await post.addCommentLike(commentId, userId);
+    
+    // Return updated post with populated data
+    const updatedPost = await Post.findById(postId)
+      .populate('author', 'name avatar email')
+      .populate('comments.user', 'name avatar')
+      .populate('comments.likes.user', 'name')
+      .populate('likes.user', 'name');
+
+    const postObj = updatedPost.toObject();
+    postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
+    postObj.likesCount = updatedPost.likes.length;
+    postObj.commentsCount = updatedPost.comments.length;
+    
+    // Add like status for each comment
+    postObj.comments = postObj.comments.map(comment => ({
+      ...comment,
+      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
+      likesCount: comment.likes.length
+    }));
+
+    res.json(postObj);
+  } catch (error) {
+    console.error('Error liking comment:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/posts/:postId/comments/:commentId/like
+// @desc    Unlike a comment
+// @access  Private
+router.delete('/:postId/comments/:commentId/like', auth, async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const userId = req.user.id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    await post.removeCommentLike(commentId, userId);
+    
+    // Return updated post with populated data
+    const updatedPost = await Post.findById(postId)
+      .populate('author', 'name avatar email')
+      .populate('comments.user', 'name avatar')
+      .populate('comments.likes.user', 'name')
+      .populate('likes.user', 'name');
+
+    const postObj = updatedPost.toObject();
+    postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
+    postObj.likesCount = updatedPost.likes.length;
+    postObj.commentsCount = updatedPost.comments.length;
+    
+    // Add like status for each comment
+    postObj.comments = postObj.comments.map(comment => ({
+      ...comment,
+      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
+      likesCount: comment.likes.length
+    }));
+
+    res.json(postObj);
+  } catch (error) {
+    console.error('Error unliking comment:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/posts/:postId/comments/:commentId/pin
+// @desc    Toggle pin status of a comment
+// @access  Private
+router.put('/:postId/comments/:commentId/pin', auth, async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const userId = req.user.id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Only allow post author to pin/unpin comments
+    if (post.author.toString() !== userId) {
+      return res.status(403).json({ message: 'Only post author can pin comments' });
+    }
+
+    await post.toggleCommentPin(commentId);
+    
+    // Return updated post with populated data
+    const updatedPost = await Post.findById(postId)
+      .populate('author', 'name avatar email')
+      .populate('comments.user', 'name avatar')
+      .populate('comments.likes.user', 'name')
+      .populate('likes.user', 'name');
+
+    const postObj = updatedPost.toObject();
+    postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
+    postObj.likesCount = updatedPost.likes.length;
+    postObj.commentsCount = updatedPost.comments.length;
+    
+    // Add like status for each comment
+    postObj.comments = postObj.comments.map(comment => ({
+      ...comment,
+      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
+      likesCount: comment.likes.length
+    }));
+
+    res.json(postObj);
+  } catch (error) {
+    console.error('Error toggling comment pin:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
