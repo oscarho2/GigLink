@@ -1,20 +1,11 @@
+import React, { useState, useEffect } from 'react';
 import { Container, Typography, Paper, Box, Chip, Button, Grid, Avatar, CircularProgress, Alert, Dialog, DialogTitle, DialogContent, DialogContentText, TextField, DialogActions } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
+import { Delete as DeleteIcon, Edit as EditIcon, LocationOn as LocationOnIcon, CalendarToday as CalendarTodayIcon, AccessTime as AccessTimeIcon, Payment as PaymentIcon, MusicNote as MusicNoteIcon, Assignment as AssignmentIcon, Person as PersonIcon } from '@mui/icons-material';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import PaymentIcon from '@mui/icons-material/Payment';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import PersonIcon from '@mui/icons-material/Person';
-import UserAvatar from '../components/UserAvatar';
-
-import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { useState, useEffect } from 'react';
 import { formatPayment } from '../utils/currency';
+import UserAvatar from '../components/UserAvatar';
+import axios from 'axios';
 
 const GigDetail = () => {
   const { id } = useParams();

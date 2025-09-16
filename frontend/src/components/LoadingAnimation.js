@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Box, Typography, Fade, useTheme, useMediaQuery } from '@mui/material';
 import { keyframes } from '@mui/system';
 
-// Keyframe animations
+// Optimized keyframe animations with better performance
 const pulse = keyframes`
-  0% {
+  0%, 100% {
     transform: scale(1);
     opacity: 0.7;
   }
@@ -12,13 +12,7 @@ const pulse = keyframes`
     transform: scale(1.05);
     opacity: 1;
   }
-  100% {
-    transform: scale(1);
-    opacity: 0.7;
-  }
 `;
-
-
 
 const shimmer = keyframes`
   0% {
@@ -40,7 +34,7 @@ const fadeInUp = keyframes`
   }
 `;
 
-const LoadingAnimation = ({ 
+const LoadingAnimation = memo(({ 
   type = 'welcome', // 'welcome' or 'conversations'
   title,
   subtitle,
@@ -49,7 +43,7 @@ const LoadingAnimation = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const renderDots = () => (
+  const renderDots = React.useMemo(() => (
     <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mb: 2 }}>
       {[0, 1, 2].map((index) => (
         <Box
@@ -61,13 +55,14 @@ const LoadingAnimation = ({
             bgcolor: theme.palette.primary.main,
             animation: `${pulse} 1.5s ease-in-out infinite`,
             animationDelay: `${index * 0.2}s`,
+            willChange: 'transform, opacity', // Optimize for animations
           }}
         />
       ))}
     </Box>
-  );
+  ), [theme.palette.primary.main]);
 
-  const renderShimmerBars = () => (
+  const renderShimmerBars = React.useMemo(() => (
     <Box sx={{ width: '100%', maxWidth: 300, mx: 'auto' }}>
       {[0, 1, 2].map((index) => (
         <Box
@@ -81,11 +76,12 @@ const LoadingAnimation = ({
             animation: `${shimmer} 2s infinite linear`,
             animationDelay: `${index * 0.3}s`,
             width: index === 0 ? '100%' : index === 1 ? '80%' : '60%',
+            willChange: 'background-position', // Optimize for animations
           }}
         />
       ))}
     </Box>
-  );
+  ), [theme.palette.grey, compact]);
 
 
 
@@ -99,7 +95,7 @@ const LoadingAnimation = ({
             animation: `${fadeInUp} 0.6s ease-out`,
           }}
         >
-          {renderDots()}
+          {renderDots}
           <Typography 
             variant="body2" 
             color="text.secondary"
@@ -110,7 +106,7 @@ const LoadingAnimation = ({
           >
             {title || 'Loading conversations...'}
           </Typography>
-          {renderShimmerBars()}
+          {renderShimmerBars}
         </Box>
       </Fade>
     );
@@ -158,14 +154,16 @@ const LoadingAnimation = ({
           </Typography>
         </Box>
 
-        {renderDots()}
+        {renderDots}
         
         <Box sx={{ mt: 2, maxWidth: 200 }}>
-          {renderShimmerBars()}
+          {renderShimmerBars}
         </Box>
       </Box>
     </Fade>
   );
-};
+});
+
+LoadingAnimation.displayName = 'LoadingAnimation';
 
 export default LoadingAnimation;

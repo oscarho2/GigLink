@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 
@@ -99,4 +99,4 @@ const AuthenticatedImage = ({ src, alt, sx, onClick, onLoad, ...props }) => {
   );
 };
 
-export default AuthenticatedImage;
+export default memo(AuthenticatedImage);

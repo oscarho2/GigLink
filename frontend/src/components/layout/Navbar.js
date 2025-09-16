@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useCallback, memo } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -28,25 +28,25 @@ const Navbar = () => {
   const [anchorElNav, setAnchorElNav] = useState(null);
   const [anchorElProfile, setAnchorElProfile] = useState(null);
 
-  const handleOpenNavMenu = (event) => {
+  const handleOpenNavMenu = useCallback((event) => {
     setAnchorElNav(event.currentTarget);
-  };
+  }, []);
   
-  const handleCloseNavMenu = () => {
+  const handleCloseNavMenu = useCallback(() => {
     setAnchorElNav(null);
-  };
+  }, []);
 
-  const handleMenuItemClick = () => {
+  const handleMenuItemClick = useCallback(() => {
     setAnchorElNav(null);
-  };
+  }, []);
 
-  const handleOpenProfileMenu = (event) => {
+  const handleOpenProfileMenu = useCallback((event) => {
     setAnchorElProfile(event.currentTarget);
-  };
+  }, []);
 
-  const handleCloseProfileMenu = () => {
+  const handleCloseProfileMenu = useCallback(() => {
     setAnchorElProfile(null);
-  };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -476,4 +476,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar;
+export default memo(Navbar);
