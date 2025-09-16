@@ -39,7 +39,7 @@ export const NotificationProvider = ({ children }) => {
       // Fetch unread messages count
       const messagesResponse = await fetch('/api/messages/unread-count', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'x-auth-token': token,
           'Content-Type': 'application/json'
         }
       });
@@ -47,7 +47,7 @@ export const NotificationProvider = ({ children }) => {
       // Fetch pending link requests count
       const linksResponse = await fetch('/api/links/pending-count', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'x-auth-token': token,
           'Content-Type': 'application/json'
         }
       });
@@ -55,7 +55,7 @@ export const NotificationProvider = ({ children }) => {
       // Fetch unread notifications count
       const notificationsResponse = await fetch('/api/notifications/unread', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'x-auth-token': token,
           'Content-Type': 'application/json'
         }
       });
@@ -106,7 +106,7 @@ export const NotificationProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/notifications', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'x-auth-token': token,
           'Content-Type': 'application/json'
         }
       });
@@ -136,7 +136,7 @@ export const NotificationProvider = ({ children }) => {
       const response = await fetch(`/api/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'x-auth-token': token,
           'Content-Type': 'application/json'
         }
       });
@@ -163,7 +163,7 @@ export const NotificationProvider = ({ children }) => {
       const response = await fetch(`/api/notifications/${notificationId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'x-auth-token': token,
           'Content-Type': 'application/json'
         }
       });
