@@ -70,6 +70,22 @@ const PostSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
+    replies: [{
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      },
+      content: {
+        type: String,
+        required: true,
+        maxlength: 500
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
     createdAt: {
       type: Date,
       default: Date.now
@@ -150,12 +166,21 @@ PostSchema.methods.removeCommentLike = function(commentId, userId) {
   return this.save();
 };
 
-// Instance method to pin/unpin a comment
+// Instance method to toggle comment pin status
 PostSchema.methods.toggleCommentPin = function(commentId) {
   const comment = this.comments.id(commentId);
   if (!comment) throw new Error('Comment not found');
   
   comment.pinned = !comment.pinned;
+  return this.save();
+};
+
+// Instance method to add a reply to a comment
+PostSchema.methods.addReply = function(commentId, userId, content) {
+  const comment = this.comments.id(commentId);
+  if (!comment) throw new Error('Comment not found');
+  
+  comment.replies.push({ user: userId, content });
   return this.save();
 };
 

@@ -314,8 +314,12 @@ const Community = () => {
     const replyText = replyTexts[commentId];
     if (!replyText?.trim()) return;
 
+    // Find the post that contains this comment
+    const post = posts.find(p => p.comments.some(c => c._id === commentId));
+    if (!post) return;
+
     try {
-      const response = await fetch(`/api/comments/${commentId}/replies`, {
+      const response = await fetch(`/api/posts/${post._id}/comments/${commentId}/replies`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -325,16 +329,14 @@ const Community = () => {
       });
 
       if (response.ok) {
-        const updatedComment = await response.json();
+        const updatedPost = await response.json();
         // Update the posts state to reflect the new reply
-        setPosts(prev => prev.map(post => ({
-          ...post,
-          comments: post.comments.map(comment => 
-            comment._id === commentId ? updatedComment : comment
-          )
-        })));
+        setPosts(prev => prev.map(p => 
+          p._id === updatedPost._id ? updatedPost : p
+        ));
         setReplyTexts(prev => ({ ...prev, [commentId]: '' }));
         setReplyingTo(null);
+        toast.success('Reply added successfully!');
       }
     } catch (error) {
       console.error('Error adding reply:', error);
@@ -366,8 +368,12 @@ const Community = () => {
   const handleDeleteComment = async () => {
     if (!selectedComment) return;
 
+    // Find the post that contains this comment
+    const post = posts.find(p => p.comments.some(c => c._id === selectedComment._id));
+    if (!post) return;
+
     try {
-      const response = await fetch(`/api/comments/${selectedComment._id}`, {
+      const response = await fetch(`/api/posts/${post._id}/comments/${selectedComment._id}`, {
         method: 'DELETE',
         headers: {
           'x-auth-token': token
@@ -375,12 +381,14 @@ const Community = () => {
       });
 
       if (response.ok) {
-        // Remove comment from posts state
-        setPosts(prev => prev.map(post => ({
-          ...post,
-          comments: post.comments.filter(comment => comment._id !== selectedComment._id)
-        })));
+        const updatedPost = await response.json();
+        // Update the posts state with the updated post
+        setPosts(prev => prev.map(p => 
+          p._id === updatedPost._id ? updatedPost : p
+        ));
         toast.success('Comment deleted successfully');
+      } else {
+        toast.error('Failed to delete comment');
       }
     } catch (error) {
       console.error('Error deleting comment:', error);
@@ -1152,7 +1160,15 @@ const Community = () => {
                 {/* Comments List */}
                 {post.comments && post.comments.length > 0 && (
                   <List>
-                    {post.comments.map((comment) => (
+                    {post.comments
+                      .sort((a, b) => {
+                        const aIsPinned = pinnedComments[a._id];
+                        const bIsPinned = pinnedComments[b._id];
+                        if (aIsPinned && !bIsPinned) return -1;
+                        if (!aIsPinned && bIsPinned) return 1;
+                        return 0;
+                      })
+                      .map((comment) => (
                       <Box key={comment._id}>
                         <ListItem alignItems="flex-start">
                           <ListItemAvatar>
@@ -1194,15 +1210,18 @@ const Community = () => {
                                     <Typography variant="caption" sx={{ mr: 2 }}>
                                       {comment.likesCount || 0}
                                     </Typography>
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleReplyToComment(comment._id)}
-                                    >
-                                      <ReplyIcon fontSize="small" />
-                                    </IconButton>
-                                    <Typography variant="caption">
-                                      Reply
-                                    </Typography>
+                                    <Button
+                                       size="small"
+                                       onClick={() => handleReplyToComment(comment._id)}
+                                       sx={{ 
+                                         textTransform: 'none',
+                                         minWidth: 'auto',
+                                         padding: '2px 8px',
+                                         fontSize: '0.75rem'
+                                       }}
+                                     >
+                                       Reply
+                                     </Button>
                                   </Box>
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     {pinnedComments[comment._id] && (
