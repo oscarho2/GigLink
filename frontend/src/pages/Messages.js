@@ -164,6 +164,7 @@ const Messages = () => {
   const [showNewConversationDialog, setShowNewConversationDialog] =
     useState(false);
   const [connectedLinks, setConnectedLinks] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [newConversationSearchTerm, setNewConversationSearchTerm] =
     useState("");
@@ -507,19 +508,44 @@ const Messages = () => {
     }
   }, [conversations, user, token, isMobile]);
 
-  // Fetch connected users for new conversation
-  const fetchConnectedLinks = async () => {
+  // Fetch all users and connected links for new conversation
+  const fetchAllUsersAndLinks = async () => {
     try {
       setLoadingLinks(true);
-      const response = await axios.get("/api/links/links", {
+      
+      // Fetch connected links
+      const linksResponse = await axios.get("/api/links/links", {
         headers: { "x-auth-token": token },
       });
-      // Extract the user data from the links response
-      const users = response.data.links.map((linkData) => linkData.link);
-      setConnectedLinks(users);
+      const linkedUsers = linksResponse.data.links.map((linkData) => linkData.link);
+      setConnectedLinks(linkedUsers);
+      
+      // Fetch all users
+      const usersResponse = await axios.get("/api/users", {
+        headers: { "x-auth-token": token },
+      });
+      
+      // Filter out current user and combine with link status
+      const currentUserId = user?.id || user?._id;
+      const linkedUserIds = new Set(linkedUsers.map(u => u._id || u.id));
+      
+      const filteredUsers = usersResponse.data
+        .filter(u => (u._id || u.id) !== currentUserId)
+        .map(u => ({
+          ...u,
+          isLinked: linkedUserIds.has(u._id || u.id)
+        }));
+      
+      // Sort users: linked users first, then others
+      const sortedUsers = [
+        ...filteredUsers.filter(u => u.isLinked),
+        ...filteredUsers.filter(u => !u.isLinked)
+      ];
+      
+      setAllUsers(sortedUsers);
     } catch (err) {
-      console.error("Error fetching connected links:", err);
-      setError("Failed to load connected users");
+      console.error("Error fetching users:", err);
+      setError("Failed to load users");
     } finally {
       setLoadingLinks(false);
     }
@@ -528,7 +554,7 @@ const Messages = () => {
   // Handle opening new conversation dialog
   const handleOpenNewConversation = () => {
     setShowNewConversationDialog(true);
-    fetchConnectedLinks();
+    fetchAllUsersAndLinks();
   };
 
   // Fetch messages for a conversation
@@ -3672,43 +3698,73 @@ const Messages = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <List sx={{ maxHeight: 400, overflow: "auto" }}>
-              {connectedLinks
-                .filter(
-                  (user) =>
-                    user.name
-                      ?.toLowerCase()
-                      .includes(newConversationSearchTerm.toLowerCase()) ||
-                    user.email
-                      ?.toLowerCase()
-                      .includes(newConversationSearchTerm.toLowerCase())
-                )
-                .map((user) => (
-                  <ListItem
-                    key={user._id}
-                    button
-                    onClick={() => {
-                      startConversation(user._id);
-                      setShowNewConversationDialog(false);
-                      setNewConversationSearchTerm("");
-                    }}
-                  >
-                    <ListItemAvatar>
-                      <UserAvatar user={user} size={40} />
-                    </ListItemAvatar>
-                    <ListItemText primary={user.name} secondary={user.email} />
-                  </ListItem>
-                ))}
-              {connectedLinks.filter(
+            <Box sx={{ maxHeight: 400, overflow: "auto" }}>
+              {/* Links Section */}
+              {allUsers.filter(user => user.isLinked && user.name?.toLowerCase().includes(newConversationSearchTerm.toLowerCase())).length > 0 && (
+                <>
+                  <Typography variant="subtitle2" sx={{ px: 2, py: 1, fontWeight: 600, color: "text.secondary" }}>
+                    Links
+                  </Typography>
+                  <List sx={{ pt: 0 }}>
+                    {allUsers
+                      .filter(user => user.isLinked && user.name?.toLowerCase().includes(newConversationSearchTerm.toLowerCase()))
+                      .map((user) => (
+                        <ListItem
+                          key={user._id || user.id}
+                          button
+                          onClick={() => {
+                            startConversation(user._id || user.id);
+                            setShowNewConversationDialog(false);
+                            setNewConversationSearchTerm("");
+                          }}
+                        >
+                          <ListItemAvatar>
+                            <UserAvatar user={user} size={40} />
+                          </ListItemAvatar>
+                          <ListItemText primary={user.name} />
+                        </ListItem>
+                      ))}
+                  </List>
+                </>
+              )}
+              
+              {/* More Accounts Section */}
+              {allUsers.filter(user => !user.isLinked && user.name?.toLowerCase().includes(newConversationSearchTerm.toLowerCase())).length > 0 && (
+                <>
+                  <Typography variant="subtitle2" sx={{ px: 2, py: 1, fontWeight: 600, color: "text.secondary" }}>
+                    More Accounts
+                  </Typography>
+                  <List sx={{ pt: 0 }}>
+                    {allUsers
+                      .filter(user => !user.isLinked && user.name?.toLowerCase().includes(newConversationSearchTerm.toLowerCase()))
+                      .map((user) => (
+                        <ListItem
+                          key={user._id || user.id}
+                          button
+                          onClick={() => {
+                            startConversation(user._id || user.id);
+                            setShowNewConversationDialog(false);
+                            setNewConversationSearchTerm("");
+                          }}
+                        >
+                          <ListItemAvatar>
+                            <UserAvatar user={user} size={40} />
+                          </ListItemAvatar>
+                          <ListItemText primary={user.name} />
+                        </ListItem>
+                      ))}
+                  </List>
+                </>
+              )}
+              
+              {/* No results message */}
+              {allUsers.filter(
                 (user) =>
                   user.name
                     ?.toLowerCase()
-                    .includes(newConversationSearchTerm.toLowerCase()) ||
-                  user.email
-                    ?.toLowerCase()
                     .includes(newConversationSearchTerm.toLowerCase())
               ).length === 0 &&
-                connectedLinks.length > 0 && (
+                allUsers.length > 0 && (
                   <Typography
                     variant="body2"
                     color="text.secondary"
@@ -3717,16 +3773,16 @@ const Messages = () => {
                     No users found matching "{newConversationSearchTerm}"
                   </Typography>
                 )}
-              {connectedLinks.length === 0 && (
+              {allUsers.length === 0 && (
                 <Typography
                   variant="body2"
                   color="text.secondary"
                   sx={{ p: 2, textAlign: "center" }}
                 >
-                  No connected users found
+                  No users found
                 </Typography>
               )}
-            </List>
+            </Box>
           )}
         </DialogContent>
         <DialogActions>
