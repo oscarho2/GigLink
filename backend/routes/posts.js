@@ -8,6 +8,49 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// Helper function to add like status and counts to a post object
+const addPostLikeStatus = (post, userId) => {
+  const postObj = post.toObject();
+  postObj.isLikedByUser = post.likes.some(like => like.user._id.toString() === userId);
+  postObj.likesCount = post.likes.length;
+  postObj.commentsCount = post.comments.length;
+  
+  // Add like status for each comment
+  postObj.comments = postObj.comments.map(comment => {
+    const commentObj = {
+      ...comment,
+      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
+      likesCount: comment.likes.length
+    };
+    
+    // Add like status for each reply
+    if (comment.replies) {
+      commentObj.replies = comment.replies.map(reply => ({
+        ...reply,
+        isLikedByUser: reply.likes.some(like => like.user._id.toString() === userId),
+        likesCount: reply.likes.length
+      }));
+    }
+    
+    return commentObj;
+  });
+  
+  return postObj;
+};
+
+// Helper function to populate and return post with like status
+const getPopulatedPostWithLikeStatus = async (postId, userId) => {
+  const post = await Post.findById(postId)
+    .populate('author', 'name avatar email')
+    .populate('comments.user', 'name avatar')
+    .populate('comments.replies.user', 'name avatar')
+    .populate('comments.replies.likes.user', 'name')
+    .populate('comments.likes.user', 'name')
+    .populate('likes.user', 'name');
+  
+  return addPostLikeStatus(post, userId);
+};
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -124,21 +167,7 @@ router.get('/', auth, async (req, res) => {
       .skip(skip);
     
     // Add like status for current user
-    const postsWithLikeStatus = posts.map(post => {
-      const postObj = post.toObject();
-      postObj.isLikedByUser = post.likes.some(like => like.user._id.toString() === req.user.id);
-      postObj.likesCount = post.likes.length;
-      postObj.commentsCount = post.comments.length;
-      
-      // Add like status for each comment
-      postObj.comments = postObj.comments.map(comment => ({
-        ...comment,
-        isLikedByUser: comment.likes.some(like => like.user._id.toString() === req.user.id),
-        likesCount: comment.likes.length
-      }));
-      
-      return postObj;
-    });
+    const postsWithLikeStatus = posts.map(post => addPostLikeStatus(post, req.user.id));
 
     res.json(postsWithLikeStatus);
   } catch (error) {
@@ -227,15 +256,8 @@ router.post('/:postId/like', auth, async (req, res) => {
     }
     
     // Return updated post with populated data
-    const updatedPost = await Post.findById(postId)
-      .populate('author', 'name avatar email')
-      .populate('comments.user', 'name avatar')
-      .populate('likes.user', 'name');
-
-    const postObj = updatedPost.toObject();
+    const postObj = await getPopulatedPostWithLikeStatus(postId, userId);
     postObj.isLikedByUser = true;
-    postObj.likesCount = updatedPost.likes.length;
-    postObj.commentsCount = updatedPost.comments.length;
 
     res.json(postObj);
   } catch (error) {
@@ -260,15 +282,8 @@ router.delete('/:postId/like', auth, async (req, res) => {
     await post.removeLike(userId);
     
     // Return updated post with populated data
-    const updatedPost = await Post.findById(postId)
-      .populate('author', 'name avatar email')
-      .populate('comments.user', 'name avatar')
-      .populate('likes.user', 'name');
-
-    const postObj = updatedPost.toObject();
+    const postObj = await getPopulatedPostWithLikeStatus(postId, userId);
     postObj.isLikedByUser = false;
-    postObj.likesCount = updatedPost.likes.length;
-    postObj.commentsCount = updatedPost.comments.length;
 
     res.json(postObj);
   } catch (error) {
@@ -312,23 +327,7 @@ router.post('/:postId/comments', auth, async (req, res) => {
     }
     
     // Return updated post with populated data
-    const updatedPost = await Post.findById(postId)
-      .populate('author', 'name avatar email')
-      .populate('comments.user', 'name avatar')
-      .populate('comments.likes.user', 'name')
-      .populate('likes.user', 'name');
-
-    const postObj = updatedPost.toObject();
-    postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
-    postObj.likesCount = updatedPost.likes.length;
-    postObj.commentsCount = updatedPost.comments.length;
-    
-    // Add like status for each comment
-    postObj.comments = postObj.comments.map(comment => ({
-      ...comment,
-      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
-      likesCount: comment.likes.length
-    }));
+    const postObj = await getPopulatedPostWithLikeStatus(postId, userId);
 
     res.json(postObj);
   } catch (error) {
@@ -363,23 +362,7 @@ router.delete('/:postId/comments/:commentId', auth, async (req, res) => {
     await post.removeComment(commentId);
     
     // Return updated post with populated data
-    const updatedPost = await Post.findById(postId)
-      .populate('author', 'name avatar email')
-      .populate('comments.user', 'name avatar')
-      .populate('comments.likes.user', 'name')
-      .populate('likes.user', 'name');
-
-    const postObj = updatedPost.toObject();
-    postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
-    postObj.likesCount = updatedPost.likes.length;
-    postObj.commentsCount = updatedPost.comments.length;
-    
-    // Add like status for each comment
-    postObj.comments = postObj.comments.map(comment => ({
-      ...comment,
-      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
-      likesCount: comment.likes.length
-    }));
+    const postObj = await getPopulatedPostWithLikeStatus(postId, userId);
 
     res.json(postObj);
   } catch (error) {
@@ -409,23 +392,7 @@ router.post('/:postId/comments/:commentId/like', auth, async (req, res) => {
     await post.addCommentLike(commentId, userId);
     
     // Return updated post with populated data
-    const updatedPost = await Post.findById(postId)
-      .populate('author', 'name avatar email')
-      .populate('comments.user', 'name avatar')
-      .populate('comments.likes.user', 'name')
-      .populate('likes.user', 'name');
-
-    const postObj = updatedPost.toObject();
-    postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
-    postObj.likesCount = updatedPost.likes.length;
-    postObj.commentsCount = updatedPost.comments.length;
-    
-    // Add like status for each comment
-    postObj.comments = postObj.comments.map(comment => ({
-      ...comment,
-      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
-      likesCount: comment.likes.length
-    }));
+    const postObj = await getPopulatedPostWithLikeStatus(postId, userId);
 
     res.json(postObj);
   } catch (error) {
@@ -455,23 +422,7 @@ router.delete('/:postId/comments/:commentId/like', auth, async (req, res) => {
     await post.removeCommentLike(commentId, userId);
     
     // Return updated post with populated data
-    const updatedPost = await Post.findById(postId)
-      .populate('author', 'name avatar email')
-      .populate('comments.user', 'name avatar')
-      .populate('comments.likes.user', 'name')
-      .populate('likes.user', 'name');
-
-    const postObj = updatedPost.toObject();
-    postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
-    postObj.likesCount = updatedPost.likes.length;
-    postObj.commentsCount = updatedPost.comments.length;
-    
-    // Add like status for each comment
-    postObj.comments = postObj.comments.map(comment => ({
-      ...comment,
-      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
-      likesCount: comment.likes.length
-    }));
+    const postObj = await getPopulatedPostWithLikeStatus(postId, userId);
 
     res.json(postObj);
   } catch (error) {
