@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Tim Li Notifications</title>
+</head>
+<body>
+    <h1>Debug Tim Li Notifications</h1>
+    <div id="output"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message) {
+            output.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+        
+        // Check localStorage
+        log('=== LOCALSTORAGE DEBUG ===');
+        log('Token: ' + (localStorage.getItem('token') ? 'Present' : 'Not found'));
+        log('User: ' + localStorage.getItem('user'));
+        log('HasLoggedOut: ' + localStorage.getItem('hasLoggedOut'));
+        log('RedirectPath: ' + localStorage.getItem('redirectPath'));
+        
+        // Check sessionStorage
+        log('\n=== SESSIONSTORAGE DEBUG ===');
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            log(key + ': ' + sessionStorage.getItem(key));
+        }
+        
+        // Check all localStorage keys
+        log('\n=== ALL LOCALSTORAGE KEYS ===');
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            log(key + ': ' + localStorage.getItem(key));
+        }
+        
+        // Clear notification-related data
+        log('\n=== CLEARING NOTIFICATION DATA ===');
+        
+        // Clear localStorage (but keep auth)
+        const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
+        
+        // Clear everything
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Restore auth if it existed
+        if (token) localStorage.setItem('token', token);
+        if (user) localStorage.setItem('user', user);
+        
+        log('Cleared all storage except auth tokens');
+        log('Remaining token: ' + (localStorage.getItem('token') ? 'Present' : 'Not found'));
+        log('Remaining user: ' + localStorage.getItem('user'));
+        
+        // Add button to reload notifications page
+        const button = document.createElement('button');
+        button.textContent = 'Go to Notifications Page';
+        button.onclick = () => window.location.href = '/notifications';
+        document.body.appendChild(button);
+        
+        log('\n=== DONE ===');
+        log('Click the button above to go to notifications page with cleared cache');
+    </script>
+</body>
+</html>

@@ -27,7 +27,7 @@ import {
   PersonAdd as PersonAddIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -50,7 +50,8 @@ function TabPanel({ children, value, index, ...other }) {
 const LinksPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tabValue, setTabValue] = useState(0);
+  const location = useLocation();
+  const [tabValue, setTabValue] = useState(location.state?.activeTab || 0);
   const [links, setLinks] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);

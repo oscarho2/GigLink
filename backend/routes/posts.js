@@ -176,6 +176,27 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/posts/:postId
+// @desc    Get a single post by ID
+// @access  Private
+router.get('/:postId', auth, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+
+    const post = await getPopulatedPostWithLikeStatus(postId, userId);
+    
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    res.json(post);
+  } catch (error) {
+    console.error('Error fetching post:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/posts/user/:userId
 // @desc    Get posts by specific user
 // @access  Private
@@ -242,18 +263,19 @@ router.post('/:postId/like', auth, async (req, res) => {
     await post.addLike(userId);
     
     // Create notification for post author (if not liking own post)
-    if (post.author.toString() !== userId) {
-      const liker = await User.findById(userId).select('name');
-      await createNotification(
-        post.author,
-        userId,
-        'like',
-        `${liker.name} liked your post`,
-        postId,
-        'Post',
-        req
-      );
-    }
+    // Removed like notifications as per user request
+    // if (post.author.toString() !== userId) {
+    //   const liker = await User.findById(userId).select('name');
+    //   await createNotification(
+    //     post.author,
+    //     userId,
+    //     'like',
+    //     `${liker.name} liked your post`,
+    //     postId,
+    //     'Post',
+    //     req
+    //   );
+    // }
     
     // Return updated post with populated data
     const postObj = await getPopulatedPostWithLikeStatus(postId, userId);

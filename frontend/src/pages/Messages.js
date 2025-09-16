@@ -57,7 +57,7 @@ import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationContext";
 import { useSocket } from "../context/SocketContext";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { formatPayment } from "../utils/currency";
 import moment from "moment";
 import MediaDocumentsLinks from "../components/MediaDocumentsLinks";
@@ -82,6 +82,7 @@ const Messages = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const location = useLocation();
   const navigate = useNavigate();
+  const { userId } = useParams();
   const navigationHandledRef = useRef(false);
 
   console.log("=== MESSAGES COMPONENT RENDER ===");
@@ -920,6 +921,36 @@ const Messages = () => {
       }
     }
   }, [conversations, location.state, navigationProcessed, selectedConversation, isMobile]);
+
+  // Handle URL parameters for direct conversation access
+  useEffect(() => {
+    if (userId && conversations.length > 0 && !navigationHandledRef.current) {
+      console.log('URL parameter userId detected:', userId);
+      
+      // Find existing conversation with this user
+      const existingConversation = conversations.find(
+        (conv) => {
+          const otherUserId = conv.otherUser?._id || conv.otherUser?.id;
+          return otherUserId === userId;
+        }
+      );
+      
+      if (existingConversation) {
+        console.log('Found existing conversation for URL userId, selecting it');
+        setSelectedConversation(existingConversation);
+        fetchMessages(userId, 1, false);
+        if (isMobile) {
+          setShowMobileConversation(true);
+        }
+        navigationHandledRef.current = true;
+      } else {
+        // Start new conversation with this user
+        console.log('No existing conversation found, starting new one');
+        startConversation(userId);
+        navigationHandledRef.current = true;
+      }
+    }
+  }, [userId, conversations, isMobile]);
 
   // Socket event listeners
   useEffect(() => {

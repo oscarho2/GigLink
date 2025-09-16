@@ -148,8 +148,12 @@ export const NotificationProvider = ({ children }) => {
             notif._id === notificationId ? { ...notif, read: true } : notif
           )
         );
-        // Refresh counts
-        fetchUnreadCounts();
+        // Update counts locally instead of refetching
+        setUnreadCounts(prev => ({
+          ...prev,
+          notifications: Math.max(0, prev.notifications - 1),
+          total: Math.max(0, prev.total - 1)
+        }));
       }
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -169,13 +173,54 @@ export const NotificationProvider = ({ children }) => {
       });
 
       if (response.ok) {
-        // Update local state
-        setNotifications(prev => prev.filter(notif => notif._id !== notificationId));
-        // Refresh counts
-        fetchUnreadCounts();
+        // Update local state and counts efficiently
+        setNotifications(prev => {
+          const deletedNotification = prev.find(notif => notif._id === notificationId);
+          const filteredNotifications = prev.filter(notif => notif._id !== notificationId);
+          
+          // Update counts locally if the deleted notification was unread
+          if (deletedNotification && !deletedNotification.read) {
+            setUnreadCounts(prevCounts => ({
+              ...prevCounts,
+              notifications: Math.max(0, prevCounts.notifications - 1),
+              total: Math.max(0, prevCounts.total - 1)
+            }));
+          }
+          
+          return filteredNotifications;
+        });
       }
     } catch (error) {
       console.error('Error deleting notification:', error);
+    }
+  };
+
+  // Mark all notifications as read
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/notifications/read-all', {
+        method: 'PUT',
+        headers: {
+          'x-auth-token': token,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Update local state - mark all notifications as read
+        setNotifications(prev => 
+          prev.map(notif => ({ ...notif, read: true }))
+        );
+        // Update counts locally
+        setUnreadCounts(prev => ({
+          ...prev,
+          notifications: 0,
+          total: prev.messages + prev.linkRequests
+        }));
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
     }
   };
 
@@ -190,15 +235,26 @@ export const NotificationProvider = ({ children }) => {
 
   // Fetch counts and notifications when user authentication changes
   useEffect(() => {
-    fetchUnreadCounts();
-    fetchNotifications();
-  }, [isAuthenticated, user]);
+    if (isAuthenticated && user) {
+      fetchUnreadCounts();
+      fetchNotifications();
+    } else {
+      // Clear state when not authenticated
+      setNotifications([]);
+      setUnreadCounts({ messages: 0, linkRequests: 0, notifications: 0, total: 0 });
+    }
+  }, [isAuthenticated, user?.id]); // Only depend on user ID to prevent unnecessary re-renders
 
-  // Refresh counts periodically (every 30 seconds)
+  // Refresh counts periodically (every 60 seconds instead of 30 to reduce visual updates)
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const interval = setInterval(fetchUnreadCounts, 30000);
+    const interval = setInterval(() => {
+      // Only refresh if page is visible to prevent unnecessary updates
+      if (!document.hidden) {
+        fetchUnreadCounts();
+      }
+    }, 60000);
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
@@ -216,24 +272,44 @@ export const NotificationProvider = ({ children }) => {
 
     // Listen for conversation updates (when messages are read)
     const handleConversationUpdate = (data) => {
-      // Refresh counts when conversation is updated
-      fetchUnreadCounts();
+      // Update counts locally instead of refetching
+      if (data.type === 'messages_read') {
+        setUnreadCounts(prev => ({
+          ...prev,
+          messages: Math.max(0, prev.messages - (data.count || 1)),
+          total: Math.max(0, prev.total - (data.count || 1))
+        }));
+      }
     };
 
     // Listen for message status updates (when messages are marked as read)
-    const handleMessageStatusUpdate = ({ status }) => {
+    const handleMessageStatusUpdate = ({ status, count = 1 }) => {
       if (status === 'read') {
-        // Refresh counts when messages are marked as read
-        fetchUnreadCounts();
+        // Update counts locally when messages are marked as read
+        setUnreadCounts(prev => ({
+          ...prev,
+          messages: Math.max(0, prev.messages - count),
+          total: Math.max(0, prev.total - count)
+        }));
       }
     };
 
     // Listen for new notifications
     const handleNewNotification = (notification) => {
       if (notification.recipient === user._id) {
-        // Add to local notifications state
-        setNotifications(prev => [notification, ...prev]);
-        incrementCount('notifications');
+        // Check if notification already exists to prevent duplicates
+        setNotifications(prev => {
+          const exists = prev.some(notif => notif._id === notification._id);
+          if (exists) return prev;
+          return [notification, ...prev];
+        });
+        
+        // Update counts locally
+        setUnreadCounts(prev => ({
+          ...prev,
+          notifications: prev.notifications + 1,
+          total: prev.total + 1
+        }));
         
         // Show toast notification
         const typeMessages = {
@@ -289,6 +365,7 @@ export const NotificationProvider = ({ children }) => {
     fetchNotifications,
     updateCount,
     markAsRead,
+    markAllAsRead,
     deleteNotification,
     incrementCount,
     showNotification
