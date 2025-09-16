@@ -293,7 +293,13 @@ const MyGigs = () => {
           </Box>
           
           {/* Search and Filter for Gigs */}
-          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2, 
+            mb: 3, 
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'center' }
+          }}>
             <TextField
               placeholder="Search gigs..."
               value={gigSearchTerm}
@@ -409,10 +415,11 @@ const MyGigs = () => {
                   </Box>
                   <Box sx={{ 
                     display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 2,
+                    alignItems: { xs: 'stretch', sm: 'center' },
+                    gap: { xs: 1, sm: 2 },
                     flexDirection: { xs: 'column', sm: 'row' },
-                    minWidth: 'fit-content'
+                    minWidth: 'fit-content',
+                    mt: { xs: 2, sm: 0 }
                   }}>
                     <Chip
                       label={gig.isFilled ? 'Filled' : 'Open'}
@@ -467,6 +474,7 @@ const MyGigs = () => {
                           e.preventDefault();
                           handleEditGig(gig._id);
                         }}
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
                       >
                         Edit
                       </Button>
