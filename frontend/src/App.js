@@ -37,6 +37,7 @@ const MyGigs = lazy(() => import('./pages/MyGigs'));
 const Messages = lazy(() => import('./pages/Messages'));
 const Community = lazy(() => import('./pages/Community'));
 const MyPosts = lazy(() => import('./pages/MyPosts'));
+const PostDetail = lazy(() => import('./pages/PostDetail'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -122,11 +123,13 @@ const AppContent = () => {
             <Route path="/create-gig" element={<PrivateRoute><CreateGig /></PrivateRoute>} />
             <Route path="/my-gigs" element={<PrivateRoute><MyGigs /></PrivateRoute>} />
             <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
+            <Route path="/messages/:userId" element={<PrivateRoute><Messages /></PrivateRoute>} />
             <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
             <Route path="/links" element={<PrivateRoute><LinksPage /></PrivateRoute>} />
             <Route path="/user/:userId/links" element={<PrivateRoute><UserLinks /></PrivateRoute>} />
             <Route path="/community" element={<PrivateRoute><Community /></PrivateRoute>} />
             <Route path="/my-posts" element={<PrivateRoute><MyPosts /></PrivateRoute>} />
+            <Route path="/posts/:postId" element={<PrivateRoute><PostDetail /></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

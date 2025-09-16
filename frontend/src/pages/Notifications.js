@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -26,8 +27,8 @@ import {
   Comment as CommentIcon,
   Message as MessageIcon,
   Favorite as FavoriteIcon,
-  MarkEmailRead as MarkReadIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Article as PostIcon
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import AuthContext from '../context/AuthContext';
@@ -60,9 +61,12 @@ function a11yProps(index) {
 
 const Notifications = () => {
   const { user } = useContext(AuthContext);
-  const { notifications, markAsRead, deleteNotification } = useNotifications();
+  const { notifications, markAsRead, deleteNotification, markAllAsRead, loading } = useNotifications();
   const [tabValue, setTabValue] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  // Remove auto-mark-as-read to prevent visual refreshes
+  // Users can manually mark notifications as read by clicking them or using the mark all button
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -81,6 +85,61 @@ const Notifications = () => {
       await deleteNotification(notificationId);
     } catch (error) {
       console.error('Error deleting notification:', error);
+    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    // Mark as read if not already read
+    if (!notification.read) {
+      await markAsRead(notification._id);
+    }
+
+    // Navigate based on notification type
+    switch (notification.type) {
+      case 'gig_application':
+      case 'gig_accepted':
+      case 'gig_rejected':
+        if (notification.relatedId) {
+          navigate(`/gigs/${notification.relatedId}`);
+        } else {
+          navigate('/gigs');
+        }
+        break;
+      case 'message':
+      case 'chat':
+        if (notification.relatedId) {
+          navigate(`/messages/${notification.relatedId}`);
+        } else {
+          navigate('/messages');
+        }
+        break;
+      case 'link_request':
+      case 'connection_request':
+      case 'connection_accepted':
+        navigate('/links', { state: { activeTab: 1 } }); // Open requests tab
+        break;
+      case 'comment':
+      case 'post_comment':
+        if (notification.relatedId) {
+          navigate(`/posts/${notification.relatedId}`);
+        } else {
+          navigate('/feed');
+        }
+        break;
+      case 'like':
+      case 'post_like':
+        if (notification.relatedId) {
+          navigate(`/posts/${notification.relatedId}`);
+        } else {
+          navigate('/feed');
+        }
+        break;
+      case 'profile_view':
+        navigate('/profile');
+        break;
+      default:
+        // For unknown types, stay on notifications page
+        break;
     }
   };
 
@@ -121,6 +180,7 @@ const Notifications = () => {
   const filterNotifications = (type) => {
     if (!notifications) return [];
     if (type === 'all') return notifications;
+    if (type === 'posts') return notifications.filter(notification => notification.type === 'comment' || notification.type === 'like');
     return notifications.filter(notification => notification.type === type);
   };
 
@@ -138,11 +198,16 @@ const Notifications = () => {
         {notificationList.map((notification, index) => (
           <React.Fragment key={notification._id || index}>
             <ListItem
+              onClick={() => handleNotificationClick(notification)}
               sx={{
                 bgcolor: notification.read ? 'transparent' : 'rgba(25, 118, 210, 0.04)',
                 borderRadius: 1,
                 mb: 1,
-                border: notification.read ? '1px solid #e0e0e0' : '1px solid rgba(25, 118, 210, 0.2)'
+                border: notification.read ? '1px solid #e0e0e0' : '1px solid rgba(25, 118, 210, 0.2)',
+                cursor: 'pointer',
+                '&:hover': {
+                  bgcolor: notification.read ? 'rgba(0, 0, 0, 0.04)' : 'rgba(25, 118, 210, 0.08)'
+                }
               }}
             >
               <ListItemAvatar>
@@ -159,28 +224,23 @@ const Notifications = () => {
               <ListItemText
                 primary={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: notification.read ? 400 : 600 }}>
-                      {notification.title || 'Notification'}
-                    </Typography>
+                    {notification.title && (
+                      <Typography variant="subtitle1" sx={{ fontWeight: notification.read ? 400 : 600 }}>
+                        {notification.title}
+                      </Typography>
+                    )}
                     {!notification.read && (
                       <Badge color="primary" variant="dot" />
                     )}
-                    <Chip
-                      label={notification.type}
-                      size="small"
-                      sx={{
-                        bgcolor: getNotificationColor(notification.type),
-                        color: 'white',
-                        fontSize: '0.75rem',
-                        height: 20
-                      }}
-                    />
                   </Box>
                 }
                 secondary={
                   <Box>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      {notification.message || 'No message available'}
+                      {notification.type === 'comment' && notification.commentContent 
+                        ? notification.commentContent 
+                        : notification.message || 'No message available'
+                      }
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {notification.createdAt
@@ -192,19 +252,12 @@ const Notifications = () => {
                 }
               />
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {!notification.read && (
-                  <IconButton
-                    size="small"
-                    onClick={() => handleMarkAsRead(notification._id)}
-                    sx={{ color: '#1976d2' }}
-                    title="Mark as read"
-                  >
-                    <MarkReadIcon fontSize="small" />
-                  </IconButton>
-                )}
                 <IconButton
                   size="small"
-                  onClick={() => handleDelete(notification._id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(notification._id);
+                  }}
                   sx={{ color: '#d32f2f' }}
                   title="Delete notification"
                 >
@@ -229,10 +282,6 @@ const Notifications = () => {
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 'bold', color: '#1a365d' }}>
-        Notifications
-      </Typography>
-
       <Card sx={{ mt: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
@@ -286,10 +335,10 @@ const Notifications = () => {
             <Tab
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CommentIcon fontSize="small" />
-                  Comments
+                  <PostIcon fontSize="small" />
+                  Posts
                   <Chip
-                    label={filterNotifications('comment').length}
+                    label={filterNotifications('posts').length}
                     size="small"
                     sx={{ bgcolor: '#fff3e0', color: '#f57c00', fontSize: '0.75rem', height: 20 }}
                   />
@@ -325,7 +374,7 @@ const Notifications = () => {
             {renderNotificationList(filterNotifications('link_request'))}
           </TabPanel>
           <TabPanel value={tabValue} index={3}>
-            {renderNotificationList(filterNotifications('comment'))}
+            {renderNotificationList(filterNotifications('posts'))}
           </TabPanel>
           <TabPanel value={tabValue} index={4}>
             {renderNotificationList(filterNotifications('message'))}

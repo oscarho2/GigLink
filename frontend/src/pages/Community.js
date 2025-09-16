@@ -625,8 +625,7 @@ const Community = () => {
                   width: '100%',
                   height: 'auto',
                   objectFit: 'contain',
-                  borderRadius: '8px',
-                  maxHeight: '400px'
+                  borderRadius: '8px'
                 }}
               />
             ) : (
