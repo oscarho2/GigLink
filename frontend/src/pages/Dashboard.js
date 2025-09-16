@@ -626,6 +626,7 @@ const Dashboard = () => {
         
         {/* Right Column - Links */}
         <Grid item xs={12} md={6} lg={8}>
+          <Grid container spacing={2}>
           <Card sx={{ mb: 4 }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -882,19 +883,13 @@ const Dashboard = () => {
               
               {Array.isArray(gigs) && gigs.length ? (
                 <Box sx={{ maxHeight: 400, overflow: 'auto', pr: 1 }}>
-                  <List>
+                  <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+                    {/* Mobile Card Layout */}
                     {gigs.map(gig => (
-                      <ListItem
+                      <Card
                         key={gig._id || gig.id}
                         sx={{
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                          mb: 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          p: 2,
+                          mb: 2,
                           backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'inherit',
                           opacity: gig.isFilled ? 0.7 : 1,
                           '&:hover': {
@@ -905,6 +900,135 @@ const Dashboard = () => {
                           transition: 'all 0.2s ease-in-out'
                         }}
                       >
+                        <CardContent sx={{ pb: 1 }}>
+                          <Box
+                            component={RouterLink}
+                            to={`/gigs/${gig._id}`}
+                            sx={{ textDecoration: 'none', color: 'inherit' }}
+                          >
+                            <Typography 
+                              variant="h6" 
+                              sx={{ 
+                                fontWeight: 600,
+                                lineHeight: 1.3,
+                                mb: 1,
+                                color: gig.isFilled ? 'text.disabled' : 'inherit'
+                              }}
+                            >
+                              {gig.isFilled ? 'FILLED: ' : ''}{gig.title}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                              <LocationOnIcon sx={{ fontSize: '1rem', mr: 0.5, color: 'text.secondary' }} />
+                              <Typography variant="body2" color="text.primary">
+                                {gig.venue} - {gig.location}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <CalendarTodayIcon sx={{ fontSize: '1rem', mr: 0.5, color: 'text.secondary' }} />
+                              <Typography variant="body2" color="text.secondary">
+                                {new Date(gig.date).toLocaleDateString()} at {gig.time}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                            <Chip
+                              label={gig.isFilled ? 'Filled' : 'Open'}
+                              color={gig.isFilled ? 'default' : 'success'}
+                              size="small"
+                            />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <PersonIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                              <Typography variant="caption" color="text.secondary">
+                                {(() => { const count = (gig.applicantCount ?? (Array.isArray(gig.applicants) ? gig.applicants.length : 0)); return count; })()} applicants
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </CardContent>
+                        <CardActions sx={{ pt: 0, px: 2, pb: 2 }}>
+                          <Box sx={{ display: 'flex', gap: 1, width: '100%', flexWrap: 'wrap' }}>
+                            {(() => {
+                              const hasApplicants = (gig.applicantCount ?? (Array.isArray(gig.applicants) ? gig.applicants.length : 0)) > 0;
+                              const accepted = Array.isArray(gig.applicants) && gig.applicants.find(a => a.status === 'accepted');
+                              const showBtn = hasApplicants && (!gig.isFilled || !!accepted);
+                              return showBtn;
+                            })() && (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color={(Array.isArray(gig.applicants) && gig.applicants.some(a => a.status === 'accepted')) ? 'secondary' : 'primary'}
+                                startIcon={<CheckCircleIcon />}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  const accepted = Array.isArray(gig.applicants) && gig.applicants.find(a => a.status === 'accepted');
+                                  if (accepted) {
+                                    const targetId = typeof accepted.user === 'string' ? accepted.user : accepted.user?._id;
+                                    if (targetId) {
+                                      handleAcceptApplicant(gig._id, targetId);
+                                    }
+                                  } else {
+                                    handleOpenApplicantModal(gig);
+                                  }
+                                }}
+                                sx={{ flex: 1, minWidth: 'fit-content' }}
+                              >
+                                {(Array.isArray(gig.applicants) && gig.applicants.some(a => a.status === 'accepted')) ? 'Undo' : 'Accept'}
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<EditIcon />}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleEditGig(gig._id);
+                              }}
+                              sx={{ flex: 1, minWidth: 'fit-content' }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              startIcon={<DeleteIcon />}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleGigDeleteClick(gig);
+                              }}
+                              sx={{ flex: 1, minWidth: 'fit-content' }}
+                            >
+                              Delete
+                            </Button>
+                          </Box>
+                        </CardActions>
+                      </Card>
+                    ))}
+                  </Box>
+                  <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                    {/* Desktop List Layout */}
+                    <List>
+                      {gigs.map(gig => (
+                        <ListItem
+                          key={gig._id || gig.id}
+                          sx={{
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 1,
+                            mb: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            p: 2,
+                            backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'inherit',
+                            opacity: gig.isFilled ? 0.7 : 1,
+                            '&:hover': {
+                              backgroundColor: gig.isFilled ? 'action.disabledBackground' : 'action.hover',
+                              transform: gig.isFilled ? 'none' : 'translateY(-1px)',
+                              boxShadow: gig.isFilled ? 'none' : 2
+                            },
+                            transition: 'all 0.2s ease-in-out'
+                          }}
+                        >
                       <Box 
                         component={RouterLink}
                         to={`/gigs/${gig._id}`}
@@ -1038,23 +1162,23 @@ const Dashboard = () => {
                       </Box>
                     </ListItem>
                   ))}
-                  </List>
-                </Box>
-              ) : (
+                </List>
+              </Box>
+              </Box>
+            ) : (
+              <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                  You haven't posted any gigs yet.
+                  No gigs posted yet. Create your first gig to get started!
                 </Typography>
-              )}
-            </CardContent>
-          </Card>
+              </Box>
+            )}
+        </CardContent>
+      </Card>
 
-        </Grid>
-      </Grid>
-
-      {/* Gig Applications Section */}
-      <Card sx={{ mt: 4 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      {/* My Gig Applications Section */}
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ p: 2 }}>
+          <Box sx={{ mb: 2 }}>
             <Typography 
               variant="h6" 
               component={RouterLink} 
@@ -1075,167 +1199,45 @@ const Dashboard = () => {
               My Gig Applications
             </Typography>
           </Box>
-          
-          <Divider sx={{ mb: 2 }} />
-          
-          {applicationsLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-              <Typography>Loading applications...</Typography>
-            </Box>
-          ) : applications.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-              No gig applications yet. Start applying to gigs to see them here!
-            </Typography>
-          ) : (
-            <Box sx={{ maxHeight: 500, overflow: 'auto', pr: 1 }}>
-              <Grid container spacing={2}>
-                {applications.map((application) => {
-                  const getStatusColor = (status, acceptedByOther) => {
-                    if (acceptedByOther && status !== 'accepted') return 'error';
-                    switch (status) {
-                      case 'accepted': return 'success';
-                      case 'rejected': return 'error';
-                      default: return 'warning';
-                    }
-                  };
-                  
-                  const getStatusText = (status, acceptedByOther) => {
-                    if (acceptedByOther && status !== 'accepted') return 'Position Filled';
-                    switch (status) {
-                      case 'accepted': return 'Accepted';
-                      case 'rejected': return 'Rejected';
-                      default: return 'Pending';
-                    }
-                  };
-                  
-                  return (
-                    <Grid item xs={12} md={6} key={application._id}>
-                    <Card 
-                      sx={{ 
-                        height: '100%',
-                        cursor: 'pointer',
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: 4
-                        }
-                      }}
-                      onClick={() => navigate(`/gigs/${application._id}`)}
-                    >
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                          <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold' }}>
-                            {application.title}
-                          </Typography>
-                          <Chip
-                            label={getStatusText(application.applicationStatus, application.acceptedByOther)}
-                            color={getStatusColor(application.applicationStatus, application.acceptedByOther)}
-                            size="small"
-                            sx={{ fontWeight: 'bold' }}
-                          />
-                        </Box>
-                        
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <LocationOnIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
-                          <Typography variant="body2" color="text.secondary">
-                            {application.venue} • {application.location}
-                          </Typography>
-                        </Box>
-                        
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <CalendarTodayIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
-                          <Typography variant="body2" color="text.secondary">
-                            {application.date} {application.time && `• ${application.time}`}
-                          </Typography>
-                        </Box>
-                        
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                          <PaymentIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
-                          <Typography variant="body2" color="text.secondary">
-                            {application.payment}
-                          </Typography>
-                        </Box>
-                        
-                        {application.instruments && application.instruments.length > 0 && (
-                          <Box sx={{ mb: 2 }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                              Instruments:
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {application.instruments.slice(0, 3).map((instrument, index) => (
-                                <Chip
-                                  key={index}
-                                  label={instrument}
-                                  size="small"
-                                  variant="outlined"
-                                  color="primary"
-                                />
-                              ))}
-                              {application.instruments.length > 3 && (
-                                <Chip
-                                  label={`+${application.instruments.length - 3} more`}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
-                            </Box>
-                          </Box>
-                        )}
-                        
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                          Applied: {new Date(application.applicationDate).toLocaleDateString()}
-                        </Typography>
-                        
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <Typography 
-                            variant="caption" 
-                            color="text.secondary" 
-                            sx={{ mr: 1 }}
-                          >
-                            Posted by:
-                          </Typography>
-                          <UserAvatar
-                            user={application.poster || { name: 'Unknown' }}
-                            size={20}
-                            sx={{ mr: 1, cursor: 'pointer' }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (application.poster?._id) {
-                                navigate(`/profile/${application.poster._id}`);
-                              }
-                            }}
-                          />
-                          <Typography 
-                            variant="caption" 
-                            color="text.secondary" 
-                            sx={{ 
-                              cursor: 'pointer',
-                              '&:hover': {
-                                color: 'primary.dark'
-                              }
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (application.poster?._id) {
-                                navigate(`/profile/${application.poster._id}`);
-                              }
-                            }}
-                          >
-                            {application.poster?.name || 'Unknown'}
-                          </Typography>
-                        </Box>
-                      </CardContent>
-                      
 
-                    </Card>
-                  </Grid>
-                );
-              })}
-              </Grid>
-            </Box>
-          )}
+          <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+            {applications.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                No gig applications yet. Start applying to gigs to see them here!
+              </Typography>
+            ) : (
+              <List>
+                {applications.slice(0, 3).map((application) => (
+                  <ListItem key={application._id} divider>
+                    <ListItemText
+                      primary={application.gig?.title || 'Gig Title'}
+                      secondary={
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Status: <Chip 
+                              label={application.status} 
+                              size="small" 
+                              color={application.status === 'accepted' ? 'success' : 
+                                     application.status === 'rejected' ? 'error' : 'default'}
+                            />
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Applied: {new Date(application.createdAt).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Box>
         </CardContent>
       </Card>
+
+        </Grid>
+        </Grid>
+      </Grid>
 
       {/* Multi-step Delete Account Dialog */}
       {/* Step 1: Initial Warning */}

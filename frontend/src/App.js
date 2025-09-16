@@ -13,6 +13,7 @@ import 'react-toastify/dist/ReactToastify.css';
 // Components
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
+import BottomNavigation from './components/layout/BottomNavigation';
 import LoadingSpinner from './components/LoadingSpinner';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -82,7 +83,11 @@ const AppContainer = styled(Box)(({ theme }) => ({
 }));
 
 const MainContent = styled(Box)(({ theme }) => ({
-  flex: 1
+  flex: 1,
+  paddingBottom: {
+    xs: '70px', // Add padding for bottom navigation on mobile
+    md: 0 // No padding on desktop
+  }
 }));
 
 // Component to handle conditional footer rendering
@@ -127,6 +132,7 @@ const AppContent = () => {
         </Suspense>
       </MainContent>
       {isHomePage && <Footer />}
+      <BottomNavigation />
     </AppContainer>
   );
 };
