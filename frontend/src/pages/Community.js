@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Container,
   Paper,
@@ -81,6 +81,13 @@ const Community = () => {
   const [commentMenuAnchor, setCommentMenuAnchor] = useState(null);
   const [selectedComment, setSelectedComment] = useState(null);
   const [pinnedComments, setPinnedComments] = useState({});
+  const [replyMenuAnchor, setReplyMenuAnchor] = useState(null);
+  const [selectedReply, setSelectedReply] = useState(null);
+  const [selectedCommentForReply, setSelectedCommentForReply] = useState(null);
+  const [expandedReplies, setExpandedReplies] = useState({});
+
+  // Ref for reply input auto-focus
+  const replyInputRef = useRef(null);
 
   // Predefined options for instruments and genres
   const instrumentOptions = [
@@ -115,7 +122,7 @@ const Community = () => {
         queryParams.append('genres', filters.genres.join(','));
       }
       
-      const url = `/api/posts${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      const url = `http://localhost:5001/api/posts${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
       const response = await fetch(url, {
         headers: {
           'x-auth-token': token
@@ -126,7 +133,13 @@ const Community = () => {
         const data = await response.json();
         setPosts(data);
       } else {
-        throw new Error('Failed to fetch posts');
+        if (response.status === 401) {
+          toast.error('Authentication expired. Please log in again.');
+          // Optionally redirect to login or clear auth state
+        } else {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch posts' }));
+          throw new Error(errorData.message || 'Failed to fetch posts');
+        }
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
@@ -283,11 +296,11 @@ const Community = () => {
     handlePostMenuClose();
   };
 
-  const handleCommentLike = async (commentId) => {
+  const handleCommentLike = async (postId, commentId) => {
     try {
       const isLiked = commentLikes[commentId];
       const method = isLiked ? 'DELETE' : 'POST';
-      const response = await fetch(`/api/comments/${commentId}/like`, {
+      const response = await fetch(`http://localhost:5001/api/posts/${postId}/comments/${commentId}/like`, {
         method,
         headers: {
           'x-auth-token': token
@@ -299,6 +312,26 @@ const Community = () => {
           ...prev,
           [commentId]: !isLiked
         }));
+        
+        // Update the posts state to reflect the like count change
+        setPosts(prevPosts => 
+          prevPosts.map(post => ({
+            ...post,
+            comments: post.comments.map(comment => 
+              comment._id === commentId 
+                ? { 
+                    ...comment, 
+                    likesCount: isLiked ? (comment.likesCount || 1) - 1 : (comment.likesCount || 0) + 1 
+                  }
+                : comment
+            )
+          }))
+        );
+      } else if (response.status === 401) {
+        toast.error('Your session has expired. Please log in again.');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Failed to update comment like');
       }
     } catch (error) {
       console.error('Error toggling comment like:', error);
@@ -308,6 +341,12 @@ const Community = () => {
 
   const handleReplyToComment = (commentId) => {
     setReplyingTo(commentId);
+    // Focus the reply input after a short delay to ensure it's rendered
+    setTimeout(() => {
+      if (replyInputRef.current) {
+        replyInputRef.current.focus();
+      }
+    }, 100);
   };
 
   const handleReplySubmit = async (commentId) => {
@@ -337,6 +376,13 @@ const Community = () => {
         setReplyTexts(prev => ({ ...prev, [commentId]: '' }));
         setReplyingTo(null);
         toast.success('Reply added successfully!');
+      } else {
+        const errorData = await response.json();
+        if (response.status === 401) {
+          toast.error('Authentication expired. Please log in again.');
+        } else {
+          toast.error(errorData.message || 'Failed to add reply');
+        }
       }
     } catch (error) {
       console.error('Error adding reply:', error);
@@ -363,6 +409,112 @@ const Community = () => {
       toast.success(pinnedComments[selectedComment._id] ? 'Comment unpinned' : 'Comment pinned');
     }
     handleCommentMenuClose();
+  };
+
+  const handleReplyLike = async (commentId, replyId) => {
+    // Find the post that contains this comment and reply
+    const post = posts.find(p => p.comments.some(c => c._id === commentId));
+    if (!post) {
+      toast.error('Post not found');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5001/api/posts/${post._id}/comments/${commentId}/replies/${replyId}/like`, {
+        method: 'PUT',
+        headers: {
+          'x-auth-token': token,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const updatedPost = await response.json();
+        setPosts(prevPosts => 
+          prevPosts.map(p => 
+            p._id === post._id ? updatedPost : p
+          )
+        );
+        if (selectedPost && selectedPost._id === post._id) {
+          setSelectedPost(updatedPost);
+        }
+      } else {
+        const errorData = await response.json();
+        if (response.status === 401) {
+          toast.error('Authentication expired. Please log in again.');
+        } else {
+          toast.error(errorData.message || 'Failed to update reply like');
+        }
+      }
+    } catch (error) {
+      console.error('Error updating reply like:', error);
+      toast.error('Failed to update reply like');
+    }
+  };
+
+  const handleReplyToReply = (commentId, replyId, replyUserName) => {
+    setReplyingTo(commentId);
+    setReplyTexts(prev => ({
+      ...prev,
+      [commentId]: `@${replyUserName} `
+    }));
+  };
+
+  const handleReplyMenuClick = (event, commentId, replyId) => {
+    setReplyMenuAnchor(event.currentTarget);
+    setSelectedReply(replyId);
+    setSelectedCommentForReply(commentId);
+  };
+
+  const handleReplyMenuClose = () => {
+    setReplyMenuAnchor(null);
+    setSelectedReply(null);
+    setSelectedCommentForReply(null);
+  };
+
+  const handleDeleteReply = async () => {
+    if (!selectedReply || !selectedCommentForReply) return;
+
+    // Find the post that contains this comment and reply
+    const post = posts.find(p => p.comments.some(c => c._id === selectedCommentForReply));
+    if (!post) {
+      toast.error('Post not found');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5001/api/posts/${post._id}/comments/${selectedCommentForReply}/replies/${selectedReply}`, {
+        method: 'DELETE',
+        headers: {
+          'x-auth-token': token,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const updatedPost = await response.json();
+        setPosts(prevPosts => 
+          prevPosts.map(p => 
+            p._id === post._id ? updatedPost : p
+          )
+        );
+        if (selectedPost && selectedPost._id === post._id) {
+          setSelectedPost(updatedPost);
+        }
+        toast.success('Reply deleted successfully');
+      } else {
+        const errorData = await response.json();
+        if (response.status === 401) {
+          toast.error('Authentication expired. Please log in again.');
+        } else {
+          toast.error(errorData.message || 'Failed to delete reply');
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting reply:', error);
+      toast.error('Failed to delete reply');
+    }
+    handleReplyMenuClose();
   };
 
   const handleDeleteComment = async () => {
@@ -1166,7 +1318,8 @@ const Community = () => {
                         const bIsPinned = pinnedComments[b._id];
                         if (aIsPinned && !bIsPinned) return -1;
                         if (!aIsPinned && bIsPinned) return 1;
-                        return 0;
+                        // If both have same pin status, sort by creation date (newest first)
+                        return new Date(b.createdAt) - new Date(a.createdAt);
                       })
                       .map((comment) => (
                       <Box key={comment._id}>
@@ -1198,35 +1351,33 @@ const Community = () => {
                                 <Typography variant="body2" sx={{ mb: 1 }}>
                                   {comment.content}
                                 </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleCommentLike(comment._id)}
-                                      color={commentLikes[comment._id] ? "error" : "default"}
-                                    >
-                                      {commentLikes[comment._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
-                                    </IconButton>
-                                    <Typography variant="caption" sx={{ mr: 2 }}>
-                                      {comment.likesCount || 0}
-                                    </Typography>
-                                    <Button
-                                       size="small"
-                                       onClick={() => handleReplyToComment(comment._id)}
-                                       sx={{ 
-                                         textTransform: 'none',
-                                         minWidth: 'auto',
-                                         padding: '2px 8px',
-                                         fontSize: '0.75rem'
-                                       }}
-                                     >
-                                       Reply
-                                     </Button>
-                                  </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <Button
+                                     size="small"
+                                     onClick={() => handleReplyToComment(comment._id)}
+                                     sx={{ 
+                                       textTransform: 'none',
+                                       minWidth: 'auto',
+                                       padding: '2px 8px',
+                                       fontSize: '0.75rem'
+                                     }}
+                                   >
+                                     Reply
+                                   </Button>
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     {pinnedComments[comment._id] && (
                                       <PushPinIcon fontSize="small" color="primary" />
                                     )}
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleCommentLike(post._id, comment._id)}
+                                      color={commentLikes[comment._id] ? "error" : "default"}
+                                    >
+                                      {commentLikes[comment._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                                    </IconButton>
+                                    <Typography variant="caption" sx={{ mr: 1 }}>
+                                      {comment.likesCount || 0}
+                                    </Typography>
                                     <IconButton
                                       size="small"
                                       onClick={(e) => handleCommentMenuClick(e, comment)}
@@ -1249,6 +1400,7 @@ const Community = () => {
                                 size={24}
                               />
                               <TextField
+                                ref={replyInputRef}
                                 fullWidth
                                 size="small"
                                 placeholder="Write a reply..."
@@ -1284,13 +1436,14 @@ const Community = () => {
                         {/* Nested Replies */}
                         {comment.replies && comment.replies.length > 0 && (
                           <Box sx={{ ml: 4 }}>
-                            {comment.replies.map((reply) => (
+                            {/* Show only first reply or all replies if expanded */}
+                            {(expandedReplies[comment._id] ? comment.replies : comment.replies.slice(0, 1)).map((reply) => (
                               <ListItem key={reply._id} alignItems="flex-start">
                                 <ListItemAvatar>
                                   <UserAvatar
-                                    user={reply.user}
+                                    user={reply.user || { name: 'Unknown User', _id: null }}
                                     size={24}
-                                    onClick={() => navigate(`/profile/${reply.user._id}`)}
+                                    onClick={() => reply.user?._id && navigate(`/profile/${reply.user._id}`)}
                                   />
                                 </ListItemAvatar>
                                 <ListItemText
@@ -1298,10 +1451,10 @@ const Community = () => {
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                       <Typography 
                                         variant="subtitle2"
-                                        onClick={() => navigate(`/profile/${reply.user._id}`)}
-                                        sx={{ cursor: 'pointer', fontSize: '0.875rem' }}
+                                        onClick={() => reply.user?._id && navigate(`/profile/${reply.user._id}`)}
+                                        sx={{ cursor: reply.user?._id ? 'pointer' : 'default', fontSize: '0.875rem' }}
                                       >
-                                        {reply.user.name}
+                                        {reply.user?.name || 'Unknown User'}
                                       </Typography>
                                       <Typography variant="caption" color="text.secondary">
                                         {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
@@ -1309,13 +1462,81 @@ const Community = () => {
                                     </Box>
                                   }
                                   secondary={
-                                    <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                                      {reply.content}
-                                    </Typography>
+                                    <Box>
+                                      <Typography variant="body2" sx={{ fontSize: '0.875rem', mb: 1 }}>
+                                        {reply.content}
+                                      </Typography>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <Button
+                                          size="small"
+                                          onClick={() => handleReplyToReply(comment._id, reply._id, reply.user?.name || 'Unknown User')}
+                                          sx={{ 
+                                            textTransform: 'none',
+                                            minWidth: 'auto',
+                                            padding: '2px 8px',
+                                            fontSize: '0.75rem'
+                                          }}
+                                        >
+                                          Reply
+                                        </Button>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                           <IconButton
+                                             size="small"
+                                             onClick={() => handleReplyLike(comment._id, reply._id)}
+                                             color={reply.isLikedByUser ? "error" : "default"}
+                                           >
+                                             {reply.isLikedByUser ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                                           </IconButton>
+                                           <Typography variant="caption" sx={{ mr: 1 }}>
+                                             {reply.likesCount || 0}
+                                           </Typography>
+                                           <IconButton
+                                             size="small"
+                                             onClick={(e) => handleReplyMenuClick(e, comment._id, reply._id)}
+                                           >
+                                             <MoreVertIcon fontSize="small" />
+                                           </IconButton>
+                                         </Box>
+                                      </Box>
+                                    </Box>
                                   }
                                 />
                               </ListItem>
                             ))}
+                            
+                            {/* View more replies button */}
+                            {comment.replies.length > 1 && !expandedReplies[comment._id] && (
+                              <Box sx={{ ml: 6, mt: 1 }}>
+                                <Button
+                                  size="small"
+                                  onClick={() => setExpandedReplies(prev => ({ ...prev, [comment._id]: true }))}
+                                  sx={{ 
+                                    textTransform: 'none',
+                                    fontSize: '0.75rem',
+                                    color: 'text.secondary'
+                                  }}
+                                >
+                                  View {comment.replies.length - 1} more {comment.replies.length - 1 === 1 ? 'reply' : 'replies'}
+                                </Button>
+                              </Box>
+                            )}
+                            
+                            {/* Hide replies button */}
+                            {comment.replies.length > 1 && expandedReplies[comment._id] && (
+                              <Box sx={{ ml: 6, mt: 1 }}>
+                                <Button
+                                  size="small"
+                                  onClick={() => setExpandedReplies(prev => ({ ...prev, [comment._id]: false }))}
+                                  sx={{ 
+                                    textTransform: 'none',
+                                    fontSize: '0.75rem',
+                                    color: 'text.secondary'
+                                  }}
+                                >
+                                  Hide replies
+                                </Button>
+                              </Box>
+                            )}
                           </Box>
                         )}
                       </Box>
@@ -1369,6 +1590,26 @@ const Community = () => {
         <MenuItem onClick={handleDeleteComment}>
           <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
           Delete Comment
+        </MenuItem>
+      </Menu>
+
+      {/* Reply Menu */}
+      <Menu
+        anchorEl={replyMenuAnchor}
+        open={Boolean(replyMenuAnchor)}
+        onClose={handleReplyMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        <MenuItem onClick={handleDeleteReply}>
+          <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
+          Delete Reply
         </MenuItem>
       </Menu>
 

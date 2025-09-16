@@ -81,6 +81,16 @@ const PostSchema = new mongoose.Schema({
         required: true,
         maxlength: 500
       },
+      likes: [{
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User'
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now
+        }
+      }],
       createdAt: {
         type: Date,
         default: Date.now
@@ -181,6 +191,33 @@ PostSchema.methods.addReply = function(commentId, userId, content) {
   if (!comment) throw new Error('Comment not found');
   
   comment.replies.push({ user: userId, content });
+  return this.save();
+};
+
+// Instance method to add a like to a reply
+PostSchema.methods.addReplyLike = function(commentId, replyId, userId) {
+  const comment = this.comments.id(commentId);
+  if (!comment) throw new Error('Comment not found');
+  
+  const reply = comment.replies.id(replyId);
+  if (!reply) throw new Error('Reply not found');
+  
+  const existingLike = reply.likes.find(like => like.user.toString() === userId.toString());
+  if (!existingLike) {
+    reply.likes.push({ user: userId });
+  }
+  return this.save();
+};
+
+// Instance method to remove a like from a reply
+PostSchema.methods.removeReplyLike = function(commentId, replyId, userId) {
+  const comment = this.comments.id(commentId);
+  if (!comment) throw new Error('Comment not found');
+  
+  const reply = comment.replies.id(replyId);
+  if (!reply) throw new Error('Reply not found');
+  
+  reply.likes = reply.likes.filter(like => like.user.toString() !== userId.toString());
   return this.save();
 };
 
