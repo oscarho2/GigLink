@@ -31,7 +31,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  OutlinedInput
+  OutlinedInput,
+  Menu
 } from '@mui/material';
 import {
   Favorite as FavoriteIcon,
@@ -44,7 +45,9 @@ import {
   Add as AddIcon,
   FilterList as FilterListIcon,
   ExpandLess as ExpandLessIcon,
-  ExpandMore as ExpandMoreIcon
+  ExpandMore as ExpandMoreIcon,
+  MoreVert as MoreVertIcon,
+  Reply as ReplyIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -65,10 +68,15 @@ const Community = () => {
   const [filters, setFilters] = useState({ instruments: [], genres: [] });
   const [expandedComments, setExpandedComments] = useState({});
   const [commentTexts, setCommentTexts] = useState({});
+  const [replyingTo, setReplyingTo] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
   const [createPostModalOpen, setCreatePostModalOpen] = useState(false);
   const [filtersVisible, setFiltersVisible] = useState(false);
+  const [postMenuAnchor, setPostMenuAnchor] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [commentLikes, setCommentLikes] = useState({});
+  const [replyTexts, setReplyTexts] = useState({});
 
   // Predefined options for instruments and genres
   const instrumentOptions = [
@@ -250,7 +258,25 @@ const Community = () => {
     } finally {
       setDeleteDialogOpen(false);
       setPostToDelete(null);
+      setPostMenuAnchor(null);
+      setSelectedPost(null);
     }
+  };
+
+  const handlePostMenuClick = (event, post) => {
+    setPostMenuAnchor(event.currentTarget);
+    setSelectedPost(post);
+  };
+
+  const handlePostMenuClose = () => {
+    setPostMenuAnchor(null);
+    setSelectedPost(null);
+  };
+
+  const handleDeleteClick = () => {
+    setPostToDelete(selectedPost._id);
+    setDeleteDialogOpen(true);
+    handlePostMenuClose();
   };
 
   const toggleComments = (postId) => {
@@ -855,19 +881,16 @@ const Community = () => {
               action={
                 post.author._id === user?.id && (
                   <IconButton
-                    onClick={() => {
-                      setPostToDelete(post._id);
-                      setDeleteDialogOpen(true);
-                    }}
+                    onClick={(event) => handlePostMenuClick(event, post)}
                     sx={{
                       color: '#718096',
                       '&:hover': {
-                        color: '#e53e3e',
-                        bgcolor: 'rgba(229, 62, 62, 0.1)'
+                        color: '#1a365d',
+                        bgcolor: 'rgba(26, 54, 93, 0.1)'
                       }
                     }}
                   >
-                    <DeleteIcon />
+                    <MoreVertIcon />
                   </IconButton>
                 )
               }
@@ -1054,6 +1077,26 @@ const Community = () => {
           </Card>
         ))
       )}
+
+      {/* Post Menu */}
+      <Menu
+        anchorEl={postMenuAnchor}
+        open={Boolean(postMenuAnchor)}
+        onClose={handlePostMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        <MenuItem onClick={handleDeleteClick}>
+          <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
+          Delete Post
+        </MenuItem>
+      </Menu>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>

@@ -56,6 +56,20 @@ const PostSchema = new mongoose.Schema({
       required: true,
       maxlength: 500
     },
+    likes: [{
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    pinned: {
+      type: Boolean,
+      default: false
+    },
     createdAt: {
       type: Date,
       default: Date.now
@@ -112,6 +126,36 @@ PostSchema.methods.addComment = function(userId, content) {
 // Instance method to remove a comment
 PostSchema.methods.removeComment = function(commentId) {
   this.comments = this.comments.filter(comment => comment._id.toString() !== commentId.toString());
+  return this.save();
+};
+
+// Instance method to add a like to a comment
+PostSchema.methods.addCommentLike = function(commentId, userId) {
+  const comment = this.comments.id(commentId);
+  if (!comment) throw new Error('Comment not found');
+  
+  const existingLike = comment.likes.find(like => like.user.toString() === userId.toString());
+  if (!existingLike) {
+    comment.likes.push({ user: userId });
+  }
+  return this.save();
+};
+
+// Instance method to remove a like from a comment
+PostSchema.methods.removeCommentLike = function(commentId, userId) {
+  const comment = this.comments.id(commentId);
+  if (!comment) throw new Error('Comment not found');
+  
+  comment.likes = comment.likes.filter(like => like.user.toString() !== userId.toString());
+  return this.save();
+};
+
+// Instance method to pin/unpin a comment
+PostSchema.methods.toggleCommentPin = function(commentId) {
+  const comment = this.comments.id(commentId);
+  if (!comment) throw new Error('Comment not found');
+  
+  comment.pinned = !comment.pinned;
   return this.save();
 };
 
