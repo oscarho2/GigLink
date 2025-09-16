@@ -507,6 +507,7 @@ router.put('/:postId/comments/:commentId/pin', auth, async (req, res) => {
     const updatedPost = await Post.findById(postId)
       .populate('author', 'name avatar email')
       .populate('comments.user', 'name avatar')
+      .populate('comments.replies.user', 'name avatar')
       .populate('comments.likes.user', 'name')
       .populate('likes.user', 'name');
 
@@ -525,6 +526,53 @@ router.put('/:postId/comments/:commentId/pin', auth, async (req, res) => {
     res.json(postObj);
   } catch (error) {
     console.error('Error toggling comment pin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/posts/:postId/comments/:commentId/replies
+// @desc    Add a reply to a comment
+// @access  Private
+router.post('/:postId/comments/:commentId/replies', auth, async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { content } = req.body;
+    const userId = req.user.id;
+
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({ message: 'Reply content is required' });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    await post.addReply(commentId, userId, content.trim());
+    
+    // Return updated post with populated data
+    const updatedPost = await Post.findById(postId)
+      .populate('author', 'name avatar email')
+      .populate('comments.user', 'name avatar')
+      .populate('comments.replies.user', 'name avatar')
+      .populate('comments.likes.user', 'name')
+      .populate('likes.user', 'name');
+
+    const postObj = updatedPost.toObject();
+    postObj.isLikedByUser = updatedPost.likes.some(like => like.user._id.toString() === userId);
+    postObj.likesCount = updatedPost.likes.length;
+    postObj.commentsCount = updatedPost.comments.length;
+    
+    // Add like status for each comment
+    postObj.comments = postObj.comments.map(comment => ({
+      ...comment,
+      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
+      likesCount: comment.likes.length
+    }));
+
+    res.json(postObj);
+  } catch (error) {
+    console.error('Error adding reply:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
