@@ -1,41 +1,43 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider, createTheme, styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { SocketProvider } from './context/SocketContext';
+import { LoadingProvider } from './context/LoadingContext';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Components
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
-
-// Pages
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Profile from './pages/Profile';
-import LinksPage from './pages/Links';
-import UserLinks from './pages/UserLinks';
+import LoadingSpinner from './components/LoadingSpinner';
 import PrivateRoute from './components/PrivateRoute';
-import EditProfile from './pages/EditProfile';
-import ProfileSetup from './pages/ProfileSetup';
-import Settings from './pages/Settings';
-import Discover from './pages/Discover';
-import Gigs from './pages/Gigs';
-import GigDetail from './pages/GigDetail';
-import CreateGig from './pages/CreateGig';
-import EditGig from './pages/EditGig';
-import MyGigs from './pages/MyGigs';
-import Messages from './pages/Messages';
-import Community from './pages/Community';
-import MyPosts from './pages/MyPosts';
-import Notifications from './pages/Notifications';
-import NotFound from './pages/NotFound';
+
+// Lazy load pages for better performance
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Profile = lazy(() => import('./pages/Profile'));
+const LinksPage = lazy(() => import('./pages/Links'));
+const UserLinks = lazy(() => import('./pages/UserLinks'));
+const EditProfile = lazy(() => import('./pages/EditProfile'));
+const ProfileSetup = lazy(() => import('./pages/ProfileSetup'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Discover = lazy(() => import('./pages/Discover'));
+const Gigs = lazy(() => import('./pages/Gigs'));
+const GigDetail = lazy(() => import('./pages/GigDetail'));
+const CreateGig = lazy(() => import('./pages/CreateGig'));
+const EditGig = lazy(() => import('./pages/EditGig'));
+const MyGigs = lazy(() => import('./pages/MyGigs'));
+const Messages = lazy(() => import('./pages/Messages'));
+const Community = lazy(() => import('./pages/Community'));
+const MyPosts = lazy(() => import('./pages/MyPosts'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Route protection
 
@@ -72,47 +74,60 @@ const theme = createTheme({
   },
 });
 
+// Styled components for better performance
+const AppContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: '100vh'
+}));
+
+const MainContent = styled(Box)(({ theme }) => ({
+  flex: 1
+}));
+
 // Component to handle conditional footer rendering
 const AppContent = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh'
-      }}
-    >
+    <AppContainer>
       <Navbar />
-      <Box sx={{ flex: 1 }}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />
-          <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
-          <Route path="/profile-setup" element={<PrivateRoute><ProfileSetup /></PrivateRoute>} />
-          <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
-          <Route path="/discover" element={<Discover />} />
-          <Route path="/gigs" element={<Gigs />} />
-          <Route path="/gigs/:id" element={<GigDetail />} />
-          <Route path="/gigs/:id/edit" element={<PrivateRoute><EditGig /></PrivateRoute>} />
-          <Route path="/create-gig" element={<PrivateRoute><CreateGig /></PrivateRoute>} />
-          <Route path="/my-gigs" element={<PrivateRoute><MyGigs /></PrivateRoute>} />
-          <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
-          <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
-          <Route path="/links" element={<PrivateRoute><LinksPage /></PrivateRoute>} />
-          <Route path="/user/:userId/links" element={<PrivateRoute><UserLinks /></PrivateRoute>} />
-          <Route path="/community" element={<PrivateRoute><Community /></PrivateRoute>} />
-          <Route path="/my-posts" element={<PrivateRoute><MyPosts /></PrivateRoute>} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Box>
+      <MainContent>
+        <Suspense fallback={
+          <LoadingSpinner 
+            type="spinner" 
+            size="large" 
+            text="Loading page..." 
+          />
+        }>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+            <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />
+            <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
+            <Route path="/profile-setup" element={<PrivateRoute><ProfileSetup /></PrivateRoute>} />
+            <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+            <Route path="/discover" element={<Discover />} />
+            <Route path="/gigs" element={<Gigs />} />
+            <Route path="/gigs/:id" element={<GigDetail />} />
+            <Route path="/gigs/:id/edit" element={<PrivateRoute><EditGig /></PrivateRoute>} />
+            <Route path="/create-gig" element={<PrivateRoute><CreateGig /></PrivateRoute>} />
+            <Route path="/my-gigs" element={<PrivateRoute><MyGigs /></PrivateRoute>} />
+            <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
+            <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+            <Route path="/links" element={<PrivateRoute><LinksPage /></PrivateRoute>} />
+            <Route path="/user/:userId/links" element={<PrivateRoute><UserLinks /></PrivateRoute>} />
+            <Route path="/community" element={<PrivateRoute><Community /></PrivateRoute>} />
+            <Route path="/my-posts" element={<PrivateRoute><MyPosts /></PrivateRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </MainContent>
       {isHomePage && <Footer />}
-    </Box>
+    </AppContainer>
   );
 };
 
@@ -125,29 +140,31 @@ function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <SocketProvider>
-        <NotificationProvider>
-          <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <Router>
-            <AppContent />
-          </Router>
-          </ThemeProvider>
-        </NotificationProvider>
-      </SocketProvider>
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
-    </AuthProvider>
+    <LoadingProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <NotificationProvider>
+            <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <Router>
+              <AppContent />
+            </Router>
+            </ThemeProvider>
+          </NotificationProvider>
+        </SocketProvider>
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
+      </AuthProvider>
+    </LoadingProvider>
   );
 }
 

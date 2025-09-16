@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { TextField, Paper, List, ListItem, ListItemText, CircularProgress } from '@mui/material';
 
 const GeoNamesAutocomplete = ({ 
@@ -21,7 +21,7 @@ const GeoNamesAutocomplete = ({
   const listRef = useRef(null);
 
   // Fallback cities for UK when GeoNames API fails
-  const fallbackCities = [
+  const fallbackCities = useMemo(() => [
     'London', 'Manchester', 'Birmingham', 'Liverpool', 'Leeds', 'Sheffield', 
     'Bristol', 'Glasgow', 'Edinburgh', 'Newcastle', 'Cardiff', 'Belfast',
     'Nottingham', 'Leicester', 'Coventry', 'Bradford', 'Stoke-on-Trent',
@@ -31,7 +31,7 @@ const GeoNamesAutocomplete = ({
     'Poole', 'Oxford', 'Middlesbrough', 'Blackpool', 'Bolton', 'Ipswich',
     'York', 'West Bromwich', 'Telford', 'Exeter', 'Chelmsford', 'Basildon',
     'Gloucester', 'Crawley', 'Worthing', 'Cambridge'
-  ];
+  ], []);
 
   // GeoNames API configuration
   // NOTE: Using 'demo' username for testing. For production:
@@ -47,7 +47,7 @@ const GeoNamesAutocomplete = ({
     setInputValue(cleanValue);
   }, [value]);
 
-  const fetchSuggestions = async (query) => {
+  const fetchSuggestions = useCallback(async (query) => {
     if (query.length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -185,9 +185,9 @@ const GeoNamesAutocomplete = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [fallbackCities]);
 
-  const handleInputChange = (event) => {
+  const handleInputChange = useCallback((event) => {
     const newValue = event.target.value;
     setInputValue(newValue);
     setSelectedIndex(-1); // Reset selection when typing
@@ -201,7 +201,7 @@ const GeoNamesAutocomplete = ({
     timeoutRef.current = setTimeout(() => {
       fetchSuggestions(newValue);
     }, 300);
-  };
+  }, [fetchSuggestions]);
 
   const scrollToSelectedItem = (index) => {
     if (listRef.current && index >= 0) {
@@ -348,4 +348,4 @@ const GeoNamesAutocomplete = ({
   );
 };
 
-export default GeoNamesAutocomplete;
+export default memo(GeoNamesAutocomplete);
