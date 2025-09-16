@@ -574,7 +574,7 @@ const Dashboard = () => {
           </Card>
 
           {/* Navigation Buttons */}
-          <Card sx={{ mb: 2 }}>
+          <Card>
             <CardContent sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
                 Quick Navigation
@@ -627,7 +627,8 @@ const Dashboard = () => {
         {/* Right Column - Links */}
         <Grid item xs={12} md={6} lg={8}>
           <Grid container spacing={2}>
-          <Card sx={{ mb: 4 }}>
+            <Grid item xs={12}>
+              <Card>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography 
@@ -700,13 +701,11 @@ const Dashboard = () => {
                               onClick={() => navigate(`/profile/${link._id}`)}
                             />
                             <ListItemText
+                              disableTypography
                               primary={
-                                <Typography
-                                  component="span"
-                                  sx={{
-                                    cursor: 'pointer',
-                                    color: 'primary.main',
-                                  }}
+                                <Typography 
+                                  component="span" 
+                                  sx={{ cursor: 'pointer', color: 'primary.main' }}
                                   onClick={() => navigate(`/profile/${link._id}`)}
                                 >
                                   {link.name}
@@ -752,12 +751,7 @@ const Dashboard = () => {
                             />
                             <ListItemText
                               primary={
-                                <Typography
-                                  component="span"
-                                  sx={{
-                                    cursor: 'pointer',
-                                    color: 'primary.main',
-                                  }}
+                                <Typography component="span" sx={{ cursor: 'pointer', color: 'primary.main' }}
                                   onClick={() => navigate(`/profile/${request.requester?._id || request.requester?.id}`)}
                                 >
                                   {request.requester?.name}
@@ -811,30 +805,29 @@ const Dashboard = () => {
                               sx={{ mr: 2 }}
                             />
                             <ListItemText
+                              disableTypography
                               primary={
-                                <Typography
-                                  component="span"
-                                  sx={{
-                                    cursor: 'pointer',
-                                    color: 'primary.main',
-                                    '&:hover': {
-                                      color: 'primary.dark'
-                                    }
-                                  }}
+                                <Typography component="span" sx={{ cursor: 'pointer', color: 'primary.main' }}
                                   onClick={() => navigate(`/profile/${request.recipient?._id || request.recipient?.id}`)}
                                 >
                                   {request.recipient?.name}
                                 </Typography>
                               }
-                              secondary="Request pending..."
+                             secondary={
+                               <Typography variant="body2" color="text.secondary" component="div">
+                                 Request pending...
+                               </Typography>
+                             }
                             />
-                            <IconButton
-                              onClick={() => handleRemoveLink(request._id)}
-                              color="error"
-                              size="small"
-                            >
-                              <CancelIcon />
-                            </IconButton>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <IconButton
+                                onClick={() => handleRemoveLink(request._id)}
+                                color="error"
+                                size="small"
+                              >
+                                <CancelIcon />
+                              </IconButton>
+                            </Box>
                           </ListItem>
                         ))}
                       </List>
@@ -844,9 +837,11 @@ const Dashboard = () => {
               )}
             </CardContent>
           </Card>
+            </Grid>
           
           {/* My Gigs Section */}
-          <Card>
+            <Grid item xs={12}>
+              <Card>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography 
@@ -1174,70 +1169,83 @@ const Dashboard = () => {
             )}
         </CardContent>
       </Card>
+            </Grid>
 
-      {/* My Gig Applications Section */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ p: 2 }}>
-          <Box sx={{ mb: 2 }}>
-            <Typography 
-              variant="h6" 
-              component={RouterLink} 
-              to="/my-gigs?tab=applications"
-              sx={{ 
-                textDecoration: 'none', 
-                color: 'inherit',
-                display: 'flex',
-                alignItems: 'center',
-                '&:hover': {
-                  color: 'primary.main',
-                  cursor: 'pointer',
-                  textDecoration: 'underline'
-                }
-              }}
-            >
-              <WorkIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-              My Gig Applications
-            </Typography>
-          </Box>
+       {/* My Gig Applications Section */}
+            <Grid item xs={12}>
+       <Card>
+         <CardContent sx={{ p: 2 }}>
+           <Box sx={{ mb: 2 }}>
+             <Typography 
+               variant="h6" 
+               component={RouterLink} 
+               to="/my-gigs?tab=applications"
+               sx={{ 
+                 textDecoration: 'none', 
+                 color: 'inherit',
+                 display: 'flex',
+                 alignItems: 'center',
+                 '&:hover': {
+                   color: 'primary.main',
+                   cursor: 'pointer',
+                   textDecoration: 'underline'
+                 }
+               }}
+             >
+               <WorkIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+               My Gig Applications
+             </Typography>
+           </Box>
 
-          <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
-            {applications.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                No gig applications yet. Start applying to gigs to see them here!
-              </Typography>
-            ) : (
-              <List>
-                {applications.slice(0, 3).map((application) => (
-                  <ListItem key={application._id} divider>
-                    <ListItemText
-                      primary={application.gig?.title || 'Gig Title'}
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            Status: <Chip 
-                              label={application.status} 
-                              size="small" 
-                              color={application.status === 'accepted' ? 'success' : 
-                                     application.status === 'rejected' ? 'error' : 'default'}
-                            />
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Applied: {new Date(application.createdAt).toLocaleDateString()}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
-
-        </Grid>
-        </Grid>
-      </Grid>
+           <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+             {applicationsLoading ? (
+               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                 Loading applications...
+               </Typography>
+             ) : applications.length === 0 ? (
+               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                 No gig applications yet. Start applying to gigs to see them here!
+               </Typography>
+             ) : (
+               <List>
+                 {applications.slice(0, 3).map((application) => {
+                   const status = application.applicationStatus || 'pending';
+                   const chipColor = status === 'accepted' ? 'success' : status === 'rejected' ? 'error' : 'warning';
+                   const appliedDate = application.applicationDate
+                     ? new Date(application.applicationDate).toLocaleDateString()
+                     : '—';
+                   return (
+                     <ListItem key={application._id} divider>
+                       <ListItemText
+                         disableTypography
+                         primary={
+                           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                             {application.title || 'Gig Title'}
+                           </Typography>
+                         }
+                         secondary={
+                           <Box>
+                             <Typography variant="body2" color="text.secondary" component="div">
+                               Status: <Chip label={status.charAt(0).toUpperCase() + status.slice(1)} size="small" color={chipColor} />
+                             </Typography>
+                             <Typography variant="body2" color="text.secondary" component="div">
+                               Applied: {appliedDate}
+                             </Typography>
+                           </Box>
+                         }
+                       />
+                     </ListItem>
+                   );
+                 })}
+               </List>
+             )}
+           </Box>
+         </CardContent>
+       </Card>
+     </Grid>
+   </Grid>
+ </Grid>
+</Grid>
 
       {/* Multi-step Delete Account Dialog */}
       {/* Step 1: Initial Warning */}

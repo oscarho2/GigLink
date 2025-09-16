@@ -115,7 +115,7 @@ const MyGigs = () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/gigs', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'x-auth-token': localStorage.getItem('token') }
       });
       // Filter to only show gigs created by the current user
       const userGigs = (response.data || []).filter(gig => 
@@ -135,7 +135,7 @@ const MyGigs = () => {
     try {
       setApplicationsLoading(true);
       const response = await axios.get('/api/gigs/user/applications', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'x-auth-token': localStorage.getItem('token') }
       });
       setApplications(response.data || []);
     } catch (error) {
@@ -166,7 +166,7 @@ const MyGigs = () => {
     try {
       await axios.post(`/api/gigs/${gigId}/accept`, 
         { userId },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        { headers: { 'x-auth-token': localStorage.getItem('token') } }
       );
       fetchGigs(); // Refresh gigs
     } catch (error) {
