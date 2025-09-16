@@ -117,6 +117,12 @@ PostSchema.pre('save', function(next) {
   next();
 });
 
+// Indexes for better query performance
+PostSchema.index({ author: 1, createdAt: -1 });
+PostSchema.index({ createdAt: -1 });
+PostSchema.index({ 'likes.user': 1 });
+PostSchema.index({ 'comments.user': 1 });
+
 // Static method to get posts with populated author and comment users
 PostSchema.statics.getPostsWithDetails = async function(limit = 20, skip = 0, filter = {}) {
   return this.find(filter)
@@ -128,18 +134,27 @@ PostSchema.statics.getPostsWithDetails = async function(limit = 20, skip = 0, fi
     .skip(skip);
 };
 
+// Helper method to manage likes on any array
+PostSchema.methods._manageLike = function(likesArray, userId, action) {
+  const userIdStr = userId.toString();
+  const existingLikeIndex = likesArray.findIndex(like => like.user.toString() === userIdStr);
+  
+  if (action === 'add' && existingLikeIndex === -1) {
+    likesArray.push({ user: userId });
+  } else if (action === 'remove' && existingLikeIndex !== -1) {
+    likesArray.splice(existingLikeIndex, 1);
+  }
+};
+
 // Instance method to add a like
 PostSchema.methods.addLike = function(userId) {
-  const existingLike = this.likes.find(like => like.user.toString() === userId.toString());
-  if (!existingLike) {
-    this.likes.push({ user: userId });
-  }
+  this._manageLike(this.likes, userId, 'add');
   return this.save();
 };
 
 // Instance method to remove a like
 PostSchema.methods.removeLike = function(userId) {
-  this.likes = this.likes.filter(like => like.user.toString() !== userId.toString());
+  this._manageLike(this.likes, userId, 'remove');
   return this.save();
 };
 
@@ -160,10 +175,7 @@ PostSchema.methods.addCommentLike = function(commentId, userId) {
   const comment = this.comments.id(commentId);
   if (!comment) throw new Error('Comment not found');
   
-  const existingLike = comment.likes.find(like => like.user.toString() === userId.toString());
-  if (!existingLike) {
-    comment.likes.push({ user: userId });
-  }
+  this._manageLike(comment.likes, userId, 'add');
   return this.save();
 };
 
@@ -172,7 +184,7 @@ PostSchema.methods.removeCommentLike = function(commentId, userId) {
   const comment = this.comments.id(commentId);
   if (!comment) throw new Error('Comment not found');
   
-  comment.likes = comment.likes.filter(like => like.user.toString() !== userId.toString());
+  this._manageLike(comment.likes, userId, 'remove');
   return this.save();
 };
 
@@ -202,10 +214,7 @@ PostSchema.methods.addReplyLike = function(commentId, replyId, userId) {
   const reply = comment.replies.id(replyId);
   if (!reply) throw new Error('Reply not found');
   
-  const existingLike = reply.likes.find(like => like.user.toString() === userId.toString());
-  if (!existingLike) {
-    reply.likes.push({ user: userId });
-  }
+  this._manageLike(reply.likes, userId, 'add');
   return this.save();
 };
 
@@ -217,7 +226,7 @@ PostSchema.methods.removeReplyLike = function(commentId, replyId, userId) {
   const reply = comment.replies.id(replyId);
   if (!reply) throw new Error('Reply not found');
   
-  reply.likes = reply.likes.filter(like => like.user.toString() !== userId.toString());
+  this._manageLike(reply.likes, userId, 'remove');
   return this.save();
 };
 
