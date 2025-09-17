@@ -87,8 +87,19 @@ const UserSchema = new mongoose.Schema({
     linkRequestNotifications: {
       type: Boolean,
       default: true
+    },
+    likeNotifications: {
+      type: Boolean,
+      default: true
     }
   },
+  pushSubscriptions: [{
+    endpoint: String,
+    keys: {
+      p256dh: String,
+      auth: String
+    }
+  }],
   date: {
     type: Date,
     default: Date.now

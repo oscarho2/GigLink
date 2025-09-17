@@ -22,7 +22,8 @@ router.get('/notifications', auth, async (req, res) => {
       messageNotifications: true,
       gigResponseNotifications: true,
       gigApplicationNotifications: true,
-      linkRequestNotifications: true
+      linkRequestNotifications: true,
+      likeNotifications: true
     };
     
     res.json(preferences);
@@ -44,7 +45,8 @@ router.put('/notifications', auth, async (req, res) => {
       messageNotifications,
       gigResponseNotifications,
       gigApplicationNotifications,
-      linkRequestNotifications
+      linkRequestNotifications,
+      likeNotifications
     } = req.body;
     
     const user = await User.findById(req.user.id);
@@ -61,7 +63,8 @@ router.put('/notifications', auth, async (req, res) => {
       messageNotifications: messageNotifications !== undefined ? messageNotifications : user.notificationPreferences?.messageNotifications || true,
       gigResponseNotifications: gigResponseNotifications !== undefined ? gigResponseNotifications : user.notificationPreferences?.gigResponseNotifications || true,
       gigApplicationNotifications: gigApplicationNotifications !== undefined ? gigApplicationNotifications : user.notificationPreferences?.gigApplicationNotifications || true,
-      linkRequestNotifications: linkRequestNotifications !== undefined ? linkRequestNotifications : user.notificationPreferences?.linkRequestNotifications || true
+      linkRequestNotifications: linkRequestNotifications !== undefined ? linkRequestNotifications : user.notificationPreferences?.linkRequestNotifications || true,
+      likeNotifications: likeNotifications !== undefined ? likeNotifications : user.notificationPreferences?.likeNotifications || true
     };
     
     await user.save();
