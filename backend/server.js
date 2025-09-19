@@ -15,6 +15,7 @@ const linkRoutes = require('./routes/links');
 const postRoutes = require('./routes/posts');
 const { router: notificationRoutes } = require('./routes/notifications');
 const settingsRoutes = require('./routes/settings');
+const mentionRoutes = require('./routes/mentions');
 const path = require('path');
 
 const app = express();
@@ -44,6 +45,7 @@ app.use('/api/links', linkRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/mentions', mentionRoutes);
 
 // DB Health endpoint
 app.get('/api/health/db', async (req, res) => {

@@ -4,6 +4,7 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { createNotification } = require('./notifications');
+const { parseMentions, getMentionedUserIds } = require('../utils/mentionUtils');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -112,9 +113,14 @@ router.post('/', auth, upload.array('media', 5), async (req, res) => {
     const instrumentArray = instruments ? (Array.isArray(instruments) ? instruments : JSON.parse(instruments || '[]')) : [];
     const genreArray = genres ? (Array.isArray(genres) ? genres : JSON.parse(genres || '[]')) : [];
 
+    // Parse mentions from content
+    const mentionData = await parseMentions(content.trim());
+
     const newPost = new Post({
       author: userId,
-      content: content.trim(),
+      content: mentionData.content,
+      parsedContent: mentionData.parsedContent,
+      mentions: mentionData.mentions,
       media: media,
       instruments: instrumentArray,
       genres: genreArray
@@ -332,7 +338,10 @@ router.post('/:postId/comments', auth, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    await post.addComment(userId, content.trim());
+    // Parse mentions from comment content
+    const mentionData = await parseMentions(content.trim());
+
+    await post.addComment(userId, mentionData.content, mentionData.parsedContent, mentionData.mentions);
     
     // Create notification for post author (if not commenting on own post)
     if (post.author.toString() !== userId) {
@@ -523,7 +532,10 @@ router.post('/:postId/comments/:commentId/replies', auth, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    await post.addReply(commentId, userId, content.trim());
+    // Parse mentions from reply content
+    const mentionData = await parseMentions(content.trim());
+
+    await post.addReply(commentId, userId, mentionData.content, mentionData.parsedContent, mentionData.mentions);
     
     // Return updated post with populated data
     const updatedPost = await Post.findById(postId)

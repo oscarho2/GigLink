@@ -12,6 +12,25 @@ const PostSchema = new mongoose.Schema({
     maxlength: 2000,
     default: ''
   },
+  parsedContent: {
+    type: String,
+    default: ''
+  },
+  mentions: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    username: {
+      type: String,
+      required: true
+    },
+    originalText: {
+      type: String,
+      required: true
+    }
+  }],
   instruments: [{
     type: String,
     trim: true
@@ -56,6 +75,25 @@ const PostSchema = new mongoose.Schema({
       required: true,
       maxlength: 500
     },
+    parsedContent: {
+      type: String,
+      default: ''
+    },
+    mentions: [{
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      },
+      username: {
+        type: String,
+        required: true
+      },
+      originalText: {
+        type: String,
+        required: true
+      }
+    }],
     likes: [{
       user: {
         type: mongoose.Schema.Types.ObjectId,
@@ -81,6 +119,25 @@ const PostSchema = new mongoose.Schema({
         required: true,
         maxlength: 500
       },
+      parsedContent: {
+        type: String,
+        default: ''
+      },
+      mentions: [{
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true
+        },
+        username: {
+          type: String,
+          required: true
+        },
+        originalText: {
+          type: String,
+          required: true
+        }
+      }],
       likes: [{
         user: {
           type: mongoose.Schema.Types.ObjectId,
@@ -159,8 +216,13 @@ PostSchema.methods.removeLike = function(userId) {
 };
 
 // Instance method to add a comment
-PostSchema.methods.addComment = function(userId, content) {
-  this.comments.push({ user: userId, content });
+PostSchema.methods.addComment = function(userId, content, parsedContent = '', mentions = []) {
+  this.comments.push({ 
+    user: userId, 
+    content, 
+    parsedContent,
+    mentions
+  });
   return this.save();
 };
 
@@ -197,12 +259,17 @@ PostSchema.methods.toggleCommentPin = function(commentId) {
   return this.save();
 };
 
-// Instance method to add a reply to a comment
-PostSchema.methods.addReply = function(commentId, userId, content) {
+// Instance method to add a reply
+PostSchema.methods.addReply = function(commentId, userId, content, parsedContent = '', mentions = []) {
   const comment = this.comments.id(commentId);
   if (!comment) throw new Error('Comment not found');
   
-  comment.replies.push({ user: userId, content });
+  comment.replies.push({ 
+    user: userId, 
+    content,
+    parsedContent,
+    mentions
+  });
   return this.save();
 };
 
