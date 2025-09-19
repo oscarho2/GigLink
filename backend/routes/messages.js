@@ -7,6 +7,7 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { createNotification } = require('./notifications');
+const { parseMentions, getMentionedUserIds } = require('../utils/mentionUtils');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads/messages');
@@ -270,10 +271,18 @@ router.post('/send', auth, async (req, res) => {
     
     const conversationId = Message.generateConversationId(senderId, recipientId);
     
+    // Parse mentions from message content
+    let mentionData = { content: '', parsedContent: '', mentions: [] };
+    if (content && content.trim()) {
+      mentionData = await parseMentions(content.trim());
+    }
+    
     const message = new Message({
       sender: senderId,
       recipient: recipientId,
-      content: content ? content.trim() : '',
+      content: mentionData.content || '',
+      parsedContent: mentionData.parsedContent || '',
+      mentions: mentionData.mentions || [],
       conversationId,
       messageType,
       fileUrl,

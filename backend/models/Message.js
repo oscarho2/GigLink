@@ -20,6 +20,25 @@ const messageSchema = new mongoose.Schema({
     trim: true,
     maxlength: 1000
   },
+  parsedContent: {
+    type: String,
+    default: ''
+  },
+  mentions: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    username: {
+      type: String,
+      required: true
+    },
+    originalText: {
+      type: String,
+      required: true
+    }
+  }],
   conversationId: {
     type: String,
     required: true,
