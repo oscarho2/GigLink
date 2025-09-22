@@ -578,9 +578,6 @@ const Discover = () => {
           <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
             Discover Musicians
           </Typography>
-          <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-            Find talented musicians for your next collaboration
-          </Typography>
         </Paper>
 
 
@@ -611,9 +608,9 @@ const Discover = () => {
       <Paper 
         elevation={0} 
         sx={{ 
-          p: 4, 
-          mb: 4, 
-          borderRadius: 3,
+          p: { xs: 2, sm: 3, md: 4 }, 
+          mb: { xs: 2, sm: 3, md: 4 }, 
+          borderRadius: { xs: 2, sm: 3 },
           background: 'linear-gradient(to right, #2c5282, #1a365d)',
           color: 'white'
         }}
@@ -628,11 +625,17 @@ const Discover = () => {
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+            <Typography 
+              variant="h4" 
+              component="h1" 
+              fontWeight="bold"
+              sx={{
+                fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' },
+                lineHeight: { xs: 1.2, sm: 1.3 }
+              }}
+              gutterBottom
+            >
               Discover Musicians
-            </Typography>
-            <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-              Find talented musicians for your next collaboration
             </Typography>
           </Box>
           <Box 
@@ -644,7 +647,6 @@ const Discover = () => {
               justifyContent: { xs: 'stretch', md: 'flex-end' }
             }}
           >
-
             <Button
               variant="contained"
               startIcon={<FilterListIcon />}

@@ -63,6 +63,8 @@ import moment from "moment";
 import MediaDocumentsLinks from "../components/MediaDocumentsLinks";
 import AuthenticatedImage from "../components/AuthenticatedImage";
 import UserAvatar from "../components/UserAvatar";
+import MentionRenderer from "../components/MentionRenderer";
+import MentionInput from "../components/MentionInput";
 
 const Messages = () => {
   const { user, token } = useAuth();
@@ -260,6 +262,8 @@ const Messages = () => {
 
   // Populate acceptedApplicants when messages are loaded
   useEffect(() => {
+    const abortController = new AbortController();
+    
     const populateAcceptedApplicants = async () => {
       // Wait for user to be populated before running, as it's needed for non-owner view
       if (!messages || messages.length === 0 || !token || !user) return;
@@ -279,14 +283,19 @@ const Messages = () => {
       if (gigIds.size === 0) return;
 
       try {
-        // Fetch gig data for each unique gig ID
+        // Fetch gig data for each unique gig ID with abort signal
         const gigPromises = Array.from(gigIds).map((gigId) =>
           axios.get(`/api/gigs/${gigId}`, {
             headers: { "x-auth-token": token },
+            signal: abortController.signal
           })
         );
 
         const gigResponses = await Promise.all(gigPromises);
+        
+        // Check if request was aborted
+        if (abortController.signal.aborted) return;
+        
         const newAcceptedApplicants = new Set();
 
         // Extract accepted applicants from all gigs
@@ -322,13 +331,26 @@ const Messages = () => {
           Array.from(newAcceptedApplicants)
         );
         console.log("=== END ACCEPTED APPLICANTS DEBUG ===");
-        setAcceptedApplicants(newAcceptedApplicants);
+        
+        // Only update state if request wasn't aborted
+        if (!abortController.signal.aborted) {
+          setAcceptedApplicants(newAcceptedApplicants);
+        }
       } catch (err) {
-        console.error("Error fetching gig data for accepted applicants:", err);
+        // Don't log errors for aborted requests
+        if (err.name !== 'AbortError' && err.name !== 'CanceledError') {
+          console.error("Error fetching gig data for accepted applicants:", err);
+        }
       }
     };
 
-    populateAcceptedApplicants();
+    // Debounce the function to prevent rapid successive calls
+    const timeoutId = setTimeout(populateAcceptedApplicants, 300);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      abortController.abort();
+    };
   }, [messages, token, user]);
 
   const messagesEndRef = useRef(null);
@@ -559,7 +581,7 @@ const Messages = () => {
   };
 
   // Fetch messages for a conversation
-  const fetchMessages = async (otherUserId, page = 1, append = false) => {
+  const fetchMessages = async (otherUserId, page = 1, append = false, signal = null) => {
     console.log("=== FETCH MESSAGES CALLED ===");
     console.log(
       "fetchMessages called with otherUserId:",
@@ -611,6 +633,7 @@ const Messages = () => {
         `/api/messages/conversation/${otherUserId}?page=${page}&limit=20`,
         {
           headers: { "x-auth-token": token },
+          signal
         }
       );
       console.log("=== API RESPONSE RECEIVED ===");
@@ -625,6 +648,17 @@ const Messages = () => {
         setMessages((prev) => [...newMessages, ...prev]);
       } else {
         setMessages(Array.isArray(newMessages) ? newMessages : []);
+        // For new conversation loads, ensure scroll to bottom after messages are set
+        if (page === 1 && newMessages && newMessages.length > 0) {
+          // Use multiple requestAnimationFrame to ensure DOM is fully updated
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                scrollToBottom();
+              });
+            });
+          });
+        }
       }
 
       setCurrentPage(pagination.currentPage);
@@ -662,6 +696,7 @@ const Messages = () => {
                 },
                 {
                   headers: { "x-auth-token": token },
+                  signal
                 }
               );
             } catch (error) {
@@ -683,6 +718,7 @@ const Messages = () => {
         try {
           const userResponse = await axios.get(`/api/users/${otherUserId}`, {
             headers: { "x-auth-token": token },
+            signal
           });
           const otherUser = userResponse.data;
           setSelectedConversation({ _id: otherUserId, otherUser });
@@ -694,6 +730,10 @@ const Messages = () => {
       console.log("Messages state updated, count:", newMessages.length);
       return pagination;
     } catch (err) {
+      if (err.name === 'AbortError') {
+        console.log('Fetch messages request was aborted');
+        return;
+      }
       console.error("=== ERROR FETCHING MESSAGES ===");
       console.error("Error fetching messages:", err);
       console.error("Error response:", err.response?.data);
@@ -797,7 +837,17 @@ const Messages = () => {
       // Reset pagination and fetch latest messages
       setCurrentPage(1);
       setHasMoreMessages(true);
-      fetchMessages(otherUserId, 1, false);
+      await fetchMessages(otherUserId, 1, false);
+      
+      // Ensure scroll to bottom after sending message so sender can see their message
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            scrollToBottom();
+          });
+        });
+      });
+      
       fetchConversations();
     } catch (err) {
       console.error("Error sending message:", err);
@@ -1103,13 +1153,21 @@ const Messages = () => {
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
-      // Use double requestAnimationFrame to ensure DOM is fully updated
+      // Use requestAnimationFrame to ensure DOM is fully rendered
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (messagesContainerRef.current) {
-            // Scroll only the message container div to the bottom
-            messagesContainerRef.current.scrollTop =
-              messagesContainerRef.current.scrollHeight;
+            // Force scroll to bottom multiple times to ensure it works
+            const scrollToBottomForced = () => {
+              if (messagesContainerRef.current) {
+                messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+              }
+            };
+            scrollToBottomForced();
+            // Double-check scroll position after a brief delay
+            setTimeout(scrollToBottomForced, 50);
+            // Triple-check to ensure scroll position is correct
+            setTimeout(scrollToBottomForced, 100);
           }
         });
       });
@@ -1150,34 +1208,15 @@ const Messages = () => {
     const appendedAtBottom = !!prevLastId && !!currentLastId && currentLastId !== prevLastId;
 
     if (conversationChanged && !loadingMoreMessages && !justLoadedMoreRef.current) {
-      // When switching conversations, handle the transition smoothly
-      if (messagesContainerRef.current) {
-        if (messages && messages.length > 0) {
-          // Messages are loaded, do smooth transition
-          messagesContainerRef.current.style.opacity = '0';
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              if (messagesContainerRef.current) {
-                messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-                messagesContainerRef.current.style.opacity = '1';
-              }
-            });
-          });
-        } else {
-          // No messages yet, keep container hidden until messages load
-          messagesContainerRef.current.style.opacity = '0';
-        }
-      }
-    } else if (!conversationChanged && messages && messages.length > 0 && messagesContainerRef.current && messagesContainerRef.current.style.opacity === '0') {
-      // Messages loaded for current conversation, show them
-      requestAnimationFrame(() => {
+      // When switching conversations, scroll to bottom smoothly
+      if (messages && messages.length > 0) {
+        // Use requestAnimationFrame to ensure DOM is updated before scrolling
         requestAnimationFrame(() => {
-          if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-            messagesContainerRef.current.style.opacity = '1';
-          }
+          requestAnimationFrame(() => {
+            scrollToBottom();
+          });
         });
-      });
+      }
     } else if (
       appendedAtBottom &&
       !loadingMoreMessages &&
@@ -1958,8 +1997,23 @@ const Messages = () => {
                       const isAlreadySelected = selectedConversation?.otherUser?._id === conversation.otherUser._id;
                       
                       if (!isAlreadySelected) {
+                        // Abort any ongoing fetch requests
+                        if (window.currentFetchController) {
+                          window.currentFetchController.abort();
+                        }
+                        
+                        // Create new AbortController for this request
+                        const controller = new AbortController();
+                        window.currentFetchController = controller;
+                        
                         // Set selected conversation immediately to prevent race conditions
                         setSelectedConversation(conversation);
+                        
+                        // Clear messages immediately to prevent showing old messages
+                        setMessages([]);
+                        
+                        // Set loading state for smooth transition
+                        setLoading(true);
                         
                         // Set the timestamp for "new messages" line based on unread count
                         // If there are unread messages, set timestamp to show them as new
@@ -1978,7 +2032,7 @@ const Messages = () => {
                           // No unread messages, set to current time
                           setLastReadTimestamp(moment());
                         }
-                        fetchMessages(conversation.otherUser._id, 1, false);
+                        fetchMessages(conversation.otherUser._id, 1, false, controller.signal);
                       }
                       
                       // Show conversation view on mobile
@@ -2060,11 +2114,17 @@ const Messages = () => {
                           alignItems: "center",
                         }}
                       >
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          noWrap
-                          sx={{ maxWidth: "200px" }}
+                        <Box
+                          component="span"
+                          sx={{
+                            fontSize: "0.875rem",
+                            color: "text.secondary",
+                            maxWidth: "200px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            display: "block"
+                          }}
                         >
                           {(() => {
                             const lastMsg = conversation.lastMessage;
@@ -2087,7 +2147,7 @@ const Messages = () => {
                             return lastMsg.content || "No messages yet";
                           })()
                           }
-                        </Typography>
+                        </Box>
                         {conversation.unreadCount > 0 && (
                           <Badge
                             badgeContent={conversation.unreadCount}
@@ -2160,7 +2220,14 @@ const Messages = () => {
                     }
                   }}
                 />
-                <Box>
+                <Box
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    if (selectedConversation?.otherUser?._id) {
+                      navigate(`/profile/${selectedConversation.otherUser._id}`);
+                    }
+                  }}
+                >
                   <Typography variant="subtitle1" fontWeight="500">
                     {selectedConversation?.otherUser?.name ||
                       conversations.find(
@@ -2584,24 +2651,27 @@ const Messages = () => {
                                           "Unknown"}
                                       </Typography>
                                     </Box>
-                                    <Typography
-                                      variant="body2"
-                                      color={
-                                        isOwn
-                                          ? "rgba(25, 118, 210, 0.8)"
-                                          : "text.secondary"
-                                      }
+                                    <Box
                                       sx={{
                                         display: "-webkit-box",
                                         WebkitLineClamp: 3,
                                         WebkitBoxOrient: "vertical",
                                         overflow: "hidden",
                                         fontSize: "0.8rem",
+                                        color: isOwn
+                                          ? "rgba(25, 118, 210, 0.8)"
+                                          : "text.secondary",
                                       }}
                                     >
-                                      {message.replyTo.content ||
-                                        "File attachment"}
-                                    </Typography>
+                                      {message.replyTo.content ? (
+                                        <MentionRenderer
+                                          content={message.replyTo.parsedContent || message.replyTo.content}
+                                          mentions={message.replyTo.mentions || []}
+                                        />
+                                      ) : (
+                                        "File attachment"
+                                      )}
+                                    </Box>
                                   </Paper>
                                 )}
 
@@ -2609,12 +2679,12 @@ const Messages = () => {
                                 {message.fileUrl ? (
                                   <Box>
                                     {message.content && (
-                                      <Typography
-                                        variant="body2"
-                                        sx={{ wordBreak: "break-word", mb: 1 }}
-                                      >
-                                        {message.content}
-                                      </Typography>
+                                      <Box sx={{ wordBreak: "break-word", mb: 1 }}>
+                                        <MentionRenderer
+                                          content={message.parsedContent || message.content}
+                                          mentions={message.mentions || []}
+                                        />
+                                      </Box>
                                     )}
 
                                     {/* File attachment */}
@@ -2719,15 +2789,17 @@ const Messages = () => {
                                     )}
                                   </Box>
                                 ) : (
-                                  <Typography
-                                    variant="body2"
+                                  <Box
                                     sx={{
                                       wordBreak: "break-word",
                                       color: isOwn ? "#1a365d" : "inherit",
                                     }}
                                   >
-                                    {message.content}
-                                  </Typography>
+                                    <MentionRenderer
+                                      content={message.parsedContent || message.content}
+                                      mentions={message.mentions || []}
+                                    />
+                                  </Box>
                                 )}
 
                                 {/* Gig Application Component */}
@@ -2882,7 +2954,7 @@ const Messages = () => {
                                                   {message.gigApplication.gigInstruments.map(
                                                     (instrument, index) => (
                                                       <Chip
-                                                        key={index}
+                                                        key={`${message._id}-instrument-${index}-${instrument}`}
                                                         label={instrument}
                                                         size="small"
                                                         sx={{
@@ -2931,7 +3003,7 @@ const Messages = () => {
                                                   {message.gigApplication.gigGenres.map(
                                                     (genre, index) => (
                                                       <Chip
-                                                        key={index}
+                                                        key={`${message._id}-genre-${index}-${genre}`}
                                                         label={genre}
                                                         size="small"
                                                         variant="outlined"
@@ -3480,7 +3552,7 @@ const Messages = () => {
                   </Typography>
                 </Box>
                 <IconButton size="small" onClick={clearSelectedFile}>
-                  <Typography>×</Typography>
+                  <Box component="span">×</Box>
                 </IconButton>
               </Box>
             )}
@@ -3594,7 +3666,7 @@ const Messages = () => {
                 />
               </IconButton>
 
-              <TextField
+              <MentionInput
                 ref={messageInputRef}
                 fullWidth
                 multiline
@@ -3750,7 +3822,7 @@ const Messages = () => {
                           }}
                         >
                           <ListItemAvatar>
-                            <UserAvatar user={user} size={40} />
+                            <UserAvatar user={user} size={40} mobileSize={32} />
                           </ListItemAvatar>
                           <ListItemText primary={user.name} />
                         </ListItem>

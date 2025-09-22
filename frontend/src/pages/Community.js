@@ -55,6 +55,8 @@ import { toast } from 'react-toastify';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import UserAvatar from '../components/UserAvatar';
+import MentionRenderer from '../components/MentionRenderer';
+import MentionInput from '../components/MentionInput';
 
 const Community = () => {
   const { user, token } = useAuth();
@@ -672,18 +674,22 @@ const Community = () => {
           <UserAvatar
              user={user}
              size={48}
+             mobileSize={40}
              onClick={() => navigate('/profile/edit')}
            />
           <Box
             onClick={() => setCreatePostModalOpen(true)}
             sx={{
               flexGrow: 1,
-              p: 2,
-              borderRadius: 6,
+              p: { xs: 1.5, sm: 2 },
+              borderRadius: { xs: 4, sm: 6 },
               border: '1px solid #e2e8f0',
               bgcolor: '#f8fafc',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
+              minHeight: { xs: 44, sm: 48 },
+              display: 'flex',
+              alignItems: 'center',
               '&:hover': {
                 bgcolor: '#f1f5f9',
                 borderColor: '#cbd5e0'
@@ -693,7 +699,11 @@ const Community = () => {
             <Typography
               variant="body1"
               color="text.secondary"
-              sx={{ fontWeight: 'normal' }}
+              sx={{ 
+                fontWeight: 'normal',
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+                lineHeight: { xs: 1.4, sm: 1.5 }
+              }}
             >
               What's on your mind, {user?.name?.split(' ')[0] || 'there'}?
             </Typography>
@@ -705,6 +715,11 @@ const Community = () => {
               borderColor: '#1a365d',
               color: '#1a365d',
               fontWeight: 'medium',
+              px: { xs: 2, sm: 3 },
+              py: { xs: 1, sm: 1.2 },
+              fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+              minHeight: { xs: 36, sm: 40 },
+              minWidth: { xs: 'auto', sm: 'auto' },
               '&:hover': {
                 borderColor: '#2c5282',
                 color: '#2c5282',
@@ -881,13 +896,15 @@ const Community = () => {
         </DialogTitle>
         <DialogContent sx={{ p: 4 }}>
           <Box component="form" onSubmit={handleSubmitPost} sx={{ mt: 2 }}>
-            <TextField
+            <MentionInput
               fullWidth
               multiline
               rows={4}
               placeholder="What's on your mind? Share your musical journey..."
               value={postContent}
-              onChange={(e) => setPostContent(e.target.value)}
+              onChange={(e) => {
+                setPostContent(e.target.value);
+              }}
               variant="outlined"
               sx={{ 
                 mb: 4,
@@ -1182,6 +1199,7 @@ const Community = () => {
                 <UserAvatar 
                   user={post.author}
                   size={48}
+                  mobileSize={40}
                   onClick={() => navigate(`/profile/${post.author._id}`)}
                 />
               }
@@ -1225,7 +1243,7 @@ const Community = () => {
             <CardContent sx={{ pt: 0, px: 3, pb: 2 }}>
               <Typography 
                 variant="body1" 
-                component="p"
+                component="div"
                 sx={{
                   lineHeight: 1.7,
                   fontSize: '1rem',
@@ -1233,7 +1251,11 @@ const Community = () => {
                   mb: 3
                 }}
               >
-                {post.content}
+                <MentionRenderer 
+                  content={post.parsedContent || post.content}
+                  mentions={post.mentions || []}
+                  variant="link"
+                />
               </Typography>
               
               {post.media && post.media.length > 0 && (
@@ -1340,7 +1362,7 @@ const Community = () => {
                     size={32}
                     sx={{ mr: 1 }}
                   />
-                  <TextField
+                  <MentionInput
                     fullWidth
                     size="small"
                     placeholder="Write a comment..."
@@ -1404,8 +1426,12 @@ const Community = () => {
                             secondary={
                               <Box>
                                 <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                                  <Typography variant="body2" sx={{ flex: 1, mr: 2 }}>
-                                    {comment.content}
+                                  <Typography variant="body2" component="div" sx={{ flex: 1, mr: 2 }}>
+                                    <MentionRenderer 
+                                      content={comment.parsedContent || comment.content}
+                                      mentions={comment.mentions || []}
+                                      variant="link"
+                                    />
                                   </Typography>
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
                                     {comment.pinned && (
@@ -1458,7 +1484,7 @@ const Community = () => {
                                 user={user}
                                 size={24}
                               />
-                              <TextField
+                              <MentionInput
                                 ref={replyInputRef}
                                 fullWidth
                                 size="small"
@@ -1523,8 +1549,12 @@ const Community = () => {
                                   secondary={
                                     <Box>
                                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.875rem', flex: 1 }}>
-                                          {reply.content}
+                                        <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem', flex: 1 }}>
+                                          <MentionRenderer 
+                                            content={reply.parsedContent || reply.content}
+                                            mentions={reply.mentions || []}
+                                            variant="link"
+                                          />
                                         </Typography>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                           <IconButton

@@ -90,15 +90,21 @@ const MobileBottomNavigation = () => {
             minWidth: 'auto',
             padding: '6px 12px 8px',
             '&.Mui-selected': {
-              color: theme.palette.primary.main,
+              color: 'black',
             },
           },
           '& .MuiBottomNavigationAction-label': {
             fontSize: '0.75rem',
             fontWeight: 500,
+            opacity: 1,
+            transform: 'none',
             '&.Mui-selected': {
               fontSize: '0.75rem',
+              color: 'black',
             },
+          },
+          '& .MuiBottomNavigationAction-iconOnly': {
+            paddingTop: '6px',
           },
         }}
       >
@@ -117,9 +123,9 @@ const MobileBottomNavigation = () => {
         <BottomNavigationAction
           label="Messages"
           icon={
-            <Badge badgeContent={totalUnreadCount} color="error">
+            // <Badge badgeContent={totalUnreadCount} color="error">
               <MessageIcon />
-            </Badge>
+            // </Badge>
           }
         />
         <BottomNavigationAction

@@ -49,6 +49,8 @@ import AuthContext from '../context/AuthContext';
 import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
 import UserAvatar from '../components/UserAvatar';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { Skeleton } from '@mui/material';
 
 // TabPanel component for links section
 function TabPanel({ children, value, index, ...other }) {
@@ -339,6 +341,9 @@ const Dashboard = () => {
       // Refresh the gig from server to ensure we have up-to-date applicants and isFilled
       const res = await axios.get(`/api/gigs/${gigId}`, { headers });
       setGigs(gigs.map(g => g._id === gigId ? res.data : g));
+      
+      // Refresh applications data to show updated status
+      await fetchApplicationsData();
     } catch (err) {
       console.error('Error accepting/undoing applicant:', err);
       alert(`Failed to process applicant: ${err.response?.data?.msg || err.message}`);
@@ -395,8 +400,72 @@ const Dashboard = () => {
 
   if (authLoading || loading) {
     return (
-      <Container>
-        <Typography>Loading...</Typography>
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        {/* Enhanced Loading State */}
+        <Box sx={{ mb: 4 }}>
+          <Skeleton variant="text" width={200} height={48} sx={{ mb: 2 }} />
+        </Box>
+        
+        <Grid container spacing={4}>
+          {/* Left Column Skeleton */}
+          <Grid item xs={12} md={6} lg={4}>
+            <Card sx={{ mb: 2 }}>
+              <CardContent sx={{ p: 2, pb: 1.5 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+                  <Skeleton variant="circular" width={80} height={80} sx={{ mb: 2 }} />
+                  <Skeleton variant="text" width={150} height={32} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width={120} height={20} />
+                </Box>
+                <Box sx={{ mb: 2 }}>
+                  <Skeleton variant="text" width="100%" height={20} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="80%" height={20} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="60%" height={20} />
+                </Box>
+              </CardContent>
+              <CardActions sx={{ p: 2, pt: 0 }}>
+                <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1 }} />
+              </CardActions>
+            </Card>
+            
+            <Card>
+              <CardContent sx={{ p: 2 }}>
+                <Skeleton variant="text" width={150} height={28} sx={{ mb: 2 }} />
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1 }} />
+                  <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1 }} />
+                  <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          {/* Right Column Skeleton */}
+          <Grid item xs={12} md={6} lg={8}>
+            <Card sx={{ mb: 2 }}>
+              <CardContent sx={{ p: 2 }}>
+                <Skeleton variant="text" width={120} height={28} sx={{ mb: 2 }} />
+                <Box sx={{ maxHeight: 400, overflow: 'auto', pr: 1 }}>
+                  {[1, 2, 3].map((item) => (
+                    <Box key={item} sx={{ mb: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                      <Skeleton variant="text" width="80%" height={24} sx={{ mb: 1 }} />
+                      <Skeleton variant="text" width="60%" height={20} sx={{ mb: 1 }} />
+                      <Skeleton variant="text" width="40%" height={20} />
+                    </Box>
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+        
+        {/* Centered Loading Spinner */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <LoadingSpinner 
+            type="spinner" 
+            size="medium" 
+            text="Loading your dashboard..." 
+          />
+        </Box>
       </Container>
     );
   }
@@ -433,6 +502,7 @@ const Dashboard = () => {
                 <UserAvatar
                   user={profile?.user || user}
                   size={80}
+                  mobileSize={64}
                   sx={{ mb: 2 }}
                 />
                 <Typography variant="h6" component="h2" align="center" gutterBottom>
@@ -910,7 +980,7 @@ const Dashboard = () => {
                                 color: gig.isFilled ? 'text.disabled' : 'inherit'
                               }}
                             >
-                              {gig.isFilled ? 'FILLED: ' : ''}{gig.title}
+                              {gig.isFilled ? 'FIXED: ' : ''}{gig.title}
                             </Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                               <LocationOnIcon sx={{ fontSize: '1rem', mr: 0.5, color: 'text.secondary' }} />
@@ -927,7 +997,7 @@ const Dashboard = () => {
                           </Box>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                             <Chip
-                              label={gig.isFilled ? 'Filled' : 'Open'}
+                              label={gig.isFilled ? 'Fixed' : 'Open'}
                               color={gig.isFilled ? 'default' : 'success'}
                               size="small"
                             />
@@ -1048,7 +1118,7 @@ const Dashboard = () => {
                                 color: gig.isFilled ? 'text.disabled' : 'inherit'
                               }}
                             >
-                              {gig.isFilled ? 'Fixed: ' : ''}{gig.title}
+                              {gig.isFilled ? 'FIXED: ' : ''}{gig.title}
                             </Typography>
                           }
                           secondary={
@@ -1087,7 +1157,7 @@ const Dashboard = () => {
                         minWidth: 'fit-content'
                       }}>
                         <Chip
-                          label={gig.isFilled ? 'Filled' : 'Open'}
+                          label={gig.isFilled ? 'Fixed' : 'Open'}
                           color={gig.isFilled ? 'default' : 'success'}
                           size="small"
                         />
@@ -1197,7 +1267,7 @@ const Dashboard = () => {
              </Typography>
            </Box>
 
-           <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+           <Box sx={{ maxHeight: 400, overflow: 'auto', pr: 1 }}>
              {applicationsLoading ? (
                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
                  Loading applications...
@@ -1208,7 +1278,7 @@ const Dashboard = () => {
                </Typography>
              ) : (
                <List>
-                 {applications.slice(0, 3).map((application) => {
+                 {applications.map((application) => {
                    const status = application.applicationStatus || 'pending';
                    const chipColor = status === 'accepted' ? 'success' : status === 'rejected' ? 'error' : 'warning';
                    const appliedDate = application.applicationDate
@@ -1216,24 +1286,34 @@ const Dashboard = () => {
                      : '—';
                    return (
                      <ListItem key={application._id} divider>
-                       <ListItemText
-                         disableTypography
-                         primary={
-                           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                             {application.title || 'Gig Title'}
-                           </Typography>
-                         }
-                         secondary={
-                           <Box>
-                             <Typography variant="body2" color="text.secondary" component="div">
-                               Status: <Chip label={status.charAt(0).toUpperCase() + status.slice(1)} size="small" color={chipColor} />
+                       <ListItemButton
+                          onClick={() => navigate(`/gigs/${application._id}`)}
+                          sx={{
+                            borderRadius: 1,
+                            '&:hover': {
+                              backgroundColor: 'action.hover'
+                            }
+                          }}
+                       >
+                         <ListItemText
+                           disableTypography
+                           primary={
+                             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                               {application.title || 'Gig Title'}
                              </Typography>
-                             <Typography variant="body2" color="text.secondary" component="div">
-                               Applied: {appliedDate}
-                             </Typography>
-                           </Box>
-                         }
-                       />
+                           }
+                           secondary={
+                             <Box>
+                               <Typography variant="body2" color="text.secondary" component="div">
+                                 Status: <Chip label={status.charAt(0).toUpperCase() + status.slice(1)} size="small" color={chipColor} />
+                               </Typography>
+                               <Typography variant="body2" color="text.secondary" component="div">
+                                 Applied: {appliedDate}
+                               </Typography>
+                             </Box>
+                           }
+                         />
+                       </ListItemButton>
                      </ListItem>
                    );
                  })}

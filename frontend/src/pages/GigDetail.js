@@ -290,7 +290,7 @@ const GigDetail = () => {
         <Box 
           sx={{
             p: { xs: 2.5, sm: 3, md: 4 }, 
-            background: 'linear-gradient(to right, #2c5282, #1a365d)',
+            background: gig.isFilled ? 'linear-gradient(to right, #9ca3af, #6b7280)' : 'linear-gradient(to right, #2c5282, #1a365d)',
             color: 'white'
           }}
         >
@@ -304,7 +304,7 @@ const GigDetail = () => {
               lineHeight: { xs: 1.2, sm: 1.3 }
             }}
           >
-            {gig.title}
+            {gig.isFilled ? 'FIXED: ' : ''}{gig.title}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', mt: { xs: 1.5, sm: 2 } }}>
             <LocationOnIcon sx={{ mr: 1, fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
@@ -493,6 +493,7 @@ const GigDetail = () => {
                           <UserAvatar 
                             user={typeof applicant.user === 'object' ? applicant.user : { name: 'Unknown', _id: applicantUserId }}
                             size={40}
+                            mobileSize={32}
                             sx={{ 
                               mr: 2
                             }}
@@ -839,18 +840,22 @@ const GigDetail = () => {
                     borderRadius: 2,
                     fontSize: { xs: '1rem', sm: '1.1rem' },
                     fontWeight: 'bold',
-                    bgcolor: '#2c5282',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    bgcolor: gig.isFilled ? '#cccccc' : '#2c5282',
+                    boxShadow: gig.isFilled ? 'none' : '0 4px 12px rgba(0, 0, 0, 0.15)',
                     width: { xs: '100%', sm: 'auto' },
                     minHeight: { xs: 48, sm: 'auto' },
                     '&:hover': {
-                      bgcolor: '#1a365d',
-                      boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
+                      bgcolor: gig.isFilled ? '#cccccc' : '#1a365d',
+                      boxShadow: gig.isFilled ? 'none' : '0 6px 16px rgba(0, 0, 0, 0.2)',
+                    },
+                    '&.Mui-disabled': {
+                      bgcolor: '#cccccc',
+                      color: '#666666'
                     }
                   }}
-                  disabled={isPoster || hasApplied}
+                  disabled={isPoster || hasApplied || gig.isFilled}
                 >
-                   {hasApplied ? 'Already Applied' : 'Apply for this Gig'}
+                   {gig.isFilled ? 'Gig Fixed' : hasApplied ? 'Already Applied' : 'Apply for this Gig'}
                 </Button>
               </Box>
             )}

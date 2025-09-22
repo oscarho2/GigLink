@@ -296,11 +296,17 @@ export const NotificationProvider = ({ children }) => {
 
     // Listen for new notifications
     const handleNewNotification = (notification) => {
+      console.log('Received newNotification event:', notification);
       if (notification.recipient === user._id) {
+        console.log('Processing notification for current user');
         // Check if notification already exists to prevent duplicates
         setNotifications(prev => {
           const exists = prev.some(notif => notif._id === notification._id);
-          if (exists) return prev;
+          if (exists) {
+            console.log('Notification already exists, skipping');
+            return prev;
+          }
+          console.log('Adding new notification to state');
           return [notification, ...prev];
         });
         

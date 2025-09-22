@@ -161,7 +161,15 @@ const UserLinks = () => {
                   onClick={() => handleUserClick(m._id)}
                 >
                   <ListItemAvatar>
-                    <Avatar src={m.profilePicture} alt={m.name}>
+                    <Avatar 
+                      src={m.profilePicture} 
+                      alt={m.name}
+                      sx={{
+                        width: { xs: 32, sm: 40 },
+                        height: { xs: 32, sm: 40 },
+                        fontSize: { xs: '0.875rem', sm: '1rem' }
+                      }}
+                    >
                       {m.name?.charAt(0)}
                     </Avatar>
                   </ListItemAvatar>

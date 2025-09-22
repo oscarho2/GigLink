@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -25,6 +25,7 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import pushNotificationService from '../utils/pushNotifications';
 
 const Settings = () => {
   const { user, logout, token } = useAuth();
@@ -35,6 +36,17 @@ const Settings = () => {
     profileVisibility: true,
     autoAcceptLinks: false,
     darkMode: false
+  });
+  
+  const [notificationPreferences, setNotificationPreferences] = useState({
+    emailNotifications: true,
+    pushNotifications: false,
+    commentNotifications: true,
+    messageNotifications: true,
+    gigResponseNotifications: true,
+    gigApplicationNotifications: true,
+    linkRequestNotifications: true,
+    likeNotifications: true
   });
   const [showSuccess, setShowSuccess] = useState(false);
   
@@ -56,6 +68,11 @@ const Settings = () => {
   const [deleteDialogStep, setDeleteDialogStep] = useState(0); // 0: closed, 1: first warning, 2: final confirmation
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  
+  // Push notification state
+  const [pushNotificationSupported, setPushNotificationSupported] = useState(false);
+  const [pushPermission, setPushPermission] = useState('default');
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   const handleSettingChange = (setting) => (event) => {
     setSettings({
@@ -64,11 +81,120 @@ const Settings = () => {
     });
   };
 
-  const handleSaveSettings = () => {
-    // TODO: Implement API call to save settings
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+  const handleSaveSettings = async () => {
+    try {
+      // Save notification preferences
+      await axios.put('/api/settings/notifications', notificationPreferences, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      // TODO: Implement API call to save other settings
+      // Success feedback removed as requested
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      // TODO: Show error message
+    }
   };
+  
+  const handleNotificationChange = (setting) => async (event) => {
+    const isChecked = event.target.checked;
+    
+    // Handle push notifications specially
+    if (setting === 'pushNotifications') {
+      if (isChecked) {
+        try {
+          // Request permission first
+          const permission = await pushNotificationService.requestPermission();
+          setPushPermission(permission);
+          
+          if (permission === 'granted') {
+            // Subscribe to push notifications
+            await pushNotificationService.subscribe(token);
+            setIsSubscribed(true);
+          } else {
+            // Permission denied, don't update the setting
+            return;
+          }
+        } catch (error) {
+          console.error('Error enabling push notifications:', error);
+          return;
+        }
+      } else {
+        try {
+          // Unsubscribe from push notifications
+          await pushNotificationService.unsubscribe(token);
+          setIsSubscribed(false);
+        } catch (error) {
+          console.error('Error disabling push notifications:', error);
+          return;
+        }
+      }
+    }
+    
+    const newPreferences = {
+      ...notificationPreferences,
+      [setting]: isChecked
+    };
+    
+    setNotificationPreferences(newPreferences);
+    
+    // Auto-save settings when changed
+    try {
+      await axios.put('/api/settings/notifications', newPreferences, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (err) {
+      console.error('Error saving notification preferences:', err);
+      // Revert the change if save failed
+      setNotificationPreferences(notificationPreferences);
+    }
+  };
+  
+  // Load notification preferences on component mount
+  React.useEffect(() => {
+    const loadNotificationPreferences = async () => {
+      try {
+        const response = await axios.get('/api/settings/notifications', {
+          headers: { 'x-auth-token': token }
+        });
+        setNotificationPreferences(response.data);
+      } catch (err) {
+        console.error('Error loading notification preferences:', err);
+      }
+    };
+    
+    if (token) {
+      loadNotificationPreferences();
+    }
+  }, [token]);
+  
+  // Initialize push notifications on component mount
+  React.useEffect(() => {
+    const initializePushNotifications = async () => {
+      try {
+        const isInitialized = await pushNotificationService.init();
+        setPushNotificationSupported(isInitialized);
+        
+        if (isInitialized) {
+          // Check current permission status
+          const permission = Notification.permission;
+          setPushPermission(permission);
+          
+          // Check if user is already subscribed
+          const subscribed = await pushNotificationService.isSubscribed();
+          setIsSubscribed(subscribed);
+        }
+      } catch (error) {
+        console.error('Error initializing push notifications:', error);
+        setPushNotificationSupported(false);
+      }
+    };
+    
+    initializePushNotifications();
+  }, []);
 
   // Password change handlers
   const handlePasswordChange = () => {
@@ -171,32 +297,188 @@ const Settings = () => {
               <Typography variant="h6" gutterBottom>
                 Notification Preferences
               </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Choose which notifications you'd like to receive
+              </Typography>
               <Box sx={{ mt: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={settings.emailNotifications}
-                      onChange={handleSettingChange('emailNotifications')}
-                    />
-                  }
-                  label="Email Notifications"
-                />
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 4, mb: 2 }}>
-                  Receive email notifications for new messages and gig opportunities
+                <Typography variant="subtitle2" sx={{ mt: 2, mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
+                  Delivery Methods
                 </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notificationPreferences.emailNotifications}
+                        onChange={handleNotificationChange('emailNotifications')}
+                        color="primary"
+                      />
+                    }
+                    label="Email Notifications"
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notificationPreferences.pushNotifications && isSubscribed}
+                        onChange={handleNotificationChange('pushNotifications')}
+                        disabled={!pushNotificationSupported || pushPermission === 'denied'}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Box component="span">
+                          Push Notifications
+                        </Box>
+                        {!pushNotificationSupported && (
+                          <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>
+                            Not supported in this browser
+                          </Box>
+                        )}
+                        {pushNotificationSupported && pushPermission === 'denied' && (
+                          <Box component="div" sx={{ fontSize: '0.75rem', color: 'error.main', mt: 0.5 }}>
+                            Permission denied - please enable in browser settings
+                          </Box>
+                        )}
+                        {pushNotificationSupported && pushPermission === 'granted' && isSubscribed && (
+                          <Box component="div" sx={{ fontSize: '0.75rem', color: 'success.main', mt: 0.5 }}>
+                            Active
+                          </Box>
+                        )}
+                      </Box>
+                    }
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      opacity: (!pushNotificationSupported || pushPermission === 'denied') ? 0.6 : 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  />
+                </Box>
                 
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={settings.pushNotifications}
-                      onChange={handleSettingChange('pushNotifications')}
-                    />
-                  }
-                  label="Push Notifications"
-                />
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
-                  Receive push notifications on your device
+                <Typography variant="subtitle2" sx={{ mt: 2, mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
+                  Notification Types
                 </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notificationPreferences.likeNotifications}
+                        onChange={handleNotificationChange('likeNotifications')}
+                        color="primary"
+                      />
+                    }
+                    label="Likes on your posts"
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notificationPreferences.commentNotifications}
+                        onChange={handleNotificationChange('commentNotifications')}
+                        color="primary"
+                      />
+                    }
+                    label="Comments on your posts"
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notificationPreferences.messageNotifications}
+                        onChange={handleNotificationChange('messageNotifications')}
+                        color="primary"
+                      />
+                    }
+                    label="Direct messages"
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notificationPreferences.gigResponseNotifications}
+                        onChange={handleNotificationChange('gigResponseNotifications')}
+                        color="primary"
+                      />
+                    }
+                    label="Gig responses"
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notificationPreferences.gigApplicationNotifications}
+                        onChange={handleNotificationChange('gigApplicationNotifications')}
+                        color="primary"
+                      />
+                    }
+                    label="Gig applications"
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notificationPreferences.linkRequestNotifications}
+                        onChange={handleNotificationChange('linkRequestNotifications')}
+                        color="primary"
+                      />
+                    }
+                    label="Link requests"
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  />
+                </Box>
               </Box>
             </CardContent>
           </Card>
@@ -212,40 +494,83 @@ const Settings = () => {
                 Appearance
               </Typography>
               <Box sx={{ mt: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={settings.darkMode}
-                      onChange={handleSettingChange('darkMode')}
-                    />
-                  }
-                  label="Dark Mode"
-                />
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
-                  Switch to dark theme (coming soon)
-                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={settings.darkMode}
+                        onChange={handleSettingChange('darkMode')}
+                        color="primary"
+                      />
+                    }
+                    label="Dark Mode"
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  />
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 2, mt: -1 }}>
+                    Switch to dark theme (coming soon)
+                  </Typography>
+                </Box>
               </Box>
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Account Actions */}
+        {/* Account Management */}
         <Grid item xs={12}>
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-            <Button 
-              variant="contained" 
-              onClick={handlePasswordChange}
-            >
-              Change Password
-            </Button>
-            <Button 
-              variant="outlined" 
-              color="error" 
-              onClick={handleDeleteAccount}
-            >
-              Delete Account
-            </Button>
-          </Box>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Account Management
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Manage your account security and data
+              </Typography>
+              
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Button 
+                  variant="contained" 
+                  onClick={handlePasswordChange}
+                  sx={{ 
+                    py: 1.5,
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    fontWeight: 500
+                  }}
+                >
+                  Change Password
+                </Button>
+                
+                <Button 
+                  variant="outlined" 
+                  color="error" 
+                  onClick={handleDeleteAccount}
+                  sx={{ 
+                    py: 1.5,
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    fontWeight: 500,
+                    borderWidth: 2,
+                    '&:hover': {
+                      borderWidth: 2,
+                      backgroundColor: 'error.main',
+                      color: 'white'
+                    }
+                  }}
+                >
+                  Delete Account
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
 

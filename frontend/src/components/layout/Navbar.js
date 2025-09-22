@@ -1,5 +1,5 @@
 import React, { useContext, useState, useCallback, memo } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
@@ -25,6 +25,7 @@ const Navbar = () => {
   const { isAuthenticated, user, logout } = useContext(AuthContext);
   const { totalUnreadCount } = useNotifications();
   const navigate = useNavigate();
+  const location = useLocation();
   const [anchorElNav, setAnchorElNav] = useState(null);
   const [anchorElProfile, setAnchorElProfile] = useState(null);
 
@@ -311,7 +312,7 @@ const Navbar = () => {
           
           {isAuthenticated && user && (
             <>
-              {/* <NotificationBadge count={totalUnreadCount}> */}
+              <NotificationBadge count={totalUnreadCount}>
                 <IconButton
                   onClick={handleNotificationsClick}
                   sx={{
@@ -325,7 +326,7 @@ const Navbar = () => {
                 >
                   <NotificationsIcon sx={{ fontSize: 20, color: 'white' }} />
                 </IconButton>
-              {/* </NotificationBadge> */}
+              </NotificationBadge>
               <UserAvatar
                 user={user}
                 size={32}
@@ -358,6 +359,8 @@ const Navbar = () => {
                 color: 'white', 
                 display: 'block',
                 bgcolor: 'transparent',
+                borderBottom: location.pathname === '/community' ? '2px solid white' : 'none',
+                borderRadius: 0,
                 '&:hover': {
                   bgcolor: 'rgba(255, 255, 255, 0.1)'
                 }
@@ -373,6 +376,8 @@ const Navbar = () => {
                 color: 'white', 
                 display: 'block',
                 bgcolor: 'transparent',
+                borderBottom: location.pathname === '/gigs' ? '2px solid white' : 'none',
+                borderRadius: 0,
                 '&:hover': {
                   bgcolor: 'rgba(255, 255, 255, 0.1)'
                 }
@@ -388,6 +393,8 @@ const Navbar = () => {
                 color: 'white', 
                 display: 'block',
                 bgcolor: 'transparent',
+                borderBottom: location.pathname === '/discover' ? '2px solid white' : 'none',
+                borderRadius: 0,
                 '&:hover': {
                   bgcolor: 'rgba(255, 255, 255, 0.1)'
                 }

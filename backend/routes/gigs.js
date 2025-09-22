@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
       .populate('applicants.user', ['_id', 'name', 'avatar'])
       .sort({ date: -1 });
     
-    // Add applicant count and applicant info for gig owners
+    // Add applicant count and applicant info for gig owners, plus application status for users
     const gigsWithApplicantCount = gigs.map(gig => {
       const gigObj = gig.toObject();
       gigObj.applicantCount = gig.applicants ? gig.applicants.length : 0;
@@ -47,16 +47,29 @@ router.get('/', async (req, res) => {
         try {
           const jwt = require('jsonwebtoken');
           const decoded = jwt.verify(token, process.env.JWT_SECRET);
-          if (gig.user._id.toString() === decoded.user.id) {
+          const userId = decoded.user.id;
+          
+          if (gig.user._id.toString() === userId) {
+            // User owns this gig - include applicants
             gigObj.applicants = gig.applicants;
+          } else {
+            // User doesn't own this gig - check if they applied
+            const userApplication = gig.applicants.find(app => {
+              const applicantUserId = app.user && app.user._id ? app.user._id.toString() : (app.user && app.user.toString ? app.user.toString() : app.user);
+              return applicantUserId === userId;
+            });
+            
+            if (userApplication) {
+              gigObj.yourApplicationStatus = userApplication.status || 'pending';
+            }
           }
         } catch (err) {
-          // Token invalid, don't include applicants
+          // Token invalid, don't include applicants or application status
         }
       }
       
       return gigObj;
-    });
+      });
     
     res.json(gigsWithApplicantCount);
   } catch (err) {
