@@ -18,7 +18,8 @@ import {
   Badge,
   Alert,
   CircularProgress,
-  Divider
+  Divider,
+  Button
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
@@ -28,7 +29,8 @@ import {
   Message as MessageIcon,
   Favorite as FavoriteIcon,
   Delete as DeleteIcon,
-  Article as PostIcon
+  Article as PostIcon,
+  DoneAll as DoneAllIcon
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import AuthContext from '../context/AuthContext';
@@ -108,15 +110,17 @@ const Notifications = () => {
       case 'message':
       case 'chat':
         if (notification.relatedId) {
-          navigate(`/messages/${notification.relatedId}`);
+          navigate('/messages', { state: { startConversationWith: notification.relatedId } });
         } else {
           navigate('/messages');
         }
         break;
       case 'link_request':
       case 'connection_request':
-      case 'connection_accepted':
         navigate('/links', { state: { activeTab: 1 } }); // Open requests tab
+        break;
+      case 'connection_accepted':
+        navigate('/links', { state: { activeTab: 0 } }); // Open links tab
         break;
       case 'comment':
       case 'post_comment':
@@ -224,9 +228,22 @@ const Notifications = () => {
               <ListItemText
                 primary={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {notification.title && (
-                      <Typography variant="subtitle1" sx={{ fontWeight: notification.read ? 400 : 600 }}>
-                        {notification.title}
+                    {notification.sender && (
+                      <Typography 
+                        variant="subtitle1" 
+                        sx={{ 
+                          fontWeight: notification.read ? 400 : 600,
+                          cursor: 'pointer',
+                          '&:hover': {
+                            textDecoration: 'underline'
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/profile/${notification.sender._id}`);
+                        }}
+                      >
+                        {notification.sender.name}
                       </Typography>
                     )}
                     {!notification.read && (
@@ -236,18 +253,18 @@ const Notifications = () => {
                 }
                 secondary={
                   <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    <Box sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 0.5 }}>
                       {notification.type === 'comment' && notification.commentContent 
                         ? notification.commentContent 
                         : notification.message || 'No message available'
                       }
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    </Box>
+                    <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
                       {notification.createdAt
                         ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })
                         : 'Unknown time'
                       }
-                    </Typography>
+                    </Box>
                   </Box>
                 }
               />
@@ -280,8 +297,40 @@ const Notifications = () => {
     );
   }
 
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllAsRead();
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const hasUnreadNotifications = notifications && notifications.some(notification => !notification.read);
+
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
+          Notifications
+        </Typography>
+        {hasUnreadNotifications && (
+          <Button
+            variant="outlined"
+            startIcon={<DoneAllIcon />}
+            onClick={handleMarkAllAsRead}
+            sx={{
+              borderColor: '#1976d2',
+              color: '#1976d2',
+              '&:hover': {
+                borderColor: '#1565c0',
+                backgroundColor: 'rgba(25, 118, 210, 0.04)'
+              }
+            }}
+          >
+            Mark All as Read
+          </Button>
+        )}
+      </Box>
       <Card sx={{ mt: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
@@ -292,13 +341,25 @@ const Notifications = () => {
           >
             <Tab
               label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: { xs: 0.5, sm: 1 },
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  minHeight: { xs: 48, sm: 'auto' }
+                }}>
                   <NotificationsIcon fontSize="small" />
-                  All
+                  <Box sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>All</Box>
                   <Chip
                     label={notifications ? notifications.length : 0}
                     size="small"
-                    sx={{ bgcolor: '#e3f2fd', color: '#1976d2', fontSize: '0.75rem', height: 20 }}
+                    sx={{ 
+                      bgcolor: '#e3f2fd', 
+                      color: '#1976d2', 
+                      fontSize: '0.75rem', 
+                      height: { xs: 16, sm: 20 },
+                      mt: { xs: 0.25, sm: 0 }
+                    }}
                   />
                 </Box>
               }
@@ -306,13 +367,25 @@ const Notifications = () => {
             />
             <Tab
               label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: { xs: 0.5, sm: 1 },
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  minHeight: { xs: 48, sm: 'auto' }
+                }}>
                   <WorkIcon fontSize="small" />
-                  Gigs
+                  <Box sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Gigs</Box>
                   <Chip
                     label={filterNotifications('gig_application').length}
                     size="small"
-                    sx={{ bgcolor: '#e3f2fd', color: '#1976d2', fontSize: '0.75rem', height: 20 }}
+                    sx={{ 
+                      bgcolor: '#e3f2fd', 
+                      color: '#1976d2', 
+                      fontSize: '0.75rem', 
+                      height: { xs: 16, sm: 20 },
+                      mt: { xs: 0.25, sm: 0 }
+                    }}
                   />
                 </Box>
               }
@@ -320,13 +393,25 @@ const Notifications = () => {
             />
             <Tab
               label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: { xs: 0.5, sm: 1 },
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  minHeight: { xs: 48, sm: 'auto' }
+                }}>
                   <LinkIcon fontSize="small" />
-                  Links
+                  <Box sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Links</Box>
                   <Chip
                     label={filterNotifications('link_request').length}
                     size="small"
-                    sx={{ bgcolor: '#e8f5e8', color: '#388e3c', fontSize: '0.75rem', height: 20 }}
+                    sx={{ 
+                      bgcolor: '#e8f5e8', 
+                      color: '#388e3c', 
+                      fontSize: '0.75rem', 
+                      height: { xs: 16, sm: 20 },
+                      mt: { xs: 0.25, sm: 0 }
+                    }}
                   />
                 </Box>
               }
@@ -334,13 +419,25 @@ const Notifications = () => {
             />
             <Tab
               label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: { xs: 0.5, sm: 1 },
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  minHeight: { xs: 48, sm: 'auto' }
+                }}>
                   <PostIcon fontSize="small" />
-                  Posts
+                  <Box sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Posts</Box>
                   <Chip
                     label={filterNotifications('posts').length}
                     size="small"
-                    sx={{ bgcolor: '#fff3e0', color: '#f57c00', fontSize: '0.75rem', height: 20 }}
+                    sx={{ 
+                      bgcolor: '#fff3e0', 
+                      color: '#f57c00', 
+                      fontSize: '0.75rem', 
+                      height: { xs: 16, sm: 20 },
+                      mt: { xs: 0.25, sm: 0 }
+                    }}
                   />
                 </Box>
               }
@@ -348,13 +445,25 @@ const Notifications = () => {
             />
             <Tab
               label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: { xs: 0.5, sm: 1 },
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  minHeight: { xs: 48, sm: 'auto' }
+                }}>
                   <MessageIcon fontSize="small" />
-                  Messages
+                  <Box sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Messages</Box>
                   <Chip
                     label={filterNotifications('message').length}
                     size="small"
-                    sx={{ bgcolor: '#f3e5f5', color: '#9c27b0', fontSize: '0.75rem', height: 20 }}
+                    sx={{ 
+                      bgcolor: '#f3e5f5', 
+                      color: '#9c27b0', 
+                      fontSize: '0.75rem', 
+                      height: { xs: 16, sm: 20 },
+                      mt: { xs: 0.25, sm: 0 }
+                    }}
                   />
                 </Box>
               }

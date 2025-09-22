@@ -90,7 +90,14 @@ const Gigs = () => {
   useEffect(() => {
     const fetchGigs = async () => {
       try {
-        const response = await axios.get('http://localhost:5001/api/gigs');
+        const token = localStorage.getItem('token');
+        const config = token ? {
+          headers: {
+            'x-auth-token': token
+          }
+        } : {};
+        
+        const response = await axios.get('http://localhost:5001/api/gigs', config);
         setGigs(response.data);
       } catch (error) {
         console.error('Error fetching gigs:', error);
@@ -253,17 +260,6 @@ dateTo: '',
               }}
             >
               Gig Opportunities
-            </Typography>
-            <Typography 
-              variant="subtitle1" 
-              sx={{ 
-                mt: 1, 
-                opacity: 0.9,
-                fontSize: { xs: '0.875rem', sm: '1rem' },
-                lineHeight: { xs: 1.4, sm: 1.5 }
-              }}
-            >
-              Find exciting gig opportunities for musicians
             </Typography>
           </Box>
           <Box 
@@ -832,7 +828,7 @@ dateTo: '',
                   sx={{
                     fontSize: { xs: '1.25rem', sm: '1.5rem' },
                     lineHeight: { xs: 1.3, sm: 1.4 },
-                    color: gig.isFilled ? 'text.disabled' : 'inherit'
+                    color: 'white'
                   }}
                 >
                   {gig.isFilled ? 'Fixed: ' : ''}{gig.title}
@@ -1056,17 +1052,24 @@ dateTo: '',
                     size="medium"
                     variant="contained"
                     onClick={(e) => e.stopPropagation()}
+                    disabled={gig.isFilled || gig.yourApplicationStatus}
                     sx={{
                       borderRadius: 2,
-                      bgcolor: '#1a365d',
+                      bgcolor: gig.isFilled ? '#cccccc' : gig.yourApplicationStatus ? '#cccccc' : '#1a365d',
                       fontSize: { xs: '0.875rem', sm: '0.875rem' },
                       minHeight: { xs: 40, sm: 44 },
                       fontWeight: 'bold',
                       flex: 1,
-                      '&:hover': { bgcolor: '#2c5282' }
+                      '&:hover': { 
+                        bgcolor: gig.isFilled ? '#cccccc' : gig.yourApplicationStatus ? '#cccccc' : '#2c5282' 
+                      },
+                      '&.Mui-disabled': {
+                        bgcolor: '#cccccc',
+                        color: '#666666'
+                      }
                     }}
                   >
-                    Apply
+                    {gig.isFilled ? 'Fixed' : gig.yourApplicationStatus === 'accepted' ? 'Accepted' : gig.yourApplicationStatus === 'rejected' ? 'Rejected' : gig.yourApplicationStatus ? 'Applied' : 'Apply'}
                   </Button>
                 </Box>
               </CardActions>

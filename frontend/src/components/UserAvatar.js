@@ -7,6 +7,7 @@ const UserAvatar = ({
   src, 
   alt, 
   size = 40, 
+  mobileSize, 
   onClick, 
   sx = {}, 
   ...props 
@@ -33,17 +34,32 @@ const UserAvatar = ({
     return 'U';
   };
 
+  // Calculate responsive sizes
+  const responsiveSize = mobileSize ? {
+    width: { xs: mobileSize, sm: size },
+    height: { xs: mobileSize, sm: size }
+  } : {
+    width: size,
+    height: size
+  };
+
+  // Calculate responsive font size
+  const responsiveFontSize = mobileSize ? {
+    fontSize: { xs: mobileSize * 0.4, sm: size * 0.4 }
+  } : {
+    fontSize: size * 0.4
+  };
+
   return (
     <Avatar
       src={fullAvatarSrc}
       alt={avatarAlt}
       onClick={onClick}
       sx={{
-        width: size,
-        height: size,
+        ...responsiveSize,
         bgcolor: fullAvatarSrc ? 'transparent' : '#9e9e9e', // LinkedIn-style grey
         color: '#ffffff',
-        fontSize: size * 0.4, // Responsive font size
+        ...responsiveFontSize,
         cursor: onClick ? 'pointer' : 'default',
         '&:hover': onClick ? {
           transform: 'scale(1.05)',
@@ -56,7 +72,7 @@ const UserAvatar = ({
       {!fullAvatarSrc && (
         <PersonIcon 
           sx={{ 
-            fontSize: size * 0.6,
+            fontSize: mobileSize ? { xs: mobileSize * 0.6, sm: size * 0.6 } : size * 0.6,
             color: '#ffffff'
           }} 
         />

@@ -41,6 +41,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import MentionInput from '../components/MentionInput';
 
 const MyPosts = () => {
   const { user, token } = useAuth();
@@ -503,7 +504,7 @@ const MyPosts = () => {
                   >
                     {user?.name?.charAt(0)}
                   </Avatar>
-                  <TextField
+                  <MentionInput
                     fullWidth
                     size="small"
                     placeholder="Write a comment..."

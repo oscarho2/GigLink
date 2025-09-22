@@ -28,7 +28,8 @@ export const SocketProvider = ({ children }) => {
       });
 
       newSocket.on('connect', () => {
-        console.log('Connected to server');
+        console.log('Connected to server with user ID:', user._id);
+        console.log('Socket ID:', newSocket.id);
         setIsConnected(true);
       });
 
@@ -40,6 +41,11 @@ export const SocketProvider = ({ children }) => {
       newSocket.on('connect_error', (error) => {
         console.error('Connection error:', error);
         setIsConnected(false);
+      });
+
+      // Test listener for any events
+      newSocket.onAny((eventName, ...args) => {
+        console.log('Socket event received:', eventName, args);
       });
 
       // Handle typing indicators

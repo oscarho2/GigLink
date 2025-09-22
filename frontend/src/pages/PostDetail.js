@@ -35,6 +35,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'react-toastify';
 import AuthContext from '../context/AuthContext';
 import UserAvatar from '../components/UserAvatar';
+import MentionRenderer from '../components/MentionRenderer';
+import MentionInput from '../components/MentionInput';
 
 const PostDetail = () => {
   const { postId } = useParams();
@@ -268,8 +270,12 @@ const PostDetail = () => {
 
           {/* Post Content */}
           {post.content && (
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              {post.content}
+            <Typography variant="body1" component="div" sx={{ mb: 2 }}>
+              <MentionRenderer 
+                content={post.parsedContent || post.content}
+                mentions={post.mentions || []}
+                variant="link"
+              />
             </Typography>
           )}
 
@@ -360,7 +366,7 @@ const PostDetail = () => {
               size={32}
               sx={{ mr: 1 }}
             />
-            <TextField
+            <MentionInput
               fullWidth
               size="small"
               placeholder="Write a comment..."
@@ -419,8 +425,12 @@ const PostDetail = () => {
                       }
                       secondary={
                         <Box>
-                          <Typography variant="body2" sx={{ mt: 0.5 }}>
-                            {comment.content}
+                          <Typography variant="body2" component="div" sx={{ mt: 0.5 }}>
+                            <MentionRenderer 
+                              content={comment.parsedContent || comment.content}
+                              mentions={comment.mentions || []}
+                              variant="link"
+                            />
                           </Typography>
                           
                           {/* Comment Actions */}
@@ -465,7 +475,7 @@ const PostDetail = () => {
                                 size={24}
                                 sx={{ mr: 1 }}
                               />
-                              <TextField
+                              <MentionInput
                                 fullWidth
                                 size="small"
                                 placeholder="Write a reply..."

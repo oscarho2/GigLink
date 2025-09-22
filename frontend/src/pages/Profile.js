@@ -451,9 +451,8 @@ const Profile = () => {
             <UserAvatar
               user={profile}
               size={150}
+              mobileSize={120}
               sx={{ 
-                width: { xs: 120, sm: 150 }, 
-                height: { xs: 120, sm: 150 },
                 mb: { xs: 1.5, sm: 2 }
               }}
             />
