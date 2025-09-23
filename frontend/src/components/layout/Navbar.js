@@ -312,21 +312,30 @@ const Navbar = () => {
           
           {isAuthenticated && user && (
             <>
-              <NotificationBadge count={totalUnreadCount}>
-                <IconButton
+              <IconButton
                   onClick={handleNotificationsClick}
                   sx={{
                     p: 0.5,
                     ml: 1,
                     display: { xs: 'flex', md: 'none' },
+                    position: 'relative',
                     '&:hover': {
                       bgcolor: 'rgba(255, 255, 255, 0.1)'
-                    }
+                    },
+                    '&::after': totalUnreadCount > 0 ? {
+                      content: '""',
+                      position: 'absolute',
+                      top: 4,
+                      right: 4,
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: '#f44336'
+                    } : {}
                   }}
                 >
                   <NotificationsIcon sx={{ fontSize: 20, color: 'white' }} />
                 </IconButton>
-              </NotificationBadge>
               <UserAvatar
                 user={user}
                 size={32}
@@ -414,21 +423,30 @@ const Navbar = () => {
             {isAuthenticated ? authLinks : guestLinks}
             {isAuthenticated && user && (
               <>
-                <NotificationBadge count={totalUnreadCount}>
-                  <IconButton
-                    onClick={handleNotificationsClick}
-                    sx={{
-                      p: 1,
-                      ml: 1,
-                      display: { xs: 'none', md: 'flex' },
-                      '&:hover': {
-                        bgcolor: 'rgba(255, 255, 255, 0.1)'
-                      }
-                    }}
-                  >
-                    <NotificationsIcon sx={{ color: 'white' }} />
-                  </IconButton>
-                </NotificationBadge>
+                <IconButton
+                  onClick={handleNotificationsClick}
+                  sx={{
+                    p: 0.5,
+                    ml: 1,
+                    display: { xs: 'none', md: 'flex' },
+                    position: 'relative',
+                    '&:hover': {
+                      bgcolor: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    '&::after': totalUnreadCount > 0 ? {
+                      content: '""',
+                      position: 'absolute',
+                      top: 4,
+                      right: 4,
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: '#f44336'
+                    } : {}
+                  }}
+                >
+                  <NotificationsIcon sx={{ fontSize: 24, color: 'white' }} />
+                </IconButton>
                 <UserAvatar
                   user={user}
                   size={40}
