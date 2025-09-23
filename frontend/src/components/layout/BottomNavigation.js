@@ -122,11 +122,7 @@ const MobileBottomNavigation = () => {
         />
         <BottomNavigationAction
           label="Messages"
-          icon={
-            // <Badge badgeContent={totalUnreadCount} color="error">
-              <MessageIcon />
-            // </Badge>
-          }
+          icon={<MessageIcon />}
         />
         <BottomNavigationAction
           label={isAuthenticated ? "Dashboard" : "Profile"}

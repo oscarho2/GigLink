@@ -58,6 +58,9 @@ import UserAvatar from '../components/UserAvatar';
 import MentionRenderer from '../components/MentionRenderer';
 import MentionInput from '../components/MentionInput';
 
+const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
+const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
+
 const Community = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
@@ -87,22 +90,8 @@ const Community = () => {
   const [selectedReply, setSelectedReply] = useState(null);
   const [selectedCommentForReply, setSelectedCommentForReply] = useState(null);
   const [expandedReplies, setExpandedReplies] = useState({});
-
-  // Ref for reply input auto-focus
+  const [expandedTags, setExpandedTags] = useState({}); // Added
   const replyInputRef = useRef(null);
-
-  // Predefined options for instruments and genres
-  const instrumentOptions = [
-    'Guitar', 'Bass', 'Drums', 'Piano', 'Keyboard', 'Violin', 'Saxophone', 
-    'Trumpet', 'Flute', 'Clarinet', 'Cello', 'Vocals', 'Harmonica', 
-    'Banjo', 'Mandolin', 'Ukulele', 'Accordion', 'Harp', 'Trombone', 'Tuba'
-  ];
-
-  const genreOptions = [
-    'Rock', 'Pop', 'Jazz', 'Blues', 'Country', 'Folk', 'Classical', 
-    'Electronic', 'Hip Hop', 'R&B', 'Reggae', 'Punk', 'Metal', 
-    'Alternative', 'Indie', 'Funk', 'Soul', 'Gospel', 'World', 'Experimental'
-  ];
 
   useEffect(() => {
     fetchPosts();
@@ -409,6 +398,13 @@ const Community = () => {
     }
   };
 
+  const toggleComments = (postId) => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }));
+  };
+
   const handleCommentMenuClick = (event, comment) => {
     setCommentMenuAnchor(event.currentTarget);
     setSelectedComment(comment);
@@ -607,18 +603,18 @@ const Community = () => {
     handleCommentMenuClose();
   };
 
-  const toggleComments = (postId) => {
-    setExpandedComments(prev => ({
-      ...prev,
-      [postId]: !prev[postId]
-    }));
-  };
+  const toggleTags = (postId) => { // Added
+    setExpandedTags(prev => ({ // Added
+      ...prev, // Added
+      [postId]: !prev[postId] // Added
+    })); // Added
+  }; // Added
 
   const renderMedia = (media) => {
     return (
-      <Grid container spacing={1} sx={{ mt: 1 }}>
+      <Grid container spacing={1} sx={{ mt: 1, justifyContent: 'center' }}>
         {media.map((item, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
+          <Grid item xs={12} sm={8} md={6} key={index} sx={{ textAlign: 'center' }}>
             {item.type === 'image' ? (
               <img
                 src={`http://localhost:5001${item.url}`}
@@ -626,18 +622,25 @@ const Community = () => {
                 style={{
                   width: '100%',
                   height: 'auto',
+                  maxHeight: '450px', // Increased by 50%
+                  maxWidth: '600px', // Increased by 50%
                   objectFit: 'contain',
-                  borderRadius: '8px'
+                  borderRadius: '8px',
+                  display: 'block', // Centering
+                  margin: '0 auto' // Centering
                 }}
               />
             ) : (
               <video
                 controls
                 style={{
-                  width: '100%',
+                  width: '80%',
+                  maxWidth: '400px',
                   height: 'auto',
                   borderRadius: '8px',
-                  maxHeight: '400px'
+                  maxHeight: '300px', // Added
+                  objectFit: 'contain',
+                  borderRadius: '8px'
                 }}
               >
                 <source src={`http://localhost:5001${item.url}`} />
@@ -660,84 +663,86 @@ const Community = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
-      {/* Create Post Bar - LinkedIn/Facebook Style */}
+      {/* Create Post Bar & Filter Section - Merged */}
       <Paper
         elevation={1}
         sx={{
-          p: 3,
           mb: 4,
           borderRadius: 2,
-          border: '1px solid #e2e8f0'
+          border: '1px solid #e2e8f0',
+          overflow: 'hidden'
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <UserAvatar
-             user={user}
-             size={48}
-             mobileSize={40}
-             onClick={() => navigate('/profile/edit')}
-           />
-          <Box
-            onClick={() => setCreatePostModalOpen(true)}
-            sx={{
-              flexGrow: 1,
-              p: { xs: 1.5, sm: 2 },
-              borderRadius: { xs: 4, sm: 6 },
-              border: '1px solid #e2e8f0',
-              bgcolor: '#f8fafc',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              minHeight: { xs: 44, sm: 48 },
-              display: 'flex',
-              alignItems: 'center',
-              '&:hover': {
-                bgcolor: '#f1f5f9',
-                borderColor: '#cbd5e0'
-              }
-            }}
-          >
-            <Typography
-              variant="body1"
-              color="text.secondary"
-              sx={{ 
-                fontWeight: 'normal',
-                fontSize: { xs: '0.875rem', sm: '1rem' },
-                lineHeight: { xs: 1.4, sm: 1.5 }
+        {/* Create Post Section */}
+        <Box sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <UserAvatar
+               user={user}
+               size={48}
+               mobileSize={40}
+               onClick={() => navigate('/profile/edit')}
+             />
+            <Box
+              onClick={() => setCreatePostModalOpen(true)}
+              sx={{
+                flexGrow: 1,
+                p: { xs: 1.5, sm: 2 },
+                borderRadius: { xs: 4, sm: 6 },
+                border: '1px solid #e2e8f0',
+                bgcolor: '#f8fafc',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                minHeight: { xs: 44, sm: 48 },
+                display: 'flex',
+                alignItems: 'center',
+                '&:hover': {
+                  bgcolor: '#f1f5f9',
+                  borderColor: '#cbd5e0'
+                }
               }}
             >
-              What's on your mind, {user?.name?.split(' ')[0] || 'there'}?
-            </Typography>
+              <Typography
+                variant="body1"
+                color="text.secondary"
+                sx={{ 
+                  fontWeight: 'normal',
+                  fontSize: { xs: '0.875rem', sm: '1rem' },
+                  lineHeight: { xs: 1.4, sm: 1.5 }
+                }}
+              >
+                What's on your mind, {user?.name?.split(' ')[0] || 'there'}?
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/my-posts')}
+              sx={{
+                borderColor: '#1a365d',
+                color: '#1a365d',
+                fontWeight: 'medium',
+                px: { xs: 2, sm: 3 },
+                py: { xs: 1, sm: 1.2 },
+                fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+                minHeight: { xs: 36, sm: 40 },
+                minWidth: { xs: 'auto', sm: 'auto' },
+                '&:hover': {
+                  borderColor: '#2c5282',
+                  color: '#2c5282',
+                  bgcolor: 'rgba(26, 54, 93, 0.04)'
+                }
+              }}
+            >
+              My Posts
+            </Button>
           </Box>
-          <Button
-            variant="outlined"
-            onClick={() => navigate('/my-posts')}
-            sx={{
-              borderColor: '#1a365d',
-              color: '#1a365d',
-              fontWeight: 'medium',
-              px: { xs: 2, sm: 3 },
-              py: { xs: 1, sm: 1.2 },
-              fontSize: { xs: '0.8125rem', sm: '0.875rem' },
-              minHeight: { xs: 36, sm: 40 },
-              minWidth: { xs: 'auto', sm: 'auto' },
-              '&:hover': {
-                borderColor: '#2c5282',
-                color: '#2c5282',
-                bgcolor: 'rgba(26, 54, 93, 0.04)'
-              }
-            }}
-          >
-            My Posts
-          </Button>
         </Box>
-      </Paper>
 
-      {/* Filter Section */}
-      <Paper elevation={1} sx={{ mb: 4, borderRadius: 2, overflow: 'hidden' }}>
+        {/* Filter Section */}
         <Box 
           sx={{ 
-            p: 2, 
-            bgcolor: '#f8fafc', 
+            p: 1.5, 
+            bgcolor: 'white', 
+            borderTop: '1px solid #e2e8f0',
             borderBottom: filtersVisible ? '1px solid #e2e8f0' : 'none',
             cursor: 'pointer'
           }}
@@ -1264,73 +1269,7 @@ const Community = () => {
                 </Box>
               )}
               
-              {/* Display tags */}
-              {(post.instruments?.length > 0 || post.genres?.length > 0) && (
-                <Box sx={{ mt: 2 }}>
-                  {post.instruments?.length > 0 && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography 
-                        variant="subtitle2" 
-                        sx={{ 
-                          mb: 1.5, 
-                          color: '#1a365d', 
-                          fontWeight: 'bold',
-                          fontSize: '0.9rem'
-                        }}
-                      >
-                        Instruments
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {post.instruments.map((instrument, index) => (
-                          <Chip
-                            key={`instrument-${index}`}
-                            label={instrument}
-                            size="small"
-                            variant="filled"
-                            sx={{
-                              bgcolor: '#e2e8f0',
-                              color: '#1a365d',
-                              fontWeight: 'medium',
-                              '&:hover': { bgcolor: '#cbd5e0' }
-                            }}
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                  {post.genres?.length > 0 && (
-                    <Box>
-                      <Typography 
-                        variant="subtitle2" 
-                        sx={{ 
-                          mb: 1.5, 
-                          color: '#1a365d', 
-                          fontWeight: 'bold',
-                          fontSize: '0.9rem'
-                        }}
-                      >
-                        Genres
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {post.genres.map((genre, index) => (
-                          <Chip
-                            key={`genre-${index}`}
-                            label={genre}
-                            size="small"
-                            variant="filled"
-                            sx={{
-                              bgcolor: '#1a365d',
-                              color: 'white',
-                              fontWeight: 'medium',
-                              '&:hover': { bgcolor: '#2c5282' }
-                            }}
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                </Box>
-              )}
+
             </CardContent>
 
             <CardActions disableSpacing>
@@ -1351,7 +1290,60 @@ const Community = () => {
                 {post.commentsCount}
               </Typography>
               
+              {(post.instruments?.length > 0 || post.genres?.length > 0) && (
+                <IconButton
+                  onClick={() => toggleTags(post._id)}
+                  aria-expanded={expandedTags[post._id]}
+                  aria-label="show tags"
+                >
+                  {expandedTags[post._id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              )}
             </CardActions>
+
+            <Collapse in={expandedTags[post._id]} timeout="auto" unmountOnExit>
+              <CardContent>
+                {post.instruments?.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                      Instruments:
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {post.instruments.map((instrument, index) => (
+                        <Chip
+                          key={`instrument-${index}`}
+                          label={instrument}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                {post.genres?.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                      Genres:
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {post.genres.map((genre, index) => (
+                        <Chip
+                          key={`genre-${index}`}
+                          label={genre}
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+              </CardContent>
+            </Collapse>
 
             <Collapse in={expandedComments[post._id]} timeout="auto" unmountOnExit>
               <CardContent>
@@ -1426,7 +1418,7 @@ const Community = () => {
                             secondary={
                               <Box>
                                 <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                                  <Typography variant="body2" component="div" sx={{ flex: 1, mr: 2 }}>
+                                  <Typography variant="body2" component="div" sx={{ fontSize: '1.1rem', mr: 2 }}>
                                     <MentionRenderer 
                                       content={comment.parsedContent || comment.content}
                                       mentions={comment.mentions || []}

@@ -37,6 +37,8 @@ import AuthContext from '../context/AuthContext';
 import UserAvatar from '../components/UserAvatar';
 import MentionRenderer from '../components/MentionRenderer';
 import MentionInput from '../components/MentionInput';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'; // Added
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'; // Added
 
 const PostDetail = () => {
   const { postId } = useParams();
@@ -54,6 +56,8 @@ const PostDetail = () => {
   const [replyMenuAnchor, setReplyMenuAnchor] = useState(null);
   const [selectedReply, setSelectedReply] = useState(null);
   const [selectedCommentForReply, setSelectedCommentForReply] = useState(null);
+
+  const [expandedTags, setExpandedTags] = useState(false); // Added
 
   const token = localStorage.getItem('token');
 
@@ -86,6 +90,10 @@ const PostDetail = () => {
       setLoading(false);
     }
   };
+
+  const toggleTags = () => { // Added
+    setExpandedTags(prev => !prev); // Added
+  }; // Added
 
   const handleLike = async () => {
     try {
@@ -291,8 +299,12 @@ const PostDetail = () => {
                       style={{
                         width: '100%',
                         height: 'auto',
+                        maxHeight: '450px', // Increased by 50%
+                        maxWidth: '600px', // Increased by 50%
                         objectFit: 'contain',
-                        borderRadius: '8px'
+                        borderRadius: '8px',
+                        display: 'block', // Centering
+                        margin: '0 auto' // Centering
                       }}
                     />
                   ) : (
@@ -311,31 +323,7 @@ const PostDetail = () => {
             </Box>
           )}
 
-          {/* Tags */}
-          {(post.instruments?.length > 0 || post.genres?.length > 0) && (
-            <Box sx={{ mb: 2 }}>
-              {post.instruments?.map((instrument, index) => (
-                <Chip
-                  key={`instrument-${index}`}
-                  label={instrument}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                  sx={{ mr: 0.5, mb: 0.5 }}
-                />
-              ))}
-              {post.genres?.map((genre, index) => (
-                <Chip
-                  key={`genre-${index}`}
-                  label={genre}
-                  size="small"
-                  color="secondary"
-                  variant="outlined"
-                  sx={{ mr: 0.5, mb: 0.5 }}
-                />
-              ))}
-            </Box>
-          )}
+
         </CardContent>
 
         <CardActions disableSpacing>
@@ -355,7 +343,61 @@ const PostDetail = () => {
           <Typography variant="body2" sx={{ mr: 2 }}>
             {post.commentsCount}
           </Typography>
+
+          {(post.instruments?.length > 0 || post.genres?.length > 0) && (
+            <IconButton
+              onClick={toggleTags}
+              aria-expanded={expandedTags}
+              aria-label="show tags"
+            >
+              {expandedTags ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
+          )}
         </CardActions>
+
+        <Collapse in={expandedTags} timeout="auto" unmountOnExit>
+          <CardContent>
+            {post.instruments?.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                  Instruments:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {post.instruments.map((instrument, index) => (
+                    <Chip
+                      key={`instrument-${index}`}
+                      label={instrument}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      sx={{ mr: 0.5, mb: 0.5 }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {post.genres?.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                  Genres:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {post.genres.map((genre, index) => (
+                    <Chip
+                      key={`genre-${index}`}
+                      label={genre}
+                      size="small"
+                      color="secondary"
+                      variant="outlined"
+                      sx={{ mr: 0.5, mb: 0.5 }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+          </CardContent>
+        </Collapse>
 
         {/* Comments Section */}
         <CardContent>

@@ -647,6 +647,7 @@ const Discover = () => {
               justifyContent: { xs: 'stretch', md: 'flex-end' }
             }}
           >
+
             <Button
               variant="contained"
               startIcon={<FilterListIcon />}

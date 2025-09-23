@@ -839,14 +839,17 @@ const Messages = () => {
       setHasMoreMessages(true);
       await fetchMessages(otherUserId, 1, false);
       
-      // Ensure scroll to bottom after sending message so sender can see their message
-      requestAnimationFrame(() => {
+      // Ensure scroll to bottom after sending message with improved timing
+      // Use longer delay to ensure DOM is fully ready, especially after page load
+      setTimeout(() => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            scrollToBottom();
+            requestAnimationFrame(() => {
+              scrollToBottom();
+            });
           });
         });
-      });
+      }, 100);
       
       fetchConversations();
     } catch (err) {
@@ -1152,26 +1155,36 @@ const Messages = () => {
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
-    if (messagesContainerRef.current) {
-      // Use requestAnimationFrame to ensure DOM is fully rendered
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (messagesContainerRef.current) {
-            // Force scroll to bottom multiple times to ensure it works
-            const scrollToBottomForced = () => {
-              if (messagesContainerRef.current) {
-                messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-              }
-            };
-            scrollToBottomForced();
-            // Double-check scroll position after a brief delay
-            setTimeout(scrollToBottomForced, 50);
-            // Triple-check to ensure scroll position is correct
-            setTimeout(scrollToBottomForced, 100);
-          }
-        });
-      });
+    const container = messagesContainerRef.current;
+    if (!container) {
+      // If container is not ready, retry after a short delay
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          scrollToBottom();
+        }
+      }, 50);
+      return;
     }
+
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const currentContainer = messagesContainerRef.current;
+        if (currentContainer) {
+          // Force scroll to bottom multiple times to ensure it works
+          const scrollToBottomForced = () => {
+            if (messagesContainerRef.current) {
+              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+            }
+          };
+          scrollToBottomForced();
+          // Double-check scroll position after a brief delay
+          setTimeout(scrollToBottomForced, 50);
+          // Triple-check to ensure scroll position is correct
+          setTimeout(scrollToBottomForced, 100);
+        }
+      });
+    });
   };
 
   // Track last message and conversation to control auto-scroll behavior
