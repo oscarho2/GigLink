@@ -107,8 +107,34 @@ const Navbar = () => {
 
   const authLinks = (
     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-      <Button color="inherit" component={RouterLink} to="/dashboard">Dashboard</Button>
-      <Button color="inherit" component={RouterLink} to="/messages">Messages</Button>
+      <Button 
+        color="inherit" 
+        component={RouterLink} 
+        to="/messages"
+        sx={{
+          borderBottom: location.pathname === '/messages' ? '2px solid white' : 'none',
+          borderRadius: 0,
+          '&:hover': {
+            bgcolor: 'rgba(255, 255, 255, 0.1)'
+          }
+        }}
+      >
+        Messages
+      </Button>
+      <Button 
+        color="inherit" 
+        component={RouterLink} 
+        to="/dashboard"
+        sx={{
+          borderBottom: location.pathname === '/dashboard' ? '2px solid white' : 'none',
+          borderRadius: 0,
+          '&:hover': {
+            bgcolor: 'rgba(255, 255, 255, 0.1)'
+          }
+        }}
+      >
+        Dashboard
+      </Button>
     </Box>
   );
 
@@ -218,11 +244,11 @@ const Navbar = () => {
                 <>
                   <Box sx={{ borderTop: '1px solid rgba(0,0,0,0.08)', my: 1, mx: 2 }} />
                   <Typography sx={{ px: 3, py: 1, fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>My Account</Typography>
-                  <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/dashboard">
-                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>📊 Dashboard</Typography>
-                  </MenuItem>
                   <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/messages">
                     <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>💬 Messages</Typography>
+                  </MenuItem>
+                  <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/dashboard">
+                    <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>📊 Dashboard</Typography>
                   </MenuItem>
 
                 </>

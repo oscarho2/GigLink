@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Typography, Box, Paper, TextField, Button, Grid, Chip, Autocomplete, Alert, Card, CardContent, CardActions, Divider, IconButton, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, VideoLibrary as VideoLibraryIcon, PhotoCamera } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, PhotoCamera } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -34,13 +34,12 @@ const EditProfile = () => {
     isMusician: '',
     instruments: [],
     genres: [],
-    videos: [],
+
     photos: []
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [newVideo, setNewVideo] = useState({ title: '', url: '', description: '' });
-  const [showAddVideo, setShowAddVideo] = useState(false);
+
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [photoCaption, setPhotoCaption] = useState('');
@@ -100,7 +99,7 @@ const EditProfile = () => {
           isMusician: profileData.user?.isMusician || user?.isMusician || (normalizedInstruments.length > 0 || normalizedGenres.length > 0 ? 'yes' : 'no'),
           instruments: normalizedInstruments,
           genres: normalizedGenres,
-          videos: profileData.videos || [],
+    
           photos: profileData.photos || []
         });
       } catch (err) {
@@ -115,7 +114,7 @@ const EditProfile = () => {
           isMusician: user?.isMusician || (fallbackInstruments.length > 0 || fallbackGenres.length > 0 ? 'yes' : 'no'),
           instruments: fallbackInstruments,
           genres: fallbackGenres,
-          videos: [],
+    
           photos: []
         });
       } finally {
@@ -156,28 +155,7 @@ const EditProfile = () => {
     });
   };
 
-  const handleVideoChange = (e) => {
-    setNewVideo({
-      ...newVideo,
-      [e.target.name]: e.target.value
-    });
-  };
 
-  const handleAddVideo = () => {
-    if (newVideo.title && newVideo.url) {
-      setFormData({
-        ...formData,
-        videos: [...formData.videos, { ...newVideo }]
-      });
-      setNewVideo({ title: '', url: '', description: '' });
-      setShowAddVideo(false);
-    }
-  };
-
-  const handleRemoveVideo = (index) => {
-    const updatedVideos = formData.videos.filter((_, i) => i !== index);
-    setFormData({ ...formData, videos: updatedVideos });
-  };
 
   const handlePhotoSelect = (e) => {
     const files = Array.from(e.target.files);
@@ -505,7 +483,7 @@ const EditProfile = () => {
         isMusician: formData.isMusician,
         instruments: Array.isArray(formData.instruments) ? formData.instruments : [],
         genres: Array.isArray(formData.genres) ? formData.genres : [],
-        videos: Array.isArray(formData.videos) ? formData.videos : []
+
       };
       
       console.log('Sending update data:', updateData);
@@ -769,245 +747,123 @@ const EditProfile = () => {
               </>
             )}
             
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  size="small"
-                  onClick={() => setShowAddVideo(true)}
-                >
-                  Add Video
-                </Button>
-              </Box>
-              
-              <Divider sx={{ mb: 2 }} />
-              
-              {showAddVideo && (
-                <Card variant="outlined" sx={{ mb: 2, p: 2 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Add New Video
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Video Title"
-                        name="title"
-                        value={newVideo.title}
-                        onChange={handleVideoChange}
-                        variant="outlined"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Video URL"
-                        name="url"
-                        value={newVideo.url}
-                        onChange={handleVideoChange}
-                        variant="outlined"
-                        size="small"
-                        placeholder="https://youtube.com/watch?v=..."
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Description (Optional)"
-                        name="description"
-                        value={newVideo.description}
-                        onChange={handleVideoChange}
-                        variant="outlined"
-                        size="small"
-                        multiline
-                        rows={2}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                          variant="contained"
-                          onClick={handleAddVideo}
-                          disabled={!newVideo.title || !newVideo.url}
-                        >
-                          Add Video
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          onClick={() => {
-                            setShowAddVideo(false);
-                            setNewVideo({ title: '', url: '', description: '' });
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </Card>
-              )}
-              
-              {formData.videos && formData.videos.length > 0 ? (
-                <Grid container spacing={2}>
-                  {formData.videos.map((video, index) => (
-                    <Grid item xs={12} sm={6} key={index}>
-                      <Card>
-                        <CardContent>
-                          <Typography variant="h6">{video.title}</Typography>
-                          <Typography variant="body2" color="text.secondary">{video.description || 'No description'}</Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>{video.url}</Typography>
-                        </CardContent>
-                        <CardActions>
-                          <Button size="small" href={video.url} target="_blank" rel="noreferrer">View</Button>
-                          <IconButton aria-label="delete" color="error" onClick={() => handleRemoveVideo(index)}>
-                            <DeleteIcon />
-                          </IconButton>
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                  You haven't added any videos yet.
-                </Typography>
-              )}
-            </Grid>
-            
 
-            
-            {/* Photos Section */}
+            {/* Media Section */}
             <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>Photos</Typography>
+              <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>Media</Typography>
               
-              {/* Photo Upload */}
-              <Card variant="outlined" sx={{ p: 2, mb: 2 }}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Add New Photo
-                </Typography>
-                <Grid container spacing={2}>
-                  {/* Single Photo Preview */}
-                  {selectedPhoto && (
-                    <Grid item xs={12}>
-                      <Box
-                        sx={{
-                          width: '100%',
-                          maxWidth: 300,
-                          height: 200,
-                          border: '2px solid #e0e0e0',
-                          borderRadius: 2,
-                          overflow: 'hidden',
-                          mx: 'auto',
-                          mb: 2,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <Box
-                          component="img"
-                          src={URL.createObjectURL(selectedPhoto)}
-                          alt="Photo preview"
-                          sx={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover'
-                          }}
-                        />
-                      </Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
-                        Preview: {selectedPhoto.name}
-                      </Typography>
-                    </Grid>
-                  )}
-                  
-                  {/* Multiple Photos Preview */}
-                  {selectedPhotos.length > 0 && (
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ mb: 2 }}>
-                        Selected {selectedPhotos.length} photos:
-                      </Typography>
-                      <Grid container spacing={1}>
-                        {selectedPhotos.map((photo, index) => (
-                          <Grid item xs={6} sm={4} md={3} key={index}>
-                            <Box
-                              sx={{
-                                width: '100%',
-                                height: 120,
-                                border: '1px solid #e0e0e0',
-                                borderRadius: 1,
-                                overflow: 'hidden',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}
-                            >
-                              <Box
-                                component="img"
-                                src={URL.createObjectURL(photo)}
-                                alt={`Preview ${index + 1}`}
-                                sx={{
-                                  width: '100%',
-                                  height: '100%',
-                                  objectFit: 'cover'
-                                }}
-                              />
-                            </Box>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}>
-                              {photo.name.length > 15 ? `${photo.name.substring(0, 15)}...` : photo.name}
-                            </Typography>
-                          </Grid>
-                        ))}
-                      </Grid>
-                    </Grid>
-                  )}
-                  
-                  <Grid item xs={12} sm={6}>
-                    <input
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      id="photo-upload"
-                      type="file"
-                      multiple
-                      onChange={handlePhotoSelect}
-                    />
-                    <label htmlFor="photo-upload">
-                      <Button variant="outlined" component="span" fullWidth>
-                        {selectedPhoto || selectedPhotos.length > 0 ? 'Choose Different Photos' : 'Choose Photos'}
-                      </Button>
-                    </label>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
-                      Select single or multiple photos
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Caption (Optional)"
-                      value={photoCaption}
-                      onChange={(e) => setPhotoCaption(e.target.value)}
-                      variant="outlined"
-                      size="small"
-                      helperText={selectedPhotos.length > 1 ? "Caption will apply to all photos" : ""}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
+              {/* Media Upload */}
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 3, 
+                  mb: 2, 
+                  border: '2px dashed #e2e8f0',
+                  borderRadius: 2,
+                  textAlign: 'center',
+                  bgcolor: '#f8fafc',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    borderColor: '#1a365d',
+                    bgcolor: '#f1f5f9'
+                  }
+                }}
+              >
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,video/*,audio/*"
+                  onChange={handlePhotoSelect}
+                  style={{ display: 'none' }}
+                  id="media-upload"
+                />
+                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 2 }}>
+                  <label htmlFor="media-upload">
                     <Button
                       variant="contained"
-                      onClick={selectedPhotos.length > 0 ? handleMultiplePhotoUpload : handlePhotoUpload}
-                      disabled={(!selectedPhoto && selectedPhotos.length === 0) || uploadingPhoto}
+                      component="span"
                       startIcon={<AddIcon />}
-                      fullWidth
+                      sx={{
+                        bgcolor: '#1a365d',
+                        '&:hover': { bgcolor: '#2c5282' }
+                      }}
                     >
-                      {uploadingPhoto ? 'Uploading...' : 
-                        selectedPhotos.length > 0 ? `Upload ${selectedPhotos.length} Photos` : 'Upload Photo'
-                      }
+                      Add Media
                     </Button>
-                  </Grid>
-                </Grid>
-              </Card>
+                  </label>
+                </Box>
+                
+                {(!selectedPhoto && selectedPhotos.length === 0) && (
+                  <Typography variant="body2" color="text.secondary">
+                    Upload photos, videos, or audio files
+                  </Typography>
+                )}
+                
+                {(selectedPhoto || selectedPhotos.length > 0) && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#1a365d' }}>
+                      Selected Files:
+                    </Typography>
+                    {selectedPhoto && (
+                      <Chip
+                        label={selectedPhoto.name}
+                        onDelete={() => setSelectedPhoto(null)}
+                        sx={{ 
+                          mr: 1, 
+                          mb: 1,
+                          bgcolor: '#e2e8f0',
+                          '& .MuiChip-deleteIcon': {
+                            color: '#718096',
+                            '&:hover': { color: '#1a365d' }
+                          }
+                        }}
+                      />
+                    )}
+                    {selectedPhotos.map((file, index) => (
+                      <Chip
+                        key={index}
+                        label={file.name}
+                        onDelete={() => setSelectedPhotos(prev => prev.filter((_, i) => i !== index))}
+                        sx={{ 
+                          mr: 1, 
+                          mb: 1,
+                          bgcolor: '#e2e8f0',
+                          '& .MuiChip-deleteIcon': {
+                            color: '#718096',
+                            '&:hover': { color: '#1a365d' }
+                          }
+                        }}
+                      />
+                    ))}
+                    <Box sx={{ mt: 2 }}>
+                      <TextField
+                        fullWidth
+                        label="Caption (Optional)"
+                        value={photoCaption}
+                        onChange={(e) => setPhotoCaption(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        sx={{ mb: 2 }}
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={selectedPhotos.length > 0 ? handleMultiplePhotoUpload : handlePhotoUpload}
+                        disabled={uploadingPhoto}
+                        startIcon={<AddIcon />}
+                        fullWidth
+                        sx={{
+                          bgcolor: '#1a365d',
+                          '&:hover': { bgcolor: '#2c5282' }
+                        }}
+                      >
+                        {uploadingPhoto ? 'Uploading...' : 
+                          selectedPhotos.length > 0 ? `Upload ${selectedPhotos.length} Files` : 'Upload File'
+                        }
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+              </Paper>
               
               {/* Display Photos */}
               {formData.photos && formData.photos.length > 0 ? (
