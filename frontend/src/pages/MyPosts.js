@@ -26,7 +26,9 @@ import {
   DialogActions,
   Chip,
   Grid,
-  Autocomplete
+  Autocomplete,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import {
   Favorite as FavoriteIcon,
@@ -35,12 +37,16 @@ import {
   Send as SendIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
-  ArrowBack as ArrowBackIcon
+  ArrowBack as ArrowBackIcon,
+  MoreVert as MoreVertIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import UserAvatar from '../components/UserAvatar';
 import MentionInput from '../components/MentionInput';
 
 const MyPosts = () => {
@@ -58,6 +64,9 @@ const MyPosts = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
   const [createPostModalOpen, setCreatePostModalOpen] = useState(false);
+  const [postMenuAnchor, setPostMenuAnchor] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [expandedTags, setExpandedTags] = useState({});
 
   // Predefined options for instruments and genres
   const instrumentOptions = [
@@ -227,6 +236,8 @@ const MyPosts = () => {
     } finally {
       setDeleteDialogOpen(false);
       setPostToDelete(null);
+      setPostMenuAnchor(null);
+      setSelectedPost(null);
     }
   };
 
@@ -237,11 +248,34 @@ const MyPosts = () => {
     }));
   };
 
+  const toggleTags = (postId) => {
+    setExpandedTags(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }));
+  };
+
+  const handlePostMenuClick = (event, post) => {
+    setPostMenuAnchor(event.currentTarget);
+    setSelectedPost(post);
+  };
+
+  const handlePostMenuClose = () => {
+    setPostMenuAnchor(null);
+    setSelectedPost(null);
+  };
+
+  const handleDeleteClick = () => {
+    setPostToDelete(selectedPost._id);
+    setDeleteDialogOpen(true);
+    handlePostMenuClose();
+  };
+
   const renderMedia = (media) => {
     return (
-      <Grid container spacing={1} sx={{ mt: 1 }}>
+      <Grid container spacing={2}>
         {media.map((item, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
+          <Grid item xs={12} sm={8} md={6} key={index} sx={{ textAlign: 'center' }}>
             {item.type === 'image' ? (
               <img
                 src={`http://localhost:5001${item.url}`}
@@ -282,7 +316,7 @@ const MyPosts = () => {
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <IconButton onClick={() => navigate('/community')}>
@@ -293,17 +327,55 @@ const MyPosts = () => {
         </Typography>
       </Box>
 
-      {/* Create Post Button */}
-      <Box sx={{ mb: 3 }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreatePostModalOpen(true)}
-          size="large"
-        >
-          Create a Post
-        </Button>
-      </Box>
+      {/* Create Post Bar */}
+      <Paper
+        elevation={1}
+        sx={{
+          mb: 4,
+          borderRadius: 2,
+          border: '1px solid #e2e8f0',
+          overflow: 'hidden'
+        }}
+      >
+        <Box sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <UserAvatar
+              user={user}
+              size={48}
+              onClick={() => navigate('/profile/edit')}
+            />
+            <Box
+              onClick={() => setCreatePostModalOpen(true)}
+              sx={{
+                flexGrow: 1,
+                p: { xs: 1.5, sm: 2 },
+                borderRadius: { xs: 4, sm: 6 },
+                border: '1px solid #e2e8f0',
+                bgcolor: '#f8fafc',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                minHeight: { xs: 44, sm: 48 },
+                display: 'flex',
+                alignItems: 'center',
+                '&:hover': {
+                  bgcolor: '#f1f5f9',
+                  borderColor: '#cbd5e0'
+                }
+              }}
+            >
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  color: '#718096',
+                  fontSize: { xs: '0.95rem', sm: '1rem' }
+                }}
+              >
+                What's on your mind? Share your musical journey...
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
 
       {/* Create Post Modal */}
       <Dialog
@@ -311,19 +383,46 @@ const MyPosts = () => {
         onClose={() => setCreatePostModalOpen(false)}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+          }
+        }}
       >
-        <DialogTitle>Create a Post</DialogTitle>
-        <DialogContent>
-          <Box component="form" onSubmit={handleSubmitPost} sx={{ mt: 1 }}>
-            <TextField
+        <DialogTitle sx={{ 
+          bgcolor: '#1a365d', 
+          color: 'white', 
+          textAlign: 'center',
+          fontWeight: 'bold',
+          fontSize: '1.5rem'
+        }}>
+          Create a Post
+        </DialogTitle>
+        <DialogContent sx={{ p: 4 }}>
+          <Box component="form" onSubmit={handleSubmitPost} sx={{ mt: 2 }}>
+            <MentionInput
               fullWidth
               multiline
               rows={4}
-              placeholder="What's on your mind?"
+              placeholder="What's on your mind? Share your musical journey..."
               value={postContent}
-              onChange={(e) => setPostContent(e.target.value)}
+              onChange={(e) => {
+                setPostContent(e.target.value);
+              }}
               variant="outlined"
-              sx={{ mb: 3 }}
+              sx={{ 
+                mb: 4,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  '&:hover fieldset': { borderColor: '#1a365d' },
+                  '&.Mui-focused fieldset': { borderColor: '#1a365d' }
+                },
+                '& .MuiInputBase-input': {
+                  fontSize: '1.1rem',
+                  lineHeight: 1.6
+                }
+              }}
             />
             
             <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -369,34 +468,80 @@ const MyPosts = () => {
               </Grid>
             </Grid>
             
-            <Box sx={{ mb: 3 }}>
+            {/* Media Upload Section */}
+            <Typography variant="h6" sx={{ mb: 2, color: '#1a365d', fontWeight: 'bold' }}>
+              Media (Optional)
+            </Typography>
+            <Paper 
+              elevation={0} 
+              sx={{ 
+                p: 3, 
+                mb: 3, 
+                border: '2px dashed #e2e8f0',
+                borderRadius: 2,
+                textAlign: 'center',
+                bgcolor: '#f8fafc',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  borderColor: '#1a365d',
+                  bgcolor: '#f1f5f9'
+                }
+              }}
+            >
               <input
-                accept="image/*,video/*"
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                onChange={handleFileSelect}
                 style={{ display: 'none' }}
                 id="media-upload"
-                multiple
-                type="file"
-                onChange={handleFileSelect}
               />
-              <label htmlFor="media-upload">
-                <Button variant="outlined" component="span">
-                  Add Photos/Videos
-                </Button>
-              </label>
+              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 2 }}>
+                <label htmlFor="media-upload">
+                  <Button
+                    variant="contained"
+                    component="span"
+                    startIcon={<AddIcon />}
+                    sx={{
+                      bgcolor: '#1a365d',
+                      '&:hover': { bgcolor: '#2c5282' }
+                    }}
+                  >
+                    Add Media
+                  </Button>
+                </label>
+              </Box>
+              
+              {selectedFiles.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  Upload images, videos, or audio files to share with your post
+                </Typography>
+              )}
               
               {selectedFiles.length > 0 && (
                 <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: '#1a365d' }}>
+                    Selected Files:
+                  </Typography>
                   {selectedFiles.map((file, index) => (
                     <Chip
                       key={index}
                       label={file.name}
                       onDelete={() => removeFile(index)}
-                      sx={{ mr: 1, mb: 1 }}
+                      sx={{ 
+                        mr: 1, 
+                        mb: 1,
+                        bgcolor: '#e2e8f0',
+                        '& .MuiChip-deleteIcon': {
+                          color: '#718096',
+                          '&:hover': { color: '#1a365d' }
+                        }
+                      }}
                     />
                   ))}
                 </Box>
               )}
-            </Box>
+            </Paper>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -406,70 +551,183 @@ const MyPosts = () => {
             variant="contained"
             disabled={submitting || (!postContent.trim() && selectedFiles.length === 0)}
             startIcon={submitting ? <CircularProgress size={20} /> : null}
+            size="large"
+            sx={{
+              bgcolor: '#1a365d',
+              px: 4,
+              py: 1.5,
+              fontWeight: 'bold',
+              boxShadow: '0 4px 12px rgba(26, 54, 93, 0.3)',
+              '&:hover': {
+                bgcolor: '#2c5282',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 20px rgba(26, 54, 93, 0.4)'
+              },
+              '&:disabled': {
+                bgcolor: '#cbd5e0',
+                color: '#a0aec0'
+              },
+              transition: 'all 0.3s ease'
+            }}
           >
-            {submitting ? 'Posting...' : 'Post'}
+            {submitting ? 'Posting...' : 'Share Post'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Posts Feed */}
       {posts.length === 0 ? (
-        <Alert severity="info">
-          You haven't created any posts yet. Create your first post to share with the community!
-        </Alert>
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 6, 
+            textAlign: 'center',
+            borderRadius: 3,
+            border: '2px dashed #e2e8f0',
+            bgcolor: '#f8fafc'
+          }}
+        >
+          <Typography variant="h5" sx={{ color: '#1a365d', fontWeight: 'bold', mb: 2 }}>
+            No posts found
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3, maxWidth: 400, mx: 'auto' }}>
+            You haven't created any posts yet. Share your musical journey with the community!
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => setCreatePostModalOpen(true)}
+            sx={{
+              bgcolor: '#1a365d',
+              px: 4,
+              py: 1.5,
+              fontWeight: 'bold',
+              '&:hover': { bgcolor: '#2c5282' }
+            }}
+          >
+            Create Your First Post
+          </Button>
+        </Paper>
       ) : (
         posts.map((post) => (
-          <Card key={post._id} sx={{ mb: 3 }}>
+          <Card 
+            key={post._id} 
+            elevation={0}
+            sx={{ 
+              mb: 4,
+              borderRadius: 3,
+              border: '1px solid #e2e8f0',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 25px rgba(26, 54, 93, 0.1)',
+                borderColor: '#cbd5e0'
+              }
+            }}
+          >
             <CardHeader
               avatar={
-                <Avatar src={post.author.avatar} alt={post.author.name}>
-                  {post.author.name?.charAt(0)}
-                </Avatar>
+                <UserAvatar 
+                  user={post.author}
+                  size={48}
+                  onClick={() => navigate(`/profile/${post.author._id}`)}
+                />
               }
-              title={post.author.name}
-              subheader={formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
-              action={
-                <IconButton
-                  onClick={() => {
-                    setPostToDelete(post._id);
-                    setDeleteDialogOpen(true);
+              title={
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    color: '#1a365d'
                   }}
                 >
-                  <DeleteIcon />
+                  {post.author.name}
+                </Typography>
+              }
+              subheader={
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
+                  {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                </Typography>
+              }
+              action={
+                <IconButton
+                  onClick={(event) => handlePostMenuClick(event, post)}
+                  sx={{
+                    color: '#718096',
+                    '&:hover': {
+                      color: '#1a365d',
+                      bgcolor: 'rgba(26, 54, 93, 0.1)'
+                    }
+                  }}
+                >
+                  <MoreVertIcon />
                 </IconButton>
               }
+              sx={{ pb: 1 }}
             />
             
-            <CardContent>
-              <Typography variant="body1" component="p">
+            <CardContent sx={{ pt: 0, px: 3, pb: 2 }}>
+              <Typography 
+                variant="body1" 
+                component="div"
+                sx={{
+                  lineHeight: 1.7,
+                  fontSize: '1rem',
+                  color: '#2d3748',
+                  mb: 3
+                }}
+              >
                 {post.content}
               </Typography>
               
-              {post.media && post.media.length > 0 && renderMedia(post.media)}
+              {post.media && post.media.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  {renderMedia(post.media)}
+                </Box>
+              )}
               
               {/* Display tags */}
               {(post.instruments?.length > 0 || post.genres?.length > 0) && (
                 <Box sx={{ mt: 2 }}>
-                  {post.instruments?.map((instrument, index) => (
-                    <Chip
-                      key={`instrument-${index}`}
-                      label={instrument}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                      sx={{ mr: 0.5, mb: 0.5 }}
-                    />
-                  ))}
-                  {post.genres?.map((genre, index) => (
-                    <Chip
-                      key={`genre-${index}`}
-                      label={genre}
-                      size="small"
-                      color="secondary"
-                      variant="outlined"
-                      sx={{ mr: 0.5, mb: 0.5 }}
-                    />
-                  ))}
+                  {post.instruments?.length > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                        Instruments:
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {post.instruments.map((instrument, index) => (
+                          <Chip
+                            key={`instrument-${index}`}
+                            label={instrument}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            sx={{ mr: 0.5, mb: 0.5 }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+                  
+                  {post.genres?.length > 0 && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                        Genres:
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {post.genres.map((genre, index) => (
+                          <Chip
+                            key={`genre-${index}`}
+                            label={genre}
+                            size="small"
+                            color="secondary"
+                            variant="outlined"
+                            sx={{ mr: 0.5, mb: 0.5 }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
                 </Box>
               )}
             </CardContent>
@@ -491,19 +749,71 @@ const MyPosts = () => {
               <Typography variant="body2" sx={{ mr: 2 }}>
                 {post.commentsCount}
               </Typography>
+              
+              {(post.instruments?.length > 0 || post.genres?.length > 0) && (
+                <IconButton
+                  onClick={() => toggleTags(post._id)}
+                  aria-expanded={expandedTags[post._id]}
+                  aria-label="show tags"
+                >
+                  {expandedTags[post._id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              )}
             </CardActions>
+
+            <Collapse in={expandedTags[post._id]} timeout="auto" unmountOnExit>
+              <CardContent>
+                {post.instruments?.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                      Instruments:
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {post.instruments.map((instrument, index) => (
+                        <Chip
+                          key={`instrument-${index}`}
+                          label={instrument}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+                
+                {post.genres?.length > 0 && (
+                  <Box sx={{ mt: post.instruments?.length > 0 ? 2 : 2 }}>
+                    <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                      Genres:
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {post.genres.map((genre, index) => (
+                        <Chip
+                          key={`genre-${index}`}
+                          label={genre}
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+              </CardContent>
+            </Collapse>
 
             <Collapse in={expandedComments[post._id]} timeout="auto" unmountOnExit>
               <CardContent>
                 {/* Comment Input */}
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Avatar
-                    src={user?.avatar}
-                    alt={user?.name}
-                    sx={{ mr: 1, width: 32, height: 32 }}
-                  >
-                    {user?.name?.charAt(0)}
-                  </Avatar>
+                  <UserAvatar
+                    user={user}
+                    size={32}
+                    sx={{ mr: 1 }}
+                  />
                   <MentionInput
                     fullWidth
                     size="small"
@@ -534,13 +844,11 @@ const MyPosts = () => {
                     {post.comments.map((comment) => (
                       <ListItem key={comment._id} alignItems="flex-start">
                         <ListItemAvatar>
-                          <Avatar
-                            src={comment.user.avatar}
-                            alt={comment.user.name}
-                            sx={{ width: 32, height: 32 }}
-                          >
-                            {comment.user.name?.charAt(0)}
-                          </Avatar>
+                          <UserAvatar
+                            user={comment.user}
+                            size={32}
+                            onClick={() => navigate(`/profile/${comment.user._id}`)}
+                          />
                         </ListItemAvatar>
                         <ListItemText
                           primary={
@@ -580,8 +888,28 @@ const MyPosts = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
-  );
+
+        {/* Post Menu */}
+        <Menu
+          anchorEl={postMenuAnchor}
+          open={Boolean(postMenuAnchor)}
+          onClose={handlePostMenuClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+        >
+          <MenuItem onClick={handleDeleteClick}>
+            <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
+            Delete Post
+          </MenuItem>
+        </Menu>
+      </Container>
+    );
 };
 
 export default MyPosts;

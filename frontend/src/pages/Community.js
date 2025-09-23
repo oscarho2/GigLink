@@ -1030,7 +1030,7 @@ const Community = () => {
               <input
                 type="file"
                 multiple
-                accept="image/*,video/*"
+                accept="image/*,video/*,audio/*"
                 onChange={handleFileSelect}
                 style={{ display: 'none' }}
                 id="file-upload-modal"
@@ -1040,38 +1040,20 @@ const Community = () => {
                   <Button
                     variant="contained"
                     component="span"
-                    startIcon={<PhotoCameraIcon />}
+                    startIcon={<AddIcon />}
                     sx={{
                       bgcolor: '#1a365d',
                       '&:hover': { bgcolor: '#2c5282' }
                     }}
                   >
-                    Add Photos
-                  </Button>
-                </label>
-                <label htmlFor="file-upload-modal">
-                  <Button
-                    variant="outlined"
-                    component="span"
-                    startIcon={<VideocamIcon />}
-                    sx={{
-                      borderColor: '#1a365d',
-                      color: '#1a365d',
-                      '&:hover': {
-                        borderColor: '#2c5282',
-                        color: '#2c5282',
-                        bgcolor: 'rgba(26, 54, 93, 0.04)'
-                      }
-                    }}
-                  >
-                    Add Videos
+                    Add Media
                   </Button>
                 </label>
               </Box>
               
               {selectedFiles.length === 0 && (
                 <Typography variant="body2" color="text.secondary">
-                  Upload images or videos to share with your post
+                  Upload images, videos, or audio files to share with your post
                 </Typography>
               )}
               
