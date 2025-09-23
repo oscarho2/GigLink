@@ -273,7 +273,7 @@ const MyPosts = () => {
 
   const renderMedia = (media) => {
     return (
-      <Grid container spacing={2}>
+      <Grid container spacing={2} sx={{ justifyContent: 'center' }}>
         {media.map((item, index) => (
           <Grid item xs={12} sm={8} md={6} key={index} sx={{ textAlign: 'center' }}>
             {item.type === 'image' ? (
@@ -283,18 +283,25 @@ const MyPosts = () => {
                 style={{
                   width: '100%',
                   height: 'auto',
+                  maxHeight: '450px', // Increased by 50%
+                  maxWidth: '600px', // Increased by 50%
                   objectFit: 'contain',
-                  borderRadius: '8px'
+                  borderRadius: '8px',
+                  display: 'block', // Centering
+                  margin: '0 auto' // Centering
                 }}
               />
             ) : (
               <video
                 controls
                 style={{
-                  width: '100%',
+                  width: '80%',
+                  maxWidth: '400px',
                   height: 'auto',
                   borderRadius: '8px',
-                  maxHeight: '400px'
+                  maxHeight: '300px', // Added
+                  objectFit: 'contain',
+                  borderRadius: '8px'
                 }}
               >
                 <source src={`http://localhost:5001${item.url}`} />
@@ -686,50 +693,7 @@ const MyPosts = () => {
                 </Box>
               )}
               
-              {/* Display tags */}
-              {(post.instruments?.length > 0 || post.genres?.length > 0) && (
-                <Box sx={{ mt: 2 }}>
-                  {post.instruments?.length > 0 && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                        Instruments:
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {post.instruments.map((instrument, index) => (
-                          <Chip
-                            key={`instrument-${index}`}
-                            label={instrument}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                            sx={{ mr: 0.5, mb: 0.5 }}
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                  
-                  {post.genres?.length > 0 && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                        Genres:
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {post.genres.map((genre, index) => (
-                          <Chip
-                            key={`genre-${index}`}
-                            label={genre}
-                            size="small"
-                            color="secondary"
-                            variant="outlined"
-                            sx={{ mr: 0.5, mb: 0.5 }}
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                </Box>
-              )}
+
             </CardContent>
 
             <CardActions disableSpacing>
