@@ -788,14 +788,14 @@ const EditProfile = () => {
                         '&:hover': { bgcolor: '#2c5282' }
                       }}
                     >
-                      Add Media
+                      Add Photo
                     </Button>
                   </label>
                 </Box>
                 
                 {(!selectedPhoto && selectedPhotos.length === 0) && (
                   <Typography variant="body2" color="text.secondary">
-                    Upload photos, videos, or audio files
+                    Upload photos
                   </Typography>
                 )}
                 
@@ -906,6 +906,55 @@ const EditProfile = () => {
                   You haven't added any photos yet.
                 </Typography>
               )}
+            </Grid>
+            
+            {/* Video Section */}
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>Videos</Typography>
+              
+              {/* YouTube Video Link */}
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 3, 
+                  mb: 2, 
+                  border: '2px dashed #e2e8f0',
+                  borderRadius: 2,
+                  bgcolor: '#f8fafc',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    borderColor: '#1a365d',
+                    bgcolor: '#f1f5f9'
+                  }
+                }}
+              >
+                <Typography variant="subtitle1" sx={{ mb: 2, color: '#1a365d', fontWeight: 600 }}>
+                  Add YouTube Video
+                </Typography>
+                <TextField
+                  fullWidth
+                  label="YouTube Video URL"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  variant="outlined"
+                  size="small"
+                  sx={{ mb: 2 }}
+                />
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  sx={{
+                    bgcolor: '#1a365d',
+                    '&:hover': { bgcolor: '#2c5282' }
+                  }}
+                >
+                  Add Video
+                </Button>
+              </Paper>
+              
+              {/* Display Videos */}
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                You haven't added any videos yet.
+              </Typography>
             </Grid>
             
             <Grid item xs={12}>
