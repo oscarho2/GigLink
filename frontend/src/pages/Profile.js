@@ -244,7 +244,7 @@ const Profile = () => {
     const newPhoto = profile.photos[newIndex];
     setPhotoModal({
       ...photoModal,
-      photoUrl: `http://localhost:5001${newPhoto.url}`,
+      photoUrl: newPhoto.url,
       caption: newPhoto.caption || '',
       currentIndex: newIndex
     });
@@ -716,9 +716,9 @@ const Profile = () => {
                   >
                     <Box
                       component="img"
-                      src={`http://localhost:5001${photo.url}`}
+                      src={photo.url}
                       alt={photo.caption || 'Profile photo'}
-                      onClick={() => openPhotoModal(`http://localhost:5001${photo.url}`, photo.caption, index)}
+                      onClick={() => openPhotoModal(photo.url, photo.caption, index)}
                       sx={{
                         width: '100%',
                         height: { xs: 200, sm: 250 },
@@ -745,9 +745,9 @@ const Profile = () => {
                 ) : (
                   <Box
                     component="img"
-                    src={`http://localhost:5001${photo.url}`}
+                    src={photo.url}
                     alt="Profile photo"
-                    onClick={() => openPhotoModal(`http://localhost:5001${photo.url}`, photo.caption, index)}
+                    onClick={() => openPhotoModal(photo.url, photo.caption, index)}
                     sx={{
                       width: '100%',
                       height: { xs: 200, sm: 250 },

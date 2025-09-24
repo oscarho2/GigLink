@@ -113,7 +113,7 @@ const Community = () => {
         queryParams.append('genres', filters.genres.join(','));
       }
       
-      const url = `http://localhost:5001/api/posts${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      const url = `/api/posts${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
       const response = await fetch(url, {
         headers: {
           'x-auth-token': token
@@ -308,7 +308,7 @@ const Community = () => {
     try {
       const isLiked = commentLikes[commentId];
       const method = isLiked ? 'DELETE' : 'POST';
-      const response = await fetch(`http://localhost:5001/api/posts/${postId}/comments/${commentId}/like`, {
+      const response = await fetch(`/api/posts/${postId}/comments/${commentId}/like`, {
         method,
         headers: {
           'x-auth-token': token
@@ -426,7 +426,7 @@ const Community = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5001/api/posts/${post._id}/comments/${selectedComment._id}/pin`, {
+      const response = await fetch(`/api/posts/${post._id}/comments/${selectedComment._id}/pin`, {
         method: 'PUT',
         headers: {
           'x-auth-token': token
@@ -462,7 +462,7 @@ const Community = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5001/api/posts/${post._id}/comments/${commentId}/replies/${replyId}/like`, {
+      const response = await fetch(`/api/posts/${post._id}/comments/${commentId}/replies/${replyId}/like`, {
         method: 'PUT',
         headers: {
           'x-auth-token': token,
@@ -537,7 +537,7 @@ const Community = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5001/api/posts/${post._id}/comments/${selectedCommentForReply}/replies/${selectedReply}`, {
+      const response = await fetch(`/api/posts/${post._id}/comments/${selectedCommentForReply}/replies/${selectedReply}`, {
         method: 'DELETE',
         headers: {
           'x-auth-token': token,
@@ -617,7 +617,7 @@ const Community = () => {
           <Grid item xs={12} sm={8} md={6} key={index} sx={{ textAlign: 'center' }}>
             {item.type === 'image' ? (
               <img
-                src={`http://localhost:5001${item.url}`}
+                src={item.url}
                 alt="Post media"
                 style={{
                   width: '100%',
@@ -643,7 +643,7 @@ const Community = () => {
                   borderRadius: '8px'
                 }}
               >
-                <source src={`http://localhost:5001${item.url}`} />
+                <source src={item.url} />
                 Your browser does not support the video tag.
               </video>
             )}

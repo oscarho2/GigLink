@@ -489,7 +489,7 @@ const EditProfile = () => {
       console.log('Sending update data:', updateData);
       
       const response = await axios.put(
-        'http://localhost:5001/api/profiles/me',
+        '/api/profiles/me',
         updateData,
         {
           headers: {
@@ -575,7 +575,7 @@ const EditProfile = () => {
                       ) : (profile?.user?.avatar || profile?.user?.profilePicture) ? (
                         <Box
                           component="img"
-                          src={`http://localhost:5001${profile.user.avatar || profile.user.profilePicture}`}
+                          src={profile.user.avatar || profile.user.profilePicture}
                           alt="Current profile picture"
                           sx={{
                             width: '100%',
@@ -873,7 +873,7 @@ const EditProfile = () => {
                       <Card>
                         <Box
                           component="img"
-                          src={`http://localhost:5001${photo.url}`}
+                          src={photo.url}
                           alt={photo.caption || 'Profile photo'}
                           sx={{
                             width: '100%',

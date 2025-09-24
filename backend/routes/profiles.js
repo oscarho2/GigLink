@@ -1,52 +1,11 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
+const { upload, getPublicUrl } = require('../utils/r2Config');
 
-// Configure multer for photo uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadsDir = path.join(__dirname, '../uploads');
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    const name = path.basename(file.originalname, ext);
-    cb(null, name + '-' + uniqueSuffix + ext);
-  }
-});
-
-const photoFilter = (req, file, cb) => {
-  const allowedTypes = {
-    'image/jpeg': true,
-    'image/jpg': true,
-    'image/png': true,
-    'image/gif': true,
-    'image/webp': true
-  };
-  
-  if (allowedTypes[file.mimetype]) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files are allowed'), false);
-  }
-};
-
-const upload = multer({
-  storage: storage,
-  fileFilter: photoFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit for photos
-  }
-});
+// R2 upload configuration is handled in r2Config.js
 
 // @route   GET api/profiles/me
 // @desc    Get current user's profile
@@ -365,7 +324,7 @@ router.post('/photos', auth, upload.single('photo'), async (req, res) => {
       return res.status(400).json({ message: 'No photo file provided' });
     }
 
-    const photoUrl = `/api/upload/files/${req.file.filename}`;
+    const photoUrl = getPublicUrl(req.file.key);
     const caption = req.body.caption || '';
 
     let profile = await Profile.findOne({ user: req.user.id });
@@ -399,7 +358,7 @@ router.put('/avatar-legacy', auth, upload.single('avatar'), async (req, res) => 
       return res.status(400).json({ message: 'No avatar file provided' });
     }
 
-    const avatarUrl = `/api/upload/files/${req.file.filename}`;
+    const avatarUrl = getPublicUrl(req.file.key);
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
@@ -471,16 +430,11 @@ router.put('/avatar', auth, upload.single('avatar'), async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Delete old profile picture if it exists
-    if (user.avatar && user.avatar.startsWith('/uploads/')) {
-      const oldFilePath = path.join(__dirname, '..', user.avatar);
-      if (fs.existsSync(oldFilePath)) {
-        fs.unlinkSync(oldFilePath);
-      }
-    }
+    // Get the public URL for the uploaded avatar
+    const avatarUrl = getPublicUrl(req.file.key);
     
     // Update user's avatar
-    user.avatar = `/uploads/${req.file.filename}`;
+    user.avatar = avatarUrl;
     await user.save();
     
     res.json({ 
