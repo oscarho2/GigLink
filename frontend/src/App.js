@@ -88,9 +88,9 @@ const AppContainer = styled(Box)(({ theme }) => ({
 
 const MainContent = styled(Box)(({ theme }) => ({
   flex: 1,
-  paddingBottom: {
-    xs: '70px', // Add padding for bottom navigation on mobile
-    md: 0 // No padding on desktop
+  paddingBottom: '70px', // Add padding for bottom navigation on mobile
+  [theme.breakpoints.up('md')]: {
+    paddingBottom: 0 // No padding on desktop
   }
 }));
 

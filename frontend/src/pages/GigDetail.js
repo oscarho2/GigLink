@@ -36,7 +36,12 @@ const GigDetail = () => {
         // Check if user has applied using the yourApplicationStatus field
         if (res.data.yourApplicationStatus) {
           setHasApplied(true);
-          setApplicationStatus(res.data.yourApplicationStatus);
+          // Show 'fixed' status if gig is filled by another applicant
+          if (res.data.acceptedByOther && res.data.yourApplicationStatus === 'pending') {
+            setApplicationStatus('fixed');
+          } else {
+            setApplicationStatus(res.data.yourApplicationStatus);
+          }
         } else {
           // Fallback: check applicants array if user is the gig owner
           // Check if user has already applied using yourApplicationStatus first
@@ -820,13 +825,17 @@ const GigDetail = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: { xs: '100%', sm: 'auto' } }}>
                 {hasApplied && applicationStatus && (
                   <Chip
-                    label={`${applicationStatus.charAt(0).toUpperCase() + applicationStatus.slice(1)}`}
-                    color={applicationStatus === 'accepted' ? 'success' : applicationStatus === 'rejected' ? 'error' : 'warning'}
+                    label={applicationStatus === 'fixed' ? 'Fixed' : `${applicationStatus.charAt(0).toUpperCase() + applicationStatus.slice(1)}`}
+                    color={applicationStatus === 'accepted' ? 'success' : applicationStatus === 'rejected' ? 'error' : applicationStatus === 'fixed' ? 'default' : 'warning'}
                     sx={{
                       fontWeight: 'bold',
                       fontSize: { xs: '0.875rem', sm: '1rem' },
                       py: 1,
-                      px: 2
+                      px: 2,
+                      ...(applicationStatus === 'fixed' && {
+                        bgcolor: '#9e9e9e',
+                        color: 'white'
+                      })
                     }}
                   />
                 )}

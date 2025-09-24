@@ -129,6 +129,13 @@ router.get('/:id', async (req, res) => {
           : null;
         if (myApp) {
           gigObj.yourApplicationStatus = myApp.status || 'pending';
+          // Check if someone else was accepted (for 'fixed' status display)
+          gigObj.acceptedByOther = gig.applicants.some(
+            app => app.status === 'accepted' && (
+              app.user && app.user._id ? app.user._id.toString() : 
+              (app.user && app.user.toString ? app.user.toString() : app.user)
+            ) !== myId
+          );
         }
       } catch (err) {
         console.error('DEBUG: Error in status check:', err);
