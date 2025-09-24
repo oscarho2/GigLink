@@ -40,7 +40,7 @@ const UserLinks = () => {
       const authToken = token || localStorage.getItem('token');
       
       // Fetch user profile
-      const userResponse = await fetch(`http://localhost:5001/api/users/${userId}`);
+      const userResponse = await fetch(`/api/users/${userId}`);
       
       if (!userResponse.ok) {
         throw new Error('Failed to fetch user profile');
@@ -50,7 +50,7 @@ const UserLinks = () => {
       setUser(userData);
  
       // Fetch user's links (the viewed user's connections)
-      const linksResponse = await fetch(`http://localhost:5001/api/links/user/${userId}`, {
+      const linksResponse = await fetch(`/api/links/user/${userId}`, {
         headers: {
           'x-auth-token': authToken
         }
@@ -66,7 +66,7 @@ const UserLinks = () => {
       // Fetch current (authenticated) user's links to compute mutual links
       let myLinksData = { links: [] };
       try {
-        const myLinksResponse = await fetch(`http://localhost:5001/api/links/links`, {
+        const myLinksResponse = await fetch(`/api/links/links`, {
           headers: {
             'x-auth-token': authToken
           }

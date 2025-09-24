@@ -17,7 +17,7 @@ const UserAvatar = ({
   
   // Build the full URL if we have a relative path
   const fullAvatarSrc = avatarSrc && avatarSrc.startsWith('/') 
-    ? `http://localhost:5001${avatarSrc}` 
+    ? avatarSrc 
     : avatarSrc;
 
   // Determine the alt text

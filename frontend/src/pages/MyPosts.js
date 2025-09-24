@@ -278,7 +278,7 @@ const MyPosts = () => {
           <Grid item xs={12} sm={8} md={6} key={index} sx={{ textAlign: 'center' }}>
             {item.type === 'image' ? (
               <img
-                src={`http://localhost:5001${item.url}`}
+                src={item.url}
                 alt="Post media"
                 style={{
                   width: '100%',
@@ -304,7 +304,7 @@ const MyPosts = () => {
                   borderRadius: '8px'
                 }}
               >
-                <source src={`http://localhost:5001${item.url}`} />
+                <source src={item.url} />
                 Your browser does not support the video tag.
               </video>
             )}

@@ -66,7 +66,7 @@ function EditGig() {
 
   const fetchGig = async () => {
     try {
-      const response = await fetch(`http://localhost:5001/api/gigs/${id}`, {
+      const response = await fetch(`/api/gigs/${id}`, {
         headers: {
           'x-auth-token': token
         }
@@ -154,7 +154,7 @@ function EditGig() {
       const primaryDate = schedules[0]?.date || formData.date;
       const primaryTime = schedules[0]?.startTime || formData.time;
 
-      const response = await fetch(`http://localhost:5001/api/gigs/${id}`, {
+      const response = await fetch(`/api/gigs/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -82,7 +82,7 @@ const CreateGig = () => {
       const primaryDate = schedules[0]?.date || formData.date;
       const primaryTime = schedules[0]?.startTime || formData.time;
 
-      const response = await fetch('http://localhost:5001/api/gigs', {
+      const response = await fetch('/api/gigs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

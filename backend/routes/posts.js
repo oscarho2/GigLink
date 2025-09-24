@@ -5,9 +5,7 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const { parseMentions, getMentionedUserIds } = require('../utils/mentionUtils');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const { upload, getPublicUrl, deleteFile } = require('../utils/r2Config');
 
 // Helper function to add like status and counts to a post object
 const addPostLikeStatus = (post, userId) => {
@@ -52,37 +50,7 @@ const getPopulatedPostWithLikeStatus = async (postId, userId) => {
   return addPostLikeStatus(post, userId);
 };
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = path.join(__dirname, '../uploads/posts');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const fileFilter = (req, file, cb) => {
-  // Accept images and videos
-  if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image and video files are allowed!'), false);
-  }
-};
-
-const upload = multer({ 
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit
-  }
-});
+// R2 upload configuration is handled in r2Config.js
 
 // @route   POST /api/posts
 // @desc    Create a new post
@@ -103,8 +71,9 @@ router.post('/', auth, upload.array('media', 5), async (req, res) => {
         const mediaType = file.mimetype.startsWith('image/') ? 'image' : 'video';
         media.push({
           type: mediaType,
-          url: `/uploads/posts/${file.filename}`,
-          filename: file.filename
+          url: getPublicUrl(file.key),
+          filename: file.key.split('/').pop(),
+          key: file.key
         });
       });
     }
@@ -722,14 +691,19 @@ router.delete('/:postId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this post' });
     }
 
-    // Delete associated media files
+    // Delete associated media files from R2
     if (post.media && post.media.length > 0) {
-      post.media.forEach(mediaItem => {
-        const filePath = path.join(__dirname, '../uploads/posts', mediaItem.filename);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+      for (const mediaItem of post.media) {
+        if (mediaItem.key) {
+          // Use R2 key if available (new format)
+          await deleteFile(mediaItem.key);
+        } else if (mediaItem.filename) {
+          // Legacy format - construct key from filename
+          const mediaType = mediaItem.type === 'image' ? 'images' : 'videos';
+          const fileKey = `${mediaType}/${mediaItem.filename}`;
+          await deleteFile(fileKey);
         }
-      });
+      }
     }
 
     await Post.findByIdAndDelete(postId);

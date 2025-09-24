@@ -1,77 +1,13 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const router = express.Router();
 const Message = require('../models/Message');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const { parseMentions, getMentionedUserIds } = require('../utils/mentionUtils');
+const { upload, getPublicUrl } = require('../utils/r2Config');
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, '../uploads/messages');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure multer for message file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    const name = path.basename(file.originalname, ext);
-    cb(null, name + '-' + uniqueSuffix + ext);
-  }
-});
-
-const fileFilter = (req, file, cb) => {
-  // Allowed file types for messages
-  const allowedTypes = {
-    // Images
-    'image/jpeg': true,
-    'image/jpg': true,
-    'image/png': true,
-    'image/gif': true,
-    'image/webp': true,
-    // Documents
-    'application/pdf': true,
-    'application/msword': true,
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': true,
-    'application/vnd.ms-excel': true,
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': true,
-    'application/vnd.ms-powerpoint': true,
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': true,
-    'text/plain': true,
-    'text/csv': true,
-    'application/rtf': true,
-    // Audio
-    'audio/mpeg': true,
-    'audio/wav': true,
-    'audio/mp3': true,
-    // Video
-    'video/mp4': true,
-    'video/mpeg': true,
-    'video/quicktime': true
-  };
-
-  if (allowedTypes[file.mimetype]) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only images, documents, audio, and video files are allowed.'), false);
-  }
-};
-
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit for documents and media
-  }
-});
+// R2 upload configuration is handled in r2Config.js
 
 // Get conversations for the authenticated user
 router.get('/conversations', auth, async (req, res) => {
@@ -195,14 +131,14 @@ router.get('/conversation/:otherUserId', auth, async (req, res) => {
   }
 });
 
-// Upload file for message
+// Upload file for message to R2
 router.post('/upload', auth, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    const fileUrl = `/api/messages/files/${req.file.filename}`;
+    const fileUrl = getPublicUrl(req.file.key);
     const fileName = req.file.originalname;
     const fileSize = req.file.size;
     const mimeType = req.file.mimetype;
@@ -212,6 +148,8 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
       fileName,
       fileSize,
       mimeType,
+      key: req.file.key,
+      location: req.file.location,
       message: 'File uploaded successfully'
     });
   } catch (error) {
@@ -220,17 +158,20 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
   }
 });
 
-// Serve uploaded files
+// Legacy route for backward compatibility - redirect to R2 public URL
 router.get('/files/:filename', auth, (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(uploadsDir, filename);
-  
-  // Check if file exists
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ message: 'File not found' });
+  try {
+    const filename = req.params.filename;
+    // Assume misc folder for legacy compatibility
+    const fileKey = `misc/${filename}`;
+    const publicUrl = getPublicUrl(fileKey);
+    
+    // Redirect to R2 public URL
+    res.redirect(publicUrl);
+  } catch (error) {
+    console.error('Legacy file serve error:', error);
+    res.status(500).json({ message: 'File not found' });
   }
-  
-  res.sendFile(filePath);
 });
 
 // Send a new message

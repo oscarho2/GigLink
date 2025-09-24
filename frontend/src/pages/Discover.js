@@ -329,7 +329,7 @@ const Discover = () => {
     try {
       setLoading(true);
       console.log('Fetching musicians from API...');
-      const response = await fetch('http://localhost:5001/api/profiles');
+      const response = await fetch('/api/profiles');
       console.log('Fetch response status:', response.status);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

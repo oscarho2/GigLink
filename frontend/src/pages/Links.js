@@ -228,7 +228,7 @@ const LinksPage = () => {
     setSearchLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/links/search?q=${encodeURIComponent(query)}`, {
+      const response = await fetch(`/api/links/search?q=${encodeURIComponent(query)}`, {
         headers: {
           'x-auth-token': token
         }
@@ -248,7 +248,7 @@ const LinksPage = () => {
   const sendLinkRequest = async (userId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/links/request', {
+      const response = await fetch('/api/links/request', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -346,7 +346,7 @@ const LinksPage = () => {
                       <ListItem key={user._id}>
                         <ListItemAvatar>
                           <Avatar 
-                            src={user.avatar ? `http://localhost:5001${user.avatar}` : undefined}
+                            src={user.avatar}
                             sx={{ cursor: 'pointer' }}
                             onClick={() => navigate(`/profile/${user._id}`)}
                           >
@@ -429,7 +429,7 @@ const LinksPage = () => {
                 <ListItem key={linkData.linkId}>
                   <ListItemAvatar>
                     <Avatar 
-                       src={linkData.link.avatar ? `http://localhost:5001${linkData.link.avatar}` : undefined}
+                       src={linkData.link.avatar}
                        sx={{ cursor: 'pointer' }}
                        onClick={() => navigate(`/profile/${linkData.link._id}`)}
                      >
@@ -478,7 +478,7 @@ const LinksPage = () => {
                 <ListItem key={request.linkId}>
                   <ListItemAvatar>
                     <Avatar 
-                       src={request.requester.avatar ? `http://localhost:5001${request.requester.avatar}` : undefined}
+                       src={request.requester.avatar}
                        sx={{ cursor: 'pointer' }}
                        onClick={() => navigate(`/profile/${request.requester._id}`)}
                      >
@@ -547,7 +547,7 @@ const LinksPage = () => {
                 <ListItem key={request.linkId}>
                   <ListItemAvatar>
                     <Avatar 
-                       src={request.recipient.avatar ? `http://localhost:5001${request.recipient.avatar}` : undefined}
+                       src={request.recipient.avatar}
                        sx={{ cursor: 'pointer' }}
                        onClick={() => navigate(`/profile/${request.recipient._id}`)}
                      >

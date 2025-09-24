@@ -97,7 +97,7 @@ const Gigs = () => {
           }
         } : {};
         
-        const response = await axios.get('http://localhost:5001/api/gigs', config);
+        const response = await axios.get('/api/gigs', config);
         setGigs(response.data);
       } catch (error) {
         console.error('Error fetching gigs:', error);

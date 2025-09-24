@@ -1,74 +1,12 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const auth = require('../middleware/auth');
+const { upload, deleteFile, getPublicUrl } = require('../utils/r2Config');
 const router = express.Router();
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure multer for file storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    // Generate unique filename with timestamp
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    const name = path.basename(file.originalname, ext);
-    cb(null, name + '-' + uniqueSuffix + ext);
-  }
-});
-
-// File filter for allowed file types
-const fileFilter = (req, file, cb) => {
-  // Allowed file types
-  const allowedTypes = {
-    // Images
-    'image/jpeg': true,
-    'image/jpg': true,
-    'image/png': true,
-    'image/gif': true,
-    'image/webp': true,
-    // Documents
-    'application/pdf': true,
-    'application/msword': true,
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': true,
-    'application/vnd.ms-excel': true,
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': true,
-    'application/vnd.ms-powerpoint': true,
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': true,
-    'text/plain': true,
-    'text/csv': true,
-    // Archives
-    'application/zip': true,
-    'application/x-rar-compressed': true,
-    'application/x-7z-compressed': true
-  };
-
-  if (allowedTypes[file.mimetype]) {
-    cb(null, true);
-  } else {
-    cb(new Error('File type not allowed'), false);
-  }
-};
-
-// Configure multer
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  }
-});
+// R2 upload configuration is handled in r2Config.js
 
 // @route   POST /api/upload
-// @desc    Upload a file
+// @desc    Upload a file to Cloudflare R2
 // @access  Private
 router.post('/', auth, upload.single('file'), async (req, res) => {
   try {
@@ -76,17 +14,18 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
       return res.status(400).json({ msg: 'No file uploaded' });
     }
 
-    // Create file URL for serving
-    const fileUrl = `/api/upload/files/${req.file.filename}`;
+    // Get public URL for the uploaded file
+    const fileUrl = getPublicUrl(req.file.key);
 
     // Return file information
     res.json({
-      filename: req.file.filename,
+      filename: req.file.key.split('/').pop(), // Extract filename from key
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
       size: req.file.size,
-      path: req.file.path,
-      url: fileUrl
+      key: req.file.key, // R2 object key
+      url: fileUrl, // Public URL
+      location: req.file.location // S3/R2 location URL
     });
   } catch (error) {
     console.error('File upload error:', error);
@@ -94,23 +33,68 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
   }
 });
 
+// @route   DELETE /api/upload/:key
+// @desc    Delete a file from R2
+// @access  Private
+router.delete('/:key(*)', auth, async (req, res) => {
+  try {
+    const fileKey = req.params.key;
+    
+    if (!fileKey) {
+      return res.status(400).json({ msg: 'File key is required' });
+    }
+
+    const deleted = await deleteFile(fileKey);
+    
+    if (deleted) {
+      res.json({ msg: 'File deleted successfully' });
+    } else {
+      res.status(500).json({ msg: 'Failed to delete file' });
+    }
+  } catch (error) {
+    console.error('File deletion error:', error);
+    res.status(500).json({ msg: 'Server error during file deletion' });
+  }
+});
+
+// @route   GET /api/upload/info/:key
+// @desc    Get file information
+// @access  Public
+router.get('/info/:key(*)', (req, res) => {
+  try {
+    const fileKey = req.params.key;
+    
+    if (!fileKey) {
+      return res.status(400).json({ msg: 'File key is required' });
+    }
+
+    const publicUrl = getPublicUrl(fileKey);
+    
+    res.json({
+      key: fileKey,
+      url: publicUrl
+    });
+  } catch (error) {
+    console.error('File info error:', error);
+    res.status(500).json({ msg: 'Server error getting file info' });
+  }
+});
+
+// Legacy route for backward compatibility
 // @route   GET api/upload/files/:filename
-// @desc    Serve uploaded files
+// @desc    Redirect to R2 public URL
 // @access  Public
 router.get('/files/:filename', (req, res) => {
   try {
     const filename = req.params.filename;
-    const filePath = path.join(uploadsDir, filename);
+    // Assume images folder for legacy compatibility
+    const fileKey = `images/${filename}`;
+    const publicUrl = getPublicUrl(fileKey);
     
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ msg: 'File not found' });
-    }
-
-    // Serve the file
-    res.sendFile(filePath);
+    // Redirect to R2 public URL
+    res.redirect(publicUrl);
   } catch (error) {
-    console.error('File serve error:', error);
+    console.error('Legacy file serve error:', error);
     res.status(500).json({ msg: 'Server error serving file' });
   }
 });
