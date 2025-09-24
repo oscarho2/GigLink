@@ -39,6 +39,9 @@ const Community = lazy(() => import('./pages/Community'));
 const MyPosts = lazy(() => import('./pages/MyPosts'));
 const PostDetail = lazy(() => import('./pages/PostDetail'));
 const Notifications = lazy(() => import('./pages/Notifications'));
+const UserAgreement = lazy(() => import('./pages/UserAgreement'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Route protection
@@ -130,6 +133,9 @@ const AppContent = () => {
             <Route path="/community" element={<PrivateRoute><Community /></PrivateRoute>} />
             <Route path="/my-posts" element={<PrivateRoute><MyPosts /></PrivateRoute>} />
             <Route path="/posts/:postId" element={<PrivateRoute><PostDetail /></PrivateRoute>} />
+            <Route path="/terms-of-service" element={<UserAgreement />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/cookie-policy" element={<CookiePolicy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
