@@ -1,12 +1,13 @@
 const express = require('express');
 const auth = require('../middleware/auth');
-const { upload, deleteFile, getPublicUrl } = require('../utils/r2Config');
+const { upload, deleteFile, getPublicUrl, getStorageConfig } = require('../utils/r2Config');
+const path = require('path');
 const router = express.Router();
 
 // R2 upload configuration is handled in r2Config.js
 
 // @route   POST /api/upload
-// @desc    Upload a file to Cloudflare R2
+// @desc    Upload a file to storage (R2 or local)
 // @access  Private
 router.post('/', auth, upload.single('file'), async (req, res) => {
   try {
@@ -14,18 +15,29 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
       return res.status(400).json({ msg: 'No file uploaded' });
     }
 
-    // Get public URL for the uploaded file
-    const fileUrl = getPublicUrl(req.file.key);
+    const { isR2Configured } = getStorageConfig();
+    let fileKey, fileUrl;
+
+    if (isR2Configured) {
+      // R2 upload
+      fileKey = req.file.key;
+      fileUrl = getPublicUrl(fileKey);
+    } else {
+      // Local upload
+      const relativePath = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path);
+      fileKey = relativePath.replace(/\\/g, '/'); // Normalize path separators
+      fileUrl = getPublicUrl(fileKey);
+    }
 
     // Return file information
     res.json({
-      filename: req.file.key.split('/').pop(), // Extract filename from key
+      filename: req.file.filename || req.file.key?.split('/').pop(),
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
       size: req.file.size,
-      key: req.file.key, // R2 object key
-      url: fileUrl, // Public URL
-      location: req.file.location // S3/R2 location URL
+      key: fileKey,
+      url: fileUrl,
+      location: req.file.location || fileUrl
     });
   } catch (error) {
     console.error('File upload error:', error);

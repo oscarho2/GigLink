@@ -29,7 +29,14 @@ const Profile = () => {
   const [userRole, setUserRole] = useState(null); // 'requester' or 'recipient'
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, action: null, message: '' });
-  const [photoModal, setPhotoModal] = useState({ open: false, photoUrl: '', caption: '', currentIndex: 0 });
+  const [mediaModal, setMediaModal] = useState({ open: false, mediaUrl: '', caption: '', currentIndex: 0, mediaType: 'photo', videoId: '' });
+
+  // Helper function to extract YouTube video ID from URL
+  const getYouTubeVideoId = (url) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -65,10 +72,7 @@ const Profile = () => {
           instruments: profileData.user?.instruments || profileData.skills?.filter(skill => ['Piano', 'Guitar', 'Vocals', 'Drums', 'Bass', 'Violin', 'Saxophone'].includes(skill)) || ['Piano', 'Guitar'],
           genres: profileData.user?.genres || ['Rock', 'Jazz', 'Blues'],
           photos: profileData.photos || [],
-          videos: profileData.videos || [
-            { title: 'Live at Jazz Club', url: 'https://youtube.com/watch?v=123' },
-            { title: 'Studio Session', url: 'https://youtube.com/watch?v=456' }
-          ],
+          videos: profileData.videos || [],
           availability: profileData.availability || '',
           hourlyRate: profileData.hourlyRate || null,
           userId: profileData.user?._id || user?._id || user?.id || null
@@ -228,25 +232,36 @@ const Profile = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const openPhotoModal = (photoUrl, caption, index) => {
-    setPhotoModal({ open: true, photoUrl, caption, currentIndex: index });
+  const openMediaModal = (mediaUrl, caption, index, mediaType = 'photo', videoId = '') => {
+    setMediaModal({ open: true, mediaUrl, caption, currentIndex: index, mediaType, videoId });
   };
 
-  const closePhotoModal = () => {
-    setPhotoModal({ open: false, photoUrl: '', caption: '', currentIndex: 0 });
+  const closeMediaModal = () => {
+    setMediaModal({ open: false, mediaUrl: '', caption: '', currentIndex: 0, mediaType: 'photo', videoId: '' });
   };
 
-  const navigatePhoto = (direction) => {
-    const newIndex = direction === 'next' 
-      ? (photoModal.currentIndex + 1) % profile.photos.length
-      : (photoModal.currentIndex - 1 + profile.photos.length) % profile.photos.length;
+  const navigateMedia = (direction) => {
+    // Combine photos and videos into a single media array
+    const allMedia = [
+      ...(profile.photos || []).map(photo => ({ ...photo, type: 'photo' })),
+      ...(profile.videos || []).map(video => ({ ...video, type: 'video' }))
+    ];
     
-    const newPhoto = profile.photos[newIndex];
-    setPhotoModal({
-      ...photoModal,
-      photoUrl: newPhoto.url,
-      caption: newPhoto.caption || '',
-      currentIndex: newIndex
+    const newIndex = direction === 'next' 
+      ? (mediaModal.currentIndex + 1) % allMedia.length
+      : (mediaModal.currentIndex - 1 + allMedia.length) % allMedia.length;
+    
+    const newMedia = allMedia[newIndex];
+    const isVideo = newMedia.type === 'video';
+    const videoId = isVideo ? getYouTubeVideoId(newMedia.url) : '';
+    
+    setMediaModal({
+      ...mediaModal,
+      mediaUrl: newMedia.url,
+      caption: newMedia.caption || newMedia.title || '',
+      currentIndex: newIndex,
+      mediaType: newMedia.type,
+      videoId: videoId
     });
   };
 
@@ -625,61 +640,70 @@ const Profile = () => {
           <Grid container spacing={{ xs: 2, sm: 3 }}>
             {profile.videos.map((video, index) => (
           <Grid item xs={12} sm={6} key={index}>
-            <Paper 
-              elevation={2} 
-              sx={{ 
-                p: { xs: 1.5, sm: 2 },
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column'
-              }}
-            >
-              <Typography 
-                variant="h6"
-                sx={{
-                  fontSize: { xs: '1.125rem', sm: '1.25rem' },
-                  fontWeight: 500,
-                  mb: { xs: 1.5, sm: 2 }
-                }}
-              >
-                {video.title}
-              </Typography>
-              <Box 
-                sx={{ 
-                  mt: { xs: 1, sm: 2 }, 
-                  mb: { xs: 1.5, sm: 2 }, 
-                  height: { xs: '150px', sm: '200px' }, 
-                  bgcolor: 'grey.300', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  borderRadius: 1,
-                  flex: 1
-                }}
-              >
-                <Typography
+            {(() => {
+              const videoId = getYouTubeVideoId(video.url);
+              return videoId ? (
+                <Box
                   sx={{
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                    color: 'text.secondary'
+                    width: '100%',
+                    height: { xs: '200px', sm: '250px' },
+                    position: 'relative',
+                    overflow: 'hidden',
+                    borderRadius: 2,
+                    boxShadow: 2
                   }}
                 >
-                  Video Preview
-                </Typography>
-              </Box>
-              <Button 
-                variant="outlined" 
-                fullWidth 
-                href={video.url} 
-                target="_blank"
-                sx={{
-                  minHeight: { xs: 40, sm: 36 },
-                  fontSize: { xs: '0.875rem', sm: '0.875rem' },
-                  mt: 'auto'
-                }}
-              >
-                Watch Video
-              </Button>
-            </Paper>
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '100%',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      const allMedia = [
+                        ...(profile.photos || []).map(photo => ({ ...photo, type: 'photo' })),
+                        ...(profile.videos || []).map(video => ({ ...video, type: 'video' }))
+                      ];
+                      const mediaIndex = allMedia.findIndex(media => media.type === 'video' && media.url === video.url);
+                      openMediaModal(video.url, video.title || video.caption, mediaIndex, 'video', videoId);
+                    }}
+                  >
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      src={`https://www.youtube.com/embed/${videoId}`}
+                      title={video.title || 'YouTube video'}
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{ border: 'none', pointerEvents: 'none' }}
+                    />
+                  </Box>
+                </Box>
+              ) : (
+                <Box 
+                  sx={{ 
+                    height: { xs: '200px', sm: '250px' }, 
+                    bgcolor: 'grey.300', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    borderRadius: 2,
+                    boxShadow: 2
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                      color: 'text.secondary'
+                    }}
+                  >
+                    Invalid Video URL
+                  </Typography>
+                </Box>
+              );
+            })()}
           </Grid>
         ))}          </Grid>        </>      )}      
       {profile.photos && profile.photos.length > 0 && (
@@ -718,7 +742,14 @@ const Profile = () => {
                       component="img"
                       src={photo.url}
                       alt={photo.caption || 'Profile photo'}
-                      onClick={() => openPhotoModal(photo.url, photo.caption, index)}
+                      onClick={() => {
+                      const allMedia = [
+                        ...(profile.photos || []).map(photo => ({ ...photo, type: 'photo' })),
+                        ...(profile.videos || []).map(video => ({ ...video, type: 'video' }))
+                      ];
+                      const mediaIndex = allMedia.findIndex(media => media.type === 'photo' && media.url === photo.url);
+                      openMediaModal(photo.url, photo.caption, mediaIndex, 'photo');
+                    }}
                       sx={{
                         width: '100%',
                         height: { xs: 200, sm: 250 },
@@ -747,7 +778,14 @@ const Profile = () => {
                     component="img"
                     src={photo.url}
                     alt="Profile photo"
-                    onClick={() => openPhotoModal(photo.url, photo.caption, index)}
+                    onClick={() => {
+                      const allMedia = [
+                        ...(profile.photos || []).map(photo => ({ ...photo, type: 'photo' })),
+                        ...(profile.videos || []).map(video => ({ ...video, type: 'video' }))
+                      ];
+                      const mediaIndex = allMedia.findIndex(media => media.type === 'photo' && media.url === photo.url);
+                      openMediaModal(photo.url, photo.caption, mediaIndex, 'photo');
+                    }}
                     sx={{
                       width: '100%',
                       height: { xs: 200, sm: 250 },
@@ -807,10 +845,10 @@ const Profile = () => {
         </DialogActions>
       </Dialog>
       
-      {/* Photo Modal */}
+      {/* Media Modal */}
       <Dialog
-        open={photoModal.open}
-        onClose={closePhotoModal}
+        open={mediaModal.open}
+        onClose={closeMediaModal}
         maxWidth="md"
         fullWidth
         sx={{
@@ -823,7 +861,7 @@ const Profile = () => {
       >
         <DialogContent sx={{ p: 0, position: 'relative' }}>
           <IconButton
-            onClick={closePhotoModal}
+            onClick={closeMediaModal}
             sx={{
               position: 'absolute',
               top: 8,
@@ -839,58 +877,87 @@ const Profile = () => {
             <CloseIcon />
           </IconButton>
           
-          {profile.photos && profile.photos.length > 1 && (
-            <>
-              <IconButton
-                onClick={() => navigatePhoto('prev')}
-                sx={{
-                  position: 'absolute',
-                  left: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  bgcolor: 'rgba(0, 0, 0, 0.5)',
-                  color: 'white',
-                  zIndex: 1,
-                  '&:hover': {
-                    bgcolor: 'rgba(0, 0, 0, 0.7)'
-                  }
-                }}
-              >
-                <ArrowBackIosIcon />
-              </IconButton>
-              <IconButton
-                onClick={() => navigatePhoto('next')}
-                sx={{
-                  position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  bgcolor: 'rgba(0, 0, 0, 0.5)',
-                  color: 'white',
-                  zIndex: 1,
-                  '&:hover': {
-                    bgcolor: 'rgba(0, 0, 0, 0.7)'
-                  }
-                }}
-              >
-                <ArrowForwardIosIcon />
-              </IconButton>
-            </>
+          {(() => {
+            const allMedia = [
+              ...(profile.photos || []).map(photo => ({ ...photo, type: 'photo' })),
+              ...(profile.videos || []).map(video => ({ ...video, type: 'video' }))
+            ];
+            return allMedia.length > 1 && (
+              <>
+                <IconButton
+                  onClick={() => navigateMedia('prev')}
+                  sx={{
+                    position: 'absolute',
+                    left: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    bgcolor: 'rgba(0, 0, 0, 0.5)',
+                    color: 'white',
+                    zIndex: 1,
+                    '&:hover': {
+                      bgcolor: 'rgba(0, 0, 0, 0.7)'
+                    }
+                  }}
+                >
+                  <ArrowBackIosIcon />
+                </IconButton>
+                <IconButton
+                  onClick={() => navigateMedia('next')}
+                  sx={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    bgcolor: 'rgba(0, 0, 0, 0.5)',
+                    color: 'white',
+                    zIndex: 1,
+                    '&:hover': {
+                      bgcolor: 'rgba(0, 0, 0, 0.7)'
+                    }
+                  }}
+                >
+                  <ArrowForwardIosIcon />
+                </IconButton>
+              </>
+            );
+          })()}
+          
+          {mediaModal.mediaType === 'photo' ? (
+            <Box
+              component="img"
+              src={mediaModal.mediaUrl}
+              alt={mediaModal.caption || 'Profile photo'}
+              sx={{
+                width: '100%',
+                maxHeight: '80vh',
+                objectFit: 'contain',
+                borderRadius: 2
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
+                width: '100%',
+                height: '80vh',
+                position: 'relative',
+                borderRadius: 2,
+                overflow: 'hidden'
+              }}
+            >
+              <iframe
+                width="100%"
+                height="100%"
+                src={`https://www.youtube.com/embed/${mediaModal.videoId}?autoplay=1`}
+                title={mediaModal.caption || 'YouTube video'}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ border: 'none' }}
+              />
+            </Box>
           )}
           
-          <Box
-            component="img"
-            src={photoModal.photoUrl}
-            alt={photoModal.caption || 'Profile photo'}
-            sx={{
-              width: '100%',
-              maxHeight: '80vh',
-              objectFit: 'contain',
-              borderRadius: 2
-            }}
-          />
-          
-          {photoModal.caption && (
+          {mediaModal.caption && (
             <Box
               sx={{
                 position: 'absolute',
@@ -905,7 +972,7 @@ const Profile = () => {
               }}
             >
               <Typography variant="body1">
-                {photoModal.caption}
+                {mediaModal.caption}
               </Typography>
             </Box>
           )}

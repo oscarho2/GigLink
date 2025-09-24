@@ -42,6 +42,10 @@ const EditProfile = () => {
 
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [photos, setPhotos] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [draggedIndex, setDraggedIndex] = useState(null);
   const [photoCaption, setPhotoCaption] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState(null);
@@ -102,6 +106,9 @@ const EditProfile = () => {
     
           photos: profileData.photos || []
         });
+        
+        // Set videos from profile data
+        setVideos(profileData.videos || []);
       } catch (err) {
         console.error('Error fetching profile:', err);
         // Fallback to user data if profile fetch fails
@@ -172,6 +179,16 @@ const EditProfile = () => {
         }
       }
       
+      // Create local URLs for immediate display
+      const newPhotos = files.map((file, index) => ({
+        id: `photo_${Date.now()}_${index}`,
+        file: file,
+        url: URL.createObjectURL(file),
+        caption: '',
+        isLocal: true
+      }));
+      setPhotos(prev => [...prev, ...newPhotos]);
+      
       if (files.length === 1) {
         setSelectedPhoto(files[0]);
         setSelectedPhotos([]);
@@ -212,6 +229,21 @@ const EditProfile = () => {
         photos: [...formData.photos, ...newPhotos]
       });
       
+      // Remove the local photos that were just uploaded
+      const uploadedFiles = selectedPhotos;
+      const localPhotosToRemove = photos.filter(photo => 
+        uploadedFiles.some(file => photo.file === file)
+      );
+      
+      // Clean up object URLs and remove local photos
+      localPhotosToRemove.forEach(photo => {
+        URL.revokeObjectURL(photo.url);
+      });
+      
+      setPhotos(prev => prev.filter(photo => 
+        !uploadedFiles.some(file => photo.file === file)
+      ));
+      
       setSelectedPhotos([]);
       setPhotoCaption('');
       setSuccess(`${selectedPhotos.length} photos uploaded successfully!`);
@@ -246,6 +278,14 @@ const EditProfile = () => {
         photos: [...formData.photos, response.data.photo]
       });
       
+      // Remove the local photo that was just uploaded
+      const localPhoto = photos.find(photo => photo.file === selectedPhoto);
+      if (localPhoto) {
+        setPhotos(prev => prev.filter(photo => photo.id !== localPhoto.id));
+        // Clean up object URL to prevent memory leaks
+        URL.revokeObjectURL(localPhoto.url);
+      }
+      
       setSelectedPhoto(null);
       setPhotoCaption('');
       setSuccess('Photo uploaded successfully!');
@@ -258,16 +298,100 @@ const EditProfile = () => {
 
   const handleRemovePhoto = async (photoId, index) => {
     try {
+      // Check if it's a local photo (not uploaded yet)
+      const localPhoto = photos.find(photo => photo.id === photoId);
+      if (localPhoto && localPhoto.isLocal) {
+        // Remove from local state only
+        setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+        // Clean up object URL to prevent memory leaks
+        URL.revokeObjectURL(localPhoto.url);
+        setSuccess('Photo removed');
+        return;
+      }
+      
+      // For uploaded photos, delete from server first
       await axios.delete(`/api/profiles/photos/${photoId}`, {
         headers: { 'x-auth-token': token }
       });
       
-      const updatedPhotos = formData.photos.filter((_, i) => i !== index);
+      // Remove from formData.photos using photoId, not index
+      const updatedPhotos = formData.photos.filter(photo => photo._id !== photoId);
       setFormData({ ...formData, photos: updatedPhotos });
       setSuccess('Photo removed successfully!');
     } catch (err) {
       setError(err.response?.data?.message || 'Error removing photo');
     }
+  };
+
+  const handleAddVideo = () => {
+    if (videoUrl.trim()) {
+      const newVideo = {
+        title: `Video ${videos.length + 1}`,
+        url: videoUrl.trim()
+      };
+      setVideos(prev => [...prev, newVideo]);
+      setVideoUrl('');
+      setSuccess('Video added successfully');
+    }
+  };
+
+  const handleRemoveVideo = (videoId) => {
+    setVideos(prev => prev.filter(video => (video._id || video.id) !== videoId));
+    setSuccess('Video removed');
+  };
+
+  // Drag and drop functions
+  const handleDragStart = (e, index, type) => {
+    setDraggedIndex({ index, type });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, dropIndex, type) => {
+    e.preventDefault();
+    
+    if (!draggedIndex || draggedIndex.type !== type) return;
+    
+    const dragIndex = draggedIndex.index;
+    if (dragIndex === dropIndex) return;
+    
+    if (type === 'photo') {
+      // Combine local and uploaded photos for reordering
+      const allPhotos = [...photos, ...(formData.photos || [])];
+      const draggedPhoto = allPhotos[dragIndex];
+      allPhotos.splice(dragIndex, 1);
+      allPhotos.splice(dropIndex, 0, draggedPhoto);
+      
+      // Separate back into local and uploaded photos
+      const localPhotos = allPhotos.filter(photo => photo.isLocal);
+      const uploadedPhotos = allPhotos.filter(photo => !photo.isLocal);
+      
+      setPhotos(localPhotos);
+      setFormData(prev => ({ ...prev, photos: uploadedPhotos }));
+    } else if (type === 'video') {
+      const newVideos = [...videos];
+      const draggedVideo = newVideos[dragIndex];
+      newVideos.splice(dragIndex, 1);
+      newVideos.splice(dropIndex, 0, draggedVideo);
+      setVideos(newVideos);
+    }
+    
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  // Helper function to extract YouTube video ID from URL
+  const getYouTubeVideoId = (url) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
   };
 
   const handleAvatarSelect = (e) => {
@@ -483,7 +607,7 @@ const EditProfile = () => {
         isMusician: formData.isMusician,
         instruments: Array.isArray(formData.instruments) ? formData.instruments : [],
         genres: Array.isArray(formData.genres) ? formData.genres : [],
-
+        videos: Array.isArray(videos) ? videos : []
       };
       
       console.log('Sending update data:', updateData);
@@ -866,42 +990,71 @@ const EditProfile = () => {
               </Paper>
               
               {/* Display Photos */}
-              {formData.photos && formData.photos.length > 0 ? (
-                <Grid container spacing={2}>
-                  {formData.photos.map((photo, index) => (
-                    <Grid item xs={12} sm={6} md={4} key={photo._id || index}>
-                      <Card>
-                        <Box
-                          component="img"
-                          src={photo.url}
-                          alt={photo.caption || 'Profile photo'}
+              {(() => {
+                const allPhotos = [...photos, ...(formData.photos || [])];
+                return allPhotos.length > 0 ? (
+                  <Grid container spacing={2}>
+                    {allPhotos.map((photo, index) => (
+                      <Grid item xs={12} sm={6} md={4} key={photo?.id || photo?._id || index}>
+                        <Card
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, index, 'photo')}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, index, 'photo')}
+                          onDragEnd={handleDragEnd}
                           sx={{
-                            width: '100%',
-                            height: 200,
-                            objectFit: 'cover'
+                            cursor: 'move',
+                            opacity: draggedIndex?.index === index && draggedIndex?.type === 'photo' ? 0.5 : 1
                           }}
-                        />
-                        <CardContent>
-                          {photo.caption && (
+                        >
+                          <Box
+                            component="img"
+                            src={photo?.url || ''}
+                            alt={photo?.caption || 'Profile photo'}
+                            sx={{
+                              width: '100%',
+                              height: 200,
+                              objectFit: 'cover'
+                            }}
+                          />
+                          <CardContent>
                             <Typography variant="body2" color="text.secondary">
-                              {photo.caption}
+                              {photo?.caption || 'No caption'}
                             </Typography>
-                          )}
-                        </CardContent>
-                        <CardActions>
-                          <IconButton
-                            aria-label="delete"
-                            color="error"
-                            onClick={() => handleRemovePhoto(photo._id, index)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              ) : (
+                            {photo?.isLocal ? (
+                              <Chip
+                                label="Not uploaded"
+                                size="small"
+                                color="warning"
+                                variant="outlined"
+                                sx={{ mt: 1 }}
+                              />
+                            ) : (
+                              <Chip
+                                label="Uploaded"
+                                size="small"
+                                color="success"
+                                variant="outlined"
+                                sx={{ mt: 1 }}
+                              />
+                            )}
+                          </CardContent>
+                          <CardActions>
+                            <IconButton
+                              aria-label="delete"
+                              color="error"
+                              onClick={() => handleRemovePhoto(photo?.id || photo?._id, index)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </CardActions>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : null;
+               })()}
+              {!(photos.length > 0 || (formData.photos && formData.photos.length > 0)) && (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
                   You haven't added any photos yet.
                 </Typography>
@@ -937,10 +1090,13 @@ const EditProfile = () => {
                   placeholder="https://www.youtube.com/watch?v=..."
                   variant="outlined"
                   size="small"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
                   sx={{ mb: 2 }}
                 />
                 <Button
                   variant="contained"
+                  onClick={handleAddVideo}
                   startIcon={<AddIcon />}
                   sx={{
                     bgcolor: '#1a365d',
@@ -952,9 +1108,86 @@ const EditProfile = () => {
               </Paper>
               
               {/* Display Videos */}
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                You haven't added any videos yet.
-              </Typography>
+              {videos && videos.length > 0 ? (
+                <Grid container spacing={2}>
+                  {videos.map((video, index) => (
+                    <Grid item xs={12} sm={6} md={4} key={video._id || video.id || index}>
+                      <Card
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, index, 'video')}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, index, 'video')}
+                        onDragEnd={handleDragEnd}
+                        sx={{
+                          cursor: 'move',
+                          opacity: draggedIndex?.index === index && draggedIndex?.type === 'video' ? 0.5 : 1
+                        }}
+                      >
+                        {(() => {
+                          const videoId = getYouTubeVideoId(video.url);
+                          return videoId ? (
+                            <Box
+                              sx={{
+                                width: '100%',
+                                height: 200,
+                                position: 'relative',
+                                overflow: 'hidden'
+                              }}
+                            >
+                              <iframe
+                                width="100%"
+                                height="100%"
+                                src={`https://www.youtube.com/embed/${videoId}`}
+                                title={video.title || 'YouTube video'}
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                style={{ border: 'none' }}
+                              />
+                            </Box>
+                          ) : (
+                            <Box
+                              sx={{
+                                width: '100%',
+                                height: 200,
+                                bgcolor: '#f5f5f5',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <Typography variant="body2" color="text.secondary">
+                                Invalid YouTube URL
+                              </Typography>
+                            </Box>
+                          );
+                        })()}
+                        <CardContent>
+                          <Typography variant="body2" color="text.secondary">
+                            {video.title || 'Video'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {video.url}
+                          </Typography>
+                        </CardContent>
+                        <CardActions>
+                          <IconButton
+                            aria-label="delete"
+                            color="error"
+                            onClick={() => handleRemoveVideo(video._id || video.id)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                  You haven't added any videos yet.
+                </Typography>
+              )}
             </Grid>
             
             <Grid item xs={12}>
