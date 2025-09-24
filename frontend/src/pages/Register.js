@@ -294,7 +294,7 @@ const Register = () => {
               py: { xs: 1.5, sm: 1 }
             }}
           >
-            Agree & Join
+            Sign Up
           </Button>
           
           <Button

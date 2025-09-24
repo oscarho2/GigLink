@@ -1279,8 +1279,25 @@ const Dashboard = () => {
              ) : (
                <List>
                  {applications.map((application) => {
-                   const status = application.applicationStatus || 'pending';
-                   const chipColor = status === 'accepted' ? 'success' : status === 'rejected' ? 'error' : 'warning';
+                   // Determine the display status based on gig state and user's application status
+                   let displayStatus = application.applicationStatus || 'pending';
+                   let chipColor = 'warning';
+                   
+                   if (application.applicationStatus === 'accepted') {
+                     displayStatus = 'accepted';
+                     chipColor = 'success';
+                   } else if (application.applicationStatus === 'rejected') {
+                     displayStatus = 'rejected';
+                     chipColor = 'error';
+                   } else if (application.isFilled || application.acceptedByOther) {
+                     // If gig is filled by someone else, show as 'fixed' instead of 'pending'
+                     displayStatus = 'fixed';
+                     chipColor = 'default';
+                   } else {
+                     displayStatus = 'pending';
+                     chipColor = 'warning';
+                   }
+                   
                    const appliedDate = application.applicationDate
                      ? new Date(application.applicationDate).toLocaleDateString()
                      : '—';
@@ -1305,7 +1322,7 @@ const Dashboard = () => {
                            secondary={
                              <Box>
                                <Typography variant="body2" color="text.secondary" component="div">
-                                 Status: <Chip label={status.charAt(0).toUpperCase() + status.slice(1)} size="small" color={chipColor} />
+                                 Status: <Chip label={displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)} size="small" color={chipColor} />
                                </Typography>
                                <Typography variant="body2" color="text.secondary" component="div">
                                  Applied: {appliedDate}
