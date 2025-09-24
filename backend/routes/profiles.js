@@ -3,7 +3,9 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
-const { upload, getPublicUrl } = require('../utils/r2Config');
+const { upload, getPublicUrl, getStorageConfig } = require('../utils/r2Config');
+const path = require('path');
+const fs = require('fs');
 
 // R2 upload configuration is handled in r2Config.js
 
@@ -85,7 +87,7 @@ router.post('/', auth, async (req, res) => {
 router.put('/me', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { bio, skills, hourlyRate, availability, location, instruments, genres } = req.body;
+    const { bio, skills, hourlyRate, availability, location, instruments, genres, videos } = req.body;
     
     // Update user fields if provided
     const userUpdateFields = {};
@@ -104,6 +106,19 @@ router.put('/me', auth, async (req, res) => {
     // Update profile fields
     const profileUpdateFields = {};
     if (skills) profileUpdateFields.skills = skills;
+    if (videos) {
+      // Clean up videos - remove any with invalid IDs and ensure proper format
+      const cleanedVideos = videos.map(video => {
+        const cleanVideo = {
+          title: video.title,
+          url: video.url
+        };
+        if (video.description) cleanVideo.description = video.description;
+        if (video.thumbnail) cleanVideo.thumbnail = video.thumbnail;
+        return cleanVideo;
+      });
+      profileUpdateFields.videos = cleanedVideos;
+    }
     
     // Find and update profile
     let profile = await Profile.findOne({ user: userId });
@@ -324,7 +339,20 @@ router.post('/photos', auth, upload.single('photo'), async (req, res) => {
       return res.status(400).json({ message: 'No photo file provided' });
     }
 
-    const photoUrl = getPublicUrl(req.file.key);
+    const { isR2Configured } = getStorageConfig();
+    let fileKey, photoUrl;
+
+    if (isR2Configured) {
+      // R2 upload
+      fileKey = req.file.key;
+      photoUrl = getPublicUrl(fileKey);
+    } else {
+      // Local upload
+      const relativePath = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path);
+      fileKey = relativePath.replace(/\\/g, '/'); // Normalize path separators
+      photoUrl = getPublicUrl(fileKey);
+    }
+
     const caption = req.body.caption || '';
 
     let profile = await Profile.findOne({ user: req.user.id });
@@ -358,7 +386,19 @@ router.put('/avatar-legacy', auth, upload.single('avatar'), async (req, res) => 
       return res.status(400).json({ message: 'No avatar file provided' });
     }
 
-    const avatarUrl = getPublicUrl(req.file.key);
+    const { isR2Configured } = getStorageConfig();
+    let fileKey, avatarUrl;
+
+    if (isR2Configured) {
+      // R2 upload
+      fileKey = req.file.key;
+      avatarUrl = getPublicUrl(fileKey);
+    } else {
+      // Local upload
+      const relativePath = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path);
+      fileKey = relativePath.replace(/\\/g, '/'); // Normalize path separators
+      avatarUrl = getPublicUrl(fileKey);
+    }
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
@@ -431,7 +471,19 @@ router.put('/avatar', auth, upload.single('avatar'), async (req, res) => {
     }
     
     // Get the public URL for the uploaded avatar
-    const avatarUrl = getPublicUrl(req.file.key);
+    const { isR2Configured } = getStorageConfig();
+    let fileKey, avatarUrl;
+
+    if (isR2Configured) {
+      // R2 upload
+      fileKey = req.file.key;
+      avatarUrl = getPublicUrl(fileKey);
+    } else {
+      // Local upload
+      const relativePath = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path);
+      fileKey = relativePath.replace(/\\/g, '/'); // Normalize path separators
+      avatarUrl = getPublicUrl(fileKey);
+    }
     
     // Update user's avatar
     user.avatar = avatarUrl;

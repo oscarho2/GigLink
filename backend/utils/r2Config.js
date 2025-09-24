@@ -1,31 +1,48 @@
 const AWS = require('aws-sdk');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
+const path = require('path');
+const fs = require('fs');
 
-// Configure AWS SDK for Cloudflare R2
-const s3 = new AWS.S3({
-  endpoint: process.env.R2_ENDPOINT, // e.g., 'https://account-id.r2.cloudflarestorage.com'
-  accessKeyId: process.env.R2_ACCESS_KEY_ID,
-  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  region: 'auto', // R2 uses 'auto' as region
-  signatureVersion: 'v4',
-  s3ForcePathStyle: true // Required for R2
-});
+// Check if R2 credentials are properly configured
+const isR2Configured = process.env.R2_ENDPOINT && 
+                      process.env.R2_ACCESS_KEY_ID && 
+                      process.env.R2_SECRET_ACCESS_KEY && 
+                      process.env.R2_BUCKET_NAME &&
+                      !process.env.R2_ENDPOINT.includes('your-account-id') &&
+                      !process.env.R2_ACCESS_KEY_ID.includes('your_r2_access_key');
 
-// Multer S3 configuration for R2
+let s3 = null;
+if (isR2Configured) {
+  // Configure AWS SDK for Cloudflare R2
+  s3 = new AWS.S3({
+    endpoint: process.env.R2_ENDPOINT,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    region: 'auto',
+    signatureVersion: 'v4',
+    s3ForcePathStyle: true
+  });
+}
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer configuration - R2 or local storage
 const upload = multer({
-  storage: multerS3({
+  storage: isR2Configured ? multerS3({
     s3: s3,
     bucket: process.env.R2_BUCKET_NAME,
-    acl: 'public-read', // Make files publicly accessible
+    acl: 'public-read',
     key: function (req, file, cb) {
-      // Generate unique filename with timestamp
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
       const ext = file.originalname.split('.').pop();
       const name = file.originalname.split('.').slice(0, -1).join('.');
       const filename = `${name}-${uniqueSuffix}.${ext}`;
       
-      // Organize files by type
       let folder = 'misc';
       if (file.mimetype.startsWith('image/')) {
         folder = 'images';
@@ -45,6 +62,31 @@ const upload = multer({
       });
     },
     contentType: multerS3.AUTO_CONTENT_TYPE
+  }) : multer.diskStorage({
+    destination: function (req, file, cb) {
+      let folder = 'misc';
+      if (file.mimetype.startsWith('image/')) {
+        folder = 'images';
+      } else if (file.mimetype.startsWith('video/')) {
+        folder = 'videos';
+      } else if (file.mimetype.startsWith('audio/')) {
+        folder = 'audio';
+      }
+      
+      const folderPath = path.join(uploadsDir, folder);
+      if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath, { recursive: true });
+      }
+      
+      cb(null, folderPath);
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = file.originalname.split('.').pop();
+      const name = file.originalname.split('.').slice(0, -1).join('.');
+      const filename = `${name}-${uniqueSuffix}.${ext}`;
+      cb(null, filename);
+    }
   }),
   fileFilter: (req, file, cb) => {
     // Allowed file types
@@ -94,42 +136,67 @@ const upload = multer({
   }
 });
 
-// Helper function to delete files from R2
+// Helper function to delete files
 const deleteFile = async (fileKey) => {
   try {
-    const params = {
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: fileKey
-    };
-    
-    await s3.deleteObject(params).promise();
-    return true;
+    if (isR2Configured && s3) {
+      const params = {
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: fileKey
+      };
+      await s3.deleteObject(params).promise();
+      return true;
+    } else {
+      // Local file deletion
+      const filePath = path.join(uploadsDir, fileKey);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        return true;
+      }
+      return false;
+    }
   } catch (error) {
-    console.error('Error deleting file from R2:', error);
+    console.error('Error deleting file:', error);
     return false;
   }
 };
 
 // Helper function to generate signed URLs for private files
 const getSignedUrl = (fileKey, expiresIn = 3600) => {
-  const params = {
-    Bucket: process.env.R2_BUCKET_NAME,
-    Key: fileKey,
-    Expires: expiresIn
-  };
-  
-  return s3.getSignedUrl('getObject', params);
+  if (isR2Configured && s3) {
+    const params = {
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: fileKey,
+      Expires: expiresIn
+    };
+    return s3.getSignedUrl('getObject', params);
+  } else {
+    // For local files, return the public URL
+    return `http://localhost:${process.env.PORT || 5001}/uploads/${fileKey}`;
+  }
 };
 
 // Helper function to get public URL for files
 const getPublicUrl = (fileKey) => {
-  return `${process.env.R2_PUBLIC_URL}/${fileKey}`;
+  if (isR2Configured) {
+    return `${process.env.R2_PUBLIC_URL}/${fileKey}`;
+  } else {
+    // For local files, return the local server URL
+    return `http://localhost:${process.env.PORT || 5001}/uploads/${fileKey}`;
+  }
 };
+
+// Export configuration status for use in other modules
+const getStorageConfig = () => ({
+  isR2Configured,
+  uploadsDir
+});
 
 module.exports = {
   s3,
   upload,
   deleteFile,
   getSignedUrl,
-  getPublicUrl
+  getPublicUrl,
+  getStorageConfig
 };
