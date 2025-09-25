@@ -50,13 +50,35 @@ const MentionInput = forwardRef(({
       const response = await axios.get(`/api/mentions/search?q=${encodeURIComponent(query)}`, {
         headers: { 'x-auth-token': token }
       });
-      setSearchResults(response.data || []);
+      const results = Array.isArray(response.data) ? response.data : [];
+      const q = query.trim().toLowerCase();
+      const prioritized = results.slice().sort((a, b) => {
+        const wa = weightUser(a, q);
+        const wb = weightUser(b, q);
+        if (wa !== wb) return wa - wb;
+        const an = (a.name || '').toLowerCase();
+        const bn = (b.name || '').toLowerCase();
+        return an.localeCompare(bn);
+      });
+      setSearchResults(prioritized);
     } catch (error) {
       console.error('Error searching users:', error);
       setSearchResults([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Compute priority for a user given a query: exact → prefix → word-prefix → substring
+  const weightUser = (user, q) => {
+    const name = (user?.name || '').toLowerCase();
+    if (!q) return 99;
+    if (name === q) return 0;
+    if (name.startsWith(q)) return 1;
+    const parts = name.split(/\s+/);
+    if (parts.some(p => p.startsWith(q))) return 2;
+    if (name.includes(q)) return 3;
+    return 9;
   };
 
   // Handle text input changes
@@ -289,9 +311,11 @@ const MentionInput = forwardRef(({
                       </Typography>
                     }
                     secondary={
-                      <Typography variant="caption" color="text.secondary">
-                        @{user.username}
-                      </Typography>
+                      user.username ? (
+                        <Typography variant="caption" color="text.secondary">
+                          {user.username}
+                        </Typography>
+                      ) : null
                     }
                   />
                 </ListItem>

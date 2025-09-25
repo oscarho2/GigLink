@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Images</title>
+</head>
+<body>
+    <h1>Image Debug Test</h1>
+    <div id="images"></div>
+    
+    <script>
+        // Test image URLs
+        const testUrls = [
+            'http://localhost:5001/uploads/images/331434057_478866434292553_1475248554937127159_n-1758742782108-466943069.jpg',
+            'http://localhost:5001/uploads/images/414182484_216072921554232_6517383506045992218_n 2 copy-1758742193578-979499543.jpg'
+        ];
+        
+        const container = document.getElementById('images');
+        
+        testUrls.forEach((url, index) => {
+            const img = document.createElement('img');
+            img.src = url;
+            img.style.width = '300px';
+            img.style.margin = '10px';
+            img.style.border = '1px solid #ccc';
+            
+            img.onload = () => {
+                console.log(`Image ${index + 1} loaded successfully:`, url);
+            };
+            
+            img.onerror = () => {
+                console.error(`Image ${index + 1} failed to load:`, url);
+                img.style.border = '2px solid red';
+            };
+            
+            container.appendChild(img);
+            
+            const p = document.createElement('p');
+            p.textContent = `Image ${index + 1}: ${url}`;
+            container.appendChild(p);
+        });
+    </script>
+</body>
+</html>

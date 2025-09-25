@@ -44,7 +44,8 @@ export const AuthProvider = ({ children }) => {
             id: res.data._id,
             name: res.data.name,
             email: res.data.email,
-            avatar: res.data.avatar
+            avatar: res.data.avatar,
+            isEmailVerified: res.data.isEmailVerified
           });
         } catch (err) {
           console.error('Token verification failed:', err);

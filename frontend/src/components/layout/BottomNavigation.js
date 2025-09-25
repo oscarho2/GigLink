@@ -109,7 +109,7 @@ const MobileBottomNavigation = () => {
         }}
       >
         <BottomNavigationAction
-          label="Home"
+          label={isAuthenticated ? "Community" : "Home"}
           icon={isAuthenticated ? <CommunityIcon /> : <HomeIcon />}
         />
         <BottomNavigationAction
