@@ -984,7 +984,7 @@ const Community = () => {
                user={user}
                size={48}
                mobileSize={40}
-               onClick={() => navigate('/profile/edit')}
+               onClick={() => navigate(`/profile/${user?._id || user?.id}`)}
              />
             <Box
               onClick={() => setCreatePostModalOpen(true)}
@@ -1491,13 +1491,13 @@ const Community = () => {
                   user={post.author}
                   size={48}
                   mobileSize={40}
-                  onClick={() => navigate(`/profile/${post.author._id}`)}
+                  onClick={() => navigate(`/profile/${post.author._id || post.author.id}`)}
                 />
               }
               title={
                 <Typography 
                     variant="h6" 
-                    onClick={() => navigate(`/profile/${post.author._id}`)}
+                    onClick={() => navigate(`/profile/${post.author._id || post.author.id}`)}
                     sx={{ 
                       cursor: 'pointer',
                       fontWeight: 'bold',
@@ -1513,7 +1513,7 @@ const Community = () => {
                 </Typography>
               }
               action={
-                post.author._id === user?.id && (
+                ((post.author._id || post.author.id) === (user?._id || user?.id)) && (
                   <IconButton
                     onClick={(event) => handlePostMenuClick(event, post)}
                     sx={{
@@ -1683,7 +1683,7 @@ const Community = () => {
                             <UserAvatar
                               user={comment.user}
                               size={32}
-                              onClick={() => navigate(`/profile/${comment.user._id}`)}
+                              onClick={() => navigate(`/profile/${comment.user._id || comment.user.id}`)}
                             />
                           </ListItemAvatar>
                           <ListItemText
@@ -1691,7 +1691,7 @@ const Community = () => {
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography 
                                   variant="subtitle2"
-                                  onClick={() => navigate(`/profile/${comment.user._id}`)}
+                                  onClick={() => navigate(`/profile/${comment.user._id || comment.user.id}`)}
                                   sx={{ cursor: 'pointer' }}
                                 >
                                   {comment.user.name}
@@ -1806,7 +1806,7 @@ const Community = () => {
                                   <UserAvatar
                                     user={reply.user || { name: 'Unknown User', _id: null }}
                                     size={24}
-                                    onClick={() => reply.user?._id && navigate(`/profile/${reply.user._id}`)}
+                                    onClick={() => (reply.user?._id || reply.user?.id) && navigate(`/profile/${reply.user._id || reply.user.id}`)}
                                   />
                                 </ListItemAvatar>
                                 <ListItemText
@@ -1814,8 +1814,8 @@ const Community = () => {
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                       <Typography 
                                         variant="subtitle2"
-                                        onClick={() => reply.user?._id && navigate(`/profile/${reply.user._id}`)}
-                                        sx={{ cursor: reply.user?._id ? 'pointer' : 'default', fontSize: '0.875rem' }}
+                                        onClick={() => (reply.user?._id || reply.user?.id) && navigate(`/profile/${reply.user._id || reply.user.id}`)}
+                                        sx={{ cursor: (reply.user?._id || reply.user?.id) ? 'pointer' : 'default', fontSize: '0.875rem' }}
                                       >
                                         {reply.user?.name || 'Unknown User'}
                                       </Typography>

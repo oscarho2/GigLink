@@ -24,9 +24,12 @@ import Alert from '@mui/material/Alert';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Paper from '@mui/material/Paper';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import AddIcon from '@mui/icons-material/Add';
 import WorkIcon from '@mui/icons-material/Work';
 import DeleteIcon from '@mui/icons-material/Delete';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditIcon from '@mui/icons-material/Edit';
 import WarningIcon from '@mui/icons-material/Warning';
 import LockIcon from '@mui/icons-material/Lock';
@@ -107,6 +110,10 @@ const Dashboard = () => {
   };
   const [sentRequests, setSentRequests] = useState([]);
   const [linksLoading, setLinksLoading] = useState(true);
+  const [linksMenuAnchor, setLinksMenuAnchor] = useState(null);
+  const [linksMenuForId, setLinksMenuForId] = useState(null);
+  const openLinksMenu = (e, id) => { setLinksMenuAnchor(e.currentTarget); setLinksMenuForId(id); };
+  const closeLinksMenu = () => { setLinksMenuAnchor(null); setLinksMenuForId(null); };
   
   // Applicant selection modal state
   const [showApplicantModal, setShowApplicantModal] = useState(false);
@@ -740,7 +747,23 @@ const Dashboard = () => {
                       <Tab label={`Requests (${pendingRequests.length})`} />
                       <Tab label={`Sent (${sentRequests.length})`} />
                     </Tabs>
-                  </Paper>
+      </Paper>
+
+      {/* Links actions menu */}
+      <Menu
+        anchorEl={linksMenuAnchor}
+        open={Boolean(linksMenuAnchor)}
+        onClose={closeLinksMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          onClick={() => { if (linksMenuForId) handleRemoveLink(linksMenuForId); closeLinksMenu(); }}
+          sx={{ color: 'error.main' }}
+        >
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Remove Link
+        </MenuItem>
+      </Menu>
 
                   {/* Links Tab */}
                   <TabPanel value={linksTabValue} index={0}>
@@ -782,12 +805,8 @@ const Dashboard = () => {
                                 </Typography>
                               }
                             />
-                            <IconButton
-                              onClick={() => handleRemoveLink(link.linkId)}
-                              color="error"
-                              size="small"
-                            >
-                              <DeleteIcon />
+                            <IconButton size="small" onClick={(e) => openLinksMenu(e, link.linkId)}>
+                              <MoreVertIcon />
                             </IconButton>
                           </ListItem>
                         ))}

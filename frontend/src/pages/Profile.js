@@ -646,7 +646,7 @@ const Profile = () => {
                 <Box
                   sx={{
                     width: '100%',
-                    height: { xs: '200px', sm: '250px' },
+                    aspectRatio: '16 / 9',
                     position: 'relative',
                     overflow: 'hidden',
                     borderRadius: 2,
@@ -684,7 +684,7 @@ const Profile = () => {
               ) : (
                 <Box 
                   sx={{ 
-                    height: { xs: '200px', sm: '250px' }, 
+                    aspectRatio: '16 / 9',
                     bgcolor: 'grey.300', 
                     display: 'flex', 
                     alignItems: 'center', 
@@ -738,9 +738,13 @@ const Profile = () => {
                     }}
                   >
                     <Box
-                      component="img"
-                      src={photo.url}
-                      alt={photo.caption || 'Profile photo'}
+                      sx={{
+                        width: '100%',
+                        aspectRatio: '1 / 1',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        cursor: 'pointer'
+                      }}
                       onClick={() => {
                       const allMedia = [
                         ...(profile.photos || []).map(photo => ({ ...photo, type: 'photo' })),
@@ -749,17 +753,24 @@ const Profile = () => {
                       const mediaIndex = allMedia.findIndex(media => media.type === 'photo' && media.url === photo.url);
                       openMediaModal(photo.url, photo.caption, mediaIndex, 'photo');
                     }}
-                      sx={{
-                        width: '100%',
-                        height: { xs: 200, sm: 250 },
-                        objectFit: 'cover',
-                        cursor: 'pointer',
-                        transition: 'transform 0.2s ease-in-out',
-                        '&:hover': {
-                          transform: 'scale(1.02)'
-                        }
-                      }}
-                    />
+                    >
+                      <Box
+                        component="img"
+                        src={photo.url}
+                        alt={photo.caption || 'Profile photo'}
+                        sx={{
+                          position: 'absolute',
+                          inset: 0,
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          transition: 'transform 0.2s ease-in-out',
+                          '&:hover': {
+                            transform: 'scale(1.02)'
+                          }
+                        }}
+                      />
+                    </Box>
                     <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
                       <Typography 
                         variant="body2" 
@@ -774,9 +785,15 @@ const Profile = () => {
                   </Paper>
                 ) : (
                   <Box
-                    component="img"
-                    src={photo.url}
-                    alt="Profile photo"
+                    sx={{
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      position: 'relative',
+                      borderRadius: 2,
+                      overflow: 'hidden',
+                      boxShadow: 2,
+                      cursor: 'pointer',
+                    }}
                     onClick={() => {
                       const allMedia = [
                         ...(profile.photos || []).map(photo => ({ ...photo, type: 'photo' })),
@@ -785,20 +802,24 @@ const Profile = () => {
                       const mediaIndex = allMedia.findIndex(media => media.type === 'photo' && media.url === photo.url);
                       openMediaModal(photo.url, photo.caption, mediaIndex, 'photo');
                     }}
-                    sx={{
-                      width: '100%',
-                      height: { xs: 200, sm: 250 },
-                      objectFit: 'cover',
-                      cursor: 'pointer',
-                      borderRadius: 2,
-                      transition: 'transform 0.2s ease-in-out',
-                      boxShadow: 2,
-                      '&:hover': {
-                        transform: 'scale(1.02)',
-                        boxShadow: 4
-                      }
-                    }}
-                  />
+                  >
+                    <Box
+                      component="img"
+                      src={photo.url}
+                      alt="Profile photo"
+                      sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        transition: 'transform 0.2s ease-in-out',
+                        '&:hover': {
+                          transform: 'scale(1.02)'
+                        }
+                      }}
+                    />
+                  </Box>
                 )}
               </Grid>
             ))}

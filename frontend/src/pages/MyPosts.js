@@ -658,7 +658,7 @@ const MyPosts = () => {
             <UserAvatar
               user={user}
               size={48}
-              onClick={() => navigate('/profile/edit')}
+              onClick={() => navigate(`/profile/${user?._id || user?.id}`)}
             />
             <Box
               onClick={() => setCreatePostModalOpen(true)}

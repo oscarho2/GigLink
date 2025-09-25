@@ -17,12 +17,15 @@ import {
   Paper,
   Button,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import {
   Check as CheckIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
+  MoreVert as MoreVertIcon,
   Search as SearchIcon,
   PersonAdd as PersonAddIcon
 } from '@mui/icons-material';
@@ -60,6 +63,18 @@ const LinksPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuForLinkId, setMenuForLinkId] = useState(null);
+
+  const openMenu = (event, linkId) => {
+    setMenuAnchor(event.currentTarget);
+    setMenuForLinkId(linkId);
+  };
+
+  const closeMenu = () => {
+    setMenuAnchor(null);
+    setMenuForLinkId(null);
+  };
 
   useEffect(() => {
     loadLinks();
@@ -452,12 +467,8 @@ const LinksPage = () => {
                     secondary={`Connected ${new Date(linkData.connectedAt).toLocaleDateString()}`}
                   />
                   <ListItemSecondaryAction>
-                    <IconButton
-                      edge="end"
-                      onClick={() => removeLink(linkData.linkId)}
-                      color="error"
-                    >
-                      <DeleteIcon />
+                    <IconButton edge="end" onClick={(e) => openMenu(e, linkData.linkId)}>
+                      <MoreVertIcon />
                     </IconButton>
                   </ListItemSecondaryAction>
                 </ListItem>
@@ -601,6 +612,20 @@ const LinksPage = () => {
 
 
       </Paper>
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={closeMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          onClick={() => { if (menuForLinkId) removeLink(menuForLinkId); closeMenu(); }}
+          sx={{ color: 'error.main' }}
+        >
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Remove Link
+        </MenuItem>
+      </Menu>
     </Container>
   );
 };
