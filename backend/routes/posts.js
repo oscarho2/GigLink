@@ -5,7 +5,7 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const { parseMentions, getMentionedUserIds } = require('../utils/mentionUtils');
-const { upload, getPublicUrl, deleteFile } = require('../utils/r2Config');
+const { upload, getPublicUrl, deleteFile, getStorageConfig } = require('../utils/r2Config');
 
 // Helper function to add like status and counts to a post object
 const addPostLikeStatus = (post, userId) => {
@@ -67,14 +67,28 @@ router.post('/', auth, upload.array('media', 5), async (req, res) => {
     // Process uploaded files
     const media = [];
     if (req.files && req.files.length > 0) {
+      const { isR2Configured } = getStorageConfig();
       req.files.forEach(file => {
         const mediaType = file.mimetype.startsWith('image/') ? 'image' : 'video';
-        media.push({
-          type: mediaType,
-          url: getPublicUrl(file.key),
-          filename: file.key.split('/').pop(),
-          key: file.key
-        });
+        
+        if (isR2Configured) {
+          // R2 storage - file has key property
+          media.push({
+            type: mediaType,
+            url: getPublicUrl(file.key),
+            filename: file.key.split('/').pop(),
+            key: file.key
+          });
+        } else {
+          // Local storage - file has filename and path properties
+          const relativePath = file.path.replace(file.destination + '/', '');
+          media.push({
+            type: mediaType,
+            url: getPublicUrl(relativePath),
+            filename: file.filename,
+            key: relativePath
+          });
+        }
       });
     }
 

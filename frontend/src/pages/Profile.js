@@ -12,7 +12,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
-import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
+
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from '../components/UserAvatar';
 import axios from 'axios';
@@ -666,7 +666,7 @@ const Profile = () => {
                         ...(profile.videos || []).map(video => ({ ...video, type: 'video' }))
                       ];
                       const mediaIndex = allMedia.findIndex(media => media.type === 'video' && media.url === video.url);
-                      openMediaModal(video.url, video.title || video.caption, mediaIndex, 'video', videoId);
+                      openMediaModal(video.url, '', mediaIndex, 'video', videoId);
                     }}
                   >
                     <iframe
@@ -709,7 +709,6 @@ const Profile = () => {
       {profile.photos && profile.photos.length > 0 && (
         <>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 2, sm: 3 } }}>
-            <PhotoLibraryIcon sx={{ mr: 1, fontSize: { xs: '1.5rem', sm: '2rem' } }} />
             <Typography 
               variant="h5" 
               sx={{
@@ -957,7 +956,7 @@ const Profile = () => {
             </Box>
           )}
           
-          {mediaModal.caption && (
+          {mediaModal.caption && mediaModal.mediaType === 'photo' && (
             <Box
               sx={{
                 position: 'absolute',
