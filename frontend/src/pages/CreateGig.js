@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Typography, Paper, TextField, Button, Grid, Alert, Autocomplete, InputAdornment, Box, FormControl, Select, MenuItem, InputLabel, IconButton } from '@mui/material';
+import Flatpickr from 'react-flatpickr';
+import 'flatpickr/dist/themes/material_blue.css';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
@@ -147,51 +151,200 @@ const CreateGig = () => {
             {schedules.map((schedule, index) => (
               <React.Fragment key={index}>
                 <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Date"
-                    type="date"
-                    InputLabelProps={{ shrink: true }}
-                    value={schedule.date}
-                    onChange={(e) => handleScheduleChange(index, 'date', e.target.value)}
-                    variant="outlined"
-                    required={index === 0}
-                    sx={{
-                      '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
-                      '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                  <Flatpickr
+                    options={{
+                      dateFormat: 'd/m/Y',
+                      disableMobile: true,
+                      allowInput: true,
+                      clickOpens: false,
+                      onChange: (_dates, _str, instance) => instance.close()
                     }}
+                    onChange={([d]) => handleScheduleChange(index, 'date', d ? d.toISOString().slice(0, 10) : '')}
+                    render={(props, ref) => (
+                      <TextField
+                        inputRef={ref}
+                        inputProps={{
+                          ...props,
+                          id: `date-input-${index}`,
+                          inputMode: 'numeric',
+                          maxLength: 10,
+                          placeholder: 'DD/MM/YYYY',
+                          pattern: '\\d{2}/\\d{2}/\\d{4}',
+                          onInput: (e) => {
+                            let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 8);
+                            if (v.length >= 5) v = `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4)}`;
+                            else if (v.length >= 3) v = `${v.slice(0,2)}/${v.slice(2)}`;
+                            e.target.value = v;
+                          }
+                        }}
+                        fullWidth
+                        size="small"
+                        label="Date (DD/MM/YYYY)"
+                        InputLabelProps={{ shrink: true }}
+                        variant="outlined"
+                        required={index === 0}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                aria-label="open date picker"
+                                onClick={() => {
+                                  const el = document.getElementById(`date-input-${index}`);
+                                  if (el && el._flatpickr) el._flatpickr.open();
+                                  else if (el) el.focus();
+                                }}
+                                size="small"
+                              >
+                                <CalendarTodayIcon fontSize="small" />
+                              </IconButton>
+                            </InputAdornment>
+                          )
+                        }}
+                        onBlur={(e) => {
+                          const val = (e.target.value || '').trim();
+                          if (!val) { handleScheduleChange(index, 'date', ''); return; }
+                          const m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                          if (m) {
+                            const d = m[1].padStart(2,'0');
+                            const mo = m[2].padStart(2,'0');
+                            const y = m[3];
+                            // Basic validity check using Date
+                            const dt = new Date(`${y}-${mo}-${d}T00:00:00Z`);
+                            if (!isNaN(dt.getTime())) {
+                              handleScheduleChange(index, 'date', `${y}-${mo}-${d}`);
+                            }
+                          }
+                        }}
+                      />
+                    )}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Start Time"
-                    type="time"
-                    InputLabelProps={{ shrink: true }}
-                    value={schedule.startTime}
-                    onChange={(e) => handleScheduleChange(index, 'startTime', e.target.value)}
-                    variant="outlined"
-                    required={index === 0}
-                    sx={{
-                      '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
-                      '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                  <Flatpickr
+                    options={{
+                      enableTime: true,
+                      noCalendar: true,
+                      dateFormat: 'H:i',
+                      time_24hr: true,
+                      minuteIncrement: 5,
+                      disableMobile: true,
+                      allowInput: true,
+                      clickOpens: false,
+                      onChange: (_dates, _str, instance) => instance.close()
                     }}
+                    onChange={([d]) => handleScheduleChange(index, 'startTime', d ? d.toTimeString().slice(0, 5) : '')}
+                    render={(props, ref) => (
+                      <TextField
+                        inputRef={ref}
+                        inputProps={{
+                          ...props,
+                          id: `start-time-input-${index}`,
+                          inputMode: 'numeric',
+                          maxLength: 5,
+                          placeholder: '--:--',
+                          pattern: '(?:[01]\\d|2[0-3]):[0-5]\\d',
+                          onInput: (e) => {
+                            let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                            if (v.length >= 3) v = `${v.slice(0,2)}:${v.slice(2)}`;
+                            e.target.value = v;
+                          }
+                        }}
+                        fullWidth
+                        size="small"
+                        label="Start Time"
+                        InputLabelProps={{ shrink: true }}
+                        variant="outlined"
+                        required={index === 0}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                aria-label="open start time picker"
+                                onClick={() => {
+                                  const el = document.getElementById(`start-time-input-${index}`);
+                                  if (el && el._flatpickr) el._flatpickr.open();
+                                  else if (el) el.focus();
+                                }}
+                                size="small"
+                              >
+                                <AccessTimeIcon fontSize="small" />
+                              </IconButton>
+                            </InputAdornment>
+                          )
+                        }}
+                        onBlur={(e) => {
+                          const val = (e.target.value || '').trim();
+                          const isValid = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(val);
+                          if (isValid || val === '') {
+                            handleScheduleChange(index, 'startTime', val);
+                          }
+                        }}
+                      />
+                    )}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      fullWidth
-                      label="End Time (Optional)"
-                      type="time"
-                      InputLabelProps={{ shrink: true }}
-                      value={schedule.endTime}
-                      onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
-                      variant="outlined"
-                      sx={{
-                        '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
-                        '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                    <Flatpickr
+                      options={{
+                        enableTime: true,
+                        noCalendar: true,
+                        dateFormat: 'H:i',
+                        time_24hr: true,
+                        minuteIncrement: 5,
+                        disableMobile: true,
+                        allowInput: true,
+                        clickOpens: false,
+                        onChange: (_dates, _str, instance) => instance.close()
                       }}
+                      onChange={([d]) => handleScheduleChange(index, 'endTime', d ? d.toTimeString().slice(0, 5) : '')}
+                      render={(props, ref) => (
+                        <TextField
+                          inputRef={ref}
+                          inputProps={{
+                            ...props,
+                            id: `end-time-input-${index}`,
+                            inputMode: 'numeric',
+                            maxLength: 5,
+                            placeholder: '--:--',
+                            pattern: '(?:[01]\\d|2[0-3]):[0-5]\\d',
+                            onInput: (e) => {
+                              let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                              if (v.length >= 3) v = `${v.slice(0,2)}:${v.slice(2)}`;
+                              e.target.value = v;
+                            }
+                          }}
+                          fullWidth
+                          size="small"
+                          label="End Time (Optional)"
+                          InputLabelProps={{ shrink: true }}
+                          variant="outlined"
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  aria-label="open end time picker"
+                                  onClick={() => {
+                                    const el = document.getElementById(`end-time-input-${index}`);
+                                    if (el && el._flatpickr) el._flatpickr.open();
+                                    else if (el) el.focus();
+                                  }}
+                                  size="small"
+                                >
+                                  <AccessTimeIcon fontSize="small" />
+                                </IconButton>
+                              </InputAdornment>
+                            )
+                          }}
+                          onBlur={(e) => {
+                            const val = (e.target.value || '').trim();
+                            const isValid = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(val);
+                            if (isValid || val === '') {
+                              handleScheduleChange(index, 'endTime', val);
+                            }
+                          }}
+                        />
+                      )}
                     />
                     {index > 0 && (
                       <IconButton aria-label="remove date/time" color="error" onClick={() => removeScheduleRow(index)}>
