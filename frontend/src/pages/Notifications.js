@@ -19,7 +19,9 @@ import {
   Alert,
   CircularProgress,
   Divider,
-  Button
+  Button,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
@@ -30,7 +32,8 @@ import {
   Favorite as FavoriteIcon,
   Delete as DeleteIcon,
   Article as PostIcon,
-  DoneAll as DoneAllIcon
+  DoneAll as DoneAllIcon,
+  MoreVert as MoreVertIcon
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import AuthContext from '../context/AuthContext';
@@ -66,6 +69,11 @@ const Notifications = () => {
   const { notifications, markAsRead, deleteNotification, markAllAsRead, loading } = useNotifications();
   const [tabValue, setTabValue] = useState(0);
   const navigate = useNavigate();
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuForId, setMenuForId] = useState(null);
+
+  const openMenu = (e, id) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); setMenuForId(id); };
+  const closeMenu = () => { setMenuAnchor(null); setMenuForId(null); };
 
   // Remove auto-mark-as-read to prevent visual refreshes
   // Users can manually mark notifications as read by clicking them or using the mark all button
@@ -269,16 +277,8 @@ const Notifications = () => {
                 }
               />
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(notification._id);
-                  }}
-                  sx={{ color: '#d32f2f' }}
-                  title="Delete notification"
-                >
-                  <DeleteIcon fontSize="small" />
+                <IconButton size="small" onClick={(e) => openMenu(e, notification._id)}>
+                  <MoreVertIcon fontSize="small" />
                 </IconButton>
               </Box>
             </ListItem>
@@ -338,18 +338,24 @@ const Notifications = () => {
             onChange={handleTabChange}
             aria-label="notification tabs"
             variant="fullWidth"
+            sx={{
+              '& .MuiTab-root': {
+                minWidth: 0,
+                px: { xs: 0.5, sm: 2 },
+              }
+            }}
           >
             <Tab
               label={
                 <Box sx={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: { xs: 0.5, sm: 1 },
+                  gap: { xs: 0.25, sm: 1 },
                   flexDirection: { xs: 'column', sm: 'row' },
-                  minHeight: { xs: 48, sm: 'auto' }
+                  minHeight: { xs: 44, sm: 'auto' }
                 }}>
                   <NotificationsIcon fontSize="small" />
-                  <Box sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>All</Box>
+                  <Box sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>All</Box>
                   <Chip
                     label={notifications ? notifications.length : 0}
                     size="small"
@@ -358,7 +364,8 @@ const Notifications = () => {
                       color: '#1976d2', 
                       fontSize: '0.75rem', 
                       height: { xs: 16, sm: 20 },
-                      mt: { xs: 0.25, sm: 0 }
+                      mt: { xs: 0.25, sm: 0 },
+                      display: { xs: 'none', sm: 'inline-flex' }
                     }}
                   />
                 </Box>
@@ -370,12 +377,12 @@ const Notifications = () => {
                 <Box sx={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: { xs: 0.5, sm: 1 },
+                  gap: { xs: 0.25, sm: 1 },
                   flexDirection: { xs: 'column', sm: 'row' },
-                  minHeight: { xs: 48, sm: 'auto' }
+                  minHeight: { xs: 44, sm: 'auto' }
                 }}>
                   <WorkIcon fontSize="small" />
-                  <Box sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Gigs</Box>
+                  <Box sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Gigs</Box>
                   <Chip
                     label={filterNotifications('gig_application').length}
                     size="small"
@@ -384,7 +391,8 @@ const Notifications = () => {
                       color: '#1976d2', 
                       fontSize: '0.75rem', 
                       height: { xs: 16, sm: 20 },
-                      mt: { xs: 0.25, sm: 0 }
+                      mt: { xs: 0.25, sm: 0 },
+                      display: { xs: 'none', sm: 'inline-flex' }
                     }}
                   />
                 </Box>
@@ -396,12 +404,12 @@ const Notifications = () => {
                 <Box sx={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: { xs: 0.5, sm: 1 },
+                  gap: { xs: 0.25, sm: 1 },
                   flexDirection: { xs: 'column', sm: 'row' },
-                  minHeight: { xs: 48, sm: 'auto' }
+                  minHeight: { xs: 44, sm: 'auto' }
                 }}>
                   <LinkIcon fontSize="small" />
-                  <Box sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Links</Box>
+                  <Box sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Links</Box>
                   <Chip
                     label={filterNotifications('link_request').length}
                     size="small"
@@ -410,7 +418,8 @@ const Notifications = () => {
                       color: '#388e3c', 
                       fontSize: '0.75rem', 
                       height: { xs: 16, sm: 20 },
-                      mt: { xs: 0.25, sm: 0 }
+                      mt: { xs: 0.25, sm: 0 },
+                      display: { xs: 'none', sm: 'inline-flex' }
                     }}
                   />
                 </Box>
@@ -422,12 +431,12 @@ const Notifications = () => {
                 <Box sx={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: { xs: 0.5, sm: 1 },
+                  gap: { xs: 0.25, sm: 1 },
                   flexDirection: { xs: 'column', sm: 'row' },
-                  minHeight: { xs: 48, sm: 'auto' }
+                  minHeight: { xs: 44, sm: 'auto' }
                 }}>
                   <PostIcon fontSize="small" />
-                  <Box sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Posts</Box>
+                  <Box sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Posts</Box>
                   <Chip
                     label={filterNotifications('posts').length}
                     size="small"
@@ -436,7 +445,8 @@ const Notifications = () => {
                       color: '#f57c00', 
                       fontSize: '0.75rem', 
                       height: { xs: 16, sm: 20 },
-                      mt: { xs: 0.25, sm: 0 }
+                      mt: { xs: 0.25, sm: 0 },
+                      display: { xs: 'none', sm: 'inline-flex' }
                     }}
                   />
                 </Box>
@@ -448,12 +458,12 @@ const Notifications = () => {
                 <Box sx={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: { xs: 0.5, sm: 1 },
+                  gap: { xs: 0.25, sm: 1 },
                   flexDirection: { xs: 'column', sm: 'row' },
-                  minHeight: { xs: 48, sm: 'auto' }
+                  minHeight: { xs: 44, sm: 'auto' }
                 }}>
                   <MessageIcon fontSize="small" />
-                  <Box sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Messages</Box>
+                  <Box sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Messages</Box>
                   <Chip
                     label={filterNotifications('message').length}
                     size="small"
@@ -462,7 +472,8 @@ const Notifications = () => {
                       color: '#9c27b0', 
                       fontSize: '0.75rem', 
                       height: { xs: 16, sm: 20 },
-                      mt: { xs: 0.25, sm: 0 }
+                      mt: { xs: 0.25, sm: 0 },
+                      display: { xs: 'none', sm: 'inline-flex' }
                     }}
                   />
                 </Box>
@@ -472,10 +483,10 @@ const Notifications = () => {
           </Tabs>
         </Box>
 
-        <CardContent>
-          <TabPanel value={tabValue} index={0}>
-            {renderNotificationList(filterNotifications('all'))}
-          </TabPanel>
+      <CardContent>
+        <TabPanel value={tabValue} index={0}>
+          {renderNotificationList(filterNotifications('all'))}
+        </TabPanel>
           <TabPanel value={tabValue} index={1}>
             {renderNotificationList(filterNotifications('gig_application'))}
           </TabPanel>
@@ -485,11 +496,25 @@ const Notifications = () => {
           <TabPanel value={tabValue} index={3}>
             {renderNotificationList(filterNotifications('posts'))}
           </TabPanel>
-          <TabPanel value={tabValue} index={4}>
-            {renderNotificationList(filterNotifications('message'))}
-          </TabPanel>
-        </CardContent>
-      </Card>
+        <TabPanel value={tabValue} index={4}>
+          {renderNotificationList(filterNotifications('message'))}
+        </TabPanel>
+      </CardContent>
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={closeMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          onClick={() => { if (menuForId) handleDelete(menuForId); closeMenu(); }}
+          sx={{ color: 'error.main' }}
+        >
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+        </MenuItem>
+      </Menu>
+    </Card>
     </Container>
   );
 };

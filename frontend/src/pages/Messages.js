@@ -250,9 +250,14 @@ const Messages = () => {
   const [selectedDate, setSelectedDate] = useState(null);
 
   const handleMessageContextMenu = (event, message) => {
-    event.preventDefault();
+    if (event && typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
     setSelectedMessageForMenu(message);
-    setMessageMenuAnchor(event.currentTarget);
+    const anchor = event && event.currentTarget
+      ? event.currentTarget
+      : (message?._id ? document.getElementById(`message-${message._id}`) : null);
+    setMessageMenuAnchor(anchor);
   };
 
   // Debug: Log replyToMessage changes
@@ -1925,7 +1930,7 @@ const Messages = () => {
         display="flex"
         justifyContent="center"
         alignItems="center"
-        height="100vh"
+        height={isMobile ? "calc(100vh - 56px - 70px)" : "calc(100vh - 64px)"}
       >
         <CircularProgress />
       </Box>
@@ -1934,7 +1939,11 @@ const Messages = () => {
 
   return (
     <Box
-      sx={{ height: "calc(100vh - 64px)", display: "flex", bgcolor: "#f5f5f5" }}
+      sx={{
+        height: isMobile ? "calc(100vh - 56px - 70px)" : "calc(100vh - 64px)",
+        display: "flex",
+        bgcolor: "#f5f5f5"
+      }}
     >
       {/* Sidebar - Conversations List */}
       <Box
@@ -2545,8 +2554,6 @@ const Messages = () => {
                           <Box
                             onMouseEnter={() => handleMessageHover(message._id)}
                             onMouseLeave={handleMessageLeave}
-                            onTouchStart={() => handleTouchStart(message._id)}
-                            onTouchEnd={handleTouchEnd}
                             sx={{
                               display: "flex",
                               justifyContent: isOwn ? "flex-end" : "flex-start",
@@ -2596,7 +2603,7 @@ const Messages = () => {
                                   "&:hover": {
                                     boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
                                   },
-                                  // Extend hover area to bridge gap to buttons
+                                  // Extend hover area to bridge gap to buttons (desktop only)
                                   "&::after": {
                                     content: '""',
                                     position: "absolute",
@@ -2606,6 +2613,10 @@ const Messages = () => {
                                     right: isOwn ? "100%" : "-80px",
                                     width: "80px",
                                     zIndex: 998,
+                                    pointerEvents: 'none',
+                                    '@media (hover: hover)': {
+                                      pointerEvents: 'auto',
+                                    },
                                   },
                                 }}
                               >
@@ -3661,13 +3672,13 @@ const Messages = () => {
                 bgcolor: "white",
                 borderTop: replyToMessage ? "none" : "1px solid #e0e0e0",
                 display: "flex",
-                alignItems: "flex-end",
+                alignItems: "center",
                 gap: 1,
               }}
             >
               <IconButton
                 size="small"
-                sx={{ mb: 0.5, color: "#666" }}
+                sx={{ color: "#666", width: 40, height: 40, alignSelf: "center" }}
                 component="label"
               >
                 <AttachIcon />
@@ -3711,7 +3722,7 @@ const Messages = () => {
                     <InputAdornment position="end">
                       <IconButton
                         size="small"
-                        sx={{ color: "#666" }}
+                        sx={{ color: "#666", width: 36, height: 36 }}
                         onClick={(e) => {
                           setEmojiMenuAnchor(e.currentTarget);
                           setSelectedMessageForReaction(null);
@@ -3728,6 +3739,11 @@ const Messages = () => {
                 onClick={sendMessageEnhanced}
                 disabled={(!newMessage.trim() && !selectedFile) || sending}
                 sx={{
+                  width: 40,
+                  height: 40,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   bgcolor:
                     newMessage.trim() || selectedFile ? "#1976d2" : "#ccc",
                   color: "white",

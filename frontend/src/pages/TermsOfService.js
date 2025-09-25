@@ -4,7 +4,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import IconButton from '@mui/material/IconButton';
 
-const UserAgreement = () => {
+const TermsOfService = () => {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
@@ -132,4 +132,4 @@ const UserAgreement = () => {
   );
 };
 
-export default UserAgreement;
+export default TermsOfService;
