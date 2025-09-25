@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Typography, Paper, TextField, Button, Grid, Alert, Autocomplete, InputAdornment, Box, FormControl, Select, MenuItem, InputLabel, IconButton } from '@mui/material';
 import Flatpickr from 'react-flatpickr';
 import 'flatpickr/dist/themes/material_blue.css';
+import '../styles/flatpickr-compact.css';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { useNavigate } from 'react-router-dom';
@@ -230,7 +231,9 @@ const CreateGig = () => {
                       disableMobile: true,
                       allowInput: true,
                       clickOpens: false,
-                      onChange: (_dates, _str, instance) => instance.close()
+                      onOpen: (_d, _s, instance) => {
+                        if (instance?.calendarContainer) instance.calendarContainer.classList.add('fp-compact');
+                      }
                     }}
                     onChange={([d]) => handleScheduleChange(index, 'startTime', d ? d.toTimeString().slice(0, 5) : '')}
                     render={(props, ref) => (
@@ -295,7 +298,9 @@ const CreateGig = () => {
                         disableMobile: true,
                         allowInput: true,
                         clickOpens: false,
-                        onChange: (_dates, _str, instance) => instance.close()
+                        onOpen: (_d, _s, instance) => {
+                          if (instance?.calendarContainer) instance.calendarContainer.classList.add('fp-compact');
+                        }
                       }}
                       onChange={([d]) => handleScheduleChange(index, 'endTime', d ? d.toTimeString().slice(0, 5) : '')}
                       render={(props, ref) => (

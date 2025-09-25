@@ -1,0 +1,47 @@
+.fp-compact.flatpickr-calendar {
+  font-size: 13px;
+  padding: 8px 8px 10px;
+  width: auto;
+}
+.fp-compact .flatpickr-months .flatpickr-month {
+  height: 30px;
+}
+.fp-compact .flatpickr-current-month .flatpickr-monthDropdown-months,
+.fp-compact .flatpickr-current-month input.cur-year {
+  font-size: 13px;
+}
+.fp-compact .flatpickr-weekdays,
+.fp-compact .flatpickr-days {
+  font-size: 13px;
+}
+.fp-compact .flatpickr-day {
+  width: 30px;
+  height: 26px;
+  line-height: 26px;
+  margin: 2px;
+}
+.fp-compact .flatpickr-time {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fp-compact .flatpickr-time .numInputWrapper input,
+.fp-compact .flatpickr-time .flatpickr-time-separator,
+.fp-compact .flatpickr-time .flatpickr-am-pm {
+  font-size: 14px;
+}
+.fp-compact .flatpickr-time .numInputWrapper {
+  width: 44px;
+  height: 32px;
+}
+.fp-compact .flatpickr-time .numInputWrapper input {
+  height: 32px;
+  line-height: 32px;
+  padding: 0 6px;
+  text-align: center;
+}
+.fp-compact .flatpickr-time .flatpickr-time-separator {
+  line-height: 32px;
+  display: inline-block;
+}
