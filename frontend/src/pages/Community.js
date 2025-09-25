@@ -688,7 +688,7 @@ const Community = () => {
     const imageCount = images.length;
     
     if (imageCount === 1) {
-      // Single image - full width
+      // Single image - standardized size with better vertical support
       const normalizedUrl = normalizeMediaUrl(images[0].url);
       return (
         <Box sx={{ width: '100%', maxWidth: '500px', mx: 'auto' }}>
@@ -699,7 +699,7 @@ const Community = () => {
             onLoad={(e) => handleImageLoad(post._id, 0, e)}
             style={{
               width: '100%',
-              maxHeight: '400px',
+              height: '500px',
               objectFit: 'cover',
               borderRadius: '8px',
               cursor: 'pointer'
@@ -738,10 +738,18 @@ const Community = () => {
     }
     
     if (imageCount === 3) {
-      // Three images - one large on left, two stacked on right
+      // Three images - CSS grid layout for perfect alignment
       return (
-        <Box sx={{ display: 'flex', gap: 1, maxWidth: '500px', mx: 'auto', height: '300px' }}>
-          <Box sx={{ flex: 2 }}>
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: '2fr 1fr', 
+          gridTemplateRows: '1fr 1fr',
+          gap: 1, 
+          maxWidth: '500px', 
+          mx: 'auto', 
+          height: '300px' 
+        }}>
+          <Box sx={{ gridRow: '1 / 3', overflow: 'hidden', borderRadius: '8px' }}>
             <img
               src={normalizeMediaUrl(images[0].url)}
               alt="Post media"
@@ -751,45 +759,47 @@ const Community = () => {
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                borderRadius: '8px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'transform 0.2s ease'
               }}
+              onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+              onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
             />
           </Box>
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {images.slice(1).map((image, index) => {
-              const normalizedUrl = normalizeMediaUrl(image.url);
-              return (
-                <Box key={index + 1} sx={{ flex: 1 }}>
-                  <img
-                    src={normalizedUrl}
-                    alt="Post media"
-                    onClick={() => openMediaModal(normalizedUrl, image.caption || '', index + 1, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
-                    onLoad={(e) => handleImageLoad(post._id, index + 1, e)}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      borderRadius: '8px',
-                      cursor: 'pointer'
-                    }}
-                  />
-                </Box>
-              );
-            })}
-          </Box>
+          {images.slice(1).map((image, index) => {
+            const normalizedUrl = normalizeMediaUrl(image.url);
+            return (
+              <Box key={index + 1} sx={{ overflow: 'hidden', borderRadius: '8px' }}>
+                <img
+                  src={normalizedUrl}
+                  alt="Post media"
+                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index + 1, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
+                  onLoad={(e) => handleImageLoad(post._id, index + 1, e)}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                />
+              </Box>
+            );
+          })}
         </Box>
       );
     }
     
     if (imageCount === 4) {
-      // Four images - 2x2 grid
+      // Four images - 2x2 grid with better aspect ratio
       return (
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, maxWidth: '500px', mx: 'auto' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, maxWidth: '500px', mx: 'auto', aspectRatio: '1' }}>
           {images.map((image, index) => {
             const normalizedUrl = normalizeMediaUrl(image.url);
             return (
-              <Box key={index}>
+              <Box key={index} sx={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '8px' }}>
                 <img
                   src={normalizedUrl}
                   alt="Post media"
@@ -797,11 +807,13 @@ const Community = () => {
                   onLoad={(e) => handleImageLoad(post._id, index, e)}
                   style={{
                     width: '100%',
-                    height: '150px',
+                    height: '100%',
                     objectFit: 'cover',
-                    borderRadius: '8px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease',
                   }}
+                  onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                 />
               </Box>
             );
@@ -837,15 +849,15 @@ const Community = () => {
           })}
         </Box>
         
-        {/* Bottom row - remaining images */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: imageCount === 5 ? '1fr 1fr 1fr' : '1fr 1fr 1fr 1fr', gap: 1 }}>
+        {/* Bottom row - remaining images with consistent aspect ratio */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: imageCount === 5 ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)', gap: 1 }}>
           {images.slice(2, imageCount === 5 ? 5 : 6).map((image, index) => {
             const normalizedUrl = normalizeMediaUrl(image.url);
             const actualIndex = index + 2;
             const isLast = actualIndex === 5 && imageCount > 6;
             
             return (
-              <Box key={actualIndex} sx={{ position: 'relative' }}>
+              <Box key={actualIndex} sx={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: '8px' }}>
                 <img
                   src={normalizedUrl}
                   alt="Post media"
@@ -853,12 +865,14 @@ const Community = () => {
                   onLoad={(e) => handleImageLoad(post._id, actualIndex, e)}
                   style={{
                     width: '100%',
-                    height: '120px',
+                    height: '100%',
                     objectFit: 'cover',
-                    borderRadius: '8px',
                     cursor: 'pointer',
-                    filter: isLast ? 'brightness(0.6)' : 'none'
+                    filter: isLast ? 'brightness(0.6)' : 'none',
+                    transition: 'transform 0.2s ease'
                   }}
+                  onMouseEnter={(e) => !isLast && (e.target.style.transform = 'scale(1.05)')}
+                  onMouseLeave={(e) => !isLast && (e.target.style.transform = 'scale(1)')}
                 />
                 {isLast && (
                   <Box
@@ -874,8 +888,9 @@ const Community = () => {
                       color: 'white',
                       fontSize: '1.5rem',
                       fontWeight: 'bold',
-                      borderRadius: '8px',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                      borderRadius: '8px'
                     }}
                     onClick={() => openMediaModal(normalizedUrl, image.caption || '', actualIndex, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
                   >
@@ -951,7 +966,7 @@ const Community = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
+    <Container maxWidth="md" sx={{ mt: 2, mb: 4 }}>
       {/* Create Post Bar & Filter Section - Merged */}
       <Paper
         elevation={1}

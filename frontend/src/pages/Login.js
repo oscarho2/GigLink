@@ -197,7 +197,8 @@ const Login = () => {
           <Grid container spacing={{ xs: 2, sm: 0 }} sx={{ flexDirection: { xs: 'column', sm: 'row' } }}>
             <Grid item xs={12} sm>
               <Link 
-                href="#" 
+                component={RouterLink}
+                to="/forgot-password"
                 variant="body2"
                 sx={{
                   fontSize: { xs: '0.875rem', sm: '0.875rem' },

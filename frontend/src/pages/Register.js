@@ -31,6 +31,7 @@ const Register = () => {
     password2: '',
   });
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
@@ -107,7 +108,8 @@ const Register = () => {
 
     const result = await register({ name, email, password });
      if (result && result.success) {
-       navigate('/profile-setup');
+       setError(null);
+       setSuccess(result.message || 'Registration successful! Please check your email to verify your account.');
      } else if (result.error) {
        setError(result.error[0].msg);
      }
@@ -148,6 +150,11 @@ const Register = () => {
         {error && (
           <Alert severity="error" sx={{ width: '100%', mt: 2, fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
             {error}
+          </Alert>
+        )}
+        {success && (
+          <Alert severity="success" sx={{ width: '100%', mt: 2, fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
+            {success}
           </Alert>
         )}
         <Box component="form" onSubmit={onSubmit} noValidate sx={{ mt: { xs: 2, sm: 3 }, width: '100%' }}>
