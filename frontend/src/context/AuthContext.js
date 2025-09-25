@@ -81,15 +81,12 @@ export const AuthProvider = ({ children }) => {
       const body = JSON.stringify(formData);
       const res = await axios.post('/api/users', body, config);
       
-      localStorage.removeItem('hasLoggedOut'); // Clear logout flag on registration
-      setHasLoggedOut(false);
-      setToken(res.data.token);
-      setIsAuthenticated(true);
-      setUser(res.data.user);
-      setAuthToken(res.data.token);
-      
-      // Return success to allow component to handle redirect
-      return { success: true };
+      // No longer auto-login after registration - user needs to verify email
+      // Return success with message to show verification notice
+      return { 
+        success: true, 
+        message: res.data.message || 'Registration successful! Please check your email to verify your account.' 
+      };
     } catch (err) {
       console.error('Registration error:', err);
       return { error: err.response?.data?.errors || [{ msg: 'Registration failed' }] };
