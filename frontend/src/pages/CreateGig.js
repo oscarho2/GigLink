@@ -6,6 +6,7 @@ import '../styles/flatpickr-compact.css';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { useNavigate } from 'react-router-dom';
+import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 import { useAuth } from '../context/AuthContext';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
@@ -13,9 +14,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 
 const CreateGig = () => {
-  // Predefined options for instruments and genres
-  const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
-  const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
+  // Predefined options for instruments and genres come from centralized constants
 
   const currencySymbols = { GBP: '£', USD: '$', EUR: '€', JPY: '¥', AUD: 'A$', CAD: 'C$' };
   const currencyOptions = [

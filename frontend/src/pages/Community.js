@@ -61,8 +61,7 @@ import UserAvatar from '../components/UserAvatar';
 import MentionRenderer from '../components/MentionRenderer';
 import MentionInput from '../components/MentionInput';
 
-const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
-const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
+import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
 const Community = () => {
   const { user, token } = useAuth();

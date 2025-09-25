@@ -7,6 +7,7 @@ import axios from 'axios';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
+import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
 
 
@@ -23,9 +24,7 @@ const EditProfile = () => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   
-  // Predefined options for instruments and genres
-  const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
-  const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
+  // Predefined options for instruments and genres come from centralized constants
   
   const [formData, setFormData] = useState({
     name: '',

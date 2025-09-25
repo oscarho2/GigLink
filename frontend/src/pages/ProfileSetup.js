@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
 
 
@@ -12,9 +13,7 @@ const ProfileSetup = () => {
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(0);
   
-  // Predefined options for instruments and genres
-  const instrumentOptions = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals", "Trumpet", "Flute", "Cello", "Clarinet", "Trombone", "Harp", "Banjo", "Mandolin", "Accordion", "Harmonica", "Ukulele", "DJ Equipment", "Synthesizer"];
-  const genreOptions = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk", "Country", "Blues", "Reggae", "Punk", "Metal", "Alternative", "Indie", "Funk", "Soul", "Gospel", "Latin", "World Music"];
+  // Predefined options for instruments and genres come from centralized constants
   
   const [formData, setFormData] = useState({
     location: '',
