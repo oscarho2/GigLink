@@ -46,7 +46,7 @@ const EditProfile = () => {
   const [videos, setVideos] = useState([]);
   const [videoUrl, setVideoUrl] = useState('');
   const [draggedIndex, setDraggedIndex] = useState(null);
-  const [photoCaption, setPhotoCaption] = useState('');
+
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -210,7 +210,7 @@ const EditProfile = () => {
       const uploadPromises = selectedPhotos.map(async (photo) => {
         const formDataUpload = new FormData();
         formDataUpload.append('photo', photo);
-        formDataUpload.append('caption', photoCaption);
+  
         
         return axios.post('/api/profiles/photos', formDataUpload, {
           headers: {
@@ -245,7 +245,7 @@ const EditProfile = () => {
       ));
       
       setSelectedPhotos([]);
-      setPhotoCaption('');
+      
       setSuccess(`${selectedPhotos.length} photos uploaded successfully!`);
     } catch (err) {
       setError(err.response?.data?.message || 'Error uploading photos');
@@ -263,7 +263,7 @@ const EditProfile = () => {
     try {
       const formDataUpload = new FormData();
       formDataUpload.append('photo', selectedPhoto);
-      formDataUpload.append('caption', photoCaption);
+      
       
       const response = await axios.post('/api/profiles/photos', formDataUpload, {
         headers: {
@@ -287,7 +287,7 @@ const EditProfile = () => {
       }
       
       setSelectedPhoto(null);
-      setPhotoCaption('');
+      
       setSuccess('Photo uploaded successfully!');
     } catch (err) {
       setError(err.response?.data?.message || 'Error uploading photo');
@@ -326,7 +326,6 @@ const EditProfile = () => {
   const handleAddVideo = () => {
     if (videoUrl.trim()) {
       const newVideo = {
-        title: `Video ${videos.length + 1}`,
         url: videoUrl.trim()
       };
       setVideos(prev => [...prev, newVideo]);
@@ -960,15 +959,7 @@ const EditProfile = () => {
                       />
                     ))}
                     <Box sx={{ mt: 2 }}>
-                      <TextField
-                        fullWidth
-                        label="Caption (Optional)"
-                        value={photoCaption}
-                        onChange={(e) => setPhotoCaption(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        sx={{ mb: 2 }}
-                      />
+
                       <Button
                         variant="contained"
                         onClick={selectedPhotos.length > 0 ? handleMultiplePhotoUpload : handlePhotoUpload}
@@ -989,79 +980,7 @@ const EditProfile = () => {
                 )}
               </Paper>
               
-              {/* Display Photos */}
-              {(() => {
-                const allPhotos = [...photos, ...(formData.photos || [])];
-                return allPhotos.length > 0 ? (
-                  <Grid container spacing={2}>
-                    {allPhotos.map((photo, index) => (
-                      <Grid item xs={12} sm={6} md={4} key={photo?.id || photo?._id || index}>
-                        <Card
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, index, 'photo')}
-                          onDragOver={handleDragOver}
-                          onDrop={(e) => handleDrop(e, index, 'photo')}
-                          onDragEnd={handleDragEnd}
-                          sx={{
-                            cursor: 'move',
-                            opacity: draggedIndex?.index === index && draggedIndex?.type === 'photo' ? 0.5 : 1
-                          }}
-                        >
-                          <Box
-                            component="img"
-                            src={photo?.url || ''}
-                            alt={photo?.caption || 'Profile photo'}
-                            sx={{
-                              width: '100%',
-                              height: 200,
-                              objectFit: 'cover'
-                            }}
-                          />
-                          <CardContent>
-                            <Typography variant="body2" color="text.secondary">
-                              {photo?.caption || 'No caption'}
-                            </Typography>
-                            {photo?.isLocal ? (
-                              <Chip
-                                label="Not uploaded"
-                                size="small"
-                                color="warning"
-                                variant="outlined"
-                                sx={{ mt: 1 }}
-                              />
-                            ) : (
-                              <Chip
-                                label="Uploaded"
-                                size="small"
-                                color="success"
-                                variant="outlined"
-                                sx={{ mt: 1 }}
-                              />
-                            )}
-                          </CardContent>
-                          <CardActions>
-                            <IconButton
-                              aria-label="delete"
-                              color="error"
-                              onClick={() => handleRemovePhoto(photo?.id || photo?._id, index)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </CardActions>
-                        </Card>
-                      </Grid>
-                    ))}
-                  </Grid>
-                ) : null;
-               })()}
-              {!(photos.length > 0 || (formData.photos && formData.photos.length > 0)) && (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                  You haven't added any photos yet.
-                </Typography>
-              )}
-            </Grid>
-            
-            {/* Video Section */}
+              {/* Video Section */}
             <Grid item xs={12}>
               <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>Videos</Typography>
               
@@ -1138,7 +1057,7 @@ const EditProfile = () => {
                                 width="100%"
                                 height="100%"
                                 src={`https://www.youtube.com/embed/${videoId}`}
-                                title={video.title || 'YouTube video'}
+                                title="YouTube video"
                                 frameBorder="0"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowFullScreen
@@ -1163,9 +1082,6 @@ const EditProfile = () => {
                           );
                         })()}
                         <CardContent>
-                          <Typography variant="body2" color="text.secondary">
-                            {video.title || 'Video'}
-                          </Typography>
                           <Typography variant="caption" color="text.secondary">
                             {video.url}
                           </Typography>
@@ -1186,6 +1102,73 @@ const EditProfile = () => {
               ) : (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
                   You haven't added any videos yet.
+                </Typography>
+              )}
+            </Grid>
+            
+              {/* Display Photos */}
+              {(() => {
+                const allPhotos = [...photos, ...(formData.photos || [])];
+                return allPhotos.length > 0 ? (
+                  <Grid container spacing={2}>
+                    {allPhotos.map((photo, index) => (
+                      <Grid item xs={12} sm={6} md={4} key={photo?.id || photo?._id || index}>
+                        <Card
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, index, 'photo')}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, index, 'photo')}
+                          onDragEnd={handleDragEnd}
+                          sx={{
+                            cursor: 'move',
+                            opacity: draggedIndex?.index === index && draggedIndex?.type === 'photo' ? 0.5 : 1
+                          }}
+                        >
+                          <Box
+                            component="img"
+                            src={photo?.url || ''}
+                            alt={photo?.caption || 'Profile photo'}
+                            sx={{
+                              width: '100%',
+                              height: 200,
+                              objectFit: 'cover'
+                            }}
+                          />
+                          <CardContent>
+                            {photo?.isLocal ? (
+                              <Chip
+                                label="Not uploaded"
+                                size="small"
+                                color="warning"
+                                variant="outlined"
+                              />
+                            ) : (
+                              <Chip
+                                label="Uploaded"
+                                size="small"
+                                color="success"
+                                variant="outlined"
+                              />
+                            )}
+                          </CardContent>
+                          <CardActions>
+                            <IconButton
+                              aria-label="delete"
+                              color="error"
+                              onClick={() => handleRemovePhoto(photo?.id || photo?._id, index)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </CardActions>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : null;
+               })()}
+              {!(photos.length > 0 || (formData.photos && formData.photos.length > 0)) && (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                  You haven't added any photos yet.
                 </Typography>
               )}
             </Grid>
