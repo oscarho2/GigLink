@@ -16,7 +16,7 @@ export const instrumentOptions = [
   // Keyboards
   'Piano','Upright Piano','Grand Piano','Keyboard','Synthesizer','Organ (Hammond)','Pipe Organ','Harpsichord','Celesta','Rhodes','Clavinet',
   // Percussion (tuned/untuned)
-  'Drum Kit','Timpani','Snare Drum','Bass Drum','Cymbals','Tambourine','Triangle','Marimba','Xylophone','Vibraphone','Glockenspiel','Cajon','Congas','Bongos','Djembe',
+  'Percussion','Drum Kit','Timpani','Snare Drum','Bass Drum','Cymbals','Tambourine','Triangle','Marimba','Xylophone','Vibraphone','Glockenspiel','Cajon','Congas','Bongos','Djembe',
   // Others / Folk / Misc
   'Accordion','Harmonica','Bagpipes','Tin Whistle','Ocarina','DJ Equipment','Turntables','Sampler','Drum Machine'
 ].sort();
@@ -28,7 +28,7 @@ export const genreOptions = [
   // Electronic
   'Electronic','EDM','House','Techno','Trance','Drum & Bass','Dubstep','Ambient','Downtempo','Lo-fi','Synthwave',
   // Traditional / Art music
-  'Classical','Baroque','Romantic','Contemporary Classical','Opera','Choral',
+  'Classical','Baroque','Romantic','Contemporary Classical','Opera','Choral','Musical Theatre',
   // Caribbean / Latin / Reggae
   'Reggae','Ska','Latin','Salsa','Bachata','Merengue','Bossa Nova','Samba','Reggaeton','Cumbia',
   // Other major umbrellas
@@ -36,4 +36,3 @@ export const genreOptions = [
   // Additional broad
   'Indie','Alternative'
 ].sort();
-
