@@ -50,6 +50,7 @@ import { toast } from 'react-toastify';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import UserAvatar from '../components/UserAvatar';
+import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 import MentionInput from '../components/MentionInput';
 
 const MyPosts = () => {
@@ -73,18 +74,7 @@ const MyPosts = () => {
   const [mediaModal, setMediaModal] = useState({ open: false, mediaUrl: '', caption: '', currentIndex: 0, mediaType: 'image', postMedia: [] });
   const [imageDimensions, setImageDimensions] = useState({});
 
-  // Predefined options for instruments and genres
-  const instrumentOptions = [
-    'Guitar', 'Bass', 'Drums', 'Piano', 'Keyboard', 'Violin', 'Saxophone', 
-    'Trumpet', 'Flute', 'Clarinet', 'Cello', 'Vocals', 'Harmonica', 
-    'Banjo', 'Mandolin', 'Ukulele', 'Accordion', 'Harp', 'Trombone', 'Tuba'
-  ];
-
-  const genreOptions = [
-    'Rock', 'Pop', 'Jazz', 'Blues', 'Country', 'Folk', 'Classical', 
-    'Electronic', 'Hip Hop', 'R&B', 'Reggae', 'Punk', 'Metal', 
-    'Alternative', 'Indie', 'Funk', 'Soul', 'Gospel', 'World', 'Experimental'
-  ];
+  // Options imported from centralized constants
 
   useEffect(() => {
     fetchMyPosts();
