@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { check, validationResult } = require('express-validator');
 const { OAuth2Client } = require('google-auth-library');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
+const { sendPasswordResetEmail } = require('../utils/emailService');
 
 // Initialize Google OAuth client
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -80,7 +82,8 @@ router.post(
         user: {
           id: user.id,
           email: user.email,
-          name: user.name
+          name: user.name,
+          isEmailVerified: user.isEmailVerified
         }
       };
 
@@ -99,7 +102,8 @@ router.post(
               id: user.id,
               name: user.name,
               email: user.email,
-              avatar: user.avatar
+              avatar: user.avatar,
+              isEmailVerified: user.isEmailVerified
             }
           });
         }
@@ -188,5 +192,175 @@ router.post('/google', async (req, res) => {
     res.status(500).json({ message: 'Server error during Google authentication' });
   }
 });
+
+// @route   GET api/auth/verify-email/:token
+// @desc    Verify user email
+// @access  Public
+router.get('/verify-email/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    if (!token) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Verification token is required' 
+      });
+    }
+
+    // Find user with this verification token
+    const user = await User.findOne({
+      emailVerificationToken: token,
+      emailVerificationExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid or expired verification token' 
+      });
+    }
+
+    // Mark email as verified and clear verification fields
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+
+    res.json({ 
+      success: true,
+      message: 'Email verified successfully! You can now log in to your account.',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    console.error('Email verification error:', err.message);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during email verification' 
+    });
+  }
+});
+
+// @route   POST api/auth/forgot-password
+// @desc    Request password reset
+// @access  Public
+router.post(
+  '/forgot-password',
+  [
+    check('email', 'Please include a valid email')
+      .isEmail()
+      .normalizeEmail()
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email } = req.body;
+
+    try {
+      const normalizedEmail = email.toLowerCase().trim();
+      const user = await User.findOne({ email: normalizedEmail });
+
+      // Always return success message for security (don't reveal if email exists)
+      if (!user) {
+        return res.json({ 
+          success: true,
+          message: 'If an account with that email exists, a password reset link has been sent.' 
+        });
+      }
+
+      // Generate password reset token
+      const passwordResetToken = crypto.randomBytes(32).toString('hex');
+      const passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      // Save reset token to user
+      user.passwordResetToken = passwordResetToken;
+      user.passwordResetExpires = passwordResetExpires;
+      await user.save();
+
+      // Send password reset email
+      try {
+        await sendPasswordResetEmail(user.email, user.name, passwordResetToken);
+        
+        res.json({ 
+          success: true,
+          message: 'If an account with that email exists, a password reset link has been sent.' 
+        });
+      } catch (emailErr) {
+        console.error('Error sending password reset email:', emailErr);
+        res.status(500).json({ 
+          success: false,
+          message: 'Error sending password reset email. Please try again later.' 
+        });
+      }
+    } catch (err) {
+      console.error('Password reset request error:', err.message);
+      res.status(500).json({ 
+        success: false,
+        message: 'Server error during password reset request' 
+      });
+    }
+  }
+);
+
+// @route   POST api/auth/reset-password
+// @desc    Reset password with token
+// @access  Public
+router.post(
+  '/reset-password',
+  [
+    check('token', 'Reset token is required')
+      .not().isEmpty(),
+    check('password', 'Password must be at least 8 characters long')
+      .isLength({ min: 8 })
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+      .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character')
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { token, password } = req.body;
+
+    try {
+      // Find user with valid reset token
+      const user = await User.findOne({
+        passwordResetToken: token,
+        passwordResetExpires: { $gt: Date.now() }
+      });
+
+      if (!user) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Invalid or expired password reset token' 
+        });
+      }
+
+      // Update password and clear reset fields
+      user.password = password;
+      user.passwordResetToken = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save();
+
+      res.json({ 
+        success: true,
+        message: 'Password reset successfully! You can now log in with your new password.' 
+      });
+    } catch (err) {
+      console.error('Password reset error:', err.message);
+      res.status(500).json({ 
+        success: false,
+        message: 'Server error during password reset' 
+      });
+    }
+  }
+);
 
 module.exports = router;

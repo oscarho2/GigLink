@@ -3,8 +3,10 @@ const router = express.Router();
 const { check, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
+const crypto = require('crypto');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
+const { sendVerificationEmail } = require('../utils/emailService');
 
 // @route   GET api/users
 // @desc    Get all users
@@ -81,12 +83,19 @@ router.post(
         return res.status(400).json({ errors: [{ msg: 'User already exists' }] });
       }
 
-      // Create new user
+      // Generate email verification token
+      const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+      const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      // Create new user with verification fields (login not blocked if pending)
       const user = new User({
         name: name.trim(),
         email: normalizedEmail,
         password,
-        isMusician: isMusician === 'yes' ? 'yes' : 'no'
+        isMusician: isMusician === 'yes' ? 'yes' : 'no',
+        isEmailVerified: false,
+        emailVerificationToken,
+        emailVerificationExpires
       });
       await user.save();
 
@@ -103,12 +112,22 @@ router.post(
         // Don't fail registration if profile creation fails
       }
 
-      // Return JWT with user info
+      // Attempt to send verification email so the status can be updated later
+      let verificationEmailSent = true;
+      try {
+        await sendVerificationEmail(user.email, user.name, emailVerificationToken);
+      } catch (emailErr) {
+        verificationEmailSent = false;
+        console.error('Error sending verification email:', emailErr);
+      }
+
+      // Return JWT with user info (including email verification status)
       const payload = {
         user: {
           id: user.id,
           email: user.email,
-          name: user.name
+          name: user.name,
+          isEmailVerified: user.isEmailVerified
         }
       };
 
@@ -121,13 +140,18 @@ router.post(
             console.error('JWT signing error:', err);
             return res.status(500).json({ errors: [{ msg: 'Error generating token' }] });
           }
-          res.json({ 
+          res.status(201).json({ 
             token,
             user: {
               id: user.id,
               name: user.name,
-              email: user.email
-            }
+              email: user.email,
+              isEmailVerified: user.isEmailVerified
+            },
+            verificationEmailSent,
+            message: verificationEmailSent
+              ? 'Registration successful! You can log in now. A verification email was also sent so you can confirm when ready.'
+              : 'Registration successful! You can log in now. We could not send the verification email, please contact support if you need a new link.'
           });
         }
       );

@@ -568,14 +568,23 @@ const Discover = () => {
         <Paper 
           elevation={0} 
           sx={{ 
-            p: 4, 
-            mb: 4, 
-            borderRadius: 3,
+            p: { xs: 2, sm: 3, md: 4 }, 
+            mb: { xs: 2, sm: 3, md: 4 }, 
+            borderRadius: { xs: 2, sm: 3 },
             background: 'linear-gradient(to right, #2c5282, #1a365d)',
             color: 'white'
           }}
         >
-          <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            fontWeight="bold"
+            sx={{
+              fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' },
+              lineHeight: { xs: 1.2, sm: 1.3 }
+            }}
+            gutterBottom
+          >
             Discover Musicians
           </Typography>
         </Paper>

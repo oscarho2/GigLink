@@ -100,6 +100,22 @@ const UserSchema = new mongoose.Schema({
       auth: String
     }
   }],
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationToken: {
+    type: String
+  },
+  emailVerificationExpires: {
+    type: Date
+  },
+  passwordResetToken: {
+    type: String
+  },
+  passwordResetExpires: {
+    type: Date
+  },
   date: {
     type: Date,
     default: Date.now

@@ -1,10 +1,11 @@
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 // Create transporter
 const createTransporter = () => {
   // For development, use ethereal email (fake SMTP service)
   // In production, replace with actual email service (Gmail, SendGrid, etc.)
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: 'smtp.ethereal.email',
     port: 587,
     auth: {
@@ -101,6 +102,77 @@ const emailTemplates = {
         <p style="color: #666; font-size: 12px;">You're receiving this because you have link request notifications enabled. You can change your notification preferences in your settings.</p>
       </div>
     `
+  }),
+
+  emailVerification: (recipientName, verificationUrl) => ({
+    subject: 'Verify your GigLink account',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #1976d2; margin: 0;">GigLink</h1>
+        </div>
+        <h2 style="color: #333; text-align: center;">Welcome to GigLink!</h2>
+        <p>Hi ${recipientName},</p>
+        <p>Thank you for signing up for GigLink! To complete your registration and start connecting with musicians, please verify your email address by clicking the button below:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${verificationUrl}" style="background-color: #1976d2; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Verify Email Address</a>
+        </div>
+        <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #1976d2;">${verificationUrl}</p>
+        <p><strong>This verification link will expire in 24 hours.</strong></p>
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+        <p style="color: #666; font-size: 12px;">If you didn't create an account with GigLink, please ignore this email.</p>
+      </div>
+    `,
+    text: `
+      Welcome to GigLink!
+      
+      Hi ${recipientName},
+      
+      Thank you for signing up for GigLink! To complete your registration, please verify your email address by visiting this link:
+      
+      ${verificationUrl}
+      
+      This verification link will expire in 24 hours.
+      
+      If you didn't create an account with GigLink, please ignore this email.
+    `
+  }),
+
+  passwordReset: (recipientName, resetUrl) => ({
+    subject: 'Reset your GigLink password',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #1976d2; margin: 0;">GigLink</h1>
+        </div>
+        <h2 style="color: #333; text-align: center;">Password Reset Request</h2>
+        <p>Hi ${recipientName},</p>
+        <p>We received a request to reset your password for your GigLink account. If you made this request, click the button below to reset your password:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" style="background-color: #1976d2; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Reset Password</a>
+        </div>
+        <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #1976d2;">${resetUrl}</p>
+        <p><strong>This password reset link will expire in 1 hour.</strong></p>
+        <p>If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+        <p style="color: #666; font-size: 12px;">For security reasons, this link can only be used once.</p>
+      </div>
+    `,
+    text: `
+      Password Reset Request
+      
+      Hi ${recipientName},
+      
+      We received a request to reset your password for your GigLink account. If you made this request, visit this link to reset your password:
+      
+      ${resetUrl}
+      
+      This password reset link will expire in 1 hour.
+      
+      If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
+    `
   })
 };
 
@@ -159,8 +231,60 @@ const shouldSendEmailNotification = (userPreferences, notificationType) => {
   return preferenceKey ? userPreferences[preferenceKey] : false;
 };
 
+// Send email verification
+const sendVerificationEmail = async (recipientEmail, recipientName, verificationToken) => {
+  try {
+    const transporter = createTransporter();
+    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    
+    const emailContent = emailTemplates.emailVerification(recipientName, verificationUrl);
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || '"GigLink" <noreply@giglink.com>',
+      to: recipientEmail,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text
+    };
+    
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Verification email sent successfully:', result.messageId);
+    return result;
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+    throw error;
+  }
+};
+
+// Send password reset email
+const sendPasswordResetEmail = async (recipientEmail, recipientName, resetToken) => {
+  try {
+    const transporter = createTransporter();
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    
+    const emailContent = emailTemplates.passwordReset(recipientName, resetUrl);
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || '"GigLink" <noreply@giglink.com>',
+      to: recipientEmail,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text
+    };
+    
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent successfully:', result.messageId);
+    return result;
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendEmailNotification,
   shouldSendEmailNotification,
-  emailTemplates
+  emailTemplates,
+  sendVerificationEmail,
+  sendPasswordResetEmail
 };
