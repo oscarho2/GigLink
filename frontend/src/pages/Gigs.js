@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { 
   Container, 
   Grid,
@@ -59,6 +59,13 @@ const Gigs = () => {
   const navigate = useNavigate();
   const [showFilters, setShowFilters] = useState(false);
   const [gigs, setGigs] = useState([]);
+  // Infinite scroll state
+  const [loadedCount, setLoadedCount] = useState(20);
+  const loadStep = 20;
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef(null);
+  const gigsRef = useRef([]);
+  const scrollDebounceRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState('dateAsc');
   const [searchTerm, setSearchTerm] = useState('');
@@ -219,6 +226,68 @@ const Gigs = () => {
 
     return result;
   }, [filters, gigs, sort, searchTerm]);
+
+  // Reset loaded count when filtered set changes
+  useEffect(() => {
+    gigsRef.current = filteredGigs;
+    setLoadedCount(Math.min(filteredGigs.length, loadStep));
+  }, [filteredGigs]);
+
+  // IntersectionObserver to reveal more
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (!entry || !entry.isIntersecting) return;
+      const total = gigsRef.current.length;
+      if (loadingMore) return;
+      setLoadingMore(true);
+      if (loadedCount < total) {
+        setTimeout(() => {
+          setLoadedCount((prev) => Math.min(total, prev + loadStep));
+          setLoadingMore(false);
+        }, 120);
+      } else {
+        setLoadingMore(false);
+      }
+    }, { root: null, rootMargin: '600px', threshold: 0 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [loadedCount, loadingMore]);
+
+  // Window scroll fallback
+  useEffect(() => {
+    const onScroll = () => {
+      if (scrollDebounceRef.current) return;
+      scrollDebounceRef.current = setTimeout(() => {
+        scrollDebounceRef.current = null;
+        const scrollY = window.scrollY || window.pageYOffset;
+        const viewport = window.innerHeight || document.documentElement.clientHeight;
+        const full = document.documentElement.scrollHeight || document.body.scrollHeight;
+        if (full - (scrollY + viewport) < 800) {
+          if (!loadingMore) {
+            const total = gigsRef.current.length;
+            if (loadedCount < total) {
+              setLoadingMore(true);
+              setTimeout(() => {
+                setLoadedCount((prev) => Math.min(total, prev + loadStep));
+                setLoadingMore(false);
+              }, 100);
+            }
+          }
+        }
+      }, 100);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (scrollDebounceRef.current) {
+        clearTimeout(scrollDebounceRef.current);
+        scrollDebounceRef.current = null;
+      }
+    };
+  }, [loadedCount, loadingMore]);
   
   // Handle filter changes
   const handleFilterChange = (name, value) => {
@@ -965,9 +1034,10 @@ dateTo: '',
           ))}
         </Grid>
       ) : (
+        <>
         <Grid container spacing={{ xs: 2, sm: 3 }}>
         {filteredGigs.length > 0 ? (
-          filteredGigs.map((gig) => (
+          filteredGigs.slice(0, loadedCount).map((gig) => (
             <Grid item xs={12} sm={6} md={4} key={gig._id}>
               <Link 
                 to={isAuthenticated ? `/gigs/${gig._id}` : `/login?redirect=/gigs/${gig._id}`}
@@ -1216,6 +1286,14 @@ dateTo: '',
           </Grid>
         )}
         </Grid>
+        {/* Infinite scroll sentinel + spinner */}
+        <Box ref={sentinelRef} sx={{ height: 1 }} />
+        {loadingMore && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        )}
+        </>
       )}
     </Container>
   );

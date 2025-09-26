@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -314,6 +314,13 @@ const Discover = () => {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', userId: '', linkId: '' });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const token = localStorage.getItem('token');
+  // Infinite scroll state
+  const [loadedCount, setLoadedCount] = useState(20);
+  const loadStep = 20;
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef(null);
+  const usersRef = useRef([]);
+  const scrollDebounceRef = useRef(null);
   
   // Filter options
   const locations = ["London", "Manchester", "Birmingham", "Liverpool", "Edinburgh", "Glasgow"];
@@ -336,6 +343,8 @@ const Discover = () => {
       const data = await response.json();
       console.log('API response:', data);
       setUsers(data);
+      usersRef.current = Array.isArray(data) ? data : [];
+      setLoadedCount(Math.min(usersRef.current.length, loadStep));
     } catch (err) {
       console.error('Error fetching users:', err);
       setError('Failed to fetch users.');
@@ -393,6 +402,62 @@ const Discover = () => {
       checkAllLinkStatuses();
     }
   }, [users, checkAllLinkStatuses]);
+
+  // IntersectionObserver to load more
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (!entry || !entry.isIntersecting) return;
+      const total = usersRef.current.length;
+      if (loadingMore) return;
+      setLoadingMore(true);
+      if (loadedCount < total) {
+        setTimeout(() => {
+          setLoadedCount((prev) => Math.min(total, prev + loadStep));
+          setLoadingMore(false);
+        }, 120);
+      } else {
+        setLoadingMore(false);
+      }
+    }, { root: null, rootMargin: '600px', threshold: 0 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [loadedCount, loadingMore]);
+
+  // Window scroll fallback
+  useEffect(() => {
+    const onScroll = () => {
+      if (scrollDebounceRef.current) return;
+      scrollDebounceRef.current = setTimeout(() => {
+        scrollDebounceRef.current = null;
+        const scrollY = window.scrollY || window.pageYOffset;
+        const viewport = window.innerHeight || document.documentElement.clientHeight;
+        const full = document.documentElement.scrollHeight || document.body.scrollHeight;
+        if (full - (scrollY + viewport) < 800) {
+          if (!loadingMore) {
+            const total = usersRef.current.length;
+            if (loadedCount < total) {
+              setLoadingMore(true);
+              setTimeout(() => {
+                setLoadedCount((prev) => Math.min(total, prev + loadStep));
+                setLoadingMore(false);
+              }, 100);
+            }
+          }
+        }
+      }, 100);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (scrollDebounceRef.current) {
+        clearTimeout(scrollDebounceRef.current);
+        scrollDebounceRef.current = null;
+      }
+    };
+  }, [loadedCount, loadingMore]);
 
   // Link request functions
   const sendLinkRequest = useCallback(async (userId) => {
@@ -850,7 +915,7 @@ const Discover = () => {
 
       {/* Users Grid */}
       <Grid container spacing={3}>
-        {filteredUsers.map((musician) => (
+        {filteredUsers.slice(0, loadedCount).map((musician) => (
           <Grid item xs={12} sm={6} md={4} key={musician._id}>
             <MusicianCard 
               musician={musician} 
@@ -861,6 +926,13 @@ const Discover = () => {
           </Grid>
         ))}
       </Grid>
+      {/* Infinite scroll sentinel + spinner */}
+      <Box ref={sentinelRef} sx={{ height: 1 }} />
+      {loadingMore && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+          <Skeleton variant="circular" width={24} height={24} />
+        </Box>
+      )}
 
       {filteredUsers.length === 0 && !loading && !error && (
         <Paper elevation={1} sx={{ p: 4, textAlign: 'center', mt: 4 }}>
