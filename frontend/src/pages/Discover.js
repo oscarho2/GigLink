@@ -33,6 +33,7 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import { formatLocationString } from '../utils/text';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
@@ -100,10 +101,10 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
             {musician.user.name}
           </Typography>
           {musician.user.location && (
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <LocationOnIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
+              <LocationOnIcon sx={{ mr: 0.5, mt: 0.25, color: 'text.secondary', fontSize: '1rem' }} />
               <Typography variant="body2" color="text.secondary">
-                {musician.user.location}
+                {formatLocationString(musician.user.location)}
               </Typography>
             </Box>
           )}
@@ -142,9 +143,8 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
             <Grid item xs={12} sm={6}>
               {musician.user?.instruments && musician.user.instruments.length > 0 && (
                 <>
-                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                    <MusicNoteIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
-                    Instruments
+                  <Typography variant="subtitle2" gutterBottom>
+                    Instruments:
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {musician.user.instruments.slice(0, 3).map((instrument, index) => (
@@ -177,9 +177,8 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
             <Grid item xs={12} sm={6}>
               {musician.user?.genres && musician.user.genres.length > 0 && (
                 <>
-                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                    <MusicNoteIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
-                    Genres
+                  <Typography variant="subtitle2" gutterBottom>
+                    Genres:
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {musician.user.genres.slice(0, 3).map((genre, index) => (

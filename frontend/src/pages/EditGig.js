@@ -692,7 +692,15 @@ function EditGig() {
                 <Button variant="outlined" onClick={() => navigate('/dashboard')}>
                   Cancel
                 </Button>
-                <Button type="submit" variant="contained" disabled={submitting}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={submitting}
+                  sx={{
+                    bgcolor: '#1a365d',
+                    '&:hover': { bgcolor: '#2c5282' }
+                  }}
+                >
                     {submitting ? 'Updating...' : 'Update Gig'}
                 </Button>
               </Box>

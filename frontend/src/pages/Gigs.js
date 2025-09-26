@@ -29,12 +29,11 @@ import axios from 'axios';
 import { formatPayment, getPaymentValue } from '../utils/currency';
 import AddIcon from '@mui/icons-material/Add';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import { formatLocationString } from '../utils/text';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import Flatpickr from 'react-flatpickr';
 import 'flatpickr/dist/themes/material_blue.css';
 import '../styles/flatpickr-compact.css';
-import PaymentIcon from '@mui/icons-material/Payment';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import PersonIcon from '@mui/icons-material/Person';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -996,7 +995,11 @@ dateTo: '',
                 color: 'white', 
                 p: { xs: 1.5, sm: 2 }, 
                 borderTopLeftRadius: { xs: 6, sm: 8 }, 
-                borderTopRightRadius: { xs: 6, sm: 8 }
+                borderTopRightRadius: { xs: 6, sm: 8 },
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 1
               }}>
                 <Typography 
                   variant="h5" 
@@ -1005,11 +1008,17 @@ dateTo: '',
                   sx={{
                     fontSize: { xs: '1.25rem', sm: '1.5rem' },
                     lineHeight: { xs: 1.3, sm: 1.4 },
-                    color: 'white'
+                    color: 'white',
+                    flex: 1,
+                    minWidth: 0,
+                    wordBreak: 'break-word'
                   }}
                 >
-                  {gig.isFilled ? 'Fixed: ' : ''}{gig.title}
+                  {gig.title}
                 </Typography>
+                {gig.isFilled && (
+                  <Chip size="small" label="Fixed" color="default" sx={{ bgcolor: 'grey.200' }} />
+                )}
               </Box>
               <CardContent sx={{ 
                 flexGrow: 1, 
@@ -1017,214 +1026,140 @@ dateTo: '',
                 filter: !isAuthenticated ? 'blur(3px)' : 'none',
                 transition: 'filter 0.3s ease'
               }}>
+                {/* Top: Fee left, Date right */}
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: (
+                    () => {
+                      const sch = gig.schedules;
+                      // Center when multiple dates, or when a single date has a time, or fallback has time
+                      if (Array.isArray(sch)) {
+                        if (sch.length > 1) return 'center';
+                        if (sch.length === 1 && (sch[0]?.startTime)) return 'center';
+                      } else if (gig.time) {
+                        return 'center';
+                      }
+                      return 'flex-start';
+                    }
+                  )(),
+                  justifyContent: 'space-between',
+                  mb: { xs: 1.5, sm: 2 }
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6" fontWeight="bold" sx={{ fontSize: { xs: '1rem', sm: '1.125rem' }, color: 'text.primary' }}>
+                      {formatPayment(gig.payment, gig.currency || 'GBP')}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CalendarTodayIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.1rem', sm: '1.25rem' } }} />
+                    <Box>
+                      {Array.isArray(gig.schedules) && gig.schedules.length > 0 ? (
+                        (() => {
+                          const count = gig.schedules.length;
+                          const first = gig.schedules[0];
+                          const last = gig.schedules[count - 1];
+                          const firstDateStr = first.date ? new Date(first.date).toLocaleDateString('en-GB') : 'Date TBD';
+                          const lastDateStr = last.date ? new Date(last.date).toLocaleDateString('en-GB') : 'Date TBD';
+                          if (count === 1) {
+                            return (
+                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
+                                  {firstDateStr}
+                                </Typography>
+                                {first.startTime && (
+                                  <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, lineHeight: 1.2 }}>
+                                    {first.startTime}{first.endTime ? ` - ${first.endTime}` : ''}
+                                  </Typography>
+                                )}
+                              </Box>
+                            );
+                          } else {
+                            return (
+                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
+                                  {firstDateStr}
+                                </Typography>
+                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, opacity: 0.7, lineHeight: 1.2, alignSelf: 'center' }}>
+                                  —
+                                </Typography>
+                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
+                                  {lastDateStr}
+                                </Typography>
+                              </Box>
+                            );
+                          }
+                        })()
+                      ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
+                            {new Date(gig.date).toLocaleDateString('en-GB')}
+                          </Typography>
+                          {gig.time && (
+                            <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, lineHeight: 1.2 }}>
+                              {gig.time}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* Location full width */}
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
+                  <LocationOnIcon sx={{ mr: 1, mt: 0.25, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
+                  <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>
+                    {gig.venue}, {formatLocationString(gig.location)}
+                  </Typography>
+                </Box>
+
+                {/* Instruments (left) and Genres (right) */}
                 <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, columnGap: 1, rowGap: 0.5 }}>
+                      <Typography variant="subtitle1" fontWeight="medium" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, mb: 0, mr: 1 }}>
+                        Instruments:
+                      </Typography>
+                      {gig.instruments.map((instrument, index) => (
+                        <Chip key={index} label={instrument} size="small" variant="outlined" sx={{ borderColor: '#1a365d', color: '#1a365d', fontSize: { xs: '0.75rem', sm: '0.8125rem' }, height: { xs: 24, sm: 28 } }} />
+                      ))}
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle1" fontWeight="medium" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, mb: { xs: 0.75, sm: 1 } }}>
+                      Genres:
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {gig.genres.map((genre, index) => (
+                        <Chip key={index} label={genre} size="small" variant="outlined" sx={{ borderColor: '#1a365d', color: '#1a365d', fontSize: { xs: '0.75rem', sm: '0.8125rem' }, height: { xs: 24, sm: 28 } }} />
+                      ))}
+                    </Box>
+                  </Grid>
+                </Grid>
+                
+              </CardContent>
+              
+              <CardActions sx={{ p: { xs: 1.5, sm: 2 }, pt: 0 }}>
+                <Box sx={{ width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <Box 
-                      sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 }, cursor: 'pointer' }}
+                      sx={{ display: 'flex', alignItems: 'center', minWidth: 0, cursor: 'pointer' }}
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(isAuthenticated ? `/profile/${gig.user?._id}` : `/login?redirect=/profile/${gig.user?._id}`);
                       }}
                     >
-                      <UserAvatar 
-                        user={gig.user}
-                        size={{ xs: 24, sm: 28 }}
-                      />
-                      <Typography 
-                        variant="subtitle2" 
-                        fontWeight="medium"
-                        sx={{
-                          ml: 1,
-                          fontSize: { xs: '0.8rem', sm: '0.9rem' },
-                          color: gig.isFilled ? 'text.disabled' : 'primary.main'
-                        }}
-                      >
+                      <UserAvatar user={gig.user} size={{ xs: 26, sm: 30 }} />
+                      <Typography variant="subtitle2" fontWeight="medium" sx={{ ml: 1, fontSize: { xs: '0.8rem', sm: '0.9rem' }, color: gig.isFilled ? 'text.disabled' : 'primary.main', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: { xs: 180, sm: 240 } }} title={gig.user?.name}>
                         {gig.user?.name}
                       </Typography>
                     </Box>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
-                      <PaymentIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
-                      <Typography 
-                        variant="body1" 
-                        fontWeight="bold"
-                        sx={{
-                          fontSize: { xs: '0.875rem', sm: '1rem' }
-                        }}
-                      >
-                        {formatPayment(gig.payment, gig.currency || 'GBP')}
+                    <Box sx={{ mt: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {(() => { const c = (gig.applicantCount ?? (Array.isArray(gig.applicants) ? gig.applicants.length : 0)); return `${c} applicant${c !== 1 ? 's' : ''}`; })()}
                       </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
-                      <CalendarTodayIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
-                      <Box>
-                        {Array.isArray(gig.schedules) && gig.schedules.length > 0 ? (
-                          (() => {
-                            const count = gig.schedules.length;
-                            const first = gig.schedules[0];
-                            const last = gig.schedules[count - 1];
-                            const firstDateStr = first.date ? new Date(first.date).toLocaleDateString('en-GB') : 'Date TBD';
-                            const lastDateStr = last.date ? new Date(last.date).toLocaleDateString('en-GB') : 'Date TBD';
-                            
-                            if (count === 1) {
-                              // Single date: show date then time underneath
-                              return (
-                                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                                  <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
-                                    {firstDateStr}
-                                  </Typography>
-                                  {first.startTime && (
-                                    <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, lineHeight: 1.2 }}>
-                                      {first.startTime}{first.endTime ? ` - ${first.endTime}` : ''}
-                                    </Typography>
-                                  )}
-                                </Box>
-                              );
-                            } else {
-                              // Multiple dates: three-line format - date, dash, date (no times)
-                              return (
-                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
-                                    {firstDateStr}
-                                  </Typography>
-                                  <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, opacity: 0.7, lineHeight: 1.2 }}>
-                                    —
-                                  </Typography>
-                                  <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
-                                    {lastDateStr}
-                                  </Typography>
-                                </Box>
-                              );
-                            }
-                          })()
-                        ) : (
-                          // Fallback to single date/time: show date then time underneath
-                          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                            <Typography 
-                              variant="body1" 
-                              fontWeight="bold"
-                              sx={{
-                                fontSize: { xs: '0.875rem', sm: '1rem' },
-                                lineHeight: 1.2
-                              }}
-                            >
-                              {new Date(gig.date).toLocaleDateString('en-GB')}
-                            </Typography>
-                            {gig.time && (
-                              <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, lineHeight: 1.2 }}>
-                                {gig.time}
-                              </Typography>
-                            )}
-                          </Box>
-                        )}
-                      </Box>
-                    </Box>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
-                      <LocationOnIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
-                      <Typography 
-                        variant="body1" 
-                        fontWeight="bold"
-                        sx={{
-                          fontSize: { xs: '0.875rem', sm: '1rem' }
-                        }}
-                      >
-                        {gig.venue}, {gig.location}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <PersonIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
-                      <Typography 
-                        variant="body1" 
-                        fontWeight="bold"
-                        sx={{
-                          fontSize: { xs: '0.875rem', sm: '1rem' }
-                        }}
-                      >
-                        { (() => { const count = (gig.applicantCount ?? (Array.isArray(gig.applicants) ? gig.applicants.length : 0)); return `${count} applicant${count !== 1 ? 's' : ''}`; })() }
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-                
-                <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
-                  <Grid item xs={12} sm={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 0.75, sm: 1 } }}>
-                      <MusicNoteIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.125rem', sm: '1.25rem' } }} />
-                      <Typography 
-                        variant="subtitle1" 
-                        fontWeight="medium"
-                        sx={{
-                          fontSize: { xs: '0.875rem', sm: '1rem' }
-                        }}
-                      >
-                        Instruments
-                      </Typography>
-                    </Box>
-                    <Box sx={{ ml: { xs: 3, sm: 4 } }}>
-                      {gig.instruments.map((instrument, index) => (
-                        <Chip 
-                          key={index} 
-                          label={instrument} 
-                          size="small" 
-                          variant="outlined"
-                          sx={{ 
-                            mr: { xs: 0.5, sm: 0.5 }, 
-                            mb: { xs: 0.5, sm: 0.5 }, 
-                            borderColor: '#1a365d', 
-                            color: '#1a365d',
-                            fontSize: { xs: '0.75rem', sm: '0.8125rem' },
-                            height: { xs: 24, sm: 28 }
-                          }} 
-                        />
-                      ))}
-                    </Box>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 0.75, sm: 1 } }}>
-                      <MusicNoteIcon sx={{ mr: 1, color: '#1a365d', fontSize: { xs: '1.125rem', sm: '1.25rem' } }} />
-                      <Typography 
-                        variant="subtitle1" 
-                        fontWeight="medium"
-                        sx={{
-                          fontSize: { xs: '0.875rem', sm: '1rem' }
-                        }}
-                      >
-                        Genres
-                      </Typography>
-                    </Box>
-                    <Box sx={{ ml: { xs: 3, sm: 4 } }}>
-                      {gig.genres.map((genre, index) => (
-                        <Chip 
-                          key={index} 
-                          label={genre} 
-                          size="small"
-                          variant="outlined"
-                          sx={{ 
-                            mr: { xs: 0.5, sm: 0.5 }, 
-                            mb: { xs: 0.5, sm: 0.5 }, 
-                            borderColor: '#1a365d', 
-                            color: '#1a365d',
-                            fontSize: { xs: '0.75rem', sm: '0.8125rem' },
-                            height: { xs: 24, sm: 28 }
-                          }} 
-                        />
-                      ))}
-                    </Box>
-                  </Grid>
-                </Grid>
-              </CardContent>
-              
-              <CardActions sx={{ 
-                p: { xs: 1.5, sm: 2 }, 
-                pt: 0
-              }}>
-                <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+                  </Box>
                   <Button
                     size="medium"
                     variant="contained"
@@ -1236,14 +1171,8 @@ dateTo: '',
                       fontSize: { xs: '0.875rem', sm: '0.875rem' },
                       minHeight: { xs: 40, sm: 44 },
                       fontWeight: 'bold',
-                      flex: 1,
-                      '&:hover': { 
-                        bgcolor: gig.isFilled ? '#cccccc' : gig.yourApplicationStatus ? '#cccccc' : '#2c5282' 
-                      },
-                      '&.Mui-disabled': {
-                        bgcolor: '#cccccc',
-                        color: '#666666'
-                      }
+                      '&:hover': { bgcolor: gig.isFilled ? '#cccccc' : gig.yourApplicationStatus ? '#cccccc' : '#2c5282' },
+                      '&.Mui-disabled': { bgcolor: '#cccccc', color: '#666666' }
                     }}
                   >
                     {gig.isFilled ? 'Fixed' : gig.yourApplicationStatus === 'accepted' ? 'Accepted' : gig.yourApplicationStatus === 'rejected' ? 'Rejected' : gig.yourApplicationStatus ? 'Applied' : 'Apply'}

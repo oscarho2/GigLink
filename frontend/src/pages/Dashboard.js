@@ -52,6 +52,7 @@ import AuthContext from '../context/AuthContext';
 import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
 import UserAvatar from '../components/UserAvatar';
+import { formatLocationString } from '../utils/text';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Skeleton } from '@mui/material';
 
@@ -516,10 +517,10 @@ const Dashboard = () => {
                   {profile?.user?.name || user?.name}
                 </Typography>
                 {(profile?.user?.location || user?.location) && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <LocationOnIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
+                    <LocationOnIcon sx={{ mr: 0.5, mt: 0.25, color: 'text.secondary', fontSize: '1rem' }} />
                     <Typography variant="body2" color="text.secondary">
-                      {profile?.user?.location || user?.location}
+                      {formatLocationString(profile?.user?.location || user?.location)}
                     </Typography>
                   </Box>
                 )}
@@ -1001,10 +1002,10 @@ const Dashboard = () => {
                             >
                               {gig.isFilled ? 'FIXED: ' : ''}{gig.title}
                             </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                              <LocationOnIcon sx={{ fontSize: '1rem', mr: 0.5, color: 'text.secondary' }} />
+                            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 0.5 }}>
+                              <LocationOnIcon sx={{ fontSize: '1rem', mr: 0.5, mt: 0.25, color: 'text.secondary' }} />
                               <Typography variant="body2" color="text.primary">
-                                {gig.venue} - {gig.location}
+                                {gig.venue} - {formatLocationString(gig.location)}
                               </Typography>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -1153,7 +1154,7 @@ const Dashboard = () => {
                                   whiteSpace: 'nowrap'
                                 }}
                               >
-                                {gig.venue} - {gig.location}
+                                {gig.venue} - {formatLocationString(gig.location)}
                               </Typography>
                               <Typography 
                                 variant="body2" 

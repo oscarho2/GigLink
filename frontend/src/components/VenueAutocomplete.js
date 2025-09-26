@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Autocomplete, TextField, Box, IconButton } from '@mui/material';
+import { formatLocationString } from '../utils/text';
 import CloseIcon from '@mui/icons-material/Close';
 
 export default function VenueAutocomplete({ value, onChange, near, onLocationChange, global = true, label = 'Venue', placeholder = 'Search venues' }) {
@@ -60,22 +61,8 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
   };
 
   const deriveLocationFromAddress = (addr) => {
-    const parts = (addr || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (!parts.length) return '';
-    const normCountry = (c) => {
-      const up = String(c || '').toUpperCase();
-      if (up === 'GB' || up === 'GREAT BRITAIN' || up === 'UNITED KINGDOM' || up === 'UK') return 'UK';
-      return c || '';
-    };
-    if (parts.length >= 3) {
-      const tail = parts.slice(-2);
-      tail[tail.length - 1] = normCountry(tail[tail.length - 1]);
-      return [parts[0], ...tail].join(', ');
-    }
-    if (parts.length === 2) {
-      return [parts[0], normCountry(parts[1])].join(', ');
-    }
-    return normCountry(parts[0]);
+    // Preserve the full address (including street if present) but fix capitalization
+    return formatLocationString(addr || '');
   };
 
   const hasStreetInAddress = (addr) => {
@@ -299,8 +286,6 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
             focusedRef.current = false;
             const raw = (input || '').trim();
             if (!raw) { setOpen(false); setOptions([]); return; }
-            const { derivedNear } = parseInput(raw);
-            if (derivedNear && onLocationChange) onLocationChange(derivedNear);
             setOpen(false);
             setOptions([]);
           }}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Typography, Paper, Box, Chip, Button, Grid, Avatar, CircularProgress, Alert, Dialog, DialogTitle, DialogContent, DialogContentText, TextField, DialogActions } from '@mui/material';
 import { Delete as DeleteIcon, Edit as EditIcon, LocationOn as LocationOnIcon, CalendarToday as CalendarTodayIcon, AccessTime as AccessTimeIcon, Payment as PaymentIcon, MusicNote as MusicNoteIcon, Assignment as AssignmentIcon, Person as PersonIcon } from '@mui/icons-material';
+import { formatLocationString } from '../utils/text';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { formatPayment } from '../utils/currency';
@@ -311,15 +312,15 @@ const GigDetail = () => {
           >
             {gig.isFilled ? 'FIXED: ' : ''}{gig.title}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', mt: { xs: 1.5, sm: 2 } }}>
-            <LocationOnIcon sx={{ mr: 1, fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', mt: { xs: 1.5, sm: 2 } }}>
+            <LocationOnIcon sx={{ mr: 1, mt: 0.25, fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
             <Typography 
               variant="h6"
               sx={{
                 fontSize: { xs: '1rem', sm: '1.125rem', md: '1.25rem' }
               }}
             >
-              {gig.venue}, {gig.location}
+              {gig.venue}, {formatLocationString(gig.location)}
             </Typography>
           </Box>
         </Box>
@@ -899,12 +900,12 @@ const GigDetail = () => {
                     borderRadius: 2,
                     fontSize: { xs: '1rem', sm: '1.1rem' },
                     fontWeight: 'bold',
-                    bgcolor: '#2563eb',
+                    bgcolor: '#1a365d',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                     width: { xs: '100%', sm: 'auto' },
                     minHeight: { xs: 48, sm: 'auto' },
                     '&:hover': {
-                      bgcolor: '#1d4ed8',
+                      bgcolor: '#2c5282',
                       boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
                     }
                   }}
@@ -922,12 +923,12 @@ const GigDetail = () => {
                     borderRadius: 2,
                     fontSize: { xs: '1rem', sm: '1.1rem' },
                     fontWeight: 'bold',
-                    bgcolor: '#dc2626',
+                    bgcolor: '#e53e3e',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                     width: { xs: '100%', sm: 'auto' },
                     minHeight: { xs: 48, sm: 'auto' },
                     '&:hover': {
-                      bgcolor: '#b91c1c',
+                      bgcolor: '#c53030',
                       boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
                     }
                   }}

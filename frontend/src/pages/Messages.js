@@ -614,6 +614,14 @@ const Messages = () => {
     // Set loading state
     setLoadingMessages(true);
 
+    // On fresh conversation loads (page 1, not append), show the overlay immediately
+    // to avoid a brief content swap without a spinner when the API is fast.
+    if (page === 1 && !append) {
+      if (msgSpinnerTimerRef.current) clearTimeout(msgSpinnerTimerRef.current);
+      setShowLoadingMessages(true);
+      msgSpinnerShownAtRef.current = Date.now();
+    }
+
     if (page === 1) {
       // Find and set the conversation immediately to prevent cross-chat message loading
       const fullConversation = conversations.find(
@@ -2032,13 +2040,9 @@ const Messages = () => {
                         window.currentFetchController = controller;
                         
                         // Set selected conversation immediately to prevent race conditions
+                        // Do not clear messages or toggle global loading here; let fetchMessages manage loading state
+                        // This avoids UI flashes by keeping prior content under the loading overlay
                         setSelectedConversation(conversation);
-                        
-                        // Clear messages immediately to prevent showing old messages
-                        setMessages([]);
-                        
-                        // Set loading state for smooth transition
-                        setLoading(true);
                         
                         // Set the timestamp for "new messages" line based on unread count
                         // If there are unread messages, set timestamp to show them as new
@@ -2466,22 +2470,23 @@ const Messages = () => {
                 position: "relative",
               }}
             >
-              {showLoadingMessages && (
+              <Fade in={showLoadingMessages} unmountOnExit>
                 <Box
                   sx={{
                     position: "absolute",
                     inset: 0,
-                    bgcolor: "rgba(255,255,255,0.6)",
+                    bgcolor: "white",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     zIndex: 2,
-                    pointerEvents: "none",
+                    pointerEvents: "auto",
+                    willChange: "opacity",
                   }}
                 >
                   <CircularProgress size={28} />
                 </Box>
-              )}
+              </Fade>
               {/* Loading indicator for pagination */}
               {loadingMoreMessages && (
                 <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
@@ -2941,13 +2946,14 @@ const Messages = () => {
                                           <Box
                                             sx={{
                                               display: "flex",
-                                              alignItems: "center",
+                                              alignItems: "flex-start",
                                             }}
                                           >
                                             <LocationOnIcon
                                               sx={{
                                                 color: "#1a365d",
                                                 mr: 1,
+                                                mt: 0.25,
                                                 fontSize: "1rem",
                                               }}
                                             />

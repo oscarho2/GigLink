@@ -16,6 +16,7 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from '../components/UserAvatar';
 import axios from 'axios';
+import { formatLocationString } from '../utils/text';
 
 const Profile = () => {
   const { user, token } = useAuth();
@@ -491,7 +492,7 @@ const Profile = () => {
                   textAlign: 'center'
                 }}
               >
-                {profile.location}
+                {formatLocationString(profile.location)}
               </Typography>
             )}
 

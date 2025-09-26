@@ -41,6 +41,7 @@ import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
 import { formatPayment } from '../utils/currency';
 import UserAvatar from '../components/UserAvatar';
+import { formatLocationString } from '../utils/text';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -391,10 +392,10 @@ const MyGigs = () => {
                       secondaryTypographyProps={{ component: 'div' }}
                       secondary={
                         <Box component="div">
-                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, mb: 0.5 }}>
-                            <LocationOnIcon sx={{ fontSize: '1rem', mr: 0.5, color: 'text.secondary' }} />
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', mt: 1, mb: 0.5 }}>
+                            <LocationOnIcon sx={{ fontSize: '1rem', mr: 0.5, mt: 0.25, color: 'text.secondary' }} />
                             <span style={{ fontSize: '0.875rem', color: '#1976d2' }}>
-                              {gig.venue} - {gig.location}
+                              {gig.venue} - {formatLocationString(gig.location)}
                             </span>
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
@@ -566,10 +567,10 @@ const MyGigs = () => {
                         />
                       </Box>
                       
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <LocationOnIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1rem' }} />
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
+                        <LocationOnIcon sx={{ mr: 0.5, mt: 0.25, color: 'text.secondary', fontSize: '1rem' }} />
                         <span style={{ fontSize: '0.875rem', color: 'rgba(0, 0, 0, 0.6)' }}>
-                          {application.venue} • {application.location}
+                          {application.venue} • {formatLocationString(application.location)}
                         </span>
                       </Box>
                       

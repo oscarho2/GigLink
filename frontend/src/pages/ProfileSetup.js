@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+import { formatLocationString } from '../utils/text';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
 
@@ -267,7 +268,7 @@ const ProfileSetup = () => {
             <Grid item xs={12}>
               <Paper elevation={1} sx={{ p: 2, backgroundColor: 'grey.50' }}>
                 <Typography variant="subtitle2" gutterBottom>Location:</Typography>
-                <Typography variant="body2" gutterBottom>{formData.location}</Typography>
+                <Typography variant="body2" gutterBottom>{formatLocationString(formData.location)}</Typography>
                 
                 <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Bio:</Typography>
                 <Typography variant="body2" gutterBottom>{formData.bio}</Typography>
