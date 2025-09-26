@@ -247,8 +247,9 @@ const CreateGig = () => {
                 fullWidth
                 label="Location"
                 value={formData.location}
-                InputProps={{ readOnly: true }}
-                placeholder="Auto-filled from venue"
+                onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                onBlur={(e) => setCurrencyFromLocationString(e.target.value)}
+                placeholder="Auto-filled from venue or type here"
                 variant="outlined"
               />
             </Grid>
@@ -530,19 +531,44 @@ const CreateGig = () => {
             <Grid item xs={12}>
               <Autocomplete
                 multiple
+                autoHighlight
                 options={instrumentOptions}
                 value={formData.instruments}
                 onChange={handleInstrumentsChange}
-                renderInput={(params) => <TextField {...params} label="Instruments" variant="outlined" />}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Instruments"
+                    variant="outlined"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        // prevent form submit; MUI will select the highlighted option
+                        e.preventDefault();
+                      }
+                    }}
+                  />
+                )}
               />
             </Grid>
             <Grid item xs={12}>
               <Autocomplete
                 multiple
+                autoHighlight
                 options={genreOptions}
                 value={formData.genres}
                 onChange={handleGenresChange}
-                renderInput={(params) => <TextField {...params} label="Genres" variant="outlined" />}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Genres"
+                    variant="outlined"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                      }
+                    }}
+                  />
+                )}
               />
             </Grid>
             <Grid item xs={12}>
