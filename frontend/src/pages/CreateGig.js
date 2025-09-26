@@ -249,7 +249,7 @@ const CreateGig = () => {
                 value={formData.location}
                 onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
                 onBlur={(e) => setCurrencyFromLocationString(e.target.value)}
-                placeholder="Auto-filled from venue or type here"
+                placeholder="Auto-filled from venue"
                 variant="outlined"
               />
             </Grid>
