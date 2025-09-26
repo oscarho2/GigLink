@@ -193,13 +193,13 @@ async function fetchGooglePlaces({ apiKey, query, nearStr, lim, types = '', sess
     }
   };
 
-  // Helper: Google Autocomplete
+  // Helper: Google Autocomplete (avoid unsupported params; bias with location/radius only)
   const autoComplete = async (q, llParam = '', rad = '') => {
     try {
       const p = new URLSearchParams();
       p.set('input', q);
       p.set('key', apiKey);
-      if (googleType) p.set('types', googleType);
+      // Note: 'types' is deprecated/limited for Autocomplete in some APIs; omit to avoid 400s
       if (sessionToken) p.set('sessiontoken', sessionToken);
       if (llParam) p.set('location', llParam);
       if (llParam && rad) p.set('radius', String(rad));
@@ -244,4 +244,3 @@ async function fetchGooglePlaces({ apiKey, query, nearStr, lim, types = '', sess
 }
 
 module.exports = router;
-

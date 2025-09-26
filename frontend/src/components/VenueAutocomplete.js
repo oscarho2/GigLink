@@ -60,9 +60,29 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
 
   const deriveLocationFromAddress = (addr) => {
     const parts = (addr || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (parts.length >= 3) return parts.slice(-3).join(', ');
-    if (parts.length >= 2) return parts.slice(-2).join(', ');
-    return addr || '';
+    if (!parts.length) return '';
+    const normCountry = (c) => {
+      const up = String(c || '').toUpperCase();
+      if (up === 'GB' || up === 'GREAT BRITAIN' || up === 'UNITED KINGDOM' || up === 'UK') return 'UK';
+      return c || '';
+    };
+    if (parts.length >= 3) {
+      const tail = parts.slice(-2);
+      tail[tail.length - 1] = normCountry(tail[tail.length - 1]);
+      return [parts[0], ...tail].join(', ');
+    }
+    if (parts.length === 2) {
+      return [parts[0], normCountry(parts[1])].join(', ');
+    }
+    return normCountry(parts[0]);
+  };
+
+  const hasStreetInAddress = (addr) => {
+    const a = String(addr || '');
+    if (!a) return false;
+    if (/\d{1,5}/.test(a)) return true;
+    if (/\b(st|street|rd|road|ave|avenue|blvd|drive|dr|ln|lane|way|place|pl|ct|court)\b/i.test(a)) return true;
+    return false;
   };
 
   useEffect(() => { setInput(value || ''); }, [value]);
@@ -107,10 +127,10 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
         if (endedWithSpace && q.length >= 1) {
           params.set('broad', '1');
         }
-        if (global && !derivedNear && !(near && near.trim())) {
+        const effectiveNear = derivedNear || (near && near.trim() ? near.trim() : '');
+        if (!effectiveNear && global) {
           params.set('global', '1');
         }
-        const effectiveNear = derivedNear || (global ? '' : (near && near.trim() ? near.trim() : ''));
         if (effectiveNear) {
           params.set('near', effectiveNear);
           // Expand the considered area to ~50km
@@ -217,18 +237,26 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       value={selected}
       onChange={(_e, v) => {
         if (typeof v === 'string') {
-          onChange && onChange(v);
-          const { derivedNear } = parseInput(v);
-          if (derivedNear && onLocationChange) onLocationChange(derivedNear);
+          const raw = v.trim();
+          const { derivedNear } = parseInput(raw);
+          if (derivedNear && onLocationChange) onLocationChange(deriveLocationFromAddress(derivedNear));
+          onChange && onChange(raw);
           setOpen(false);
           setOptions([]);
           suppressNextOpenRef.current = true;
           try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {}
         } else if (v && v.name) {
-          onChange && onChange(v.name);
-          if (onLocationChange) {
-            const loc = deriveLocationFromAddress(v.address || '');
-            if (loc) onLocationChange(loc);
+          const addr = v.address || '';
+          const isCity = !hasStreetInAddress(addr);
+          if (isCity) {
+            const loc = deriveLocationFromAddress([v.name, addr].filter(Boolean).join(', '));
+            onChange && onChange('');
+            if (onLocationChange && loc) onLocationChange(loc);
+            setInput('');
+          } else {
+            onChange && onChange(v.name);
+            const loc = deriveLocationFromAddress(addr) || addr;
+            if (onLocationChange && loc) onLocationChange(loc);
           }
           setOpen(false);
           setOptions([]);
@@ -278,10 +306,17 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
               e.preventDefault();
               e.stopPropagation();
               if (top && top.name) {
-                if (onChange) onChange(top.name);
-                if (onLocationChange) {
-                  const loc = deriveLocationFromAddress(top.address || '');
-                  if (loc) onLocationChange(loc);
+                const addr = top.address || '';
+                const isCity = !hasStreetInAddress(addr);
+                if (isCity) {
+                  const loc = deriveLocationFromAddress([top.name, addr].filter(Boolean).join(', '));
+                  if (onChange) onChange('');
+                  if (onLocationChange && loc) onLocationChange(loc);
+                  setInput('');
+                } else {
+                  if (onChange) onChange(top.name);
+                  const loc = deriveLocationFromAddress(addr) || addr;
+                  if (onLocationChange && loc) onLocationChange(loc);
                 }
                 setOpen(false);
                 setOptions([]);
@@ -291,9 +326,14 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
                 // Accept typed value
                 const raw = (input || '').trim();
                 if (raw) {
-                  if (onChange) onChange(raw);
                   const { derivedNear } = parseInput(raw);
-                  if (derivedNear && onLocationChange) onLocationChange(derivedNear);
+                  if (derivedNear && onLocationChange) onLocationChange(deriveLocationFromAddress(derivedNear));
+                  if (derivedNear && derivedNear.length === raw.length) {
+                    if (onChange) onChange('');
+                    setInput('');
+                  } else {
+                    if (onChange) onChange(raw);
+                  }
                 }
                 setOpen(false);
                 setOptions([]);
