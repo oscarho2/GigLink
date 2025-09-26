@@ -30,14 +30,61 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
-const currencySymbols = { GBP: '£', USD: '$', EUR: '€', JPY: '¥', AUD: 'A$', CAD: 'C$' };
+const currencySymbols = {
+  GBP: '£', USD: '$', EUR: '€', JPY: '¥', AUD: 'A$', CAD: 'C$', NZD: 'NZ$', CHF: 'CHF',
+  SEK: 'kr', NOK: 'kr', DKK: 'kr', PLN: 'zł', CZK: 'Kč', HUF: 'Ft', RON: 'lei', BGN: 'лв',
+  RUB: '₽', TRY: '₺', CNY: '¥', HKD: 'HK$', SGD: 'S$', INR: '₹', KRW: '₩', TWD: 'NT$',
+  THB: '฿', IDR: 'Rp', MYR: 'RM', PHP: '₱', VND: '₫', MXN: 'MX$', BRL: 'R$', ARS: '$',
+  CLP: 'CLP$', COP: 'COL$', PEN: 'S/', ZAR: 'R', AED: 'AED', SAR: 'SAR', QAR: 'QAR',
+  KWD: 'KWD', BHD: 'BHD', OMR: 'OMR', ILS: '₪', NGN: '₦', KES: 'KSh', EGP: 'E£'
+};
 const currencyOptions = [
   { code: 'USD', label: 'USD ($)' },
   { code: 'GBP', label: 'GBP (£)' },
   { code: 'EUR', label: 'EUR (€)' },
   { code: 'JPY', label: 'JPY (¥)' },
   { code: 'AUD', label: 'AUD (A$)' },
-  { code: 'CAD', label: 'CAD (C$)' }
+  { code: 'CAD', label: 'CAD (C$)' },
+  { code: 'NZD', label: 'NZD (NZ$)' },
+  { code: 'CHF', label: 'CHF (CHF)' },
+  { code: 'SEK', label: 'SEK (kr)' },
+  { code: 'NOK', label: 'NOK (kr)' },
+  { code: 'DKK', label: 'DKK (kr)' },
+  { code: 'PLN', label: 'PLN (zł)' },
+  { code: 'CZK', label: 'CZK (Kč)' },
+  { code: 'HUF', label: 'HUF (Ft)' },
+  { code: 'RON', label: 'RON (lei)' },
+  { code: 'BGN', label: 'BGN (лв)' },
+  { code: 'RUB', label: 'RUB (₽)' },
+  { code: 'TRY', label: 'TRY (₺)' },
+  { code: 'CNY', label: 'CNY (¥)' },
+  { code: 'HKD', label: 'HKD (HK$)' },
+  { code: 'SGD', label: 'SGD (S$)' },
+  { code: 'INR', label: 'INR (₹)' },
+  { code: 'KRW', label: 'KRW (₩)' },
+  { code: 'TWD', label: 'TWD (NT$)' },
+  { code: 'THB', label: 'THB (฿)' },
+  { code: 'IDR', label: 'IDR (Rp)' },
+  { code: 'MYR', label: 'MYR (RM)' },
+  { code: 'PHP', label: 'PHP (₱)' },
+  { code: 'VND', label: 'VND (₫)' },
+  { code: 'MXN', label: 'MXN (MX$)' },
+  { code: 'BRL', label: 'BRL (R$)' },
+  { code: 'ARS', label: 'ARS ($)' },
+  { code: 'CLP', label: 'CLP (CLP$)' },
+  { code: 'COP', label: 'COP (COL$)' },
+  { code: 'PEN', label: 'PEN (S/)' },
+  { code: 'ZAR', label: 'ZAR (R)' },
+  { code: 'AED', label: 'AED (AED)' },
+  { code: 'SAR', label: 'SAR (SAR)' },
+  { code: 'QAR', label: 'QAR (QAR)' },
+  { code: 'KWD', label: 'KWD (KWD)' },
+  { code: 'BHD', label: 'BHD (BHD)' },
+  { code: 'OMR', label: 'OMR (OMR)' },
+  { code: 'ILS', label: 'ILS (₪)' },
+  { code: 'NGN', label: 'NGN (₦)' },
+  { code: 'KES', label: 'KES (KSh)' },
+  { code: 'EGP', label: 'EGP (E£)' }
 ];
 
 function EditGig() {
