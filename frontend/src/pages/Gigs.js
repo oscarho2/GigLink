@@ -20,6 +20,8 @@ import {
   IconButton,
   InputAdornment
 } from '@mui/material';
+import { CircularProgress } from '@mui/material';
+import Autocomplete from '@mui/material/Autocomplete';
 import { keyframes } from '@mui/system';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -28,13 +30,16 @@ import { formatPayment, getPaymentValue } from '../utils/currency';
 import AddIcon from '@mui/icons-material/Add';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import Flatpickr from 'react-flatpickr';
+import 'flatpickr/dist/themes/material_blue.css';
+import '../styles/flatpickr-compact.css';
 import PaymentIcon from '@mui/icons-material/Payment';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import PersonIcon from '@mui/icons-material/Person';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
-import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+// GeoNamesAutocomplete is not used for filters; we rely on backend-provided options
 import UserAvatar from '../components/UserAvatar';
 
 // Define pulse animation
@@ -68,10 +73,12 @@ const Gigs = () => {
     genre: ''
   });
   
-  // Filter options
-  const locations = ["London", "Manchester", "Birmingham", "Liverpool", "Edinburgh", "Glasgow"];
-  const instruments = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals"];
-  const genres = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk"];
+  // Dynamic filter options from backend
+  const [locationOptions, setLocationOptions] = useState([]);
+  const [locationQuery, setLocationQuery] = useState('');
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [instrumentOptions, setInstrumentOptions] = useState([]);
+  const [genreOptions, setGenreOptions] = useState([]);
 
 
   // Helpers
@@ -86,28 +93,98 @@ const Gigs = () => {
 
 
 
-  // Fetch gigs from backend
+  // Fetch gigs (server-side filtering) with debounce
   useEffect(() => {
-    const fetchGigs = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const config = token ? {
-          headers: {
-            'x-auth-token': token
-          }
-        } : {};
-        
-        const response = await axios.get('/api/gigs', config);
-        setGigs(response.data);
-      } catch (error) {
-        console.error('Error fetching gigs:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    let active = true;
+    const controller = new AbortController();
+    const token = localStorage.getItem('token');
 
-    fetchGigs();
+    const t = setTimeout(async () => {
+      try {
+        setLoading(true);
+        const params = {};
+        if (searchTerm.trim()) params.q = searchTerm.trim();
+        if (filters.instrument) params.instruments = filters.instrument;
+        if (filters.genre) params.genres = filters.genre;
+        if (filters.location) params.location = filters.location;
+        if (filters.date) params.dateFrom = filters.date; // YYYY-MM-DD
+        if (filters.dateTo) params.dateTo = filters.dateTo;
+
+        const response = await axios.get('/api/gigs', {
+          params,
+          signal: controller.signal,
+          headers: token ? { 'x-auth-token': token } : undefined
+        });
+        if (active) setGigs(Array.isArray(response.data) ? response.data : []);
+      } catch (err) {
+        if (active && err.name !== 'CanceledError') {
+          console.error('Error fetching gigs:', err);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [searchTerm, filters]);
+
+  // Fetch distinct filter lists from existing gigs (instruments/genres only)
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await axios.get('/api/gigs/filters');
+        if (!active) return;
+        const inst = Array.isArray(res.data?.instruments) ? res.data.instruments : [];
+        const gens = Array.isArray(res.data?.genres) ? res.data.genres : [];
+        setInstrumentOptions(inst);
+        setGenreOptions(gens);
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { active = false; };
   }, []);
+
+  // Predictive backend-driven location suggestions (no GeoNames)
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        setLoadingLocations(true);
+        const res = await axios.get('/api/gigs/locations', {
+          params: { q: locationQuery || '', limit: 12 },
+          signal: controller.signal
+        });
+        if (!active) return;
+        const stats = Array.isArray(res.data?.locationStats) ? res.data.locationStats : [];
+        const locs = stats.map((s) => {
+          const parts = String(s.label || '').split(',');
+          const primary = (parts[0] || '').trim();
+          const secondary = parts.slice(1).join(',').trim();
+          return {
+            value: s.label,
+            primary,
+            secondary,
+            count: s.count || 0
+          };
+        });
+        setLocationOptions(locs);
+      } catch (e) {
+        if (e.name !== 'CanceledError') {
+          // ignore
+        }
+      } finally {
+        if (active) setLoadingLocations(false);
+      }
+    }, 250);
+    return () => { active = false; clearTimeout(t); controller.abort(); };
+  }, [locationQuery]);
 
   // Search handler
   const handleSearch = useCallback((event) => {
@@ -120,68 +197,11 @@ const Gigs = () => {
     if (gigs.length === 0) return [];
 
     let result = [...gigs];
-
-    // Apply search filter
-    if (searchTerm.trim()) {
-      const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-      result = result.filter(gig => {
-        const searchableText = [
-          gig.title || '',
-          gig.description || '',
-          gig.location || '',
-          gig.venue || '',
-          gig.user?.name || '',
-          ...(gig.instruments || []),
-          ...(gig.genres || [])
-        ].join(' ').toLowerCase();
-        
-        // Check if all search words are found in the searchable text
-        return searchWords.every(word => searchableText.includes(word));
-      });
-    }
-
-    // Filter by location
-    if (filters.location) {
-      result = result.filter(gig => gig.location === filters.location);
-    }
-
-    // Filter by date
-    if (filters.date) {
-      result = result.filter(gig => {
-        const gigDate = new Date(gig.date);
-        const filterDate = new Date(filters.date);
-        return gigDate >= filterDate;
-      });
-    }
-
-    // Filter by dateTo
-    if (filters.dateTo) {
-      result = result.filter(gig => {
-        const gigDate = new Date(gig.date);
-        const filterDateTo = new Date(filters.dateTo);
-        return gigDate <= filterDateTo;
-      });
-    }
-
-    // Filter by fee range
+    // Filter by fee range (client-side; payment stored as string)
     result = result.filter(gig => {
       const gigFee = getPaymentValue(gig.payment);
       return gigFee >= filters.minFee && (filters.maxFee === Infinity || gigFee <= filters.maxFee);
     });
-
-    // Filter by instrument
-    if (filters.instrument) {
-      result = result.filter(gig =>
-        gig.instruments.some(inst => inst.toLowerCase() === filters.instrument.toLowerCase())
-      );
-    }
-
-    // Filter by genre
-    if (filters.genre) {
-      result = result.filter(gig =>
-        gig.genres.some(g => g.toLowerCase() === filters.genre.toLowerCase())
-      );
-    }
 
     // Apply sorting
     if (sort === 'dateAsc') {
@@ -220,6 +240,7 @@ dateTo: '',
       instrument: '',
       genre: ''
     });
+    setLocationQuery('');
   };
 
   return (
@@ -391,74 +412,230 @@ dateTo: '',
           <Grid container spacing={{ xs: 2, sm: 3 }}>
               {/* Location Filter */}
               <Grid item xs={12} sm={6} md={4}>
-                <Box sx={{ position: 'relative' }}>
-                  <GeoNamesAutocomplete
-                    value={filters.location}
-                    onChange={(location) => handleFilterChange('location', location)}
-                    placeholder="Any Location"
-                    style={{ width: '100%' }}
-                  />
-                  {filters.location && (
-                    <IconButton
-                      size="small"
-                      onClick={() => handleFilterChange('location', '')}
-                      sx={{
-                        position: 'absolute',
-                        right: 8,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        zIndex: 1001
-                      }}
-                    >
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
+                <Autocomplete
+                  options={locationOptions}
+                  autoHighlight
+                  loading={loadingLocations}
+                  filterOptions={(x) => x} // use backend suggestions as-is
+                  getOptionLabel={(opt) => (opt?.value || '')}
+                  isOptionEqualToValue={(opt, val) => (opt?.value || '') === (val?.value || '')}
+                  value={filters.location ? {
+                    value: filters.location,
+                    primary: (filters.location.split(',')[0] || '').trim(),
+                    secondary: filters.location.split(',').slice(1).join(',').trim(),
+                    count: 0
+                  } : null}
+                  onChange={(_e, v) => {
+                    if (v && v.value) {
+                      handleFilterChange('location', v.value);
+                      setLocationQuery(v.value);
+                    } else {
+                      handleFilterChange('location', '');
+                      setLocationQuery('');
+                    }
+                  }}
+                  inputValue={locationQuery}
+                  onInputChange={(_e, v) => setLocationQuery(v || '')}
+                  renderOption={(props, option) => (
+                    <li {...props} key={option.value}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Box sx={{ fontSize: 14, fontWeight: 500 }}>
+                          {option.primary}{option.count ? ` (${option.count})` : ''}
+                        </Box>
+                        {option.secondary && (
+                          <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
+                            {option.secondary}
+                          </Box>
+                        )}
+                      </Box>
+                    </li>
                   )}
-                </Box>
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Location"
+                      placeholder="Search locations"
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {loadingLocations ? (
+                              <CircularProgress color="inherit" size={16} />
+                            ) : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        )
+                      }}
+                    />
+                  )}
+                />
               </Grid>
             
             {/* Date Filter */}
             <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="Date From"
-                type="date"
-                value={filters.date}
-                onChange={(e) => handleFilterChange('date', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  endAdornment: filters.date && (
-                    <IconButton onClick={() => handleFilterChange('date', '')}>
-                      <ClearIcon />
-                    </IconButton>
-                  ),
+              <Flatpickr
+                options={{
+                  dateFormat: 'd/m/Y',
+                  disableMobile: true,
+                  allowInput: true,
+                  clickOpens: false,
+                  onOpen: (_d, _s, instance) => { if (instance?.calendarContainer) instance.calendarContainer.classList.add('fp-compact'); },
+                  onChange: (_dates, _str, instance) => instance.close()
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
-                  '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
-                }}
+                onChange={([d]) => handleFilterChange('date', d ? d.toISOString().slice(0,10) : '')}
+                render={(props, ref) => (
+                  <TextField
+                    inputRef={ref}
+                    inputProps={{
+                      ...props,
+                      id: 'filter-date-from',
+                      inputMode: 'numeric',
+                      maxLength: 10,
+                      placeholder: 'DD/MM/YYYY',
+                      pattern: '\\d{2}/\\d{2}/\\d{4}',
+                      onInput: (e) => {
+                        let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 8);
+                        if (v.length >= 5) v = `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4)}`;
+                        else if (v.length >= 3) v = `${v.slice(0,2)}/${v.slice(2)}`;
+                        e.target.value = v;
+                      }
+                    }}
+                    fullWidth
+                    size="small"
+                    label="Date From"
+                    InputLabelProps={{ shrink: true }}
+                    variant="outlined"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {filters.date && (
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                handleFilterChange('date', '');
+                                const el = document.getElementById('filter-date-from');
+                                if (el) {
+                                  el.value = '';
+                                  if (el._flatpickr) el._flatpickr.clear();
+                                }
+                              }}
+                            >
+                              <ClearIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              const el = document.getElementById('filter-date-from');
+                              if (el && el._flatpickr) el._flatpickr.open();
+                              else if (el) el.focus();
+                            }}
+                          >
+                            <CalendarTodayIcon fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }}
+                    onBlur={(e) => {
+                      const val = (e.target.value || '').trim();
+                      if (!val) { handleFilterChange('date', ''); return; }
+                      const m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                      if (m) {
+                        const d = m[1].padStart(2,'0');
+                        const mo = m[2].padStart(2,'0');
+                        const y = m[3];
+                        const dt = new Date(`${y}-${mo}-${d}T00:00:00Z`);
+                        if (!isNaN(dt.getTime())) {
+                          handleFilterChange('date', `${y}-${mo}-${d}`);
+                        }
+                      }
+                    }}
+                  />
+                )}
               />
             </Grid>
             
             {/* Date To Filter */}
             <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="Date To"
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  endAdornment: filters.dateTo && (
-                    <IconButton onClick={() => handleFilterChange('dateTo', '')}>
-                      <ClearIcon />
-                    </IconButton>
-                  ),
+              <Flatpickr
+                options={{
+                  dateFormat: 'd/m/Y',
+                  disableMobile: true,
+                  allowInput: true,
+                  clickOpens: false,
+                  onOpen: (_d, _s, instance) => { if (instance?.calendarContainer) instance.calendarContainer.classList.add('fp-compact'); },
+                  onChange: (_dates, _str, instance) => instance.close()
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
-                  '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
-                }}
+                onChange={([d]) => handleFilterChange('dateTo', d ? d.toISOString().slice(0,10) : '')}
+                render={(props, ref) => (
+                  <TextField
+                    inputRef={ref}
+                    inputProps={{
+                      ...props,
+                      id: 'filter-date-to',
+                      inputMode: 'numeric',
+                      maxLength: 10,
+                      placeholder: 'DD/MM/YYYY',
+                      pattern: '\\d{2}/\\d{2}/\\d{4}',
+                      onInput: (e) => {
+                        let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 8);
+                        if (v.length >= 5) v = `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4)}`;
+                        else if (v.length >= 3) v = `${v.slice(0,2)}/${v.slice(2)}`;
+                        e.target.value = v;
+                      }
+                    }}
+                    fullWidth
+                    size="small"
+                    label="Date To"
+                    InputLabelProps={{ shrink: true }}
+                    variant="outlined"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {filters.dateTo && (
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                handleFilterChange('dateTo', '');
+                                const el = document.getElementById('filter-date-to');
+                                if (el) {
+                                  el.value = '';
+                                  if (el._flatpickr) el._flatpickr.clear();
+                                }
+                              }}
+                            >
+                              <ClearIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              const el = document.getElementById('filter-date-to');
+                              if (el && el._flatpickr) el._flatpickr.open();
+                              else if (el) el.focus();
+                            }}
+                          >
+                            <CalendarTodayIcon fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }}
+                    onBlur={(e) => {
+                      const val = (e.target.value || '').trim();
+                      if (!val) { handleFilterChange('dateTo', ''); return; }
+                      const m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                      if (m) {
+                        const d = m[1].padStart(2,'0');
+                        const mo = m[2].padStart(2,'0');
+                        const y = m[3];
+                        const dt = new Date(`${y}-${mo}-${d}T00:00:00Z`);
+                        if (!isNaN(dt.getTime())) {
+                          handleFilterChange('dateTo', `${y}-${mo}-${d}`);
+                        }
+                      }
+                    }}
+                  />
+                )}
               />
             </Grid>
             
@@ -488,38 +665,38 @@ dateTo: '',
             
             {/* Instrument Filter */}
             <Grid item xs={12} sm={6} md={6}>
-              <FormControl fullWidth>
-                <InputLabel id="instrument-label">Instrument</InputLabel>
-                <Select
-                  labelId="instrument-label"
-                  value={filters.instrument}
-                  label="Instrument"
-                  onChange={(e) => handleFilterChange('instrument', e.target.value)}
-                >
-                  <MenuItem value="">Any Instrument</MenuItem>
-                  {instruments.map((inst) => (
-                    <MenuItem key={inst} value={inst}>{inst}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                <Autocomplete
+                  options={instrumentOptions}
+                  value={filters.instrument || ''}
+                  onChange={(_e, v) => handleFilterChange('instrument', v || '')}
+                  freeSolo
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Instrument"
+                      placeholder="Any Instrument"
+                      onChange={(e) => handleFilterChange('instrument', e.target.value)}
+                    />
+                  )}
+                />
             </Grid>
             
             {/* Genre Filter */}
             <Grid item xs={12} sm={6} md={6}>
-              <FormControl fullWidth>
-                <InputLabel id="genre-label">Genre</InputLabel>
-                <Select
-                  labelId="genre-label"
-                  value={filters.genre}
-                  label="Genre"
-                  onChange={(e) => handleFilterChange('genre', e.target.value)}
-                >
-                  <MenuItem value="">Any Genre</MenuItem>
-                  {genres.map((genre) => (
-                    <MenuItem key={genre} value={genre}>{genre}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                <Autocomplete
+                  options={genreOptions}
+                  value={filters.genre || ''}
+                  onChange={(_e, v) => handleFilterChange('genre', v || '')}
+                  freeSolo
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Genre"
+                      placeholder="Any Genre"
+                      onChange={(e) => handleFilterChange('genre', e.target.value)}
+                    />
+                  )}
+                />
             </Grid>
             <Grid item xs={12} sm={6} md={6} container justifyContent="flex-end" alignItems="flex-end">
               <FormControl fullWidth variant="outlined">

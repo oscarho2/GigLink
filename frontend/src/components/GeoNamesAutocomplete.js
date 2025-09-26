@@ -63,7 +63,8 @@ const GeoNamesAutocomplete = ({
         country: 'GB', // Restrict to UK
         maxRows: 10,
         username: GEONAMES_USERNAME,
-        style: 'SHORT'
+        style: 'MEDIUM', // include adminName / country
+        orderby: 'population'
       });
 
       const response = await fetch(`${GEONAMES_API_URL}?${params}`);
@@ -97,12 +98,14 @@ const GeoNamesAutocomplete = ({
           .slice(0, 10)
           .map((city, index) => {
             const region = cityRegionMap[city] || 'England';
+            const country = 'United Kingdom';
+            const displayName = [city, region, country].filter(Boolean).join(', ');
             return {
               id: `fallback-${index}`,
               name: city,
               adminName1: region,
-              countryName: 'United Kingdom',
-              displayName: city
+              countryName: country,
+              displayName
             };
           });
         
@@ -119,13 +122,17 @@ const GeoNamesAutocomplete = ({
 
       if (data.geonames) {
         const formattedSuggestions = data.geonames.map(item => {
+          const city = item.name || '';
+          const region = item.adminName1 || '';
+          const country = item.countryName || '';
+          const displayName = [city, region, country].filter(Boolean).join(', ');
           return {
-              id: item.geonameId,
-              name: item.name,
-              adminName1: item.adminName1 || '', // County/Region
-              countryName: item.countryName,
-              displayName: item.name
-            };
+            id: item.geonameId,
+            name: city,
+            adminName1: region,
+            countryName: country,
+            displayName
+          };
         });
         
         // Remove duplicates based on displayName
@@ -261,11 +268,11 @@ const GeoNamesAutocomplete = ({
   };
 
  const handleSuggestionClick = (suggestion) => {
-    setInputValue(suggestion.name);
+    setInputValue(suggestion.displayName || suggestion.name);
     setShowSuggestions(false);
     setSelectedIndex(-1);
     if (onChange) {
-      onChange(suggestion.name);
+      onChange(suggestion.displayName || suggestion.name);
     }
   };
 
@@ -336,8 +343,10 @@ const GeoNamesAutocomplete = ({
                 }}
               >
                 <ListItemText
-                  primary={suggestion.displayName}
-                  style={{ fontSize: '14px' }}
+                  primary={suggestion.name}
+                  secondary={[suggestion.adminName1, suggestion.countryName].filter(Boolean).join(', ')}
+                  primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
+                  secondaryTypographyProps={{ fontSize: 12, color: 'text.secondary' }}
                 />
               </ListItem>
             ))}

@@ -65,6 +65,9 @@ import AuthenticatedImage from "../components/AuthenticatedImage";
 import UserAvatar from "../components/UserAvatar";
 import MentionRenderer from "../components/MentionRenderer";
 import MentionInput from "../components/MentionInput";
+import Flatpickr from 'react-flatpickr';
+import 'flatpickr/dist/themes/material_blue.css';
+import '../styles/flatpickr-compact.css';
 
 const Messages = () => {
   const { user, token } = useAuth();
@@ -2371,24 +2374,79 @@ const Messages = () => {
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                   Navigate to Date
                 </Typography>
-                <TextField
-                  type="date"
-                  fullWidth
-                  size="small"
-                  value={selectedDate || ''}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    if (e.target.value) {
-                      navigateToDate(e.target.value);
-                    }
+                <Flatpickr
+                  options={{
+                    dateFormat: 'd/m/Y',
+                    disableMobile: true,
+                    allowInput: true,
+                    clickOpens: false,
+                    onOpen: (_d, _s, instance) => { if (instance?.calendarContainer) instance.calendarContainer.classList.add('fp-compact'); },
+                    onChange: (_dates, _str, instance) => instance.close()
                   }}
-                  InputLabelProps={{
-                    shrink: true,
+                  onChange={([d]) => {
+                    const iso = d ? d.toISOString().slice(0,10) : null;
+                    setSelectedDate(iso);
+                    if (iso) navigateToDate(iso);
                   }}
-                  sx={{
-                    '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
-                    '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
-                  }}
+                  render={(props, ref) => (
+                    <TextField
+                      inputRef={ref}
+                      inputProps={{
+                        ...props,
+                        id: 'messages-date-navigate',
+                        inputMode: 'numeric',
+                        maxLength: 10,
+                        placeholder: 'DD/MM/YYYY',
+                        pattern: '\\d{2}/\\d{2}/\\d{4}',
+                        onInput: (e) => {
+                          let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 8);
+                          if (v.length >= 5) v = `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4)}`;
+                          else if (v.length >= 3) v = `${v.slice(0,2)}/${v.slice(2)}`;
+                          e.target.value = v;
+                        }
+                      }}
+                      fullWidth
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
+                        '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                      }}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                const el = document.getElementById('messages-date-navigate');
+                                if (el && el._flatpickr) el._flatpickr.open();
+                                else if (el) el.focus();
+                              }}
+                              title="Open calendar"
+                            >
+                              <CalendarTodayIcon fontSize="small" />
+                            </IconButton>
+                          </InputAdornment>
+                        )
+                      }}
+                      onBlur={(e) => {
+                        const val = (e.target.value || '').trim();
+                        if (!val) { setSelectedDate(null); return; }
+                        const m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                        if (m) {
+                          const d = m[1].padStart(2,'0');
+                          const mo = m[2].padStart(2,'0');
+                          const y = m[3];
+                          const dt = new Date(`${y}-${mo}-${d}T00:00:00Z`);
+                          if (!isNaN(dt.getTime())) {
+                            const iso = `${y}-${mo}-${d}`;
+                            setSelectedDate(iso);
+                            navigateToDate(iso);
+                          }
+                        }
+                      }}
+                    />
+                  )}
                 />
               </Box>
             </Popover>

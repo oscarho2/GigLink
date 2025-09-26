@@ -8,7 +8,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { useNavigate } from 'react-router-dom';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 import { useAuth } from '../context/AuthContext';
-import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+import VenueAutocomplete from '../components/VenueAutocomplete';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
@@ -16,14 +16,61 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 const CreateGig = () => {
   // Predefined options for instruments and genres come from centralized constants
 
-  const currencySymbols = { GBP: '£', USD: '$', EUR: '€', JPY: '¥', AUD: 'A$', CAD: 'C$' };
+  const currencySymbols = {
+    GBP: '£', USD: '$', EUR: '€', JPY: '¥', AUD: 'A$', CAD: 'C$', NZD: 'NZ$', CHF: 'CHF',
+    SEK: 'kr', NOK: 'kr', DKK: 'kr', PLN: 'zł', CZK: 'Kč', HUF: 'Ft', RON: 'lei', BGN: 'лв',
+    RUB: '₽', TRY: '₺', CNY: '¥', HKD: 'HK$', SGD: 'S$', INR: '₹', KRW: '₩', TWD: 'NT$',
+    THB: '฿', IDR: 'Rp', MYR: 'RM', PHP: '₱', VND: '₫', MXN: 'MX$', BRL: 'R$', ARS: '$',
+    CLP: 'CLP$', COP: 'COL$', PEN: 'S/', ZAR: 'R', AED: 'AED', SAR: 'SAR', QAR: 'QAR',
+    KWD: 'KWD', BHD: 'BHD', OMR: 'OMR', ILS: '₪', NGN: '₦', KES: 'KSh', EGP: 'E£'
+  };
   const currencyOptions = [
-    { code: 'GBP', label: 'GBP (£)' },
     { code: 'USD', label: 'USD ($)' },
+    { code: 'GBP', label: 'GBP (£)' },
     { code: 'EUR', label: 'EUR (€)' },
     { code: 'JPY', label: 'JPY (¥)' },
     { code: 'AUD', label: 'AUD (A$)' },
-    { code: 'CAD', label: 'CAD (C$)' }
+    { code: 'CAD', label: 'CAD (C$)' },
+    { code: 'NZD', label: 'NZD (NZ$)' },
+    { code: 'CHF', label: 'CHF (CHF)' },
+    { code: 'SEK', label: 'SEK (kr)' },
+    { code: 'NOK', label: 'NOK (kr)' },
+    { code: 'DKK', label: 'DKK (kr)' },
+    { code: 'PLN', label: 'PLN (zł)' },
+    { code: 'CZK', label: 'CZK (Kč)' },
+    { code: 'HUF', label: 'HUF (Ft)' },
+    { code: 'RON', label: 'RON (lei)' },
+    { code: 'BGN', label: 'BGN (лв)' },
+    { code: 'RUB', label: 'RUB (₽)' },
+    { code: 'TRY', label: 'TRY (₺)' },
+    { code: 'CNY', label: 'CNY (¥)' },
+    { code: 'HKD', label: 'HKD (HK$)' },
+    { code: 'SGD', label: 'SGD (S$)' },
+    { code: 'INR', label: 'INR (₹)' },
+    { code: 'KRW', label: 'KRW (₩)' },
+    { code: 'TWD', label: 'TWD (NT$)' },
+    { code: 'THB', label: 'THB (฿)' },
+    { code: 'IDR', label: 'IDR (Rp)' },
+    { code: 'MYR', label: 'MYR (RM)' },
+    { code: 'PHP', label: 'PHP (₱)' },
+    { code: 'VND', label: 'VND (₫)' },
+    { code: 'MXN', label: 'MXN (MX$)' },
+    { code: 'BRL', label: 'BRL (R$)' },
+    { code: 'ARS', label: 'ARS ($)' },
+    { code: 'CLP', label: 'CLP (CLP$)' },
+    { code: 'COP', label: 'COP (COL$)' },
+    { code: 'PEN', label: 'PEN (S/)' },
+    { code: 'ZAR', label: 'ZAR (R)' },
+    { code: 'AED', label: 'AED (AED)' },
+    { code: 'SAR', label: 'SAR (SAR)' },
+    { code: 'QAR', label: 'QAR (QAR)' },
+    { code: 'KWD', label: 'KWD (KWD)' },
+    { code: 'BHD', label: 'BHD (BHD)' },
+    { code: 'OMR', label: 'OMR (OMR)' },
+    { code: 'ILS', label: 'ILS (₪)' },
+    { code: 'NGN', label: 'NGN (₦)' },
+    { code: 'KES', label: 'KES (KSh)' },
+    { code: 'EGP', label: 'EGP (E£)' }
   ];
 
   const [formData, setFormData] = useState({
@@ -38,7 +85,59 @@ const CreateGig = () => {
     description: '',
     requirements: '',
   });
-  const [currency, setCurrency] = useState('GBP');
+  const [currency, setCurrency] = useState('USD');
+  const [userSetCurrency, setUserSetCurrency] = useState(false);
+  const allowedCurrencyCodes = currencyOptions.map(o => o.code);
+
+  const countryToCurrency = (countryToken) => {
+    const t = (countryToken || '').trim();
+    const up = t.toUpperCase();
+    const map = {
+      GB: 'GBP', UK: 'GBP', 'UNITED KINGDOM': 'GBP', IE: 'EUR',
+      US: 'USD', USA: 'USD', 'UNITED STATES': 'USD', CA: 'CAD', AU: 'AUD', NZ: 'NZD',
+      FR: 'EUR', DE: 'EUR', ES: 'EUR', IT: 'EUR', NL: 'EUR', BE: 'EUR', PT: 'EUR', GR: 'EUR', AT: 'EUR', FI: 'EUR', EE: 'EUR', LV: 'EUR', LT: 'EUR', LU: 'EUR', MT: 'EUR', CY: 'EUR', SK: 'EUR', SI: 'EUR', IE: 'EUR',
+      SE: 'SEK', NO: 'NOK', DK: 'DKK', CH: 'CHF', PL: 'PLN', CZ: 'CZK', HU: 'HUF', RO: 'RON', BG: 'BGN',
+      RU: 'RUB', TR: 'TRY',
+      JP: 'JPY', CN: 'CNY', HK: 'HKD', SG: 'SGD', IN: 'INR', KR: 'KRW', TW: 'TWD', TH: 'THB', ID: 'IDR', MY: 'MYR', PH: 'PHP', VN: 'VND',
+      MX: 'MXN', BR: 'BRL', AR: 'ARS', CL: 'CLP', CO: 'COP', PE: 'PEN', ZA: 'ZAR',
+      AE: 'AED', SA: 'SAR', QA: 'QAR', KW: 'KWD', BH: 'BHD', OM: 'OMR', IL: 'ILS', NG: 'NGN', KE: 'KES', EG: 'EGP'
+    };
+    if (map[up]) return map[up];
+    // Try full country names
+    const name = t.toLowerCase();
+    const byName = {
+      'united kingdom': 'GBP', 'england': 'GBP', 'scotland': 'GBP', 'wales': 'GBP', 'northern ireland': 'GBP',
+      'united states': 'USD', 'canada': 'CAD', 'australia': 'AUD', 'new zealand': 'NZD',
+      'switzerland': 'CHF', 'sweden': 'SEK', 'norway': 'NOK', 'denmark': 'DKK',
+      'poland': 'PLN', 'czech republic': 'CZK', 'hungary': 'HUF', 'romania': 'RON', 'bulgaria': 'BGN',
+      'russia': 'RUB', 'turkey': 'TRY', 'japan': 'JPY', 'china': 'CNY', 'hong kong': 'HKD', 'singapore': 'SGD',
+      'india': 'INR', 'south korea': 'KRW', 'taiwan': 'TWD', 'thailand': 'THB', 'indonesia': 'IDR', 'malaysia': 'MYR', 'philippines': 'PHP', 'vietnam': 'VND',
+      'mexico': 'MXN', 'brazil': 'BRL', 'argentina': 'ARS', 'chile': 'CLP', 'colombia': 'COP', 'peru': 'PEN', 'south africa': 'ZAR',
+      'united arab emirates': 'AED', 'saudi arabia': 'SAR', 'qatar': 'QAR', 'kuwait': 'KWD', 'bahrain': 'BHD', 'oman': 'OMR', 'israel': 'ILS', 'nigeria': 'NGN', 'kenya': 'KES', 'egypt': 'EGP'
+    };
+    return byName[name] || null;
+  };
+
+  const setCurrencyFromLocationString = (loc) => {
+    if (!loc || userSetCurrency) return;
+    const parts = String(loc).split(',').map(s => s.trim()).filter(Boolean);
+    const token = parts[parts.length - 1] || '';
+    const code = countryToCurrency(token);
+    if (code && allowedCurrencyCodes.includes(code)) setCurrency(code);
+  };
+
+  useEffect(() => {
+    // Initial guess from browser locale
+    if (userSetCurrency) return;
+    try {
+      const lang = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+      const region = (lang.split('-')[1] || '').toUpperCase();
+      if (region) {
+        const code = countryToCurrency(region);
+        if (code && allowedCurrencyCodes.includes(code)) setCurrency(code);
+      }
+    } catch {}
+  }, [userSetCurrency]);
   const [schedules, setSchedules] = useState([{ date: '', startTime: '', endTime: '' }]);
   const [error, setError] = useState('');
   const [submissionMessage, setSubmissionMessage] = useState('');
@@ -131,16 +230,27 @@ const CreateGig = () => {
               <TextField fullWidth label="Title" name="title" value={formData.title} onChange={handleChange} variant="outlined" required />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Venue" name="venue" value={formData.venue} onChange={handleChange} variant="outlined" required />
+              <VenueAutocomplete
+                value={formData.venue}
+                near={formData.location}
+                onChange={(venue) => setFormData(prev => ({ ...prev, venue }))}
+                onLocationChange={(loc) => {
+                  setFormData(prev => ({ ...prev, location: loc || '' }));
+                  setCurrencyFromLocationString(loc);
+                }}
+                label="Venue"
+                placeholder="Search venues"
+              />
             </Grid>
             <Grid item xs={12}>
-              <GeoNamesAutocomplete
+              <TextField
+                fullWidth
+                label="Location"
                 value={formData.location}
-                onChange={(location) => {
-                  setFormData({ ...formData, location });
-                }}
-                placeholder="Enter gig location"
-                style={{ width: '100%' }}
+                onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                onBlur={(e) => setCurrencyFromLocationString(e.target.value)}
+                placeholder="Auto-filled from venue"
+                variant="outlined"
               />
             </Grid>
 
@@ -373,7 +483,10 @@ const CreateGig = () => {
                   labelId="currency-label"
                   value={currency}
                   label="Currency"
-                  onChange={(e) => setCurrency(e.target.value)}
+                  onChange={(e) => { setCurrency(e.target.value); setUserSetCurrency(true); }}
+                  MenuProps={{
+                    PaperProps: { style: { maxHeight: 240, overflowY: 'auto' } }
+                  }}
                 >
                   {currencyOptions.map((opt) => (
                     <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>

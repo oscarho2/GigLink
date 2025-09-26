@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const { upload, getPublicUrl, getStorageConfig } = require('../utils/r2Config');
+const { normalizeLocation } = require('../utils/location');
 const path = require('path');
 const fs = require('fs');
 
@@ -58,6 +59,11 @@ router.post('/', auth, async (req, res) => {
     
     // If profile exists, update it
     if (profile) {
+      // Normalize location string if provided on profile body (though location lives on user)
+      if (req.body && typeof req.body.location === 'string') {
+        req.body.location = normalizeLocation(req.body.location);
+      }
+
       profile = await Profile.findOneAndUpdate(
         { user: req.user.id },
         { $set: req.body },
@@ -93,7 +99,7 @@ router.put('/me', auth, async (req, res) => {
     const userUpdateFields = {};
     if (req.body.name) userUpdateFields.name = req.body.name;
     if (bio) userUpdateFields.bio = bio;
-    if (location) userUpdateFields.location = location;
+    if (location) userUpdateFields.location = normalizeLocation(location);
     if (instruments) userUpdateFields.instruments = instruments;
     if (genres) userUpdateFields.genres = genres;
     if (availability !== undefined) userUpdateFields.isAvailableForGigs = availability === 'Available';
