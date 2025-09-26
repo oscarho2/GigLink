@@ -115,19 +115,22 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       return () => { active = false; controller.abort(); };
     }
     if (!focusedRef.current) { setOptions([]); setOpen(false); return () => { active = false; controller.abort(); }; }
-    if (q.length < 1) { setOptions([]); setOpen(false); return () => { active = false; controller.abort(); }; }
+    // Compute location-aware fallback query: if user hasn't typed a venue but provided a location,
+    // query generic venues for that area.
+    const effectiveNear = derivedNear || (near && near.trim() ? near.trim() : '');
+    const effectiveQuery = q.length >= 1 ? q : (effectiveNear ? 'venue' : '');
+    if (!effectiveQuery || effectiveQuery.trim().length < 2) { setOptions([]); setOpen(false); return () => { active = false; controller.abort(); }; }
     setOpen(true);
     const t = setTimeout(async () => {
       let abortTimer;
       try {
         setLoading(true);
         // Autocomplete request with optional near derived from user input or parent
-        const params = new URLSearchParams({ q, limit: '100', types: 'place', session_token: ensureSession() });
+        const params = new URLSearchParams({ q: effectiveQuery, limit: '100', types: 'place', session_token: ensureSession() });
         // If the user ended the token with a space, switch to broad search mode to return more matches
         if (endedWithSpace && q.length >= 1) {
           params.set('broad', '1');
         }
-        const effectiveNear = derivedNear || (near && near.trim() ? near.trim() : '');
         if (!effectiveNear && global) {
           params.set('global', '1');
         }
@@ -180,7 +183,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       open={open}
       onOpen={() => {
         if (suppressNextOpenRef.current) { suppressNextOpenRef.current = false; setOpen(false); return; }
-        if ((input || '').trim().length >= 1) setOpen(true);
+        if (((input || '').trim().length >= 1) || options.length > 0) setOpen(true);
       }}
       onClose={() => setOpen(false)}
       noOptionsText={input && input.trim().length >= 1 ? 'No venues found' : 'Type to search venues'}
