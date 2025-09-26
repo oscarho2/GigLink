@@ -1,18 +1,46 @@
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
-// Create transporter
-const createTransporter = () => {
-  // For development, use ethereal email (fake SMTP service)
-  // In production, replace with actual email service (Gmail, SendGrid, etc.)
-  return nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
-    auth: {
-      user: process.env.EMAIL_USER || 'ethereal.user@ethereal.email',
-      pass: process.env.EMAIL_PASS || 'ethereal.pass'
+// Lazily create and cache a transporter. Falls back to an Ethereal test account
+// when EMAIL_USER/PASS are not configured.
+let transporterPromise = null;
+const getTransporter = async () => {
+  if (transporterPromise) return transporterPromise;
+
+  transporterPromise = (async () => {
+    const smtpHost = process.env.SMTP_HOST || 'smtp.ethereal.email';
+    const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+    const smtpSecure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true';
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASS;
+
+    if (!user || !pass) {
+      // Create an Ethereal test account automatically for development
+      const testAccount = await nodemailer.createTestAccount();
+      const tx = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+      console.log('\n[Email] Using Ethereal test account');
+      console.log(`[Email] Login: ${testAccount.user}`);
+      console.log(`[Email] Pass:  ${testAccount.pass}`);
+      return tx;
     }
-  });
+
+    return nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: { user, pass },
+    });
+  })();
+
+  return transporterPromise;
 };
 
 // Email templates
@@ -179,7 +207,7 @@ const emailTemplates = {
 // Send email notification
 const sendEmailNotification = async (recipientEmail, notificationType, templateData) => {
   try {
-    const transporter = createTransporter();
+    const transporter = await getTransporter();
     
     // Get email template
     const template = emailTemplates[notificationType];
@@ -198,6 +226,8 @@ const sendEmailNotification = async (recipientEmail, notificationType, templateD
     
     const result = await transporter.sendMail(mailOptions);
     console.log('Email sent successfully:', result.messageId);
+    const preview = nodemailer.getTestMessageUrl && nodemailer.getTestMessageUrl(result);
+    if (preview) console.log('Preview URL:', preview);
     
     return {
       success: true,
@@ -234,8 +264,8 @@ const shouldSendEmailNotification = (userPreferences, notificationType) => {
 // Send email verification
 const sendVerificationEmail = async (recipientEmail, recipientName, verificationToken) => {
   try {
-    const transporter = createTransporter();
-    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    const transporter = await getTransporter();
+    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
     
     const emailContent = emailTemplates.emailVerification(recipientName, verificationUrl);
     
@@ -249,6 +279,8 @@ const sendVerificationEmail = async (recipientEmail, recipientName, verification
     
     const result = await transporter.sendMail(mailOptions);
     console.log('Verification email sent successfully:', result.messageId);
+    const preview = nodemailer.getTestMessageUrl && nodemailer.getTestMessageUrl(result);
+    if (preview) console.log('Preview URL:', preview);
     return result;
   } catch (error) {
     console.error('Error sending verification email:', error);
@@ -259,7 +291,7 @@ const sendVerificationEmail = async (recipientEmail, recipientName, verification
 // Send password reset email
 const sendPasswordResetEmail = async (recipientEmail, recipientName, resetToken) => {
   try {
-    const transporter = createTransporter();
+    const transporter = await getTransporter();
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
     
     const emailContent = emailTemplates.passwordReset(recipientName, resetUrl);
@@ -274,6 +306,8 @@ const sendPasswordResetEmail = async (recipientEmail, recipientName, resetToken)
     
     const result = await transporter.sendMail(mailOptions);
     console.log('Password reset email sent successfully:', result.messageId);
+    const preview = nodemailer.getTestMessageUrl && nodemailer.getTestMessageUrl(result);
+    if (preview) console.log('Preview URL:', preview);
     return result;
   } catch (error) {
     console.error('Error sending password reset email:', error);

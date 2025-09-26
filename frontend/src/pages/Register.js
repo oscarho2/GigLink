@@ -109,7 +109,9 @@ const Register = () => {
     const result = await register({ name, email, password });
      if (result && result.success) {
        setError(null);
-       setSuccess(result.message || 'Registration successful! Please check your email to verify your account.');
+       setSuccess(result.message || 'Registration successful! Let’s complete your profile.');
+       // User is auto-signed-in by AuthContext.register; go straight to Profile Setup
+       navigate('/profile-setup');
      } else if (result.error) {
        setError(result.error[0].msg);
      }

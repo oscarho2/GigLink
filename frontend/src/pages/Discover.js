@@ -31,6 +31,7 @@ import {
   Snackbar,
   Alert
 } from '@mui/material';
+import Autocomplete from '@mui/material/Autocomplete';
 import SearchIcon from '@mui/icons-material/Search';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { formatLocationString } from '../utils/text';
@@ -352,6 +353,48 @@ const Discover = () => {
       setLoading(false);
     }
   }, []);
+
+  // Predictive backend-driven location suggestions (like Gigs page)
+  const [locationOptions, setLocationOptions] = useState([]);
+  const [locationQuery, setLocationQuery] = useState('');
+  const [loadingLocations, setLoadingLocations] = useState(false);
+
+  // Build location suggestions from user profile locations
+  useEffect(() => {
+    setLoadingLocations(true);
+    const t = setTimeout(() => {
+      const counts = new Map();
+      (users || []).forEach((m) => {
+        const raw = (m?.user?.location || '').trim();
+        if (!raw) return;
+        counts.set(raw, (counts.get(raw) || 0) + 1);
+      });
+      let locs = Array.from(counts.entries()).map(([label, count]) => {
+        const parts = String(label).split(',');
+        const primary = (parts[0] || '').trim();
+        const secondary = parts.slice(1).join(',').trim();
+        return {
+          value: label,
+          primary: formatLocationString(primary),
+          secondary: secondary ? formatLocationString(secondary) : '',
+          count,
+        };
+      });
+      const q = (locationQuery || '').toLowerCase();
+      if (q) {
+        locs = locs.filter((o) =>
+          o.value.toLowerCase().includes(q) ||
+          o.primary.toLowerCase().includes(q) ||
+          (o.secondary && o.secondary.toLowerCase().includes(q))
+        );
+      }
+      // Sort by count desc then alpha
+      locs.sort((a, b) => (b.count - a.count) || a.value.localeCompare(b.value));
+      setLocationOptions(locs.slice(0, 20));
+      setLoadingLocations(false);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [users, locationQuery]);
 
   // Check link status for a specific user
   const checkLinkStatus = useCallback(async (userId) => {
@@ -833,29 +876,48 @@ const Discover = () => {
            
            <Grid container spacing={{ xs: 2, sm: 3 }}>
             <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ position: 'relative' }}>
-                <GeoNamesAutocomplete
-                  value={filters.location}
-                  onChange={(location) => handleFilterChange('location', location)}
-                  placeholder="All Locations"
-                  style={{ width: '100%' }}
-                />
-                {filters.location && (
-                  <IconButton
-                    size="small"
-                    onClick={() => handleFilterChange('location', '')}
-                    sx={{
-                      position: 'absolute',
-                      right: 8,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      zIndex: 1001
-                    }}
-                  >
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
+              <Autocomplete
+                options={locationOptions}
+                value={filters.location || ''}
+                onChange={(_e, v) => handleFilterChange('location', (v && (v.value || v)) || '')}
+                freeSolo
+                getOptionLabel={(opt) => (typeof opt === 'string' ? opt : (opt?.value || ''))}
+                renderOption={(props, option) => (
+                  <li {...props} key={`${option.value}-${option.count}`}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <LocationOnIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                      <Box>
+                        <Typography variant="body2">{option.primary}</Typography>
+                        {option.secondary && (
+                          <Typography variant="caption" color="text.secondary">{option.secondary}</Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  </li>
                 )}
-              </Box>
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Location"
+                    placeholder="All Locations"
+                    onChange={(e) => setLocationQuery(e.target.value)}
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loadingLocations ? <Skeleton variant="circular" width={16} height={16} /> : null}
+                          {filters.location && (
+                            <IconButton size="small" onClick={() => handleFilterChange('location', '')}>
+                              <ClearIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                          {params.InputProps.endAdornment}
+                        </>
+                      )
+                    }}
+                  />
+                )}
+              />
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>

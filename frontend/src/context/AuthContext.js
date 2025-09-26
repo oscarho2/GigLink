@@ -81,12 +81,19 @@ export const AuthProvider = ({ children }) => {
 
       const body = JSON.stringify(formData);
       const res = await axios.post('/api/users', body, config);
-      
-      // No longer auto-login after registration - user needs to verify email
-      // Return success with message to show verification notice
-      return { 
-        success: true, 
-        message: res.data.message || 'Registration successful! Please check your email to verify your account.' 
+      // Auto-login after successful registration using returned token
+      if (res?.data?.token && res?.data?.user) {
+        const { token: newToken, user: newUser } = res.data;
+        setAuthToken(newToken);
+        setToken(newToken);
+        setIsAuthenticated(true);
+        setUser(newUser);
+      }
+      return {
+        success: true,
+        message:
+          res.data.message ||
+          'Registration successful! A verification email may have been sent. You can proceed to complete your profile.'
       };
     } catch (err) {
       console.error('Registration error:', err);
