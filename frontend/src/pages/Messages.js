@@ -103,6 +103,13 @@ const Messages = () => {
   console.log("=== END RENDER DEBUG ===");
 
   const [conversations, setConversations] = useState([]);
+  // Infinite scroll for conversations list (sidebar)
+  const [convLoadedCount, setConvLoadedCount] = useState(30);
+  const convLoadStep = 30;
+  const [convLoadingMore, setConvLoadingMore] = useState(false);
+  const convContainerRef = useRef(null);
+  const convSentinelRef = useRef(null);
+  const convScrollDebounceRef = useRef(null);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -1935,6 +1942,66 @@ const Messages = () => {
     conv.otherUser?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Reset loaded count when list changes or filter changes
+  useEffect(() => {
+    setConvLoadedCount(Math.min((filteredConversations || []).length, convLoadStep));
+  }, [searchTerm, conversations.length]);
+
+  // IntersectionObserver to reveal more conversations as you scroll sidebar
+  useEffect(() => {
+    const rootEl = convContainerRef.current;
+    const sentinel = convSentinelRef.current;
+    if (!rootEl || !sentinel) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry || !entry.isIntersecting) return;
+        const total = filteredConversations ? filteredConversations.length : 0;
+        if (convLoadingMore) return;
+        if (convLoadedCount >= total) return;
+        setConvLoadingMore(true);
+        // Small delay to allow UI paint; then reveal next chunk
+        setTimeout(() => {
+          setConvLoadedCount((prev) => Math.min(total, prev + convLoadStep));
+          setConvLoadingMore(false);
+        }, 120);
+      },
+      { root: rootEl, rootMargin: '400px', threshold: 0 }
+    );
+    obs.observe(sentinel);
+    return () => obs.disconnect();
+  }, [filteredConversations, convLoadedCount, convLoadingMore]);
+
+  // Fallback scroll listener for robustness
+  useEffect(() => {
+    const el = convContainerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (convScrollDebounceRef.current) return;
+      convScrollDebounceRef.current = setTimeout(() => {
+        convScrollDebounceRef.current = null;
+        const total = filteredConversations ? filteredConversations.length : 0;
+        if (convLoadedCount >= total || convLoadingMore) return;
+        const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 600;
+        if (nearBottom) {
+          setConvLoadingMore(true);
+          setTimeout(() => {
+            setConvLoadedCount((prev) => Math.min(total, prev + convLoadStep));
+            setConvLoadingMore(false);
+          }, 100);
+        }
+      }, 80);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      if (convScrollDebounceRef.current) {
+        clearTimeout(convScrollDebounceRef.current);
+        convScrollDebounceRef.current = null;
+      }
+    };
+  }, [filteredConversations, convLoadedCount, convLoadingMore]);
+
   if (loading && !token) {
     return (
       <Box
@@ -2009,11 +2076,11 @@ const Messages = () => {
         </Box>
 
         {/* Conversations List */}
-        <Box sx={{ flex: 1, overflow: "auto" }}>
+        <Box sx={{ flex: 1, overflow: "auto" }} ref={convContainerRef}>
           <List sx={{ p: 0 }}>
             {filteredConversations &&
               Array.isArray(filteredConversations) &&
-              filteredConversations.map((conversation) => (
+              filteredConversations.slice(0, convLoadedCount).map((conversation) => (
                 <ListItem
                   key={conversation.conversationId}
                   button
@@ -2189,6 +2256,10 @@ const Messages = () => {
                   />
                 </ListItem>
               ))}
+            {/* Sentinel for infinite scroll */}
+            <ListItem key="conv-sentinel" disableGutters sx={{ justifyContent: 'center', py: 1 }}>
+              <Box ref={convSentinelRef} sx={{ height: 1 }} />
+            </ListItem>
           </List>
 
           {filteredConversations.length === 0 && (
@@ -2200,6 +2271,11 @@ const Messages = () => {
                    No conversations found
                  </Typography>
                )}
+            </Box>
+          )}
+          {convLoadingMore && filteredConversations.length > convLoadedCount && (
+            <Box sx={{ p: 1, textAlign: 'center' }}>
+              <CircularProgress size={18} />
             </Box>
           )}
         </Box>
