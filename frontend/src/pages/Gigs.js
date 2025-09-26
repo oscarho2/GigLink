@@ -1017,7 +1017,7 @@ dateTo: '',
                   {gig.title}
                 </Typography>
                 {gig.isFilled && (
-                  <Chip size="small" label="Fixed" color="default" sx={{ bgcolor: 'grey.200' }} />
+                  <Chip size="small" label="FIXED" color="default" sx={{ bgcolor: 'grey.200' }} />
                 )}
               </Box>
               <CardContent sx={{ 
@@ -1043,7 +1043,8 @@ dateTo: '',
                     }
                   )(),
                   justifyContent: 'space-between',
-                  mb: { xs: 1.5, sm: 2 }
+                  mb: { xs: 1.5, sm: 2 },
+                  pt: { xs: 0.75, sm: 1.25 }
                 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="h6" fontWeight="bold" sx={{ fontSize: { xs: '1rem', sm: '1.125rem' }, color: 'text.primary' }}>
@@ -1076,13 +1077,13 @@ dateTo: '',
                           } else {
                             return (
                               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
+                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.05 }}>
                                   {firstDateStr}
                                 </Typography>
-                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, opacity: 0.7, lineHeight: 1.2, alignSelf: 'center' }}>
+                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, opacity: 0.7, lineHeight: 1.05, alignSelf: 'center' }}>
                                   —
                                 </Typography>
-                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
+                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.05 }}>
                                   {lastDateStr}
                                 </Typography>
                               </Box>
@@ -1114,7 +1115,7 @@ dateTo: '',
                 </Box>
 
                 {/* Instruments (left) and Genres (right) */}
-                <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
+                <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 0.75, sm: 1 } }}>
                   <Grid item xs={12} sm={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, columnGap: 1, rowGap: 0.5 }}>
                       <Typography variant="subtitle1" fontWeight="medium" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, mb: 0, mr: 1 }}>
@@ -1139,13 +1140,15 @@ dateTo: '',
                 
               </CardContent>
               
-              <CardActions sx={{ p: { xs: 1.5, sm: 2 }, pt: 0 }}>
-                <Box sx={{ width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+              <CardActions sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 1, sm: 1.25 }, pb: { xs: 2, sm: 3 } }}>
+                <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <Box 
                       sx={{ display: 'flex', alignItems: 'center', minWidth: 0, cursor: 'pointer' }}
                       onClick={(e) => {
-                        e.stopPropagation();
+                        // Prevent the parent Link (card) from navigating to the gig
+                        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+                        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
                         navigate(isAuthenticated ? `/profile/${gig.user?._id}` : `/login?redirect=/profile/${gig.user?._id}`);
                       }}
                     >

@@ -95,9 +95,12 @@ const EditProfile = () => {
         const normalizedGenres = normalizeValuesToOptions(sourceGenres, genreOptions);
         
         // Set form data with fetched profile data (no forced casing)
+        // Clean location: treat placeholder values as empty
+        const rawLocation = (profileData.user?.location || '').trim();
+        const cleanedLocation = rawLocation.toLowerCase() === 'location not specified' ? '' : rawLocation;
         setFormData({
           name: profileData.user?.name || user?.name || '',
-          location: (profileData.user?.location && profileData.user.location.trim()) || '',
+          location: cleanedLocation,
           bio: (profileData.bio && profileData.bio.trim() && profileData.bio !== 'No bio available') ? profileData.bio : '',
           isMusician: profileData.user?.isMusician || user?.isMusician || (normalizedInstruments.length > 0 || normalizedGenres.length > 0 ? 'yes' : 'no'),
           instruments: normalizedInstruments,
@@ -113,9 +116,11 @@ const EditProfile = () => {
         // Fallback to user data if profile fetch fails
         const fallbackInstruments = normalizeValuesToOptions(user?.instruments || [], instrumentOptions);
         const fallbackGenres = normalizeValuesToOptions(user?.genres || [], genreOptions);
+        const rawUserLoc = (user?.location || '').trim();
+        const cleanedUserLoc = rawUserLoc.toLowerCase() === 'location not specified' ? '' : rawUserLoc;
         setFormData({
           name: user?.name || '',
-          location: (user?.location && user.location.trim()) || '',
+          location: cleanedUserLoc,
           bio: '',
           isMusician: user?.isMusician || (fallbackInstruments.length > 0 || fallbackGenres.length > 0 ? 'yes' : 'no'),
           instruments: fallbackInstruments,

@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import moment from 'moment';
 import AuthenticatedImage from './AuthenticatedImage';
+import { useAuth } from '../context/AuthContext';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -58,9 +59,33 @@ const MediaDocumentsLinks = ({ open, onClose, messages = [] }) => {
   const [tabValue, setTabValue] = useState(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { token } = useAuth();
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+  };
+
+  const openAuthenticated = async (url, fileName) => {
+    try {
+      const res = await fetch(url, { headers: { 'x-auth-token': token } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      // Try to open in a new tab; fallback to download if blocked
+      const newWin = window.open(blobUrl, '_blank');
+      if (!newWin) {
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        if (fileName) a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      // Revoke after a short delay to allow loading
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (e) {
+      console.error('Failed to open authenticated file:', e);
+    }
   };
 
   // Extract URLs from message content using regex
@@ -123,7 +148,7 @@ const MediaDocumentsLinks = ({ open, onClose, messages = [] }) => {
   const renderMediaItem = (item) => {
     return (
       <Grid item xs={6} sm={4} md={3} key={item.id}>
-        <Card sx={{ height: '100%', cursor: 'pointer' }} onClick={() => window.open(item.url, '_blank')}>
+        <Card sx={{ height: '100%', cursor: 'pointer' }} onClick={() => openAuthenticated(item.url, item.fileName)}>
           {item.type === 'image' ? (
             <AuthenticatedImage
               src={item.url}
@@ -181,7 +206,7 @@ const MediaDocumentsLinks = ({ open, onClose, messages = [] }) => {
           }
         />
         <ListItemSecondaryAction>
-          <IconButton onClick={() => window.open(item.url, '_blank')} size="small">
+          <IconButton onClick={() => openAuthenticated(item.url, item.fileName)} size="small">
             <OpenInNewIcon />
           </IconButton>
         </ListItemSecondaryAction>

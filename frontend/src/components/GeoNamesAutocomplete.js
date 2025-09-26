@@ -60,7 +60,6 @@ const GeoNamesAutocomplete = ({
       const params = new URLSearchParams({
         name_startsWith: query,
         featureClass: 'P', // Populated places (cities, towns, villages)
-        country: 'GB', // Restrict to UK
         maxRows: 10,
         username: GEONAMES_USERNAME,
         style: 'MEDIUM', // include adminName / country
@@ -77,34 +76,17 @@ const GeoNamesAutocomplete = ({
           console.warn('Demo account daily limit exceeded. Using UK fallback cities.');
         }
         
-        // Use UK fallback cities when API fails
-        const cityRegionMap = {
-          'London': 'England',
-          'Manchester': 'Greater Manchester',
-          'Birmingham': 'West Midlands',
-          'Liverpool': 'Merseyside',
-          'Leeds': 'West Yorkshire',
-          'Sheffield': 'South Yorkshire',
-          'Bristol': 'England',
-          'Glasgow': 'Scotland',
-          'Edinburgh': 'Scotland',
-          'Newcastle': 'Tyne and Wear',
-          'Cardiff': 'Wales',
-          'Belfast': 'Northern Ireland'
-        };
-        
+        // Use fallback cities when API fails
         const filteredCities = fallbackCities
           .filter(city => city.toLowerCase().includes(query.toLowerCase()))
           .slice(0, 10)
           .map((city, index) => {
-            const region = cityRegionMap[city] || 'England';
-            const country = 'United Kingdom';
-            const displayName = [city, region, country].filter(Boolean).join(', ');
+            const displayName = city;
             return {
               id: `fallback-${index}`,
               name: city,
-              adminName1: region,
-              countryName: country,
+              adminName1: '',
+              countryName: '',
               displayName
             };
           });
@@ -150,34 +132,18 @@ const GeoNamesAutocomplete = ({
       }
     } catch (error) {
       console.error('Error fetching GeoNames data:', error);
-      console.warn('GeoNames API request failed. Using UK fallback cities.');
+      console.warn('GeoNames API request failed. Using fallback cities.');
       
-      // Use UK fallback cities when network request fails
-      const cityRegionMap = {
-        'London': 'England',
-        'Manchester': 'Greater Manchester',
-        'Birmingham': 'West Midlands',
-        'Liverpool': 'Merseyside',
-        'Leeds': 'West Yorkshire',
-        'Sheffield': 'South Yorkshire',
-        'Bristol': 'England',
-        'Glasgow': 'Scotland',
-        'Edinburgh': 'Scotland',
-        'Newcastle': 'Tyne and Wear',
-        'Cardiff': 'Wales',
-        'Belfast': 'Northern Ireland'
-      };
-      
+      // Use fallback cities when network request fails
       const filteredCities = fallbackCities
         .filter(city => city.toLowerCase().includes(query.toLowerCase()))
         .slice(0, 10)
         .map((city, index) => {
-          const region = cityRegionMap[city] || 'England';
           return {
             id: `fallback-${index}`,
             name: city,
-            adminName1: region,
-            countryName: 'United Kingdom',
+            adminName1: '',
+            countryName: '',
             displayName: city
           };
         });
