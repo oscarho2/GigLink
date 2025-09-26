@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Autocomplete, TextField, Box } from '@mui/material';
+import { Autocomplete, TextField, Box, IconButton } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 
 export default function VenueAutocomplete({ value, onChange, near, onLocationChange, global = true, label = 'Venue', placeholder = 'Search venues' }) {
   const [input, setInput] = useState(value || '');
@@ -179,6 +180,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       selectOnFocus
       clearOnBlur
       handleHomeEndKeys
+      disableClearable
       ListboxProps={{ style: { maxHeight: 560, overflow: 'auto' } }}
       open={open}
       onOpen={() => {
@@ -348,6 +350,24 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
             ...params.InputProps,
             endAdornment: (
               <>
+                {((input && input.trim()) || (near && near.trim())) ? (
+                  <IconButton
+                    aria-label="clear venue and location"
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onChange) onChange('');
+                      if (onLocationChange) onLocationChange('');
+                      setInput('');
+                      setOptions([]);
+                      setOpen(false);
+                      suppressNextOpenRef.current = true;
+                    }}
+                    sx={{ mr: 0.5 }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                ) : null}
                 {params.InputProps.endAdornment}
               </>
             )

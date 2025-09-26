@@ -286,8 +286,7 @@ function EditGig() {
                 fullWidth
                 label="Location"
                 value={formData.location}
-                onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                onBlur={(e) => setCurrencyFromLocationString(e.target.value)}
+                InputProps={{ readOnly: true }}
                 placeholder="Auto-filled from venue"
                 variant="outlined"
               />
