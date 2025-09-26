@@ -19,16 +19,21 @@ import {
   IconButton
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
-import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+import VenueAutocomplete from '../components/VenueAutocomplete';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import Flatpickr from 'react-flatpickr';
+import 'flatpickr/dist/themes/material_blue.css';
+import '../styles/flatpickr-compact.css';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
 const currencySymbols = { GBP: '£', USD: '$', EUR: '€', JPY: '¥', AUD: 'A$', CAD: 'C$' };
 const currencyOptions = [
-  { code: 'GBP', label: 'GBP (£)' },
   { code: 'USD', label: 'USD ($)' },
+  { code: 'GBP', label: 'GBP (£)' },
   { code: 'EUR', label: 'EUR (€)' },
   { code: 'JPY', label: 'JPY (¥)' },
   { code: 'AUD', label: 'AUD (A$)' },
@@ -56,7 +61,58 @@ function EditGig() {
     description: '',
     requirements: ''
   });
-  const [currency, setCurrency] = useState('GBP');
+  const [currency, setCurrency] = useState('USD');
+  const [userSetCurrency, setUserSetCurrency] = useState(false);
+  const allowedCurrencyCodes = currencyOptions.map(o => o.code);
+
+  const countryToCurrency = (countryToken) => {
+    const t = (countryToken || '').trim();
+    const up = t.toUpperCase();
+    const map = {
+      GB: 'GBP', UK: 'GBP', 'UNITED KINGDOM': 'GBP', IE: 'EUR',
+      US: 'USD', USA: 'USD', 'UNITED STATES': 'USD', CA: 'CAD', AU: 'AUD', NZ: 'NZD',
+      FR: 'EUR', DE: 'EUR', ES: 'EUR', IT: 'EUR', NL: 'EUR', BE: 'EUR', PT: 'EUR', GR: 'EUR', AT: 'EUR', FI: 'EUR', EE: 'EUR', LV: 'EUR', LT: 'EUR', LU: 'EUR', MT: 'EUR', CY: 'EUR', SK: 'EUR', SI: 'EUR', IE: 'EUR',
+      SE: 'SEK', NO: 'NOK', DK: 'DKK', CH: 'CHF', PL: 'PLN', CZ: 'CZK', HU: 'HUF', RO: 'RON', BG: 'BGN',
+      RU: 'RUB', TR: 'TRY',
+      JP: 'JPY', CN: 'CNY', HK: 'HKD', SG: 'SGD', IN: 'INR', KR: 'KRW', TW: 'TWD', TH: 'THB', ID: 'IDR', MY: 'MYR', PH: 'PHP', VN: 'VND',
+      MX: 'MXN', BR: 'BRL', AR: 'ARS', CL: 'CLP', CO: 'COP', PE: 'PEN', ZA: 'ZAR',
+      AE: 'AED', SA: 'SAR', QA: 'QAR', KW: 'KWD', BH: 'BHD', OM: 'OMR', IL: 'ILS', NG: 'NGN', KE: 'KES', EG: 'EGP'
+    };
+    if (map[up]) return map[up];
+    const name = t.toLowerCase();
+    const byName = {
+      'united kingdom': 'GBP', 'england': 'GBP', 'scotland': 'GBP', 'wales': 'GBP', 'northern ireland': 'GBP',
+      'united states': 'USD', 'canada': 'CAD', 'australia': 'AUD', 'new zealand': 'NZD',
+      'switzerland': 'CHF', 'sweden': 'SEK', 'norway': 'NOK', 'denmark': 'DKK',
+      'poland': 'PLN', 'czech republic': 'CZK', 'hungary': 'HUF', 'romania': 'RON', 'bulgaria': 'BGN',
+      'russia': 'RUB', 'turkey': 'TRY', 'japan': 'JPY', 'china': 'CNY', 'hong kong': 'HKD', 'singapore': 'SGD',
+      'india': 'INR', 'south korea': 'KRW', 'taiwan': 'TWD', 'thailand': 'THB', 'indonesia': 'IDR', 'malaysia': 'MYR', 'philippines': 'PHP', 'vietnam': 'VND',
+      'mexico': 'MXN', 'brazil': 'BRL', 'argentina': 'ARS', 'chile': 'CLP', 'colombia': 'COP', 'peru': 'PEN', 'south africa': 'ZAR',
+      'united arab emirates': 'AED', 'saudi arabia': 'SAR', 'qatar': 'QAR', 'kuwait': 'KWD', 'bahrain': 'BHD', 'oman': 'OMR', 'israel': 'ILS', 'nigeria': 'NGN', 'kenya': 'KES', 'egypt': 'EGP'
+    };
+    return byName[name] || null;
+  };
+
+  const setCurrencyFromLocationString = (loc) => {
+    if (!loc || userSetCurrency) return;
+    const parts = String(loc).split(',').map(s => s.trim()).filter(Boolean);
+    const token = parts[parts.length - 1] || '';
+    const code = countryToCurrency(token);
+    if (code && allowedCurrencyCodes.includes(code)) setCurrency(code);
+  };
+
+  useEffect(() => {
+    // Initial guess from browser locale, only if gig didn't specify currency
+    if (userSetCurrency) return;
+    try {
+      const lang = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+      const region = (lang.split('-')[1] || '').toUpperCase();
+      if (region) {
+        const code = countryToCurrency(region);
+        if (code && allowedCurrencyCodes.includes(code)) setCurrency(code);
+      }
+    } catch {}
+  }, [userSetCurrency]);
   const [schedules, setSchedules] = useState([{ date: '', startTime: '', endTime: '' }]);
 
   useEffect(() => {
@@ -213,16 +269,27 @@ function EditGig() {
               <TextField fullWidth label="Title" name="title" value={formData.title} onChange={handleChange} variant="outlined" required />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Venue" name="venue" value={formData.venue} onChange={handleChange} variant="outlined" required />
+              <VenueAutocomplete
+                value={formData.venue}
+                near={formData.location}
+                onChange={(venue) => setFormData(prev => ({ ...prev, venue }))}
+                onLocationChange={(loc) => {
+                  setFormData(prev => ({ ...prev, location: loc || '' }));
+                  setCurrencyFromLocationString(loc);
+                }}
+                label="Venue"
+                placeholder="Search venues"
+              />
             </Grid>
             <Grid item xs={12}>
-              <GeoNamesAutocomplete
+              <TextField
+                fullWidth
+                label="Location"
                 value={formData.location}
-                onChange={(location) => {
-                  setFormData({ ...formData, location });
-                }}
-                placeholder="Enter gig location"
-                style={{ width: '100%' }}
+                onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                onBlur={(e) => setCurrencyFromLocationString(e.target.value)}
+                placeholder="Auto-filled from venue or type here"
+                variant="outlined"
               />
             </Grid>
             
@@ -233,51 +300,206 @@ function EditGig() {
             {schedules.map((schedule, index) => (
               <React.Fragment key={index}>
                 <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Date"
-                    type="date"
-                    InputLabelProps={{ shrink: true }}
-                    value={schedule.date}
-                    onChange={(e) => handleScheduleChange(index, 'date', e.target.value)}
-                    variant="outlined"
-                    required={index === 0}
-                    sx={{
-                      '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
-                      '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                  <Flatpickr
+                    value={schedule.date || ''}
+                    options={{
+                      dateFormat: 'd/m/Y',
+                      disableMobile: true,
+                      allowInput: true,
+                      clickOpens: false,
+                      onChange: (_dates, _str, instance) => instance.close()
                     }}
+                    onChange={([d]) => handleScheduleChange(index, 'date', d ? d.toISOString().slice(0, 10) : '')}
+                    render={(props, ref) => (
+                      <TextField
+                        inputRef={ref}
+                        inputProps={{
+                          ...props,
+                          id: `edit-date-input-${index}`,
+                          inputMode: 'numeric',
+                          maxLength: 10,
+                          placeholder: 'DD/MM/YYYY',
+                          pattern: '\\d{2}/\\d{2}/\\d{4}',
+                          onInput: (e) => {
+                            let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 8);
+                            if (v.length >= 5) v = `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4)}`;
+                            else if (v.length >= 3) v = `${v.slice(0,2)}/${v.slice(2)}`;
+                            e.target.value = v;
+                          }
+                        }}
+                        fullWidth
+                        size="small"
+                        label="Date (DD/MM/YYYY)"
+                        InputLabelProps={{ shrink: true }}
+                        variant="outlined"
+                        required={index === 0}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                aria-label="open date picker"
+                                onClick={() => {
+                                  const el = document.getElementById(`edit-date-input-${index}`);
+                                  if (el && el._flatpickr) el._flatpickr.open();
+                                  else if (el) el.focus();
+                                }}
+                                size="small"
+                              >
+                                <CalendarTodayIcon fontSize="small" />
+                              </IconButton>
+                            </InputAdornment>
+                          )
+                        }}
+                        onBlur={(e) => {
+                          const val = (e.target.value || '').trim();
+                          if (!val) { handleScheduleChange(index, 'date', ''); return; }
+                          const m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                          if (m) {
+                            const d = m[1].padStart(2,'0');
+                            const mo = m[2].padStart(2,'0');
+                            const y = m[3];
+                            const dt = new Date(`${y}-${mo}-${d}T00:00:00Z`);
+                            if (!isNaN(dt.getTime())) {
+                              handleScheduleChange(index, 'date', `${y}-${mo}-${d}`);
+                            }
+                          }
+                        }}
+                      />
+                    )}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Start Time"
-                    type="time"
-                    InputLabelProps={{ shrink: true }}
-                    value={schedule.startTime}
-                    onChange={(e) => handleScheduleChange(index, 'startTime', e.target.value)}
-                    variant="outlined"
-                    required={index === 0}
-                    sx={{
-                      '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
-                      '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                  <Flatpickr
+                    value={schedule.startTime || ''}
+                    options={{
+                      enableTime: true,
+                      noCalendar: true,
+                      dateFormat: 'H:i',
+                      time_24hr: true,
+                      minuteIncrement: 5,
+                      disableMobile: true,
+                      allowInput: true,
+                      clickOpens: false,
+                      onOpen: (_d, _s, instance) => {
+                        if (instance?.calendarContainer) instance.calendarContainer.classList.add('fp-compact');
+                      }
                     }}
+                    onChange={([d]) => handleScheduleChange(index, 'startTime', d ? d.toTimeString().slice(0, 5) : '')}
+                    render={(props, ref) => (
+                      <TextField
+                        inputRef={ref}
+                        inputProps={{
+                          ...props,
+                          id: `edit-start-time-input-${index}`,
+                          inputMode: 'numeric',
+                          maxLength: 5,
+                          placeholder: '--:--',
+                          pattern: '(?:[01]\\d|2[0-3]):[0-5]\\d',
+                          onInput: (e) => {
+                            let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                            if (v.length >= 3) v = `${v.slice(0,2)}:${v.slice(2)}`;
+                            e.target.value = v;
+                          }
+                        }}
+                        fullWidth
+                        size="small"
+                        label="Start Time"
+                        InputLabelProps={{ shrink: true }}
+                        variant="outlined"
+                        required={index === 0}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                aria-label="open start time picker"
+                                onClick={() => {
+                                  const el = document.getElementById(`edit-start-time-input-${index}`);
+                                  if (el && el._flatpickr) el._flatpickr.open();
+                                  else if (el) el.focus();
+                                }}
+                                size="small"
+                              >
+                                <AccessTimeIcon fontSize="small" />
+                              </IconButton>
+                            </InputAdornment>
+                          )
+                        }}
+                        onBlur={(e) => {
+                          const val = (e.target.value || '').trim();
+                          const isValid = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(val);
+                          if (isValid || val === '') {
+                            handleScheduleChange(index, 'startTime', val);
+                          }
+                        }}
+                      />
+                    )}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      fullWidth
-                      label="End Time (Optional)"
-                      type="time"
-                      InputLabelProps={{ shrink: true }}
-                      value={schedule.endTime}
-                      onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
-                      variant="outlined"
-                      sx={{
-                        '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.600' },
-                        '& .MuiInputLabel-root.Mui-focused': { color: 'grey.700' },
+                    <Flatpickr
+                      value={schedule.endTime || ''}
+                      options={{
+                        enableTime: true,
+                        noCalendar: true,
+                        dateFormat: 'H:i',
+                        time_24hr: true,
+                        minuteIncrement: 5,
+                        disableMobile: true,
+                        allowInput: true,
+                        clickOpens: false,
+                        onOpen: (_d, _s, instance) => {
+                          if (instance?.calendarContainer) instance.calendarContainer.classList.add('fp-compact');
+                        }
                       }}
+                      onChange={([d]) => handleScheduleChange(index, 'endTime', d ? d.toTimeString().slice(0, 5) : '')}
+                      render={(props, ref) => (
+                        <TextField
+                          inputRef={ref}
+                          inputProps={{
+                            ...props,
+                            id: `edit-end-time-input-${index}`,
+                            inputMode: 'numeric',
+                            maxLength: 5,
+                            placeholder: '--:--',
+                            pattern: '(?:[01]\\d|2[0-3]):[0-5]\\d',
+                            onInput: (e) => {
+                              let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                              if (v.length >= 3) v = `${v.slice(0,2)}:${v.slice(2)}`;
+                              e.target.value = v;
+                            }
+                          }}
+                          fullWidth
+                          size="small"
+                          label="End Time (Optional)"
+                          InputLabelProps={{ shrink: true }}
+                          variant="outlined"
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  aria-label="open end time picker"
+                                  onClick={() => {
+                                    const el = document.getElementById(`edit-end-time-input-${index}`);
+                                    if (el && el._flatpickr) el._flatpickr.open();
+                                    else if (el) el.focus();
+                                  }}
+                                  size="small"
+                                >
+                                  <AccessTimeIcon fontSize="small" />
+                                </IconButton>
+                              </InputAdornment>
+                            )
+                          }}
+                          onBlur={(e) => {
+                            const val = (e.target.value || '').trim();
+                            const isValid = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(val);
+                            if (isValid || val === '') {
+                              handleScheduleChange(index, 'endTime', val);
+                            }
+                          }}
+                        />
+                      )}
                     />
                     {index > 0 && (
                       <IconButton aria-label="remove date/time" color="error" onClick={() => removeScheduleRow(index)}>
@@ -302,7 +524,10 @@ function EditGig() {
                   labelId="currency-label"
                   value={currency}
                   label="Currency"
-                  onChange={(e) => setCurrency(e.target.value)}
+                  onChange={(e) => { setCurrency(e.target.value); setUserSetCurrency(true); }}
+                  MenuProps={{
+                    PaperProps: { style: { maxHeight: 240, overflowY: 'auto' } }
+                  }}
                 >
                   {currencyOptions.map((opt) => (
                     <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
