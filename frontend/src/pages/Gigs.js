@@ -7,7 +7,9 @@ import {
   Box, 
   Button, 
   Card, 
-  CardContent, 
+  CardContent,
+  FormControlLabel,
+  Switch, 
   Chip,
   TextField,
   MenuItem,
@@ -78,6 +80,7 @@ const Gigs = () => {
     instrument: '',
     genre: ''
   });
+  const [showPastGigs, setShowPastGigs] = useState(false);
   
   // Dynamic filter options from backend
   const [locationOptions, setLocationOptions] = useState([]);
@@ -112,8 +115,11 @@ const Gigs = () => {
         if (filters.genre) params.genres = filters.genre;
         if (filters.location) params.location = filters.location;
         const today = new Date().toISOString().slice(0, 10);
-        if (filters.date) params.dateFrom = filters.date; // YYYY-MM-DD
-        else params.dateFrom = today;
+        if (filters.date) {
+          params.dateFrom = filters.date; // YYYY-MM-DD
+        } else if (!showPastGigs) {
+          params.dateFrom = today;
+        }
         if (filters.dateTo) params.dateTo = filters.dateTo;
 
         const response = await axios.get('/api/gigs', {
@@ -749,6 +755,10 @@ dateTo: '',
                 />
             </Grid>
             <Grid item xs={12} sm={6} md={6} container justifyContent="flex-end" alignItems="flex-end">
+              <FormControlLabel
+                control={<Switch checked={showPastGigs} onChange={(e) => setShowPastGigs(e.target.checked)} name="showPastGigs" />}
+                label="Show Past Gigs"
+              />
               <FormControl fullWidth variant="outlined">
                 <InputLabel>Sort By</InputLabel>
                 <Select
