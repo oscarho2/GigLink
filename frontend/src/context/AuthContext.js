@@ -97,7 +97,13 @@ export const AuthProvider = ({ children }) => {
       };
     } catch (err) {
       console.error('Registration error:', err);
-      return { error: err.response?.data?.errors || [{ msg: 'Registration failed' }] };
+      const captchaRequired = Boolean(err.response?.data?.captcha?.required);
+      const captchaType = err.response?.data?.captcha?.type;
+      return {
+        error: err.response?.data?.errors || [{ msg: 'Registration failed' }],
+        captchaRequired,
+        captchaType
+      };
     }
   };
 

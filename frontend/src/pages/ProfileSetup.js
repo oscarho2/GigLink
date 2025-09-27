@@ -31,7 +31,7 @@ const ProfileSetup = () => {
       setFormData(prevData => ({
         ...prevData,
         location: user.location || '',
-        bio: user.bio || `Hi, I'm ${user.name}! I'm excited to connect with fellow musicians and explore new opportunities in the music world.`,
+        bio: user.bio || `Hi, I'm ${user.name}! I'm excited to connect with fellow musicians and discover new opportunities in the music world.`,
         isMusician: user.isMusician || '',
         instruments: user.instruments || [],
         genres: user.genres || []
@@ -234,7 +234,7 @@ const ProfileSetup = () => {
             {formData.isMusician === 'no' && (
               <Grid item xs={12}>
                 <Typography variant="body1" color="textSecondary">
-                  Great! You can still connect with musicians and explore opportunities on GigLink.
+                  Great! You can still connect with musicians and discover opportunities on GigLink.
                 </Typography>
               </Grid>
             )}

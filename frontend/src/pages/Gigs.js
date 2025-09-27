@@ -38,7 +38,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import PersonIcon from '@mui/icons-material/Person';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
-// GeoNamesAutocomplete is not used for filters; we rely on backend-provided options
+import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 import UserAvatar from '../components/UserAvatar';
 
 // Define pulse animation
@@ -83,8 +83,6 @@ const Gigs = () => {
   const [locationOptions, setLocationOptions] = useState([]);
   const [locationQuery, setLocationQuery] = useState('');
   const [loadingLocations, setLoadingLocations] = useState(false);
-  const [instrumentOptions, setInstrumentOptions] = useState([]);
-  const [genreOptions, setGenreOptions] = useState([]);
 
 
   // Helpers
@@ -137,24 +135,6 @@ const Gigs = () => {
       controller.abort();
     };
   }, [searchTerm, filters]);
-
-  // Fetch distinct filter lists from existing gigs (instruments/genres only)
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res = await axios.get('/api/gigs/filters');
-        if (!active) return;
-        const inst = Array.isArray(res.data?.instruments) ? res.data.instruments : [];
-        const gens = Array.isArray(res.data?.genres) ? res.data.genres : [];
-        setInstrumentOptions(inst);
-        setGenreOptions(gens);
-      } catch (e) {
-        // ignore
-      }
-    })();
-    return () => { active = false; };
-  }, []);
 
   // Predictive backend-driven location suggestions (no GeoNames)
   useEffect(() => {

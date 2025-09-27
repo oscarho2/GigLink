@@ -69,7 +69,7 @@ const Navbar = () => {
   };
 
   const guestLinks = (
-    <>
+    <Box sx={{ display: 'flex', alignItems: 'center' }}>
       <Button
         component={RouterLink}
         to="/login"
@@ -102,7 +102,7 @@ const Navbar = () => {
       >
         Join Now
       </Button>
-    </>
+    </Box>
   );
 
   const authLinks = (
@@ -142,7 +142,7 @@ const Navbar = () => {
     <>
     <AppBar position="static" sx={{ bgcolor: '#1a365d', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
       <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ minHeight: { xs: 56, sm: 64 } }}>
+        <Toolbar disableGutters sx={{ height: { xs: 56, sm: 64 } }}>
           <MusicNoteIcon sx={{ display: { xs: 'none', md: 'flex' }, mr: 1 }} />
           <Typography
             variant="h6"
@@ -238,6 +238,11 @@ const Navbar = () => {
               <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/discover">
                 <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>🔍 Discover Links</Typography>
               </MenuItem>
+              {!isAuthenticated && (
+                <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/register">
+                  <Typography textAlign="left" sx={{ width: '100%', color: '#1a365d' }}>✨ Join Now</Typography>
+                </MenuItem>
+              )}
               
               {/* User-specific sections */}
               {isAuthenticated && (

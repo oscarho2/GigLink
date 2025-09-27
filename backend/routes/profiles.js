@@ -8,8 +8,6 @@ const { normalizeLocation } = require('../utils/location');
 const path = require('path');
 const fs = require('fs');
 
-// R2 upload configuration is handled in r2Config.js
-
 // @route   GET api/profiles/me
 // @desc    Get current user's profile
 // @access  Private
@@ -319,7 +317,7 @@ router.delete('/me', auth, async (req, res) => {
       return res.status(400).json({ msg: 'User account not found' });
     }
     
-    res.json({ 
+    res.json({
       msg: 'Account and all related data deleted successfully',
       deletedData: {
         profile: !!profile,
@@ -495,12 +493,60 @@ router.put('/avatar', auth, upload.single('avatar'), async (req, res) => {
     user.avatar = avatarUrl;
     await user.save();
     
-    res.json({ 
+    res.json({
       message: 'Profile picture updated successfully',
       avatar: user.avatar
     });
   } catch (err) {
     console.error(err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET api/profiles/locations
+// @desc    Predictive location suggestions from existing user profiles
+// @access  Public
+router.get('/locations', async (req, res) => {
+  try {
+    const { q = '', limit = 10 } = req.query;
+    const numericLimit = Math.min(parseInt(limit) || 10, 50);
+
+    const rx = q && q.trim()
+      ? new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      : null;
+
+    // Aggregate distinct locations from user.location
+    const pipeline = [
+      { $match: { location: { $exists: true, $ne: '' } } },
+      ...(rx ? [{ $match: { location: { $regex: rx } } }] : []),
+      {
+        $group: {
+          _id: { $toLower: '$location' },
+          count: { $sum: 1 },
+          label: { $first: '$location' }
+        }
+      },
+      { $sort: { count: -1, label: 1 } },
+      { $limit: numericLimit },
+      { $project: { _id: 0, label: 1, count: 1 } }
+    ];
+
+    const agg = await User.aggregate(pipeline);
+    // Normalize labels for display consistency
+    const normCount = new Map();
+    for (const row of agg) {
+      const norm = normalizeLocation(row.label || '');
+      if (!norm) continue;
+      const key = norm.toLowerCase();
+      const prev = normCount.get(key) || { label: norm, count: 0 };
+      prev.count += row.count || 0;
+      normCount.set(key, prev);
+    }
+    const results = Array.from(normCount.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+    res.json({ locationStats: results });
+  } catch (err) {
+    console.error('Error fetching location suggestions:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

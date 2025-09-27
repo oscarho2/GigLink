@@ -28,8 +28,8 @@ const MobileBottomNavigation = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Don't show on desktop
-  if (!isMobile) {
+  // Don't show on desktop or if user is not authenticated
+  if (!isMobile || !isAuthenticated) {
     return null;
   }
 
@@ -113,7 +113,7 @@ const MobileBottomNavigation = () => {
           icon={isAuthenticated ? <CommunityIcon /> : <HomeIcon />}
         />
         <BottomNavigationAction
-          label="Explore"
+          label="Discover"
           icon={<SearchIcon />}
         />
         <BottomNavigationAction

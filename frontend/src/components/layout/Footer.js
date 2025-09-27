@@ -20,39 +20,31 @@ const Footer = () => {
       }}
     >
       <Container maxWidth="lg">
-        <Grid container spacing={4}>
-          <Grid item xs={12} sm={4}>
-            <Typography variant="h6" gutterBottom>
-              GigLink
-            </Typography>
-            <Typography variant="body2">
-              Connecting musicians with opportunities since 2023.
-            </Typography>
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <Typography variant="h6" gutterBottom>
-              Quick Links
-            </Typography>
-            <Link component={RouterLink} to="/" color="inherit" display="block">
-              Home
-            </Link>
-            <Link component={RouterLink} to="/gigs" color="inherit" display="block">
-              Gigs
-            </Link>
-            <Link component={RouterLink} to="/register" color="inherit" display="block">
-              Join Now
+        <Grid container spacing={2} justifyContent="center">
+          <Grid item>
+            <Link component={RouterLink} to="/about" color="inherit" sx={{ '&:hover': { textDecoration: 'underline' } }}>
+              About
             </Link>
           </Grid>
-          <Grid item xs={12} sm={4}>
-            <Typography variant="h6" gutterBottom>
+          <Grid item>
+            <Link component={RouterLink} to="/terms-of-service" color="inherit" sx={{ '&:hover': { textDecoration: 'underline' } }}>
+              Terms of Service
+            </Link>
+          </Grid>
+          <Grid item>
+            <Link component={RouterLink} to="/privacy-policy" color="inherit" sx={{ '&:hover': { textDecoration: 'underline' } }}>
+              Privacy Policy
+            </Link>
+          </Grid>
+          <Grid item>
+            <Link component={RouterLink} to="/cookie-policy" color="inherit" sx={{ '&:hover': { textDecoration: 'underline' } }}>
+              Cookie Policy
+            </Link>
+          </Grid>
+          <Grid item>
+            <Link component={RouterLink} to="/contact" color="inherit" sx={{ '&:hover': { textDecoration: 'underline' } }}>
               Contact
-            </Typography>
-            <Typography variant="body2">
-              Email: info@giglink.com
-            </Typography>
-            <Typography variant="body2">
-              Support: support@giglink.com
-            </Typography>
+            </Link>
           </Grid>
         </Grid>
         <Box mt={3}>

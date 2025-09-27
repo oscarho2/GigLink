@@ -1,21 +1,11 @@
 import React from 'react';
-import { Container, Typography, Box, Paper } from '@mui/material';
+import { Container, Typography, Box, Paper, Link } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import IconButton from '@mui/material/IconButton';
 
 const CookiePolicy = () => {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
-        <IconButton 
-          component={RouterLink} 
-          to="/" 
-          sx={{ mr: 2 }}
-          aria-label="Go back"
-        >
-          <ArrowBackIcon />
-        </IconButton>
         <Typography variant="h4" component="h1">
           GigLink Cookie Policy
         </Typography>
@@ -165,7 +155,7 @@ const CookiePolicy = () => {
           8. Contact Us
         </Typography>
         <Typography paragraph>
-          If you have any questions about our use of cookies or this Cookie Policy, please contact us at cookies@giglink.com.
+          If you have any questions about our use of cookies or this Cookie Policy, please visit our <Link component={RouterLink} to="/contact">Contact Page</Link>.
         </Typography>
         
         <Typography variant="h6" gutterBottom>

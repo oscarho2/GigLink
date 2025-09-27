@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
 const { sendVerificationEmail } = require('../utils/emailService');
+const { verifyTurnstileToken } = require('../utils/turnstile');
 
 // @route   GET api/users
 // @desc    Get all users
@@ -69,10 +70,24 @@ router.post(
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-
-    const { name, email, password, isMusician } = req.body;
+    
+    const { name, email, password, isMusician, turnstileToken } = req.body;
 
     try {
+      // Cloudflare Turnstile verification (invisible on client; interactive only if needed)
+      try {
+        const verified = await verifyTurnstileToken(turnstileToken, req.ip);
+        if (!verified.ok) {
+          return res.status(403).json({
+            errors: [{ msg: 'Captcha verification required' }],
+            captcha: { required: true, type: 'turnstile' }
+          });
+        }
+      } catch (captchaErr) {
+        console.error('Turnstile verification error:', captchaErr);
+        return res.status(400).json({ errors: [{ msg: 'Captcha verification failed' }] });
+      }
+
       // Normalize email to lowercase
       const normalizedEmail = email.toLowerCase().trim();
       

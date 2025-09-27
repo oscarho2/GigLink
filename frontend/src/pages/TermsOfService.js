@@ -1,21 +1,11 @@
 import React from 'react';
-import { Container, Typography, Box, Paper } from '@mui/material';
+import { Container, Typography, Box, Paper, Link } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import IconButton from '@mui/material/IconButton';
 
 const TermsOfService = () => {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
-        <IconButton 
-          component={RouterLink} 
-          to="/" 
-          sx={{ mr: 2 }}
-          aria-label="Go back"
-        >
-          <ArrowBackIcon />
-        </IconButton>
         <Typography variant="h4" component="h1">
           GigLink Terms of Service
         </Typography>
@@ -125,7 +115,7 @@ const TermsOfService = () => {
           11. Contact Information
         </Typography>
         <Typography paragraph>
-          If you have any questions about this User Agreement, please contact us at legal@giglink.com.
+          If you have any questions about this User Agreement, please visit our <Link component={RouterLink} to="/contact">Contact Page</Link>.
         </Typography>
       </Paper>
     </Container>

@@ -29,7 +29,9 @@ import {
   DialogContentText,
   DialogActions,
   Snackbar,
-  Alert
+  Alert,
+  keyframes,
+  CircularProgress
 } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import SearchIcon from '@mui/icons-material/Search';
@@ -45,6 +47,20 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 import UserAvatar from '../components/UserAvatar';
+import { instrumentOptions, genreOptions } from '../constants/musicOptions';
+
+// Define pulse animation
+const pulse = keyframes`
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+`;
 
 // Memoized MusicianCard component for better performance
 const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
@@ -75,8 +91,6 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
     >
       <CardContent sx={{ 
         flexGrow: 1,
-        filter: !user ? 'blur(3px)' : 'none',
-        transition: 'filter 0.3s ease',
         p: { xs: 2, sm: 3 }
       }}>
         {/* Profile Header */}
@@ -275,22 +289,34 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
 
 // Skeleton loading component
 const MusicianCardSkeleton = () => (
-  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-    <CardContent sx={{ flexGrow: 1 }}>
+  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: { xs: 1.5, sm: 2 }, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+    <CardContent sx={{ flexGrow: 1, p: { xs: 2, sm: 3 } }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-        <Skeleton variant="circular" width={80} height={80} sx={{ mb: 2 }} />
-        <Skeleton variant="text" width={120} height={32} />
-        <Skeleton variant="text" width={100} height={20} />
+        <Skeleton variant="circular" width={80} height={80} sx={{ mb: 2, animation: `${pulse} 1.5s ease-in-out infinite` }} />
+        <Skeleton variant="text" width="80%" height={32} sx={{ animation: `${pulse} 1.5s ease-in-out infinite` }} />
+        <Skeleton variant="text" width="60%" height={20} sx={{ animation: `${pulse} 1.5s ease-in-out infinite` }} />
       </Box>
-      <Skeleton variant="rectangular" height={60} sx={{ mb: 2 }} />
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Skeleton variant="rounded" width={60} height={24} />
-        <Skeleton variant="rounded" width={60} height={24} />
-        <Skeleton variant="rounded" width={60} height={24} />
-      </Box>
+      <Divider sx={{ mb: 2 }} />
+      <Skeleton variant="rectangular" height={60} sx={{ mb: 2, animation: `${pulse} 1.5s ease-in-out infinite` }} />
+      <Grid container spacing={2}>
+        <Grid item xs={6}>
+          <Skeleton variant="text" width="90%" sx={{ animation: `${pulse} 1.5s ease-in-out infinite` }} />
+          <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+            <Skeleton variant="rounded" width={50} height={24} sx={{ animation: `${pulse} 1.5s ease-in-out infinite` }} />
+            <Skeleton variant="rounded" width={50} height={24} sx={{ animation: `${pulse} 1.5s ease-in-out infinite` }} />
+          </Box>
+        </Grid>
+        <Grid item xs={6}>
+          <Skeleton variant="text" width="90%" sx={{ animation: `${pulse} 1.5s ease-in-out infinite` }} />
+          <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+            <Skeleton variant="rounded" width={50} height={24} sx={{ animation: `${pulse} 1.5s ease-in-out infinite` }} />
+            <Skeleton variant="rounded" width={50} height={24} sx={{ animation: `${pulse} 1.5s ease-in-out infinite` }} />
+          </Box>
+        </Grid>
+      </Grid>
     </CardContent>
     <CardActions sx={{ p: 2, pt: 0 }}>
-      <Skeleton variant="rounded" width="100%" height={36} />
+      <Skeleton variant="rounded" width="100%" height={40} sx={{ animation: `${pulse} 1.5s ease-in-out infinite` }} />
     </CardActions>
   </Card>
 );
@@ -323,78 +349,89 @@ const Discover = () => {
   const usersRef = useRef([]);
   const scrollDebounceRef = useRef(null);
   
-  // Filter options
-  const locations = ["London", "Manchester", "Birmingham", "Liverpool", "Edinburgh", "Glasgow"];
-  const instruments = ["Guitar", "Piano", "Drums", "Violin", "Saxophone", "Bass", "Vocals"];
-  const genres = ["Rock", "Jazz", "Classical", "Pop", "Electronic", "Hip Hop", "R&B", "Folk"];
 
+  // Fetch users (server-side filtering) with debounce
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const token = localStorage.getItem('token');
 
+    const t = setTimeout(async () => {
+      try {
+        setLoading(true);
+        const params = {};
+        if (searchTerm.trim()) params.q = searchTerm.trim();
+        if (filters.instrument) params.instruments = filters.instrument;
+        if (filters.genre) params.genres = filters.genre;
+        if (filters.location) params.location = filters.location;
+        if (filters.userType) params.userType = filters.userType;
 
-
-  // Memoized fetch function
-  const fetchUsers = useCallback(async () => {
-    try {
-      setLoading(true);
-      console.log('Fetching musicians from API...');
-      const response = await fetch('/api/profiles');
-      console.log('Fetch response status:', response.status);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const response = await axios.get('/api/profiles', {
+          params,
+          signal: controller.signal,
+          headers: token ? { 'x-auth-token': token } : undefined
+        });
+        if (active) {
+          setUsers(Array.isArray(response.data) ? response.data : []);
+          usersRef.current = Array.isArray(response.data) ? response.data : [];
+          setLoadedCount(Math.min(usersRef.current.length, loadStep));
+        }
+      } catch (err) {
+        if (active && err.name !== 'CanceledError') {
+          console.error('Error fetching users:', err);
+          setError('Failed to fetch users.');
+        }
+      } finally {
+        if (active) setLoading(false);
       }
-      const data = await response.json();
-      console.log('API response:', data);
-      setUsers(data);
-      usersRef.current = Array.isArray(data) ? data : [];
-      setLoadedCount(Math.min(usersRef.current.length, loadStep));
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      setError('Failed to fetch users.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [searchTerm, filters]);
 
   // Predictive backend-driven location suggestions (like Gigs page)
   const [locationOptions, setLocationOptions] = useState([]);
   const [locationQuery, setLocationQuery] = useState('');
   const [loadingLocations, setLoadingLocations] = useState(false);
 
-  // Build location suggestions from user profile locations
   useEffect(() => {
-    setLoadingLocations(true);
-    const t = setTimeout(() => {
-      const counts = new Map();
-      (users || []).forEach((m) => {
-        const raw = (m?.user?.location || '').trim();
-        if (!raw) return;
-        counts.set(raw, (counts.get(raw) || 0) + 1);
-      });
-      let locs = Array.from(counts.entries()).map(([label, count]) => {
-        const parts = String(label).split(',');
-        const primary = (parts[0] || '').trim();
-        const secondary = parts.slice(1).join(',').trim();
-        return {
-          value: label,
-          primary: formatLocationString(primary),
-          secondary: secondary ? formatLocationString(secondary) : '',
-          count,
-        };
-      });
-      const q = (locationQuery || '').toLowerCase();
-      if (q) {
-        locs = locs.filter((o) =>
-          o.value.toLowerCase().includes(q) ||
-          o.primary.toLowerCase().includes(q) ||
-          (o.secondary && o.secondary.toLowerCase().includes(q))
-        );
+    let active = true;
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        setLoadingLocations(true);
+        const res = await axios.get('/api/profiles/locations', {
+          params: { q: locationQuery || '', limit: 12 },
+          signal: controller.signal
+        });
+        if (!active) return;
+        const stats = Array.isArray(res.data?.locationStats) ? res.data.locationStats : [];
+        const locs = stats.map((s) => {
+          const parts = String(s.label || '').split(',');
+          const primary = (parts[0] || '').trim();
+          const secondary = parts.slice(1).join(',').trim();
+          return {
+            value: s.label,
+            primary,
+            secondary,
+            count: s.count || 0
+          };
+        });
+        setLocationOptions(locs);
+      } catch (e) {
+        if (e.name !== 'CanceledError') {
+          // ignore
+        }
+      } finally {
+        if (active) setLoadingLocations(false);
       }
-      // Sort by count desc then alpha
-      locs.sort((a, b) => (b.count - a.count) || a.value.localeCompare(b.value));
-      setLocationOptions(locs.slice(0, 20));
-      setLoadingLocations(false);
-    }, 150);
-    return () => clearTimeout(t);
-  }, [users, locationQuery]);
+    }, 250);
+    return () => { active = false; clearTimeout(t); controller.abort(); };
+  }, [locationQuery]);
 
   // Check link status for a specific user
   const checkLinkStatus = useCallback(async (userId) => {
@@ -435,10 +472,6 @@ const Discover = () => {
       }
     }
   }, [user, token, users, checkLinkStatus]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
 
   useEffect(() => {
     if (users.length > 0) {
@@ -622,15 +655,16 @@ const Discover = () => {
       location: '',
       instrument: '',
       genre: '',
-
+      userType: ''
     });
+    setLocationQuery('');
   }, []);
 
   // Memoized filtered musicians (including current user)
   const filteredUsers = useMemo(() => {
     let result = [...users];
     
-    // Apply search filter
+    // This is now handled by the backend, but we keep it for immediate client-side feedback while backend is fetching
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       result = result.filter(musician =>
@@ -640,80 +674,37 @@ const Discover = () => {
         (musician.user.genres && musician.user.genres.some(genre => genre.toLowerCase().includes(term)))
       );
     }
-    
-    // Apply location filter
-    if (filters.location) {
-      result = result.filter(musician => musician.user.location === filters.location);
-    }
-    
-    // Apply instrument filter
+
     if (filters.instrument) {
-      result = result.filter(musician => 
-        musician.user.instruments && musician.user.instruments.includes(filters.instrument)
-      );
+      result = result.filter(musician => musician.user.instruments && musician.user.instruments.includes(filters.instrument));
     }
-    
-    // Apply genre filter
+
     if (filters.genre) {
-      result = result.filter(musician => 
-        musician.user.genres && musician.user.genres.includes(filters.genre)
-      );
+      result = result.filter(musician => musician.user.genres && musician.user.genres.includes(filters.genre));
     }
-    
-    // Apply user type filter
+
+    if (filters.location) {
+      const location = filters.location.toLowerCase();
+      result = result.filter(musician => musician.user.location && formatLocationString(musician.user.location).toLowerCase().includes(location));
+    }
+
     if (filters.userType) {
-      result = result.filter(musician => musician.userType === filters.userType);
+      result = result.filter(musician => musician.user.userType === filters.userType);
     }
     
     return result;
   }, [users, searchTerm, filters]);
 
-  if (loading) {
-    return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        {/* Header */}
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            p: { xs: 2, sm: 3, md: 4 }, 
-            mb: { xs: 2, sm: 3, md: 4 }, 
-            borderRadius: { xs: 2, sm: 3 },
-            background: 'linear-gradient(to right, #2c5282, #1a365d)',
-            color: 'white'
-          }}
-        >
-          <Typography 
-            variant="h4" 
-            component="h1" 
-            fontWeight="bold"
-            sx={{
-              fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' },
-              lineHeight: { xs: 1.2, sm: 1.3 }
-            }}
-            gutterBottom
-          >
-            Discover Musicians
-          </Typography>
-        </Paper>
-
-
-
-        {/* Skeleton Cards */}
-        <Grid container spacing={3}>
-          {[...Array(6)].map((_, index) => (
-            <Grid item xs={12} sm={6} md={4} key={index}>
-              <MusicianCardSkeleton />
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
-    );
-  }
-
   if (error) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Typography variant="h4" align="center" color="error">{error}</Typography>
+        <Alert severity="error">
+          <Typography variant="h6">Error</Typography>
+          <Typography>{error}</Typography>
+          <Button onClick={() => window.location.reload()} sx={{ mt: 2 }} variant="outlined" color="error">
+            Refresh Page
+          </Button>
+        </Alert>
       </Container>
     );
   }
@@ -878,20 +869,39 @@ const Discover = () => {
             <Grid item xs={12} sm={6} md={3}>
               <Autocomplete
                 options={locationOptions}
-                value={filters.location || ''}
-                onChange={(_e, v) => handleFilterChange('location', (v && (v.value || v)) || '')}
-                freeSolo
-                getOptionLabel={(opt) => (typeof opt === 'string' ? opt : (opt?.value || ''))}
+                autoHighlight
+                loading={loadingLocations}
+                filterOptions={(x) => x} // use backend suggestions as-is
+                getOptionLabel={(opt) => (opt?.value || '')}
+                isOptionEqualToValue={(opt, val) => (opt?.value || '') === (val?.value || '')}
+                value={filters.location ? {
+                  value: filters.location,
+                  primary: (filters.location.split(',')[0] || '').trim(),
+                  secondary: filters.location.split(',').slice(1).join(',').trim(),
+                  count: 0
+                } : null}
+                onChange={(_e, v) => {
+                  if (v && v.value) {
+                    handleFilterChange('location', v.value);
+                    setLocationQuery(v.value);
+                  } else {
+                    handleFilterChange('location', '');
+                    setLocationQuery('');
+                  }
+                }}
+                inputValue={locationQuery}
+                onInputChange={(_e, v) => setLocationQuery(v || '')}
                 renderOption={(props, option) => (
-                  <li {...props} key={`${option.value}-${option.count}`}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LocationOnIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                      <Box>
-                        <Typography variant="body2">{option.primary}</Typography>
-                        {option.secondary && (
-                          <Typography variant="caption" color="text.secondary">{option.secondary}</Typography>
-                        )}
+                  <li {...props} key={option.value}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                      <Box sx={{ fontSize: 14, fontWeight: 500 }}>
+                        {option.primary}{option.count ? ` (${option.count})` : ''}
                       </Box>
+                      {option.secondary && (
+                        <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
+                          {option.secondary}
+                        </Box>
+                      )}
                     </Box>
                   </li>
                 )}
@@ -899,18 +909,14 @@ const Discover = () => {
                   <TextField
                     {...params}
                     label="Location"
-                    placeholder="All Locations"
-                    onChange={(e) => setLocationQuery(e.target.value)}
+                    placeholder="Search locations"
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
                         <>
-                          {loadingLocations ? <Skeleton variant="circular" width={16} height={16} /> : null}
-                          {filters.location && (
-                            <IconButton size="small" onClick={() => handleFilterChange('location', '')}>
-                              <ClearIcon fontSize="small" />
-                            </IconButton>
-                          )}
+                          {loadingLocations ? (
+                            <CircularProgress color="inherit" size={16} />
+                          ) : null}
                           {params.InputProps.endAdornment}
                         </>
                       )
@@ -921,39 +927,33 @@ const Discover = () => {
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>
-               <FormControl fullWidth>
-                 <InputLabel>Instrument</InputLabel>
-                 <Select
-                   value={filters.instrument}
-                   label="Instrument"
-                   onChange={(e) => handleFilterChange('instrument', e.target.value)}
-                 >
-                  <MenuItem value="">All Instruments</MenuItem>
-                  {instruments.map((instrument) => (
-                    <MenuItem key={instrument} value={instrument}>
-                      {instrument}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+               <Autocomplete
+                  options={instrumentOptions}
+                  value={filters.instrument || ''}
+                  onChange={(_e, v) => handleFilterChange('instrument', v || '')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Instrument"
+                      placeholder="Any Instrument"
+                    />
+                  )}
+                />
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>
-               <FormControl fullWidth>
-                 <InputLabel>Genre</InputLabel>
-                 <Select
-                   value={filters.genre}
-                   label="Genre"
-                   onChange={(e) => handleFilterChange('genre', e.target.value)}
-                 >
-                  <MenuItem value="">All Genres</MenuItem>
-                  {genres.map((genre) => (
-                    <MenuItem key={genre} value={genre}>
-                      {genre}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+               <Autocomplete
+                  options={genreOptions}
+                  value={filters.genre || ''}
+                  onChange={(_e, v) => handleFilterChange('genre', v || '')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Genre"
+                      placeholder="Any Genre"
+                    />
+                  )}
+                />
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>
@@ -975,37 +975,48 @@ const Discover = () => {
         </Paper>
       )}
 
-      {/* Users Grid */}
-      <Grid container spacing={3}>
-        {filteredUsers.slice(0, loadedCount).map((musician) => (
-          <Grid item xs={12} sm={6} md={4} key={musician._id}>
-            <MusicianCard 
-              musician={musician} 
-              user={user} 
-              linkStatus={linkStatuses[musician.user._id] || 'none'}
-              onLinkAction={handleLinkAction}
-            />
+      {loading ? (
+        <Grid container spacing={3}>
+          {[...Array(6)].map((_, index) => (
+            <Grid item xs={12} sm={6} md={4} key={index}>
+              <MusicianCardSkeleton />
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <>
+          <Grid container spacing={3}>
+            {filteredUsers.slice(0, loadedCount).map((musician) => (
+              <Grid item xs={12} sm={6} md={4} key={musician._id}>
+                <MusicianCard 
+                  musician={musician} 
+                  user={user} 
+                  linkStatus={linkStatuses[musician.user._id] || 'none'}
+                  onLinkAction={handleLinkAction}
+                />
+              </Grid>
+            ))}
           </Grid>
-        ))}
-      </Grid>
-      {/* Infinite scroll sentinel + spinner */}
-      <Box ref={sentinelRef} sx={{ height: 1 }} />
-      {loadingMore && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-          <Skeleton variant="circular" width={24} height={24} />
-        </Box>
-      )}
+          {/* Infinite scroll sentinel + spinner */}
+          <Box ref={sentinelRef} sx={{ height: 1 }} />
+          {loadingMore && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+              <Skeleton variant="circular" width={24} height={24} />
+            </Box>
+          )}
 
-      {filteredUsers.length === 0 && !loading && !error && (
-        <Paper elevation={1} sx={{ p: 4, textAlign: 'center', mt: 4 }}>
-          <MusicNoteIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            No users found
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Try adjusting your search terms or browse all available users.
-          </Typography>
-        </Paper>
+          {filteredUsers.length === 0 && !loading && !error && (
+            <Paper elevation={1} sx={{ p: 4, textAlign: 'center', mt: 4 }}>
+              <MusicNoteIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No users found
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Try adjusting your search terms or browse all available users.
+              </Typography>
+            </Paper>
+          )}
+        </>
       )}
 
       {/* Confirmation Dialog */}

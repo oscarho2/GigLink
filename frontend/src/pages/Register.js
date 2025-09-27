@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
@@ -19,9 +19,11 @@ import FormLabel from '@mui/material/FormLabel';
 import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Radio from '@mui/material/Radio';
+import Divider from '@mui/material/Divider';
 import AuthContext from '../context/AuthContext';
 import googleAuthService from '../utils/googleAuth';
 import { useAuth } from '../context/AuthContext';
+import { ensureInvisibleTurnstile, executeTurnstile, resetTurnstile } from '../utils/turnstile';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -36,9 +38,12 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [captchaError, setCaptchaError] = useState(null);
+  const turnstileReadyRef = useRef(false);
   const { register, isAuthenticated } = useContext(AuthContext);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY;
 
   const handleGoogleSignIn = async () => {
     try {
@@ -66,6 +71,23 @@ const Register = () => {
     }
   }, [isAuthenticated, navigate]);
 
+  // Prepare invisible Cloudflare Turnstile widget under Confirm Password
+  useEffect(() => {
+    const setup = async () => {
+      if (!TURNSTILE_SITE_KEY) return;
+      try {
+        await ensureInvisibleTurnstile({
+          containerId: 'cf-turnstile-container',
+          siteKey: TURNSTILE_SITE_KEY,
+        });
+        turnstileReadyRef.current = true;
+      } catch (e) {
+        console.warn('Turnstile load failed:', e);
+      }
+    };
+    setup();
+  }, [TURNSTILE_SITE_KEY]);
+
   const { name, email, password, password2 } = formData;
 
   const onChange = (e) => {
@@ -84,6 +106,7 @@ const Register = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    setCaptchaError(null);
     
     // Client-side validation
     if (name.trim().length < 2) {
@@ -105,15 +128,28 @@ const Register = () => {
       setError('Passwords do not match');
       return;
     }
+    // Execute invisible Turnstile; it only shows a challenge if needed
+    let turnstileToken = null;
+    if (TURNSTILE_SITE_KEY && turnstileReadyRef.current) {
+      turnstileToken = await executeTurnstile();
+      if (!turnstileToken) {
+        setCaptchaError('Please complete the challenge to continue');
+        return;
+      }
+    }
 
-    const result = await register({ name, email, password });
+    const payload = { name, email, password, turnstileToken };
+    const result = await register(payload);
      if (result && result.success) {
        setError(null);
        setSuccess(result.message || 'Registration successful! Let’s complete your profile.');
        // User is auto-signed-in by AuthContext.register; go straight to Profile Setup
        navigate('/profile-setup');
-     } else if (result.error) {
-       setError(result.error[0].msg);
+     } else if (result?.captchaRequired) {
+       setCaptchaError('Please complete the challenge to continue');
+       resetTurnstile();
+     } else if (result?.error) {
+       setError(result.error[0]?.msg || 'Registration failed');
      }
   };
 
@@ -285,6 +321,15 @@ const Register = () => {
                 }}
               />
             </Grid>
+            <Grid item xs={12}>
+              {captchaError && (
+                <Alert severity="warning" sx={{ mb: 1 }}>{captchaError}</Alert>
+              )}
+              <Box sx={{ mt: 1 }}>
+                {/* Invisible Turnstile mounts here and only shows if needed */}
+                <div id="cf-turnstile-container" />
+              </Box>
+            </Grid>
           </Grid>
           
 
@@ -305,6 +350,8 @@ const Register = () => {
           >
             Sign Up
           </Button>
+
+          <Divider sx={{ my: 2 }}>OR</Divider>
           
           <Button
              fullWidth
@@ -348,7 +395,7 @@ const Register = () => {
                lineHeight: 1.4
              }}
            >
-             By signing up, you agree to the{' '}
+             By signing up, you agree to the Giglink{' '}
              <Link 
                href="/terms-of-service" 
                target="_blank" 
@@ -357,8 +404,7 @@ const Register = () => {
                  color: 'primary.main',
                  textDecoration: 'underline',
                  '&:hover': { textDecoration: 'none' }
-               }}
-             >
+               }}>
                Terms of Service
              </Link>
              {', '}
