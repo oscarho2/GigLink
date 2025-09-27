@@ -111,7 +111,9 @@ const Gigs = () => {
         if (filters.instrument) params.instruments = filters.instrument;
         if (filters.genre) params.genres = filters.genre;
         if (filters.location) params.location = filters.location;
+        const today = new Date().toISOString().slice(0, 10);
         if (filters.date) params.dateFrom = filters.date; // YYYY-MM-DD
+        else params.dateFrom = today;
         if (filters.dateTo) params.dateTo = filters.dateTo;
 
         const response = await axios.get('/api/gigs', {
