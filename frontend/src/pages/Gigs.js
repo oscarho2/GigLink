@@ -142,7 +142,7 @@ const Gigs = () => {
       clearTimeout(t);
       controller.abort();
     };
-  }, [searchTerm, filters]);
+  }, [searchTerm, filters, showPastGigs]);
 
   // Predictive backend-driven location suggestions (no GeoNames)
   useEffect(() => {
@@ -755,10 +755,6 @@ dateTo: '',
                 />
             </Grid>
             <Grid item xs={12} sm={6} md={6} container justifyContent="flex-end" alignItems="flex-end">
-              <FormControlLabel
-                control={<Switch checked={showPastGigs} onChange={(e) => setShowPastGigs(e.target.checked)} name="showPastGigs" />}
-                label="Show Past Gigs"
-              />
               <FormControl fullWidth variant="outlined">
                 <InputLabel>Sort By</InputLabel>
                 <Select
@@ -774,6 +770,10 @@ dateTo: '',
                   <MenuItem value="postDateAsc">Post Date (Oldest)</MenuItem>
                 </Select>
               </FormControl>
+              <FormControlLabel
+                control={<Switch checked={showPastGigs} onChange={(e) => setShowPastGigs(e.target.checked)} name="showPastGigs" />}
+                label="Show Past Gigs"
+              />
             </Grid>
           </Grid>
         </Paper>
