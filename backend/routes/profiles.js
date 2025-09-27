@@ -52,19 +52,31 @@ router.get('/me', auth, async (req, res) => {
 // @access  Private
 router.post('/', auth, async (req, res) => {
   try {
+    const { location, country, city, ...profileFields } = req.body;
+
+    // Find user and update location data
+    let user = await User.findById(req.user.id);
+    if (user) {
+      if (location !== undefined) {
+        user.location = normalizeLocation(location);
+      }
+      if (country !== undefined) {
+        user.locationData.country = country;
+      }
+      if (city !== undefined) {
+        user.locationData.city = city;
+      }
+      await user.save();
+    }
+
     // Find profile
     let profile = await Profile.findOne({ user: req.user.id });
     
     // If profile exists, update it
     if (profile) {
-      // Normalize location string if provided on profile body (though location lives on user)
-      if (req.body && typeof req.body.location === 'string') {
-        req.body.location = normalizeLocation(req.body.location);
-      }
-
       profile = await Profile.findOneAndUpdate(
         { user: req.user.id },
-        { $set: req.body },
+        { $set: profileFields },
         { new: true }
       );
       
@@ -74,7 +86,7 @@ router.post('/', auth, async (req, res) => {
     // Create new profile
     profile = new Profile({
       user: req.user.id,
-      ...req.body
+      ...profileFields
     });
     
     await profile.save();
@@ -91,7 +103,7 @@ router.post('/', auth, async (req, res) => {
 router.put('/me', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { bio, skills, hourlyRate, availability, location, instruments, genres, videos } = req.body;
+    const { bio, skills, hourlyRate, availability, location, country, city, instruments, genres, videos } = req.body;
     
     // Update user fields if provided
     const userUpdateFields = {};
@@ -101,6 +113,16 @@ router.put('/me', auth, async (req, res) => {
     if (instruments) userUpdateFields.instruments = instruments;
     if (genres) userUpdateFields.genres = genres;
     if (availability !== undefined) userUpdateFields.isAvailableForGigs = availability === 'Available';
+
+    // Update locationData fields
+    if (country !== undefined || city !== undefined) {
+      const user = await User.findById(userId);
+      if (user) {
+        if (country !== undefined) user.locationData.country = country;
+        if (city !== undefined) user.locationData.city = city;
+        await user.save();
+      }
+    }
     
     // Update user document if there are user fields to update
     if (Object.keys(userUpdateFields).length > 0) {
@@ -172,12 +194,29 @@ router.put('/me', auth, async (req, res) => {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const dbProfiles = await Profile.find().populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
+    const { country, city } = req.query;
+    const userQuery = {};
+
+    if (country) {
+      userQuery['locationData.country'] = new RegExp(country, 'i');
+    }
+    if (city) {
+      userQuery['locationData.city'] = new RegExp(city, 'i');
+    }
+
+    const dbProfiles = await Profile.find().populate({
+      path: 'user',
+      select: ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician', 'locationData'],
+      match: userQuery
+    });
+
+    // Filter out profiles where the user didn't match the location criteria
+    const filteredProfiles = dbProfiles.filter(profile => profile.user !== null);
     
     // Return all users (musicians and others)
     
     // Transform database profiles to match frontend expectations
-    const transformedProfiles = dbProfiles.map(profile => ({
+    const transformedProfiles = filteredProfiles.map(profile => ({
       _id: profile._id,
       user: {
         _id: profile.user._id,
@@ -186,7 +225,8 @@ router.get('/', async (req, res) => {
         location: profile.user.location || 'Location not specified',
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician
+        isMusician: profile.user.isMusician,
+        locationData: profile.user.locationData || { country: '', city: '' }
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
@@ -499,6 +539,87 @@ router.put('/avatar', auth, upload.single('avatar'), async (req, res) => {
     });
   } catch (err) {
     console.error(err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET api/profiles/countries
+// @desc    Predictive country suggestions from existing user profiles
+// @access  Public
+router.get('/countries', async (req, res) => {
+  try {
+    const { q = '', limit = 10 } = req.query;
+    const numericLimit = Math.min(parseInt(limit) || 10, 50);
+
+    const rx = q && q.trim()
+      ? new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      : null;
+
+    const pipeline = [
+      { $match: { 'locationData.country': { $exists: true, $ne: '' } } },
+      ...(rx ? [{ $match: { 'locationData.country': { $regex: rx } } }] : []),
+      {
+        $group: {
+          _id: { $toLower: '$locationData.country' },
+          count: { $sum: 1 },
+          label: { $first: '$locationData.country' }
+        }
+      },
+      { $sort: { count: -1, label: 1 } },
+      { $limit: numericLimit },
+      { $project: { _id: 0, label: 1, count: 1 } }
+    ];
+
+    const agg = await User.aggregate(pipeline);
+    const results = agg.map(item => ({ label: item.label, count: item.count }));
+
+    res.json({ countryStats: results });
+  } catch (err) {
+    console.error('Error fetching country suggestions:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET api/profiles/cities
+// @desc    Predictive city suggestions from existing user profiles, optionally filtered by country
+// @access  Public
+router.get('/cities', async (req, res) => {
+  try {
+    const { q = '', country = '', limit = 10 } = req.query;
+    const numericLimit = Math.min(parseInt(limit) || 10, 50);
+
+    const rx = q && q.trim()
+      ? new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      : null;
+
+    const matchConditions = { 'locationData.city': { $exists: true, $ne: '' } };
+    if (country) {
+      matchConditions['locationData.country'] = new RegExp(country, 'i');
+    }
+    if (rx) {
+      matchConditions['locationData.city'] = rx;
+    }
+
+    const pipeline = [
+      { $match: matchConditions },
+      {
+        $group: {
+          _id: { $toLower: '$locationData.city' },
+          count: { $sum: 1 },
+          label: { $first: '$locationData.city' }
+        }
+      },
+      { $sort: { count: -1, label: 1 } },
+      { $limit: numericLimit },
+      { $project: { _id: 0, label: 1, count: 1 } }
+    ];
+
+    const agg = await User.aggregate(pipeline);
+    const results = agg.map(item => ({ label: item.label, count: item.count }));
+
+    res.json({ cityStats: results });
+  } catch (err) {
+    console.error('Error fetching city suggestions:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

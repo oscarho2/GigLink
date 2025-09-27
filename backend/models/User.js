@@ -29,6 +29,16 @@ const UserSchema = new mongoose.Schema({
   location: {
     type: String
   },
+  locationData: {
+    country: {
+      type: String,
+      default: ''
+    },
+    city: {
+      type: String,
+      default: ''
+    }
+  },
   instruments: [{
     type: String
   }],

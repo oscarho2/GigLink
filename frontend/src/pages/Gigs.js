@@ -73,6 +73,8 @@ const Gigs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     location: '',
+    country: '',
+    city: '',
     minFee: 0,
     maxFee: Infinity,
     date: '',
@@ -87,6 +89,13 @@ const Gigs = () => {
   const [locationQuery, setLocationQuery] = useState('');
   const [loadingLocations, setLoadingLocations] = useState(false);
 
+  const [countryOptions, setCountryOptions] = useState([]);
+  const [countryQuery, setCountryQuery] = useState('');
+  const [loadingCountries, setLoadingCountries] = useState(false);
+
+  const [cityOptions, setCityOptions] = useState([]);
+  const [cityQuery, setCityQuery] = useState('');
+  const [loadingCities, setLoadingCities] = useState(false);
 
   // Helpers
   const getApplicantCount = (gig) => (gig?.applicantCount ?? (Array.isArray(gig?.applicants) ? gig.applicants.length : 0));
@@ -114,6 +123,8 @@ const Gigs = () => {
         if (filters.instrument) params.instruments = filters.instrument;
         if (filters.genre) params.genres = filters.genre;
         if (filters.location) params.location = filters.location;
+        if (filters.country) params.country = filters.country;
+        if (filters.city) params.city = filters.city;
         const today = new Date().toISOString().slice(0, 10);
         if (filters.date) {
           params.dateFrom = filters.date; // YYYY-MM-DD
@@ -179,6 +190,56 @@ const Gigs = () => {
     }, 250);
     return () => { active = false; clearTimeout(t); controller.abort(); };
   }, [locationQuery]);
+
+  // Predictive backend-driven country suggestions
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        setLoadingCountries(true);
+        const res = await axios.get('/api/gigs/countries', {
+          params: { q: countryQuery || '', limit: 12 },
+          signal: controller.signal
+        });
+        if (!active) return;
+        const countries = Array.isArray(res.data) ? res.data : [];
+        setCountryOptions(countries.map(c => ({ value: c, label: c })));
+      } catch (e) {
+        if (e.name !== 'CanceledError') {
+          // ignore
+        }
+      } finally {
+        if (active) setLoadingCountries(false);
+      }
+    }, 250);
+    return () => { active = false; clearTimeout(t); controller.abort(); };
+  }, [countryQuery]);
+
+  // Predictive backend-driven city suggestions
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        setLoadingCities(true);
+        const res = await axios.get('/api/gigs/cities', {
+          params: { q: cityQuery || '', country: filters.country || '', limit: 12 },
+          signal: controller.signal
+        });
+        if (!active) return;
+        const cities = Array.isArray(res.data) ? res.data : [];
+        setCityOptions(cities.map(c => ({ value: c, label: c })));
+      } catch (e) {
+        if (e.name !== 'CanceledError') {
+          // ignore
+        }
+      } finally {
+        if (active) setLoadingCities(false);
+      }
+    }, 250);
+    return () => { active = false; clearTimeout(t); controller.abort(); };
+  }, [cityQuery, filters.country]);
 
   // Search handler
   const handleSearch = useCallback((event) => {
@@ -289,14 +350,18 @@ const Gigs = () => {
   const resetFilters = () => {
     setFilters({
       location: '',
+      country: '',
+      city: '',
       minFee: 0,
       maxFee: Infinity,
       date: '',
-dateTo: '',
+      dateTo: '',
       instrument: '',
       genre: ''
     });
     setLocationQuery('');
+    setCountryQuery('');
+    setCityQuery('');
   };
 
   return (
@@ -466,6 +531,82 @@ dateTo: '',
           </Box>
           
           <Grid container spacing={{ xs: 2, sm: 3 }}>
+              {/* Country Filter */}
+              <Grid item xs={12} sm={6} md={4}>
+                <Autocomplete
+                  options={countryOptions}
+                  autoHighlight
+                  loading={loadingCountries}
+                  filterOptions={(x) => x} // use backend suggestions as-is
+                  getOptionLabel={(opt) => (opt?.label || '')}
+                  isOptionEqualToValue={(opt, val) => (opt?.value || '') === (val?.value || '')}
+                  value={filters.country ? { value: filters.country, label: filters.country } : null}
+                  onChange={(_e, v) => {
+                    handleFilterChange('country', v?.value || '');
+                    setCountryQuery(v?.value || '');
+                    // Reset city when country changes
+                    handleFilterChange('city', '');
+                    setCityQuery('');
+                  }}
+                  onInputChange={(_e, newInputValue) => setCountryQuery(newInputValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Country"
+                      placeholder="Search countries"
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {loadingCountries ? (
+                              <CircularProgress color="inherit" size={16} />
+                            ) : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        )
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* City Filter */}
+              <Grid item xs={12} sm={6} md={4}>
+                <Autocomplete
+                  options={cityOptions}
+                  autoHighlight
+                  loading={loadingCities}
+                  filterOptions={(x) => x} // use backend suggestions as-is
+                  getOptionLabel={(opt) => (opt?.label || '')}
+                  isOptionEqualToValue={(opt, val) => (opt?.value || '') === (val?.value || '')}
+                  value={filters.city ? { value: filters.city, label: filters.city } : null}
+                  onChange={(_e, v) => {
+                    handleFilterChange('city', v?.value || '');
+                    setCityQuery(v?.value || '');
+                  }}
+                  onInputChange={(_e, newInputValue) => setCityQuery(newInputValue)}
+                  disabled={!filters.country} // Disable city filter if no country is selected
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="City"
+                      placeholder="Search cities"
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {loadingCities ? (
+                              <CircularProgress color="inherit" size={16} />
+                            ) : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        )
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+
               {/* Location Filter */}
               <Grid item xs={12} sm={6} md={4}>
                 <Autocomplete
@@ -485,27 +626,9 @@ dateTo: '',
                     if (v && v.value) {
                       handleFilterChange('location', v.value);
                       setLocationQuery(v.value);
-                    } else {
-                      handleFilterChange('location', '');
-                      setLocationQuery('');
                     }
                   }}
-                  inputValue={locationQuery}
-                  onInputChange={(_e, v) => setLocationQuery(v || '')}
-                  renderOption={(props, option) => (
-                    <li {...props} key={option.value}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                        <Box sx={{ fontSize: 14, fontWeight: 500 }}>
-                          {option.primary}{option.count ? ` (${option.count})` : ''}
-                        </Box>
-                        {option.secondary && (
-                          <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
-                            {option.secondary}
-                          </Box>
-                        )}
-                      </Box>
-                    </li>
-                  )}
+                  onInputChange={(_e, newInputValue) => setLocationQuery(newInputValue)}
                   renderInput={(params) => (
                     <TextField
                       {...params}

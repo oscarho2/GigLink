@@ -22,6 +22,10 @@ const GigSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  locationData: {
+    country: { type: String },
+    city: { type: String }
+  },
   date: {
     type: String,
     required: true
