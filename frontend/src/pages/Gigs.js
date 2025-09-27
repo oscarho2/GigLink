@@ -754,8 +754,8 @@ dateTo: '',
                   onChange={(e) => setSort(e.target.value)}
                   label="Sort By"
                 >
-                  <MenuItem value="dateAsc">Date (Earliest)</MenuItem>
-                  <MenuItem value="dateDesc">Date (Latest)</MenuItem>
+                  <MenuItem value="dateAsc">Gig Date (Earliest)</MenuItem>
+<MenuItem value="dateDesc">Gig Date (Latest)</MenuItem>
                   <MenuItem value="feeAsc">Fee (Low-High)</MenuItem>
                   <MenuItem value="feeDesc">Fee (High-Low)</MenuItem>
                   <MenuItem value="postDateDesc">Post Date (Latest)</MenuItem>
