@@ -138,6 +138,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Login with provider-issued JWT (e.g., Google)
+  const loginWithToken = (newToken, newUser = null) => {
+    try {
+      localStorage.removeItem('hasLoggedOut'); // Clear logout flag on provider login
+      setHasLoggedOut(false);
+      setAuthToken(newToken);
+      setToken(newToken);
+      setIsAuthenticated(true);
+      if (newUser) {
+        setUser(newUser);
+      }
+      return true;
+    } catch (err) {
+      console.error('loginWithToken error:', err);
+      return false;
+    }
+  };
+
   // Logout user
   const logout = () => {
     setAuthToken(null); // This will remove token from localStorage and axios headers
@@ -164,6 +182,7 @@ export const AuthProvider = ({ children }) => {
         user,
         register,
         login,
+        loginWithToken,
         logout,
         updateAvatar
       }}

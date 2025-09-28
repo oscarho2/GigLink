@@ -27,7 +27,7 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const { login, isAuthenticated } = useContext(AuthContext);
+  const { login, loginWithToken, isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -36,9 +36,14 @@ const Login = () => {
       setIsGoogleLoading(true);
       setError(null);
       const result = await googleAuthService.signInWithGoogle();
-      
-      if (result.success) {
-        await login(result.token);
+
+      if (result.success && result.token) {
+        // Use provider-issued JWT from backend to set auth state
+        const ok = loginWithToken(result.token, result.user);
+        if (!ok) {
+          setError('Failed to establish session from Google token');
+          return;
+        }
         navigate('/dashboard');
       } else {
         setError(result.error || 'Google sign-in failed');

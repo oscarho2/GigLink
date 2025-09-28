@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 // Google OAuth utility for handling authentication
 
 class GoogleAuthService {
@@ -106,6 +108,38 @@ class GoogleAuthService {
     }
     const authInstance = this.gapi.auth2.getAuthInstance();
     return authInstance.isSignedIn.get();
+  }
+
+  // Complete Google sign-in: get Google ID token, then authenticate with backend
+  async signInWithGoogle() {
+    try {
+      // Ensure Google SDK is initialized and get Google user + idToken
+      const signInRes = await this.signIn();
+      if (!signInRes.success) {
+        return signInRes;
+      }
+
+      const { user } = signInRes;
+      const payload = {
+        idToken: user.idToken,
+        email: user.email,
+        name: user.name,
+        imageUrl: user.imageUrl
+      };
+
+      // Exchange Google ID token for app JWT
+      const res = await axios.post('/api/auth/google', payload);
+
+      return {
+        success: true,
+        token: res.data?.token,
+        user: res.data?.user
+      };
+    } catch (err) {
+      console.error('Google OAuth server auth failed:', err);
+      const msg = err?.response?.data?.message || 'Server error during Google authentication';
+      return { success: false, error: msg };
+    }
   }
 }
 
