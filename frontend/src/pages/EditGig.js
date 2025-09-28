@@ -324,20 +324,11 @@ function EditGig() {
                   setFormData(prev => ({ ...prev, location: loc || '' }));
                   setCurrencyFromLocationString(loc);
                 }}
-                label="Venue"
-                placeholder="Search venues"
+                label="Venue/Location"
+                placeholder="Search venues or locations"
               />
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Location"
-                value={formData.location}
-                InputProps={{ readOnly: true }}
-                placeholder="Auto-filled from venue"
-                variant="outlined"
-              />
-            </Grid>
+
             
             {/* Schedules Section */}
             <Grid item xs={12}>

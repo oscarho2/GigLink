@@ -3,7 +3,7 @@ import { Container, Typography, Box, Paper, TextField, Button, Grid, Autocomplet
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
+import LocationAutocomplete from '../components/LocationAutocomplete';
 import { formatLocationString } from '../utils/text';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
@@ -147,15 +147,12 @@ const ProfileSetup = () => {
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <GeoNamesAutocomplete
+              <LocationAutocomplete
                 value={formData.location}
                 onChange={(location) => {
                   setFormData({ ...formData, location });
                 }}
-                placeholder="Enter your location"
-                style={{
-                  width: '100%'
-                }}
+                placeholder="Enter your city"
               />
             </Grid>
             <Grid item xs={12}>
