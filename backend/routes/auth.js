@@ -266,11 +266,10 @@ router.post(
       const normalizedEmail = email.toLowerCase().trim();
       const user = await User.findOne({ email: normalizedEmail });
 
-      // Always return success message for security (don't reveal if email exists)
       if (!user) {
-        return res.json({ 
-          success: true,
-          message: 'If an account with that email exists, a password reset link has been sent.' 
+        return res.status(404).json({ 
+          success: false,
+          message: 'User not found' 
         });
       }
 
@@ -289,7 +288,7 @@ router.post(
         
         res.json({ 
           success: true,
-          message: 'If an account with that email exists, a password reset link has been sent.' 
+          message: 'A password reset link has been sent to your email.' 
         });
       } catch (emailErr) {
         console.error('Error sending password reset email:', emailErr);
