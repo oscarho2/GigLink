@@ -70,6 +70,7 @@ const Profile = () => {
           avatar: profileData.user?.avatar || '',
           bio: (profileData.bio && profileData.bio !== 'No bio available') ? profileData.bio : '',
           location: profileData.user?.location || '',
+          locationData: profileData.user?.locationData,
           instruments: profileData.user?.instruments || profileData.skills?.filter(skill => ['Piano', 'Guitar', 'Vocals', 'Drums', 'Bass', 'Violin', 'Saxophone'].includes(skill)) || [],
           genres: profileData.user?.genres || [],
           photos: profileData.photos || [],
@@ -484,17 +485,28 @@ const Profile = () => {
               {profile.name}
             </Typography>
             {profile.location && (
-              <Typography 
-                variant="body2" 
-                color="textSecondary" 
-                sx={{ 
-                  mb: { xs: 1.5, sm: 2 },
-                  fontSize: { xs: '0.875rem', sm: '0.875rem' },
-                  textAlign: 'center'
-                }}
-              >
-                {formatLocationString(profile.location)}
-              </Typography>
+              profile.locationData && profile.locationData.city ? (
+                <Box sx={{ textAlign: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                  <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' }, fontWeight: 'bold' }}>
+                    {profile.locationData.city}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
+                    {[profile.locationData.region, profile.locationData.country].filter(Boolean).join(', ')}
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography 
+                  variant="body2" 
+                  color="textSecondary" 
+                  sx={{ 
+                    mb: { xs: 1.5, sm: 2 },
+                    fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                    textAlign: 'center'
+                  }}
+                >
+                  {formatLocationString(profile.location)}
+                </Typography>
+              )
             )}
 
             {isOwnProfile ? (

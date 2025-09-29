@@ -12,7 +12,7 @@ import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
 
 const EditProfile = () => {
-  const { user, token, isAuthenticated, loading: authLoading, updateAvatar } = useAuth();
+  const { user, token, isAuthenticated, loading: authLoading, updateAvatar, updateUser } = useAuth();
   const navigate = useNavigate();
 
   // Redirect to login if not authenticated
@@ -98,11 +98,18 @@ const EditProfile = () => {
         // Clean location: treat placeholder values as empty
         const rawLocation = (profileData.user?.location || '').trim();
         const cleanedLocation = rawLocation.toLowerCase() === 'location not specified' ? '' : rawLocation;
+        
+        console.log('🔍 DEBUG: Setting form data with:', {
+          isMusician: profileData.user?.isMusician,
+          userIsMusician: user?.isMusician,
+          finalIsMusician: profileData.user?.isMusician || user?.isMusician || 'no'
+        });
+        
         setFormData({
           name: profileData.user?.name || user?.name || '',
           location: cleanedLocation,
           bio: (profileData.bio && profileData.bio.trim() && profileData.bio !== 'No bio available') ? profileData.bio : '',
-          isMusician: profileData.user?.isMusician || user?.isMusician || (normalizedInstruments.length > 0 || normalizedGenres.length > 0 ? 'yes' : 'no'),
+          isMusician: profileData.user?.isMusician || user?.isMusician || 'no',
           instruments: normalizedInstruments,
           genres: normalizedGenres,
     
@@ -122,7 +129,7 @@ const EditProfile = () => {
           name: user?.name || '',
           location: cleanedUserLoc,
           bio: '',
-          isMusician: user?.isMusician || (fallbackInstruments.length > 0 || fallbackGenres.length > 0 ? 'yes' : 'no'),
+          isMusician: user?.isMusician || 'no',
           instruments: fallbackInstruments,
           genres: fallbackGenres,
     
@@ -594,8 +601,6 @@ const EditProfile = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    console.log('handleSubmit called');
-    console.log('Form data before transformation:', formData);
     
     // Validation: If user is a musician, they must select at least one instrument and one genre
     if (formData.isMusician === 'yes') {
@@ -641,11 +646,37 @@ const EditProfile = () => {
       
       if (response.data) {
         setSuccess('Profile updated successfully!');
-        console.log('Profile updated:', response.data);
-        // Redirect to user's specific profile page after 2 seconds
+        console.log('📨 Profile update response:', response.data);
+        console.log('🎵 Response isMusician:', response.data.user?.isMusician);
+        
+        // Update user in AuthContext
+        if (updateUser) {
+          console.log('🔄 Updating AuthContext with:', {
+            isMusician: response.data.user.isMusician
+          });
+          updateUser({
+            name: response.data.user.name,
+            isMusician: response.data.user.isMusician,
+            instruments: response.data.user.instruments,
+            genres: response.data.user.genres,
+            bio: response.data.bio,
+            location: response.data.user.location
+          });
+        }
+
+        // Don't redirect immediately - let user see the success message
+        console.log('✅ Profile update completed successfully');
+        
+        // Update the local form data to reflect the response
+        setFormData(prev => ({
+          ...prev,
+          isMusician: response.data.user.isMusician
+        }));
+        
+        // Redirect to user's specific profile page after 3 seconds
         setTimeout(() => {
           navigate(`/profile/${user._id || user.id}`);
-        }, 2000);
+        }, 3000);
       }
     } catch (error) {
       console.error('Error updating profile:', error);

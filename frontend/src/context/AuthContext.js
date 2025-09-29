@@ -153,6 +153,10 @@ export const AuthProvider = ({ children }) => {
     setUser(prev => prev ? { ...prev, avatar: avatarUrl } : prev);
   };
 
+  const updateUser = (newUserData) => {
+    setUser(prev => prev ? { ...prev, ...newUserData } : prev);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -164,7 +168,8 @@ export const AuthProvider = ({ children }) => {
         login,
         loginWithToken,
         logout,
-        updateAvatar
+        updateAvatar,
+        updateUser
       }}
     >
       {children}

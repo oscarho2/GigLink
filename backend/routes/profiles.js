@@ -13,7 +13,7 @@ const fs = require('fs');
 // @access  Private
 router.get('/me', auth, async (req, res) => {
   try {
-    const profile = await Profile.findOne({ user: req.user.id }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
+    const profile = await Profile.findOne({ user: req.user.id }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician', 'locationData']);
     
     if (!profile) {
       return res.status(400).json({ msg: 'Profile not found for this user' });
@@ -27,9 +27,10 @@ router.get('/me', auth, async (req, res) => {
         name: profile.user.name,
         avatar: profile.user.avatar || '',
         location: profile.user.location || 'Location not specified',
+        locationData: profile.user.locationData,
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician || 'no'
+        isMusician: profile.user.isMusician
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
@@ -144,7 +145,7 @@ router.post('/', auth, async (req, res) => {
           location: profile.user.location || 'Location not specified',
           instruments: profile.user.instruments || [],
           genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician || 'no'
+        isMusician: profile.user.isMusician
         },
         bio: profile.user.bio || 'No bio available',
         skills: profile.skills || profile.user.instruments || [],
@@ -179,7 +180,7 @@ router.post('/', auth, async (req, res) => {
         location: profile.user.location || 'Location not specified',
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician || 'no'
+        isMusician: profile.user.isMusician
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
@@ -202,104 +203,95 @@ router.post('/', auth, async (req, res) => {
 // @access  Private
 router.put('/me', auth, async (req, res) => {
   try {
-    console.log('🔄 Profile update request received');
-    console.log('👤 User ID:', req.user.id);
-    console.log('📝 Request body:', req.body);
-    
     const userId = req.user.id;
-    const { bio, skills, hourlyRate, availability, location, country, region, city, instruments, genres, videos } = req.body;
-    
-    // Update user fields if provided
-    const userUpdateFields = {};
-    if (req.body.name) userUpdateFields.name = req.body.name;
-    if (bio) userUpdateFields.bio = bio;
-    if (location) userUpdateFields.location = normalizeLocation(location);
-    if (instruments) userUpdateFields.instruments = instruments;
-    if (genres) userUpdateFields.genres = genres;
-    if (availability !== undefined) userUpdateFields.isAvailableForGigs = availability === 'Available';
+    const { name, bio, location, instruments, genres, isMusician, availability, skills, videos, country, region, city } = req.body;
 
-    console.log('🔧 User update fields:', userUpdateFields);
+    console.log('🔄 Profile update request received');
+    console.log('📝 Request body:', { name, bio, location, instruments, genres, isMusician, availability });
+    console.log('👤 User ID:', userId);
 
-    // Update locationData fields
+    // 1. Update User document
+    const userToUpdate = await User.findById(userId);
+    if (!userToUpdate) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    console.log('📊 Current user data before update:', {
+      isMusician: userToUpdate.isMusician,
+      instruments: userToUpdate.instruments,
+      genres: userToUpdate.genres
+    });
+
+    if (isMusician !== undefined) {
+      console.log(`🎵 Updating isMusician from '${userToUpdate.isMusician}' to '${isMusician}'`);
+      userToUpdate.isMusician = isMusician;
+    }
+    if (name !== undefined) userToUpdate.name = name;
+    if (bio !== undefined) userToUpdate.bio = bio;
+    if (location !== undefined) userToUpdate.location = normalizeLocation(location);
+    if (instruments !== undefined) userToUpdate.instruments = instruments;
+    if (genres !== undefined) userToUpdate.genres = genres;
+    if (availability !== undefined) userToUpdate.isAvailableForGigs = availability === 'Available';
+
     if (country !== undefined || region !== undefined || city !== undefined) {
-      console.log('📍 Updating location data...');
-      const user = await User.findById(userId);
-      if (user) {
-        // Ensure locationData exists
-        if (!user.locationData) {
-          user.locationData = { country: '', region: '', city: '' };
-        }
-        
-        if (country !== undefined) user.locationData.country = country;
-        if (region !== undefined) user.locationData.region = region;
-        if (city !== undefined) user.locationData.city = city;
-        await user.save();
-        console.log('✅ Location data updated');
+      if (!userToUpdate.locationData) {
+        userToUpdate.locationData = {};
       }
+      if (country !== undefined) userToUpdate.locationData.country = country;
+      if (region !== undefined) userToUpdate.locationData.region = region;
+      if (city !== undefined) userToUpdate.locationData.city = city;
     }
     
-    // Update user document if there are user fields to update
-    if (Object.keys(userUpdateFields).length > 0) {
-      console.log('👤 Updating user document...');
-      await User.findByIdAndUpdate(userId, userUpdateFields, { new: true });
-      console.log('✅ User document updated');
-    }
+    console.log('💾 About to save user with data:', {
+      isMusician: userToUpdate.isMusician,
+      instruments: userToUpdate.instruments,
+      genres: userToUpdate.genres
+    });
     
-    // Update profile fields
+    await userToUpdate.save();
+    
+    console.log('💾 User saved successfully');
+    console.log('📊 User data after save:', {
+      isMusician: userToUpdate.isMusician,
+      instruments: userToUpdate.instruments,
+      genres: userToUpdate.genres
+    });
+    
+    // Verify the save by re-fetching from database
+    const savedUser = await User.findById(userId).select('isMusician instruments genres');
+    console.log('🔍 Re-fetched user from database:', {
+      isMusician: savedUser.isMusician,
+      instruments: savedUser.instruments,
+      genres: savedUser.genres
+    });
+
+    // 2. Update Profile document
     const profileUpdateFields = {};
     if (skills) profileUpdateFields.skills = skills;
     if (videos) {
-      console.log('🎥 Processing videos...');
-      // Clean up videos - remove any with invalid IDs and ensure proper format
-      const cleanedVideos = videos.map(video => {
-        const cleanVideo = {
-          title: video.title,
-          url: video.url
-        };
-        if (video.description) cleanVideo.description = video.description;
-        if (video.thumbnail) cleanVideo.thumbnail = video.thumbnail;
-        return cleanVideo;
-      });
-      profileUpdateFields.videos = cleanedVideos;
-      console.log('🎥 Videos cleaned:', cleanedVideos.length);
+      profileUpdateFields.videos = videos.map(video => ({
+        title: video.title,
+        url: video.url,
+        description: video.description,
+        thumbnail: video.thumbnail
+      }));
     }
-    
-    console.log('📋 Profile update fields:', profileUpdateFields);
-    
-    // Find and update profile
-    console.log('🔍 Looking for existing profile...');
-    let profile = await Profile.findOne({ user: userId });
-    if (!profile) {
-      console.log('📝 Profile not found, creating new profile...');
-      // Create new profile if it doesn't exist
-      profile = new Profile({
-        user: userId,
-        ...profileUpdateFields
-      });
-      await profile.save();
-      console.log('✅ New profile created:', profile._id);
-      
-      // Populate the user data for the new profile
-      profile = await Profile.findById(profile._id).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
-    } else {
-      console.log('✅ Profile found:', profile._id);
-      
-      if (Object.keys(profileUpdateFields).length > 0) {
-        console.log('📝 Updating profile document...');
-        profile = await Profile.findOneAndUpdate(
-          { user: userId },
-          profileUpdateFields,
-          { new: true }
-        ).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
-        console.log('✅ Profile document updated');
-      } else {
-        console.log('📖 Fetching current profile...');
-        profile = await Profile.findOne({ user: userId }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
-      }
-    }
-    
-    console.log('🔧 Transforming profile response...');
-    // Transform profile to match frontend expectations
+
+    await Profile.findOneAndUpdate(
+      { user: userId },
+      { $set: profileUpdateFields },
+      { new: true, upsert: true }
+    );
+
+    // 3. Fetch and return updated profile
+    const profile = await Profile.findOne({ user: userId }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
+
+    console.log('📋 Profile fetched for response:', {
+      isMusician: profile.user.isMusician,
+      instruments: profile.user.instruments,
+      genres: profile.user.genres
+    });
+
     const transformedProfile = {
       _id: profile._id,
       user: {
@@ -309,22 +301,22 @@ router.put('/me', auth, async (req, res) => {
         location: profile.user.location || 'Location not specified',
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician || 'no'
+        isMusician: profile.user.isMusician // REMOVED || 'no' fallback that was overriding the value
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
-      hourlyRate: hourlyRate || 60,
+      hourlyRate: req.body.hourlyRate || 60,
       availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
       videos: profile.videos || [],
       photos: profile.photos || []
     };
-    
-    console.log('✅ Profile update completed successfully');
+
+    console.log('📤 Sending response with isMusician:', transformedProfile.user.isMusician);
     res.json(transformedProfile);
+
   } catch (error) {
     console.error('❌ Error updating profile:', error);
-    console.error('📍 Error stack:', error.stack);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -365,7 +357,7 @@ router.get('/', async (req, res) => {
         location: profile.user.location || 'Location not specified',
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician || 'no',
+        isMusician: profile.user.isMusician,
         isMusician: profile.user.isMusician,
         locationData: profile.user.locationData || { country: '', city: '' }
       },
@@ -390,7 +382,7 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/user/:user_id', async (req, res) => {
   try {
-    const profile = await Profile.findOne({ user: req.params.user_id }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
+    const profile = await Profile.findOne({ user: req.params.user_id }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician', 'locationData']);
     
     if (!profile) {
       return res.status(400).json({ msg: 'Profile not found' });
@@ -404,9 +396,10 @@ router.get('/user/:user_id', async (req, res) => {
         name: profile.user.name,
         avatar: profile.user.avatar || '',
         location: profile.user.location || 'Location not specified',
+        locationData: profile.user.locationData,
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician || 'no'
+        isMusician: profile.user.isMusician
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
