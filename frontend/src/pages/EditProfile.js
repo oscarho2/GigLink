@@ -23,6 +23,7 @@ const EditProfile = () => {
   }, [isAuthenticated, authLoading, navigate]);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const [justSaved, setJustSaved] = useState(false); // Flag to prevent re-fetch after save
   
   // Predefined options for instruments and genres come from centralized constants
   
@@ -76,6 +77,12 @@ const EditProfile = () => {
         return;
       }
       
+      // Don't re-fetch if we just saved - use the current form data
+      if (justSaved) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         // Fetch profile data from backend
         const profileRes = await axios.get('/api/profiles/me', {
@@ -99,17 +106,11 @@ const EditProfile = () => {
         const rawLocation = (profileData.user?.location || '').trim();
         const cleanedLocation = rawLocation.toLowerCase() === 'location not specified' ? '' : rawLocation;
         
-        console.log('🔍 DEBUG: Setting form data with:', {
-          isMusician: profileData.user?.isMusician,
-          userIsMusician: user?.isMusician,
-          finalIsMusician: profileData.user?.isMusician || user?.isMusician || 'no'
-        });
-        
         setFormData({
           name: profileData.user?.name || user?.name || '',
           location: cleanedLocation,
           bio: (profileData.bio && profileData.bio.trim() && profileData.bio !== 'No bio available') ? profileData.bio : '',
-          isMusician: profileData.user?.isMusician || user?.isMusician || 'no',
+          isMusician: profileData.user?.isMusician || 'no',
           instruments: normalizedInstruments,
           genres: normalizedGenres,
     
@@ -141,9 +142,10 @@ const EditProfile = () => {
     };
 
     fetchProfile();
-  }, [user, token]);
+  }, [user, token, justSaved]);
 
   const handleChange = (e) => {
+    setJustSaved(false); // Reset flag when user makes changes
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -151,10 +153,12 @@ const EditProfile = () => {
   };
 
   const handleInstrumentsChange = (event, newValue) => {
+    setJustSaved(false); // Reset flag when user makes changes
     setFormData({ ...formData, instruments: newValue });
   };
 
   const handleGenresChange = (event, newValue) => {
+    setJustSaved(false); // Reset flag when user makes changes
     setFormData({ ...formData, genres: newValue });
   };
 
@@ -174,6 +178,7 @@ const EditProfile = () => {
 
   const handleMusicianChange = (event) => {
     const isMusician = event.target.value;
+    setJustSaved(false); // Reset flag when user makes changes
     setFormData({ 
       ...formData, 
       isMusician,
@@ -602,6 +607,11 @@ const EditProfile = () => {
     setError('');
     setSuccess('');
     
+    console.log('🚀 SAVE BUTTON CLICKED');
+    console.log('📋 Current formData.isMusician:', formData.isMusician);
+    console.log('📋 Type:', typeof formData.isMusician);
+    console.log('📋 Full formData:', formData);
+    
     // Validation: If user is a musician, they must select at least one instrument and one genre
     if (formData.isMusician === 'yes') {
       if (!formData.instruments || formData.instruments.length === 0) {
@@ -631,7 +641,8 @@ const EditProfile = () => {
         videos: Array.isArray(videos) ? videos : []
       };
       
-      console.log('Sending update data:', updateData);
+      console.log('📤 About to send to backend:', updateData);
+      console.log('📤 updateData.isMusician:', updateData.isMusician);
       
       const response = await axios.put(
         '/api/profiles/me',
@@ -645,15 +656,14 @@ const EditProfile = () => {
       );
       
       if (response.data) {
+        console.log('📨 GOT RESPONSE from backend');
+        console.log('📨 response.data.user.isMusician:', response.data.user.isMusician);
+        console.log('📨 Full response.data:', response.data);
+        
         setSuccess('Profile updated successfully!');
-        console.log('📨 Profile update response:', response.data);
-        console.log('🎵 Response isMusician:', response.data.user?.isMusician);
         
         // Update user in AuthContext
         if (updateUser) {
-          console.log('🔄 Updating AuthContext with:', {
-            isMusician: response.data.user.isMusician
-          });
           updateUser({
             name: response.data.user.name,
             isMusician: response.data.user.isMusician,
@@ -664,19 +674,35 @@ const EditProfile = () => {
           });
         }
 
-        // Don't redirect immediately - let user see the success message
-        console.log('✅ Profile update completed successfully');
+        // Set flag to prevent useEffect from re-fetching and overriding our form data
+        setJustSaved(true);
+        
+        console.log('🔄 About to update form data with response');
+        console.log('🔄 Setting formData.isMusician to:', response.data.user.isMusician);
         
         // Update the local form data to reflect the response
         setFormData(prev => ({
           ...prev,
-          isMusician: response.data.user.isMusician
+          name: response.data.user.name,
+          isMusician: response.data.user.isMusician,
+          instruments: response.data.user.instruments || [],
+          genres: response.data.user.genres || [],
+          bio: response.data.bio || '',
+          location: response.data.user.location || ''
         }));
         
-        // Redirect to user's specific profile page after 3 seconds
-        setTimeout(() => {
-          navigate(`/profile/${user._id || user.id}`);
-        }, 3000);
+                // Redirect to user's specific profile page after 2 seconds
+              setTimeout(() => {
+                const userIdToNavigate = user._id || user.id;
+                if (userIdToNavigate) {
+                  navigate(`/profile/${userIdToNavigate}`);
+                } else {
+                  console.error('User ID is missing for navigation.');
+                  // Fallback to home page or a generic profile page if user ID is not available
+                  navigate('/'); 
+                }
+              }, 2000);
+        console.log('✅ Form data updated');
       }
     } catch (error) {
       console.error('Error updating profile:', error);

@@ -8,6 +8,91 @@ const { normalizeLocation } = require('../utils/location');
 const path = require('path');
 const fs = require('fs');
 
+// SIMPLIFIED MUSICIAN STATUS ROUTES - REBUILD FROM GROUND UP
+
+// @route   PUT api/profiles/musician-status
+// @desc    Update only the isMusician field - SIMPLE & CLEAN
+// @access  Private
+router.put('/musician-status', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { isMusician } = req.body;
+
+    console.log('🎵 MUSICIAN STATUS UPDATE REQUEST');
+    console.log('User ID:', userId);
+    console.log('New isMusician value:', isMusician);
+    console.log('Type:', typeof isMusician);
+
+    // Validate the value
+    if (!['yes', 'no'].includes(isMusician)) {
+      return res.status(400).json({ 
+        message: 'Invalid value. Must be "yes" or "no"',
+        received: isMusician 
+      });
+    }
+
+    // Find and update user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    console.log('Before update:', user.isMusician);
+    
+    // Update only the isMusician field
+    user.isMusician = isMusician;
+    await user.save();
+
+    console.log('After save:', user.isMusician);
+
+    // Verify the save worked by re-fetching
+    const updatedUser = await User.findById(userId).select('isMusician');
+    console.log('Verified from DB:', updatedUser.isMusician);
+
+    // Return simple response
+    res.json({
+      success: true,
+      isMusician: updatedUser.isMusician,
+      message: `Musician status updated to: ${updatedUser.isMusician}`
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating musician status:', error);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: error.message 
+    });
+  }
+});
+
+// @route   GET api/profiles/musician-status
+// @desc    Get current musician status - SIMPLE & CLEAN
+// @access  Private
+router.get('/musician-status', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('isMusician name email');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({
+      isMusician: user.isMusician,
+      name: user.name,
+      email: user.email
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting musician status:', error);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: error.message 
+    });
+  }
+});
+
+// EXISTING COMPLEX ROUTES BELOW (keeping for compatibility)
+
 // @route   GET api/profiles/me
 // @desc    Get current user's profile
 // @access  Private
@@ -206,9 +291,9 @@ router.put('/me', auth, async (req, res) => {
     const userId = req.user.id;
     const { name, bio, location, instruments, genres, isMusician, availability, skills, videos, country, region, city } = req.body;
 
-    console.log('🔄 Profile update request received');
-    console.log('📝 Request body:', { name, bio, location, instruments, genres, isMusician, availability });
-    console.log('👤 User ID:', userId);
+    console.log('🔄 BACKEND: Profile update request received');
+    console.log('📝 BACKEND: isMusician received:', isMusician);
+    console.log('📝 BACKEND: Type of isMusician:', typeof isMusician);
 
     // 1. Update User document
     const userToUpdate = await User.findById(userId);
@@ -216,21 +301,17 @@ router.put('/me', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    console.log('📊 Current user data before update:', {
-      isMusician: userToUpdate.isMusician,
-      instruments: userToUpdate.instruments,
-      genres: userToUpdate.genres
-    });
+    console.log('📊 BACKEND: Current user isMusician before update:', userToUpdate.isMusician);
 
-    if (isMusician !== undefined) {
-      console.log(`🎵 Updating isMusician from '${userToUpdate.isMusician}' to '${isMusician}'`);
-      userToUpdate.isMusician = isMusician;
-    }
     if (name !== undefined) userToUpdate.name = name;
     if (bio !== undefined) userToUpdate.bio = bio;
     if (location !== undefined) userToUpdate.location = normalizeLocation(location);
     if (instruments !== undefined) userToUpdate.instruments = instruments;
     if (genres !== undefined) userToUpdate.genres = genres;
+    if (isMusician !== undefined) {
+      console.log(`🎵 BACKEND: Updating isMusician from '${userToUpdate.isMusician}' to '${isMusician}'`);
+      userToUpdate.isMusician = isMusician;
+    }
     if (availability !== undefined) userToUpdate.isAvailableForGigs = availability === 'Available';
 
     if (country !== undefined || region !== undefined || city !== undefined) {
@@ -242,28 +323,13 @@ router.put('/me', auth, async (req, res) => {
       if (city !== undefined) userToUpdate.locationData.city = city;
     }
     
-    console.log('💾 About to save user with data:', {
-      isMusician: userToUpdate.isMusician,
-      instruments: userToUpdate.instruments,
-      genres: userToUpdate.genres
-    });
-    
+    console.log('💾 BACKEND: About to save user with isMusician:', userToUpdate.isMusician);
     await userToUpdate.save();
+    console.log('💾 BACKEND: User saved successfully');
     
-    console.log('💾 User saved successfully');
-    console.log('📊 User data after save:', {
-      isMusician: userToUpdate.isMusician,
-      instruments: userToUpdate.instruments,
-      genres: userToUpdate.genres
-    });
-    
-    // Verify the save by re-fetching from database
-    const savedUser = await User.findById(userId).select('isMusician instruments genres');
-    console.log('🔍 Re-fetched user from database:', {
-      isMusician: savedUser.isMusician,
-      instruments: savedUser.instruments,
-      genres: savedUser.genres
-    });
+    // Verify the save
+    const savedUser = await User.findById(userId).select('isMusician');
+    console.log('🔍 BACKEND: Re-fetched user isMusician from DB:', savedUser.isMusician);
 
     // 2. Update Profile document
     const profileUpdateFields = {};
@@ -284,13 +350,7 @@ router.put('/me', auth, async (req, res) => {
     );
 
     // 3. Fetch and return updated profile
-    const profile = await Profile.findOne({ user: userId }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
-
-    console.log('📋 Profile fetched for response:', {
-      isMusician: profile.user.isMusician,
-      instruments: profile.user.instruments,
-      genres: profile.user.genres
-    });
+    const profile = await Profile.findOne({ user: userId }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician', 'locationData']);
 
     const transformedProfile = {
       _id: profile._id,
@@ -299,9 +359,10 @@ router.put('/me', auth, async (req, res) => {
         name: profile.user.name,
         avatar: profile.user.avatar || '',
         location: profile.user.location || 'Location not specified',
+        locationData: profile.user.locationData,
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician // REMOVED || 'no' fallback that was overriding the value
+        isMusician: profile.user.isMusician
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
@@ -312,7 +373,10 @@ router.put('/me', auth, async (req, res) => {
       photos: profile.photos || []
     };
 
-    console.log('📤 Sending response with isMusician:', transformedProfile.user.isMusician);
+    console.log('📤 BACKEND: About to send response');
+    console.log('📤 BACKEND: transformedProfile.user.isMusician:', transformedProfile.user.isMusician);
+    console.log('📤 BACKEND: profile.user.isMusician (raw):', profile.user.isMusician);
+
     res.json(transformedProfile);
 
   } catch (error) {
@@ -357,7 +421,6 @@ router.get('/', async (req, res) => {
         location: profile.user.location || 'Location not specified',
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician,
         isMusician: profile.user.isMusician,
         locationData: profile.user.locationData || { country: '', city: '' }
       },

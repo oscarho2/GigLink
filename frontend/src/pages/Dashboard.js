@@ -517,12 +517,23 @@ const Dashboard = () => {
                   {profile?.user?.name || user?.name}
                 </Typography>
                 {(profile?.user?.location || user?.location) && (
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
-                    <LocationOnIcon sx={{ mr: 0.5, mt: 0.25, color: 'text.secondary', fontSize: '1rem' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      {formatLocationString(profile?.user?.location || user?.location)}
-                    </Typography>
-                  </Box>
+                  profile?.user?.locationData && profile.user.locationData.city ? (
+                    <Box sx={{ textAlign: 'center', mb: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                        {profile.user.locationData.city}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                        {[profile.user.locationData.region, profile.user.locationData.country].filter(Boolean).join(', ')}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
+                      <LocationOnIcon sx={{ mr: 0.5, mt: 0.25, color: 'text.secondary', fontSize: '1rem' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {formatLocationString(profile?.user?.location || user?.location)}
+                      </Typography>
+                    </Box>
+                  )
                 )}
               </Box>
 
@@ -618,14 +629,14 @@ const Dashboard = () => {
                 </Grid>
               )}
             </CardContent>
-            <CardActions sx={{ 
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: { xs: 1.5, sm: 2 },
-              px: { xs: 2, sm: 2 },
-              pt: { xs: 1, sm: 1.25 },
-              pb: { xs: 2, sm: 2 }
-            }}>
-              <Button
+                        <CardActions sx={{
+                          flexDirection: { xs: 'row', sm: 'column' },
+                          gap: { xs: 1.5, sm: 2 },
+                          px: { xs: 2, sm: 2 },
+                          pt: { xs: 1, sm: 1.25 },
+                          pb: { xs: 2, sm: 2 },
+                          justifyContent: 'center'
+                        }}>              <Button
                 component={RouterLink}
                 to={`/profile/${profile?.user?._id || user?.id || user?._id}`}
                 variant="outlined"

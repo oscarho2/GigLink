@@ -116,12 +116,23 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
             {musician.user.name}
           </Typography>
           {musician.user.location && (
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
-              <LocationOnIcon sx={{ mr: 0.5, mt: 0.25, color: 'text.secondary', fontSize: '1rem' }} />
-              <Typography variant="body2" color="text.secondary">
-                {formatLocationString(musician.user.location)}
-              </Typography>
-            </Box>
+            musician.user.locationData && musician.user.locationData.city ? (
+              <Box sx={{ textAlign: 'center', mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                  {musician.user.locationData.city}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                  {[musician.user.locationData.region, musician.user.locationData.country].filter(Boolean).join(', ')}
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
+                <LocationOnIcon sx={{ mr: 0.5, mt: 0.25, color: 'text.secondary', fontSize: '1rem' }} />
+                <Typography variant="body2" color="text.secondary">
+                  {formatLocationString(musician.user.location)}
+                </Typography>
+              </Box>
+            )
           )}
         </Box>
 
