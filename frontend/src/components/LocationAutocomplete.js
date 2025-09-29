@@ -47,8 +47,8 @@ export default function LocationAutocomplete({ value, onChange, label = 'Locatio
     const t = setTimeout(async () => {
       try {
         setLoading(true);
-        // Load Google Maps script with API key from backend env
-        await loadGoogleMapsScript('AIzaSyCBnNi2DnANOelKhpoqw5IqnBg2zNp20kE');
+        // Load Google Maps script with API key from environment variable
+        await loadGoogleMapsScript(process.env.REACT_APP_GOOGLE_PLACES_API_KEY);
         if (!window.google || !window.google.maps || !window.google.maps.places) {
           setOptions([]);
           setOpen(false);
