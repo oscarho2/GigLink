@@ -1160,6 +1160,7 @@ const Dashboard = () => {
                               <Typography 
                                 variant="body2" 
                                 color="text.secondary"
+                                component="div"
                                 sx={{
                                   mt: 0.5
                                 }}
