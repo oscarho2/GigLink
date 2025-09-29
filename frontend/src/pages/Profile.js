@@ -70,13 +70,14 @@ const Profile = () => {
           avatar: profileData.user?.avatar || '',
           bio: (profileData.bio && profileData.bio !== 'No bio available') ? profileData.bio : '',
           location: profileData.user?.location || '',
-          instruments: profileData.user?.instruments || profileData.skills?.filter(skill => ['Piano', 'Guitar', 'Vocals', 'Drums', 'Bass', 'Violin', 'Saxophone'].includes(skill)) || ['Piano', 'Guitar'],
-          genres: profileData.user?.genres || ['Rock', 'Jazz', 'Blues'],
+          instruments: profileData.user?.instruments || profileData.skills?.filter(skill => ['Piano', 'Guitar', 'Vocals', 'Drums', 'Bass', 'Violin', 'Saxophone'].includes(skill)) || [],
+          genres: profileData.user?.genres || [],
           photos: profileData.photos || [],
           videos: profileData.videos || [],
           availability: profileData.availability || '',
           hourlyRate: profileData.hourlyRate || null,
-          userId: profileData.user?._id || user?._id || user?.id || null
+          userId: profileData.user?._id || user?._id || user?.id || null,
+          isMusician: profileData.user?.isMusician || 'no'
         };
         
         setProfile(transformedProfile);
@@ -575,51 +576,56 @@ const Profile = () => {
               </>
             )}
             
-            <Typography 
-              variant="h6" 
-              sx={{
-                fontSize: { xs: '1.125rem', sm: '1.25rem' },
-                fontWeight: 600,
-                mb: 1
-              }}
-            >
-              Instruments
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 0.75, sm: 1 }, mb: 0 }}>
-              {profile.instruments.map((instrument, index) => (
-                <Chip 
-                  key={index} 
-                  label={instrument} 
-                  sx={{ 
-                    fontSize: { xs: '0.75rem', sm: '0.8125rem' },
-                    height: { xs: 28, sm: 32 }
-                  }} 
-                />
-              ))}
-            </Box>
-            
-            <Typography 
-              variant="h6" 
-              sx={{
-                fontSize: { xs: '1.125rem', sm: '1.25rem' },
-                fontWeight: 600,
-                mb: 1
-              }}
-            >
-              Genres
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 0.75, sm: 1 }, mb: 0 }}>
-              {profile.genres.map((genre, index) => (
-                <Chip 
-                  key={index} 
-                  label={genre} 
-                  sx={{ 
-                    fontSize: { xs: '0.75rem', sm: '0.8125rem' },
-                    height: { xs: 28, sm: 32 }
-                  }} 
-                />
-              ))}
-            </Box>
+            {/* Only show instruments and genres if user is a musician */}
+            {profile.isMusician === 'yes' && (
+              <>
+                <Typography 
+                  variant="h6" 
+                  sx={{
+                    fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                    fontWeight: 600,
+                    mb: 1
+                  }}
+                >
+                  Instruments
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 0.75, sm: 1 }, mb: 0 }}>
+                  {profile.instruments.map((instrument, index) => (
+                    <Chip 
+                      key={index} 
+                      label={instrument} 
+                      sx={{ 
+                        fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                        height: { xs: 28, sm: 32 }
+                      }} 
+                    />
+                  ))}
+                </Box>
+                
+                <Typography 
+                  variant="h6" 
+                  sx={{
+                    fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                    fontWeight: 600,
+                    mb: 1
+                  }}
+                >
+                  Genres
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 0.75, sm: 1 }, mb: 0 }}>
+                  {profile.genres.map((genre, index) => (
+                    <Chip 
+                      key={index} 
+                      label={genre} 
+                      sx={{ 
+                        fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                        height: { xs: 28, sm: 32 }
+                      }} 
+                    />
+                  ))}
+                </Box>
+              </>
+            )}
 
           </Grid>
         </Grid>

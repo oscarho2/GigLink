@@ -325,7 +325,7 @@ class GoogleAuthService {
     }
   }
 
-  async signInWithGoogle(turnstileToken = null) {
+  async signInWithGoogle() {
     try {
       console.log('🚀 Starting Google sign-in process...');
       
@@ -344,8 +344,7 @@ class GoogleAuthService {
         idToken,
         email: decoded.email,
         name: fullName,
-        imageUrl: decoded.picture,
-        turnstileToken
+        imageUrl: decoded.picture
       };
 
       console.log('📤 Sending payload to backend:', { 
@@ -371,12 +370,7 @@ class GoogleAuthService {
       
       const isCaptchaError = error.response?.data?.captchaRequired === true;
       
-      // If this is a server error for a deleted account, provide more specific guidance
       let errorMessage = this.getErrorMessage(error);
-      if (error.response?.status === 500) {
-        console.error('🚨 Server error detected - possibly related to deleted account');
-        errorMessage = 'An error occurred during sign-in. If you recently deleted your account, please try clearing your browser data and signing in again.';
-      }
 
       return {
         success: false,

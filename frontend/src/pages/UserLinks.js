@@ -186,7 +186,8 @@ const UserLinks = () => {
                             {m.bio.length > 100 ? `${m.bio.substring(0, 100)}...` : m.bio}
                           </Typography>
                         )}
-                        {m.instruments && m.instruments.length > 0 && (
+                        {/* Only show instruments if user is a musician */}
+                        {m.isMusician === 'yes' && m.instruments && m.instruments.length > 0 && (
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
                             {m.instruments.slice(0, 3).map((instrument, index) => (
                               <Chip key={index} label={instrument} size="small" variant="outlined" />

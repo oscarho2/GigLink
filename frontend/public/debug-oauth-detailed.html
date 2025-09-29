@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google OAuth Step-by-Step Debug</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; max-width: 800px; }
+        .step { border: 1px solid #ccc; margin: 20px 0; padding: 20px; border-radius: 8px; }
+        .step.success { border-color: #28a745; background-color: #f8fff9; }
+        .step.error { border-color: #dc3545; background-color: #fff8f8; }
+        .step.info { border-color: #17a2b8; background-color: #f8fffe; }
+        .button { padding: 10px 20px; margin: 10px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .button:disabled { background: #ccc; cursor: not-allowed; }
+        .log { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; max-height: 400px; overflow-y: auto; font-size: 12px; }
+        .status { padding: 5px 10px; border-radius: 3px; margin: 5px 0; display: inline-block; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.pending { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Google OAuth Step-by-Step Debug</h1>
+    
+    <div class="step" id="step1">
+        <h3>Step 1: Environment Check</h3>
+        <button id="checkEnv" class="button">Check Environment</button>
+        <div id="envResult"></div>
+    </div>
+
+    <div class="step" id="step2">
+        <h3>Step 2: Google SDK Loading</h3>
+        <button id="checkSDK" class="button">Check Google SDK</button>
+        <div id="sdkResult"></div>
+    </div>
+
+    <div class="step" id="step3">
+        <h3>Step 3: Initialize Google Auth</h3>
+        <button id="initGoogle" class="button">Initialize Google Auth</button>
+        <div id="initResult"></div>
+    </div>
+
+    <div class="step" id="step4">
+        <h3>Step 4: Test One Tap Prompt</h3>
+        <button id="testPrompt" class="button">Test One Tap</button>
+        <div id="promptResult"></div>
+    </div>
+
+    <div class="step" id="step5">
+        <h3>Step 5: Test Button Sign-In</h3>
+        <button id="testButton" class="button">Test Button Sign-In</button>
+        <div id="buttonResult"></div>
+        <div id="googleSignInButton"></div>
+    </div>
+
+    <div class="step" id="step6">
+        <h3>Step 6: Backend Communication Test</h3>
+        <button id="testBackend" class="button">Test Backend</button>
+        <div id="backendResult"></div>
+    </div>
+
+    <h3>📋 Debug Log</h3>
+    <button onclick="clearLog()" class="button">Clear Log</button>
+    <div id="debugLog" class="log"></div>
+
+    <script>
+        const CLIENT_ID = '1024046652559-l4j8i3j2fseoc414ip261lt8po2ooprf.apps.googleusercontent.com';
+        let logArea = document.getElementById('debugLog');
+        let latestIdToken = null;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString().substring(11, 19);
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logArea.textContent += `[${timestamp}] ${emoji} ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+            console.log(message);
+        }
+
+        function setStepStatus(stepId, status) {
+            const step = document.getElementById(stepId);
+            step.className = `step ${status}`;
+        }
+
+        function setResult(elementId, content, status = 'info') {
+            document.getElementById(elementId).innerHTML = 
+                `<div class="status ${status}">${content}</div>`;
+        }
+
+        function clearLog() {
+            logArea.textContent = '';
+        }
+
+        // Step 1: Environment Check
+        document.getElementById('checkEnv').onclick = function() {
+            log('Checking environment...');
+            try {
+                const checks = {
+                    'Current URL': window.location.href,
+                    'Protocol': window.location.protocol,
+                    'Host': window.location.host,
+                    'User Agent': navigator.userAgent.substring(0, 50) + '...',
+                    'Cookies Enabled': navigator.cookieEnabled,
+                    'Local Storage': !!window.localStorage,
+                    'Session Storage': !!window.sessionStorage
+                };
+
+                let result = '<strong>Environment Status:</strong><br>';
+                for (const [key, value] of Object.entries(checks)) {
+                    result += `${key}: ${value}<br>`;
+                }
+
+                setResult('envResult', result, 'success');
+                setStepStatus('step1', 'success');
+                log('Environment check completed');
+            } catch (error) {
+                log(`Environment check failed: ${error.message}`, 'error');
+                setResult('envResult', `Error: ${error.message}`, 'error');
+                setStepStatus('step1', 'error');
+            }
+        };
+
+        // Step 2: Google SDK Check
+        document.getElementById('checkSDK').onclick = function() {
+            log('Checking Google SDK...');
+            try {
+                const sdkStatus = {
+                    'Google object': !!window.google,
+                    'Google accounts': !!window.google?.accounts,
+                    'Google ID': !!window.google?.accounts?.id,
+                    'Client ID configured': CLIENT_ID ? 'Yes' : 'No'
+                };
+
+                let result = '<strong>Google SDK Status:</strong><br>';
+                for (const [key, value] of Object.entries(sdkStatus)) {
+                    result += `${key}: ${value}<br>`;
+                }
+
+                if (window.google?.accounts?.id) {
+                    setResult('sdkResult', result, 'success');
+                    setStepStatus('step2', 'success');
+                    log('Google SDK is ready');
+                } else {
+                    setResult('sdkResult', result + '<br>❌ Google SDK not ready', 'error');
+                    setStepStatus('step2', 'error');
+                    log('Google SDK not ready', 'error');
+                }
+            } catch (error) {
+                log(`SDK check failed: ${error.message}`, 'error');
+                setResult('sdkResult', `Error: ${error.message}`, 'error');
+                setStepStatus('step2', 'error');
+            }
+        };
+
+        // Step 3: Initialize Google Auth
+        document.getElementById('initGoogle').onclick = function() {
+            log('Initializing Google Auth...');
+            try {
+                if (!window.google?.accounts?.id) {
+                    throw new Error('Google SDK not available');
+                }
+
+                window.google.accounts.id.initialize({
+                    client_id: CLIENT_ID,
+                    callback: (response) => {
+                        log('Google callback received!');
+                        if (response?.credential) {
+                            latestIdToken = response.credential;
+                            log('ID Token received successfully');
+                            setResult('initResult', '✅ Google Auth initialized and token received!', 'success');
+                            setStepStatus('step3', 'success');
+                        } else {
+                            log('No credential in callback', 'error');
+                        }
+                    },
+                    auto_select: false,
+                    cancel_on_tap_outside: true
+                });
+
+                setResult('initResult', '✅ Google Auth initialized successfully', 'success');
+                setStepStatus('step3', 'success');
+                log('Google Auth initialization completed');
+            } catch (error) {
+                log(`Initialization failed: ${error.message}`, 'error');
+                setResult('initResult', `Error: ${error.message}`, 'error');
+                setStepStatus('step3', 'error');
+            }
+        };
+
+        // Step 4: Test One Tap
+        document.getElementById('testPrompt').onclick = function() {
+            log('Testing One Tap prompt...');
+            try {
+                window.google.accounts.id.prompt((notification) => {
+                    log(`One Tap notification: ${notification.getMomentType()}`);
+                    
+                    if (notification.isNotDisplayed()) {
+                        const reason = notification.getNotDisplayedReason();
+                        log(`One Tap not displayed: ${reason}`, 'error');
+                        setResult('promptResult', `❌ One Tap not displayed: ${reason}`, 'error');
+                        setStepStatus('step4', 'error');
+                    } else if (notification.isSkippedMoment()) {
+                        log('One Tap skipped', 'error');
+                        setResult('promptResult', '⚠️ One Tap was skipped', 'error');
+                        setStepStatus('step4', 'error');
+                    } else if (notification.isDismissedMoment()) {
+                        log('One Tap dismissed', 'error');
+                        setResult('promptResult', '⚠️ One Tap was dismissed', 'error');
+                        setStepStatus('step4', 'error');
+                    } else {
+                        log('One Tap displayed successfully');
+                        setResult('promptResult', '✅ One Tap displayed', 'success');
+                        setStepStatus('step4', 'success');
+                    }
+                });
+            } catch (error) {
+                log(`One Tap test failed: ${error.message}`, 'error');
+                setResult('promptResult', `Error: ${error.message}`, 'error');
+                setStepStatus('step4', 'error');
+            }
+        };
+
+        // Step 5: Test Button Sign-In
+        document.getElementById('testButton').onclick = function() {
+            log('Creating Google Sign-In button...');
+            try {
+                const buttonDiv = document.getElementById('googleSignInButton');
+                buttonDiv.innerHTML = ''; // Clear previous button
+
+                window.google.accounts.id.renderButton(buttonDiv, {
+                    type: 'standard',
+                    size: 'large',
+                    theme: 'outline',
+                    text: 'sign_in_with',
+                    shape: 'rectangular'
+                });
+
+                setResult('buttonResult', '✅ Google Sign-In button created - click it to test!', 'success');
+                setStepStatus('step5', 'success');
+                log('Google Sign-In button created successfully');
+            } catch (error) {
+                log(`Button creation failed: ${error.message}`, 'error');
+                setResult('buttonResult', `Error: ${error.message}`, 'error');
+                setStepStatus('step5', 'error');
+            }
+        };
+
+        // Step 6: Test Backend
+        document.getElementById('testBackend').onclick = async function() {
+            log('Testing backend communication...');
+            try {
+                if (!latestIdToken) {
+                    throw new Error('No ID token available. Complete steps 3-5 first.');
+                }
+
+                // Decode token for testing
+                const payload = JSON.parse(atob(latestIdToken.split('.')[1]));
+                log(`Testing with email: ${payload.email}`);
+
+                const response = await fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        idToken: latestIdToken,
+                        email: payload.email,
+                        name: payload.name,
+                        imageUrl: payload.picture
+                    })
+                });
+
+                const data = await response.json();
+                log(`Backend response: ${response.status}`);
+
+                if (response.ok) {
+                    setResult('backendResult', 
+                        `✅ Backend success!<br>
+                        User ID: ${data.user.id}<br>
+                        Email: ${data.user.email}<br>
+                        Profile Complete: ${data.user.profileComplete}`, 
+                        'success');
+                    setStepStatus('step6', 'success');
+                    log('Backend authentication successful');
+                } else {
+                    setResult('backendResult', `❌ Backend error: ${data.message}`, 'error');
+                    setStepStatus('step6', 'error');
+                    log(`Backend error: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                log(`Backend test failed: ${error.message}`, 'error');
+                setResult('backendResult', `Error: ${error.message}`, 'error');
+                setStepStatus('step6', 'error');
+            }
+        };
+
+        // Initialize on load
+        window.onload = function() {
+            log('Debug tool loaded');
+            log('Click through steps 1-6 to diagnose the issue');
+        };
+    </script>
+</body>
+</html>

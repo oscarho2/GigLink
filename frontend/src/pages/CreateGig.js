@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 import { useAuth } from '../context/AuthContext';
 import VenueAutocomplete from '../components/VenueAutocomplete';
+import LocationAutocomplete from '../components/LocationAutocomplete';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 

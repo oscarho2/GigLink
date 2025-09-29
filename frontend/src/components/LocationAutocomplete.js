@@ -1,6 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Autocomplete, TextField, Box, IconButton } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import React, { useState, useRef, useEffect } from 'react';
+import TextField from '@mui/material/TextField';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import CircularProgress from '@mui/material/CircularProgress';
+
+const GOOGLE_PLACES_API_KEY = process.env.REACT_APP_GOOGLE_PLACES_API_KEY;
 
 // Dynamically load Google Maps JS API if not already loaded
 function loadGoogleMapsScript(apiKey) {
@@ -17,215 +22,137 @@ function loadGoogleMapsScript(apiKey) {
     script.id = 'google-maps-script';
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
-    script.onload = () => {
-      console.log('Google Maps API loaded successfully');
-      resolve();
-    };
-    script.onerror = () => {
-      console.error('Failed to load Google Maps API');
-      reject(new Error('Failed to load Google Maps API'));
-    };
+    script.onload = resolve;
+    script.onerror = reject;
     document.body.appendChild(script);
   });
 }
 
-export default function LocationAutocomplete({ value, onChange, label = 'Location', placeholder = 'Enter your city', disabled = false }) {
-  const [input, setInput] = useState(value || '');
+const LocationAutocomplete = ({ value, onChange, placeholder = "Enter location", style = {}, disabled = false }) => {
+  const [inputValue, setInputValue] = useState(value || '');
+  const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [options, setOptions] = useState([]);
-  const [open, setOpen] = useState(false);
-  const focusedRef = useRef(false);
-  const suppressNextOpenRef = useRef(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const timeoutRef = useRef(null);
 
-  useEffect(() => { setInput(value || ''); }, [value]);
-
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    const q = (input || '').trim();
-    if (suppressNextOpenRef.current) {
-      suppressNextOpenRef.current = false;
-      return () => { active = false; controller.abort(); };
+  const fetchSuggestions = async (query) => {
+    if (!query || query.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
     }
-    if (!focusedRef.current) { setOptions([]); setOpen(false); return () => { active = false; controller.abort(); } }
-    if (!q || q.length < 2) { setOptions([]); setOpen(false); return () => { active = false; controller.abort(); } }
-    setOpen(true);
-    const t = setTimeout(async () => {
-      try {
-        setLoading(true);
-        // Load Google Maps script with API key from environment variable
-        await loadGoogleMapsScript(process.env.REACT_APP_GOOGLE_PLACES_API_KEY);
-         if (!window.google || !window.google.maps || !window.google.maps.places) {
-           console.error('Google Maps API not available');
-           setOptions([]);
-           setOpen(false);
-           setLoading(false);
-           return;
-         }
-        const service = new window.google.maps.places.AutocompleteService();
-        service.getPlacePredictions({ 
-          input: q, 
-          types: ['(cities)']
-        }, (predictions, status) => {
-          if (!active) return;
-          console.log('Google Places API status:', status, 'predictions:', predictions);
+    setLoading(true);
+    try {
+      await loadGoogleMapsScript(GOOGLE_PLACES_API_KEY);
+      if (!window.google || !window.google.maps || !window.google.maps.places) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setLoading(false);
+        return;
+      }
+      const service = new window.google.maps.places.AutocompleteService();
+      service.getPlacePredictions(
+        {
+          input: query,
+        },
+        (predictions, status) => {
           if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-            const mappedPredictions = predictions.map(pred => ({ id: pred.place_id, name: pred.description }));
-            setOptions(mappedPredictions);
-            setOpen(true);
-            // Automatically select the first option if no value is currently set
-            if (!value && mappedPredictions.length > 0) {
-              onChange(mappedPredictions[0].name);
-            }
+            setSuggestions(predictions);
+            setShowSuggestions(true);
           } else {
-            console.log('No predictions found or error:', status);
-            setOptions([]);
-            setOpen(false);
+            setSuggestions([]);
+            setShowSuggestions(false);
           }
           setLoading(false);
-        });
-       } catch (e) {
-         console.error('Google Places API error:', e);
-         setOptions([]);
-         setOpen(false);
-         setLoading(false);
-       }
-    }, 250);
-    return () => { active = false; clearTimeout(t); controller.abort(); };
-  }, [input]);
-
-  const selected = useMemo(() => {
-    if (!input) return null;
-    // First check if the current input matches any option exactly
-    const existing = options.find(o => o.name === input);
-    if (existing) return existing;
-    
-    // If not, check if it matches the value prop
-    if (value) {
-      const valueMatch = options.find(o => o.name === value);
-      if (valueMatch) return valueMatch;
+        }
+      );
+    } catch (err) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setLoading(false);
     }
-    
-    // If no matches, create a custom option based on input
-    return { id: input, name: input };
-  }, [value, input, options]);
-
-  const handleSelectOption = (option) => {
-    if (!option || !option.name) return;
-    
-    if (onChange) onChange(option.name);
-    setOpen(false);
-    setOptions([]);
-    suppressNextOpenRef.current = true;
-    try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {}
   };
 
-  const handleCustomInput = (inputValue) => {
-    const raw = (inputValue || '').trim();
-    if (raw) {
-      const formatted = raw.split(', ')
-        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-        .join(', ');
-      if (onChange) onChange(formatted);
-    }
-    setOpen(false);
-    setOptions([]);
-    try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {}
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => fetchSuggestions(val), 300);
   };
+
+  const handleSuggestionClick = (suggestion) => {
+    setInputValue(suggestion.description);
+    setShowSuggestions(false);
+
+    const service = new window.google.maps.places.PlacesService(document.createElement('div'));
+    service.getDetails({ placeId: suggestion.place_id, fields: ['name', 'address_components'] }, (place, status) => {
+      if (status === window.google.maps.places.PlacesServiceStatus.OK) {
+        const location = {
+          name: place.name,
+          street: '',
+          city: '',
+          region: '',
+          country: ''
+        };
+
+        for (const component of place.address_components) {
+          const types = component.types;
+          if (types.includes('street_number')) {
+            location.street = `${component.long_name} ${location.street}`.trim();
+          }
+          if (types.includes('route')) {
+            location.street = `${location.street} ${component.long_name}`.trim();
+          }
+          if (types.includes('locality')) {
+            location.city = component.long_name;
+          }
+          if (types.includes('administrative_area_level_1')) {
+            location.region = component.long_name;
+          }
+          if (types.includes('country')) {
+            location.country = component.long_name;
+          }
+        }
+
+        onChange && onChange(location);
+      }
+    });
+  };
+
+  // Keep inputValue in sync with value prop
+  useEffect(() => {
+    setInputValue(value || '');
+  }, [value]);
 
   return (
-    <Autocomplete
-      freeSolo
-      disableClearable
-      ListboxProps={{ style: { maxHeight: 360, overflow: 'auto' } }}
-      open={open}
-      onOpen={() => {
-        if (suppressNextOpenRef.current) { suppressNextOpenRef.current = false; setOpen(false); return; }
-        if (((input || '').trim().length >= 1) || options.length > 0) setOpen(true);
-      }}
-      onClose={() => setOpen(false)}
-      noOptionsText={input && input.trim().length >= 1 ? 'No locations found' : 'Type to search cities'}
-      filterOptions={(options, state) => options}
-      options={options}
-      getOptionLabel={(opt) => (typeof opt === 'string' ? opt : (opt?.name || ''))}
-      isOptionEqualToValue={(opt, val) => (opt?.name || '') === (val?.name || '')}
-      value={selected}
-      onChange={(_e, v) => {
-        if (typeof v === 'string') {
-          onChange && onChange(v.trim());
-          setOpen(false);
-          setOptions([]);
-          suppressNextOpenRef.current = true;
-          try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {}
-        } else if (v && v.name) {
-          handleSelectOption(v);
-        } else {
-          onChange && onChange('');
-          setOpen(false);
-          setOptions([]);
-          suppressNextOpenRef.current = true;
-        }
-      }}
-      inputValue={input}
-      onInputChange={(_e, v, reason) => {
-        setInput(v || '');
-        if (reason !== 'reset') {
-          if ((v || '').trim().length >= 1) setOpen(true); else setOpen(false);
-        }
-      }}
-      renderOption={(props, option, { selected }) => (
-        <li {...props} key={option.id || option.name} style={{ backgroundColor: selected ? '#e0e0e0' : 'inherit' }}>
-          <Box sx={{ fontSize: 14, fontWeight: 500 }}>{option.name}</Box>
-        </li>
+    <div style={{ position: 'relative', ...style }}>
+      <TextField
+        value={inputValue}
+        onChange={handleInputChange}
+        placeholder={placeholder}
+        fullWidth
+        disabled={disabled}
+        autoComplete="off"
+        onKeyDown={(e) => {
+          // Handle backspace key specifically to ensure it works when editing existing values
+          if (e.key === 'Backspace') {
+            // Allow default behavior to continue
+            return;
+          }
+        }}
+      />
+      {loading && <CircularProgress size={20} style={{ position: 'absolute', right: 10, top: 10 }} />}
+      {showSuggestions && suggestions.length > 0 && (
+        <List style={{ position: 'absolute', zIndex: 10, background: '#fff', width: '100%', maxHeight: 200, overflowY: 'auto', border: '1px solid #ccc' }}>
+          {suggestions.map((suggestion, idx) => (
+            <ListItem button key={idx} onClick={() => handleSuggestionClick(suggestion)}>
+              <ListItemText primary={suggestion.description} />
+            </ListItem>
+          ))}
+        </List>
       )}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={label}
-          placeholder={placeholder}
-          disabled={disabled}
-          onFocus={() => { focusedRef.current = true; }}
-          onBlur={() => {
-            focusedRef.current = false;
-            const raw = (input || '').trim();
-            if (!raw) { setOpen(false); setOptions([]); return; }
-            setOpen(false);
-            setOptions([]);
-          }}
-          onKeyDown={(e) => {
-            // Handle backspace key specifically to ensure it works when editing existing values
-            if (e.key === 'Backspace') {
-              // Allow default behavior to continue
-              return;
-            }
-          }}
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <>
-                {(input && input.trim()) ? (
-                  <IconButton
-                    aria-label="clear location"
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onChange) onChange('');
-                      setInput('');
-                      setOptions([]);
-                      setOpen(false);
-                      suppressNextOpenRef.current = true;
-                    }}
-                    sx={{ mr: 0.5 }}
-                  >
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                ) : null}
-                {params.InputProps.endAdornment}
-              </>
-            )
-          }}
-        />
-      )}
-    />
+    </div>
   );
-}
+};
+
+export default LocationAutocomplete;

@@ -14,17 +14,12 @@ const GigSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  venue: {
-    type: String,
-    required: true
-  },
   location: {
-    type: String,
-    required: true
-  },
-  locationData: {
-    country: { type: String },
-    city: { type: String }
+    name: { type: String, required: true },
+    street: { type: String },
+    city: { type: String, required: true },
+    region: { type: String },
+    country: { type: String, required: true }
   },
   date: {
     type: String,

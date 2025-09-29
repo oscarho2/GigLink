@@ -202,6 +202,10 @@ router.post('/', auth, async (req, res) => {
 // @access  Private
 router.put('/me', auth, async (req, res) => {
   try {
+    console.log('🔄 Profile update request received');
+    console.log('👤 User ID:', req.user.id);
+    console.log('📝 Request body:', req.body);
+    
     const userId = req.user.id;
     const { bio, skills, hourlyRate, availability, location, country, region, city, instruments, genres, videos } = req.body;
     
@@ -214,26 +218,38 @@ router.put('/me', auth, async (req, res) => {
     if (genres) userUpdateFields.genres = genres;
     if (availability !== undefined) userUpdateFields.isAvailableForGigs = availability === 'Available';
 
+    console.log('🔧 User update fields:', userUpdateFields);
+
     // Update locationData fields
     if (country !== undefined || region !== undefined || city !== undefined) {
+      console.log('📍 Updating location data...');
       const user = await User.findById(userId);
       if (user) {
+        // Ensure locationData exists
+        if (!user.locationData) {
+          user.locationData = { country: '', region: '', city: '' };
+        }
+        
         if (country !== undefined) user.locationData.country = country;
         if (region !== undefined) user.locationData.region = region;
         if (city !== undefined) user.locationData.city = city;
         await user.save();
+        console.log('✅ Location data updated');
       }
     }
     
     // Update user document if there are user fields to update
     if (Object.keys(userUpdateFields).length > 0) {
+      console.log('👤 Updating user document...');
       await User.findByIdAndUpdate(userId, userUpdateFields, { new: true });
+      console.log('✅ User document updated');
     }
     
     // Update profile fields
     const profileUpdateFields = {};
     if (skills) profileUpdateFields.skills = skills;
     if (videos) {
+      console.log('🎥 Processing videos...');
       // Clean up videos - remove any with invalid IDs and ensure proper format
       const cleanedVideos = videos.map(video => {
         const cleanVideo = {
@@ -245,24 +261,44 @@ router.put('/me', auth, async (req, res) => {
         return cleanVideo;
       });
       profileUpdateFields.videos = cleanedVideos;
+      console.log('🎥 Videos cleaned:', cleanedVideos.length);
     }
+    
+    console.log('📋 Profile update fields:', profileUpdateFields);
     
     // Find and update profile
+    console.log('🔍 Looking for existing profile...');
     let profile = await Profile.findOne({ user: userId });
     if (!profile) {
-      return res.status(404).json({ message: 'Profile not found' });
-    }
-    
-    if (Object.keys(profileUpdateFields).length > 0) {
-      profile = await Profile.findOneAndUpdate(
-        { user: userId },
-        profileUpdateFields,
-        { new: true }
-      ).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
+      console.log('📝 Profile not found, creating new profile...');
+      // Create new profile if it doesn't exist
+      profile = new Profile({
+        user: userId,
+        ...profileUpdateFields
+      });
+      await profile.save();
+      console.log('✅ New profile created:', profile._id);
+      
+      // Populate the user data for the new profile
+      profile = await Profile.findById(profile._id).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
     } else {
-      profile = await Profile.findOne({ user: userId }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
+      console.log('✅ Profile found:', profile._id);
+      
+      if (Object.keys(profileUpdateFields).length > 0) {
+        console.log('📝 Updating profile document...');
+        profile = await Profile.findOneAndUpdate(
+          { user: userId },
+          profileUpdateFields,
+          { new: true }
+        ).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
+        console.log('✅ Profile document updated');
+      } else {
+        console.log('📖 Fetching current profile...');
+        profile = await Profile.findOne({ user: userId }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
+      }
     }
     
+    console.log('🔧 Transforming profile response...');
     // Transform profile to match frontend expectations
     const transformedProfile = {
       _id: profile._id,
@@ -284,10 +320,12 @@ router.put('/me', auth, async (req, res) => {
       photos: profile.photos || []
     };
     
+    console.log('✅ Profile update completed successfully');
     res.json(transformedProfile);
   } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Error updating profile:', error);
+    console.error('📍 Error stack:', error.stack);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

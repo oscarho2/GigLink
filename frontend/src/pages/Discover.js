@@ -150,8 +150,9 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
           </Typography>
         )}
 
-        {/* Skills - Two Column Layout */}
-        {((musician.user?.instruments && musician.user.instruments.length > 0) || 
+        {/* Skills - Two Column Layout (Only show if user is a musician) */}
+        {musician.user?.isMusician === 'yes' && 
+         ((musician.user?.instruments && musician.user.instruments.length > 0) || 
           (musician.user?.genres && musician.user.genres.length > 0)) && (
           <Grid container spacing={2} sx={{ mb: 2 }}>
             {/* Left Half - Instruments */}

@@ -37,7 +37,6 @@ router.get('/', auth, async (req, res) => {
 // @access  Public
 router.post(
   '/',
-  checkTurnstile,
   [
     check('email', 'Please include a valid email')
       .isEmail()
@@ -50,8 +49,11 @@ router.post(
       .withMessage('Password cannot be empty')
   ],
   async (req, res) => {
+    console.log('Login route hit');
+    console.log('Request body:', req.body);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
@@ -323,7 +325,6 @@ router.get('/verify-email/:token', async (req, res) => {
 // @access  Public
 router.post(
   '/forgot-password',
-  checkTurnstile,
   [
     check('email', 'Please include a valid email')
       .isEmail()
@@ -387,7 +388,6 @@ router.post(
 // @access  Public
 router.post(
   '/reset-password',
-  checkTurnstile,
   [
     check('token', 'Reset token is required')
       .not().isEmpty(),

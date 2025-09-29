@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import api, { withTurnstile } from '../utils/api';
 import { isValidJWT, clearInvalidToken } from '../utils/tokenValidator';
 
 const AuthContext = createContext();
@@ -31,11 +31,8 @@ export const AuthProvider = ({ children }) => {
         }
         
         try {
-          // Set auth token in axios headers
-          axios.defaults.headers.common['x-auth-token'] = storedToken;
-          
           // Verify token with backend
-          const res = await axios.get('/api/auth');
+          const res = await api.get('/auth');
           
           setToken(storedToken);
           setIsAuthenticated(true);
@@ -59,85 +56,66 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // Set auth token in headers
-  const setAuthToken = (token) => {
-    if (token) {
-      axios.defaults.headers.common['x-auth-token'] = token;
-      localStorage.setItem('token', token);
-    } else {
-      delete axios.defaults.headers.common['x-auth-token'];
-      localStorage.removeItem('token');
-    }
-  };
-
   // Register user
   const register = async (formData) => {
-    try {
-      const config = {
-        headers: {
-          'Content-Type': 'application/json'
+    return withTurnstile(async (turnstileToken) => {
+      try {
+        const body = { ...formData, turnstileToken };
+        const res = await api.post('/users', body);
+        // Auto-login after successful registration using returned token
+        if (res?.data?.token && res?.data?.user) {
+          const { token: newToken, user: newUser } = res.data;
+          localStorage.setItem('token', newToken);
+          setToken(newToken);
+          setIsAuthenticated(true);
+          setUser(newUser);
         }
-      };
-
-      const body = JSON.stringify(formData);
-      const res = await axios.post('/api/users', body, config);
-      // Auto-login after successful registration using returned token
-      if (res?.data?.token && res?.data?.user) {
-        const { token: newToken, user: newUser } = res.data;
-        setAuthToken(newToken);
-        setToken(newToken);
-        setIsAuthenticated(true);
-        setUser(newUser);
+        return {
+          success: true,
+          message:
+            res.data.message ||
+            'Registration successful! A verification email may have been sent. You can proceed to complete your profile.'
+        };
+      } catch (err) {
+        console.error('Registration error:', err);
+        const captchaRequired = Boolean(err.response?.data?.captcha?.required);
+        const captchaType = err.response?.data?.captcha?.type;
+        return {
+          error: err.response?.data?.errors || [{ msg: 'Registration failed' }],
+          captchaRequired,
+          captchaType
+        };
       }
-      return {
-        success: true,
-        message:
-          res.data.message ||
-          'Registration successful! A verification email may have been sent. You can proceed to complete your profile.'
-      };
-    } catch (err) {
-      console.error('Registration error:', err);
-      const captchaRequired = Boolean(err.response?.data?.captcha?.required);
-      const captchaType = err.response?.data?.captcha?.type;
-      return {
-        error: err.response?.data?.errors || [{ msg: 'Registration failed' }],
-        captchaRequired,
-        captchaType
-      };
-    }
+    });
   };
 
   // Login user
   const login = async (formData, redirectPath = null) => {
-    try {
-      const config = {
-        headers: {
-          'Content-Type': 'application/json'
+    return withTurnstile(async (turnstileToken) => {
+      try {
+        const body = { ...formData, turnstileToken };
+        const res = await api.post('/auth', body);
+        
+        localStorage.removeItem('hasLoggedOut'); // Clear logout flag on manual login
+        setHasLoggedOut(false);
+        setToken(res.data.token);
+        setIsAuthenticated(true);
+        setUser(res.data.user);
+        localStorage.setItem('token', res.data.token);
+        if (redirectPath) {
+          localStorage.setItem('redirectPath', redirectPath);
         }
-      };
-
-      const body = JSON.stringify(formData);
-      const res = await axios.post('/api/auth', body, config);
-      
-      localStorage.removeItem('hasLoggedOut'); // Clear logout flag on manual login
-      setHasLoggedOut(false);
-      setToken(res.data.token);
-      setIsAuthenticated(true);
-      setUser(res.data.user);
-      setAuthToken(res.data.token);
-      if (redirectPath) {
-        localStorage.setItem('redirectPath', redirectPath);
+        return { success: true };
+      } catch (err) {
+        console.error('Login error:', err);
+        const captchaRequired = err.response?.data?.captchaRequired === true;
+        return { 
+          error: err.response?.data?.errors || [{ msg: 'Login failed' }],
+          type: err.response?.data?.type,
+          captchaRequired
+        };
       }
-      return { success: true };
-    } catch (err) {
-      console.error('Login error:', err);
-      const captchaRequired = err.response?.data?.captchaRequired === true;
-      return { 
-        error: err.response?.data?.errors || [{ msg: 'Login failed' }],
-        type: err.response?.data?.type,
-        captchaRequired
-      };
-    }
+    });
   };
 
   // Login with provider-issued JWT (e.g., Google)
@@ -145,7 +123,7 @@ export const AuthProvider = ({ children }) => {
     try {
       localStorage.removeItem('hasLoggedOut'); // Clear logout flag on provider login
       setHasLoggedOut(false);
-      setAuthToken(newToken);
+      localStorage.setItem('token', newToken);
       setToken(newToken);
       setIsAuthenticated(true);
       if (newUser) {
@@ -160,7 +138,7 @@ export const AuthProvider = ({ children }) => {
 
   // Logout user
   const logout = () => {
-    setAuthToken(null); // This will remove token from localStorage and axios headers
+    localStorage.removeItem('token'); // This will remove token from localStorage and axios headers
     localStorage.removeItem('redirectPath'); // Clear any stored redirect path
     localStorage.setItem('hasLoggedOut', 'true'); // Mark that user has manually logged out
     setHasLoggedOut(true);

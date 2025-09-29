@@ -551,8 +551,9 @@ const Dashboard = () => {
                 </Typography>
               )}
 
-              {/* Skills - Two Column Layout */}
-              {(((profile?.user?.instruments || user?.instruments) && (profile?.user?.instruments || user?.instruments).length > 0) || 
+              {/* Skills - Two Column Layout (Only show if user is a musician) */}
+              {(profile?.user?.isMusician === 'yes' || user?.isMusician === 'yes') && 
+               (((profile?.user?.instruments || user?.instruments) && (profile?.user?.instruments || user?.instruments).length > 0) || 
                 ((profile?.user?.genres || user?.genres) && (profile?.user?.genres || user?.genres).length > 0)) && (
                 <Grid container spacing={2}>
                   {/* Left Half - Instruments */}

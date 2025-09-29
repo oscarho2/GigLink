@@ -2,6 +2,10 @@ const querystring = require('querystring');
 
 async function verifyTurnstileToken(token, remoteip) {
   const secret = process.env.TURNSTILE_SECRET_KEY;
+  console.log('verifyTurnstileToken: Secret present:', Boolean(secret));
+  console.log('verifyTurnstileToken: Token present:', Boolean(token));
+  console.log('verifyTurnstileToken: Remote IP present:', Boolean(remoteip));
+
   if (!secret) return { ok: true, skipped: true }; // do not block in dev without a secret
   if (!token) return { ok: false, reason: 'missing_token' };
 
@@ -20,6 +24,7 @@ async function verifyTurnstileToken(token, remoteip) {
         body,
       });
       const json = await res.json();
+      console.log('Turnstile API response:', json);
       return { ok: Boolean(json.success), result: json };
     }
   } catch (e) {

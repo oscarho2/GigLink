@@ -58,7 +58,6 @@ router.get('/:id', async (req, res) => {
 // @access  Public
 router.post(
   '/',
-  checkTurnstile,
   [
     check('name', 'Name is required')
       .not().isEmpty()

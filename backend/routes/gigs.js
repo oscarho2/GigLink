@@ -14,7 +14,6 @@ const { normalizeLocation } = require('../utils/location');
 router.post('/', auth, async (req, res) => {
   try {
     const payload = { ...req.body };
-    if (payload.location) payload.location = normalizeLocation(payload.location);
     if (Array.isArray(payload.schedules)) {
       payload.schedules = payload.schedules.map(s => ({
         ...s,
@@ -64,8 +63,10 @@ router.get('/', async (req, res) => {
         $or: [
           { title: rx },
           { description: rx },
-          { venue: rx },
-          { location: rx }
+          { 'location.name': rx },
+          { 'location.city': rx },
+          { 'location.region': rx },
+          { 'location.country': rx }
         ]
       });
     }
@@ -74,11 +75,21 @@ router.get('/', async (req, res) => {
     if (location && location.trim()) {
       const rxLoc = new RegExp(location.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       // Pre-fetch user IDs whose location matches
-      const matchingUsers = await User.find({ location: { $regex: rxLoc } }).select('_id').lean();
+      const matchingUsers = await User.find({
+        $or: [
+          { 'locationData.country': { $regex: rxLoc } },
+          { 'locationData.region': { $regex: rxLoc } },
+          { 'locationData.city': { $regex: rxLoc } },
+        ]
+      }).select('_id').lean();
       const userIds = matchingUsers.map(u => u._id);
       and.push({
         $or: [
-          { location: { $regex: rxLoc } },
+          { 'location.name': { $regex: rxLoc } },
+          { 'location.street': { $regex: rxLoc } },
+          { 'location.city': { $regex: rxLoc } },
+          { 'location.region': { $regex: rxLoc } },
+          { 'location.country': { $regex: rxLoc } },
           ...(userIds.length ? [{ user: { $in: userIds } }] : [])
         ]
       });
@@ -115,7 +126,7 @@ router.get('/', async (req, res) => {
     const skip = (numericPage - 1) * numericLimit;
 
     const gigs = await Gig.find(filter)
-      .populate('user', ['name', 'avatar', 'location'])
+      .populate('user', ['name', 'avatar', 'locationData'])
       .populate('applicants.user', ['_id', 'name', 'avatar'])
       .sort({ date: 1, createdAt: -1 })
       .limit(numericLimit)
@@ -125,15 +136,7 @@ router.get('/', async (req, res) => {
     const gigsWithApplicantCount = gigs.map(gig => {
       const gigObj = gig.toObject();
       gigObj.applicantCount = gig.applicants ? gig.applicants.length : 0;
-      // Ensure a usable, normalized location in response (fallback to owner location for display/filter consistency)
-      const invalid = (s) => !s || !String(s).trim() || String(s).trim().toLowerCase() === 'location not specified';
-      if (invalid(gigObj.location)) {
-        const ownerLoc = gigObj.user && gigObj.user.location ? gigObj.user.location : '';
-        const norm = normalizeLocation(ownerLoc || '');
-        if (norm) gigObj.location = norm;
-      } else {
-        gigObj.location = normalizeLocation(gigObj.location);
-      }
+
       
       // Include applicant details if user is authenticated and owns the gig
       const token = req.header('x-auth-token');
@@ -185,26 +188,8 @@ router.get('/filters', async (_req, res) => {
     // Suggestion stats with fallback to user.location when gig.location is empty
     const pipeline = [
       {
-        $lookup: {
-          from: 'users',
-          localField: 'user',
-          foreignField: '_id',
-          as: 'u',
-          pipeline: [ { $project: { location: 1 } } ]
-        }
-      },
-      {
         $project: {
-          loc: {
-            $trim: {
-              input: {
-                $ifNull: [
-                  { $cond: [ { $ne: ['$location', ''] }, '$location', null ] },
-                  { $arrayElemAt: ['$u.location', 0] }
-                ]
-              }
-            }
-          }
+          loc: '$location.city'
         }
       },
       { $match: { loc: { $exists: true, $ne: '' } } },
@@ -221,17 +206,7 @@ router.get('/filters', async (_req, res) => {
     ];
 
     const locationAgg = await Gig.aggregate(pipeline);
-    // normalize labels for consistent display keys
-    const normCount = new Map();
-    for (const row of locationAgg) {
-      const norm = normalizeLocation(row.label || '');
-      if (!norm) continue;
-      const key = norm.toLowerCase();
-      const prev = normCount.get(key) || { label: norm, count: 0 };
-      prev.count += row.count || 0;
-      normCount.set(key, prev);
-    }
-    const locationStats = Array.from(normCount.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    const locationStats = locationAgg;
     const locations = locationStats.map(l => l.label);
 
     res.json({ locations, locationStats, instruments: (instruments || []).filter(Boolean).sort(), genres: (genres || []).filter(Boolean).sort() });
@@ -253,29 +228,11 @@ router.get('/locations', async (req, res) => {
       ? new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
       : null;
 
-    // Aggregate distinct locations from gig.location with fallback to user.location
+    // Aggregate distinct locations from gig.location
     const pipeline = [
       {
-        $lookup: {
-          from: 'users',
-          localField: 'user',
-          foreignField: '_id',
-          as: 'u',
-          pipeline: [ { $project: { location: 1 } } ]
-        }
-      },
-      {
         $project: {
-          loc: {
-            $trim: {
-              input: {
-                $ifNull: [
-                  { $cond: [ { $ne: ['$location', ''] }, '$location', null ] },
-                  { $arrayElemAt: ['$u.location', 0] }
-                ]
-              }
-            }
-          }
+          loc: '$location.city'
         }
       },
       { $match: { loc: { $exists: true, $ne: '' } } },
@@ -293,19 +250,7 @@ router.get('/locations', async (req, res) => {
     ];
 
     const agg = await Gig.aggregate(pipeline);
-    // Normalize labels for display consistency
-    const normCount = new Map();
-    for (const row of agg) {
-      const norm = normalizeLocation(row.label || '');
-      if (!norm) continue;
-      const key = norm.toLowerCase();
-      const prev = normCount.get(key) || { label: norm, count: 0 };
-      prev.count += row.count || 0;
-      normCount.set(key, prev);
-    }
-    const results = Array.from(normCount.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-
-    res.json({ locationStats: results });
+    res.json({ locationStats: agg });
   } catch (err) {
     console.error('Error fetching location suggestions:', err);
     res.status(500).json({ message: 'Server error' });
@@ -318,7 +263,7 @@ router.get('/locations', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const gig = await Gig.findById(req.params.id)
-      .populate('user', ['_id', 'name', 'avatar', 'location'])
+      .populate('user', ['_id', 'name', 'avatar', 'locationData'])
       .populate('applicants.user', ['_id', 'name', 'avatar']);
 
     if (!gig) {
@@ -328,15 +273,7 @@ router.get('/:id', async (req, res) => {
     // Add applicant count to the gig
     const gigObj = gig.toObject();
     gigObj.applicantCount = gig.applicants ? gig.applicants.length : 0;
-    // Normalize/fallback location for single view as well
-    const invalid = (s) => !s || !String(s).trim() || String(s).trim().toLowerCase() === 'location not specified';
-    if (invalid(gigObj.location)) {
-      const ownerLoc = gigObj.user && gigObj.user.location ? gigObj.user.location : '';
-      const norm = normalizeLocation(ownerLoc || '');
-      if (norm) gigObj.location = norm;
-    } else {
-      gigObj.location = normalizeLocation(gigObj.location);
-    }
+
 
     // Securely provide applicants only to the gig owner
     const token = req.header('x-auth-token');
@@ -415,9 +352,8 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(401).json({ msg: 'User not authorized' });
     }
     
-    // Update gig (normalize location if present)
+    // Update gig
     const update = { ...req.body };
-    if (update.location) update.location = normalizeLocation(update.location);
     gig = await Gig.findByIdAndUpdate(
       req.params.id,
       { $set: update },
@@ -502,7 +438,7 @@ router.post('/:id/apply', auth, async (req, res) => {
       const gigApplicationPayload = {
         gigId: gig._id,
         gigTitle: gig.title,
-        gigVenue: gig.venue || gig.location || '',
+        gigVenue: gig.location.name || '',
         gigDate: gig.date || gig.eventDate || new Date(),
         gigPayment: gig.payment || gig.pay || 0,
         gigInstruments: Array.isArray(gig.instruments) ? gig.instruments : [],
@@ -709,7 +645,6 @@ router.get('/user/applications', auth, async (req, res) => {
       return {
         _id: gig._id,
         title: gig.title,
-        venue: gig.venue,
         location: gig.location,
         date: gig.date,
         time: gig.time,

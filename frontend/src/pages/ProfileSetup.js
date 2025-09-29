@@ -285,36 +285,13 @@ const ProfileSetup = () => {
         }
         return (
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid item xs={12} sx={{ textAlign: 'center', py: 4 }}>
               <Typography variant="h6" gutterBottom>
-                Review your profile
+                Creating your profile...
               </Typography>
-            </Grid>
-            <Grid item xs={12}>
-              <Paper elevation={1} sx={{ p: 2, backgroundColor: 'grey.50' }}>
-                <Typography variant="subtitle2" gutterBottom>Location:</Typography>
-                <Typography variant="body2" gutterBottom>{formatLocationString(formData.location)}</Typography>
-                
-                <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Bio:</Typography>
-                <Typography variant="body2" gutterBottom>{formData.bio}</Typography>
-                
-                <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Are you a musician?</Typography>
-                <Typography variant="body2" gutterBottom>{formData.isMusician === 'yes' ? 'Yes' : 'No'}</Typography>
-                
-                {formData.isMusician === 'yes' && (
-                  <>
-                    <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Instruments:</Typography>
-                    <Typography variant="body2" gutterBottom>{formData.instruments.join(', ')}</Typography>
-                    
-                    <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Genres:</Typography>
-                    <Typography variant="body2" gutterBottom>{formData.genres.join(', ')}</Typography>
-                    
-
-                  </>
-                )}
-                
-
-              </Paper>
+              <Typography variant="body1" color="textSecondary">
+                Please wait while we set up your profile.
+              </Typography>
             </Grid>
           </Grid>
         );
