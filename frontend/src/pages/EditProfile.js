@@ -4,7 +4,7 @@ import { Add as AddIcon, Delete as DeleteIcon, PhotoCamera } from '@mui/icons-ma
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import LocationAutocomplete from '../components/LocationAutocomplete';
+import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
@@ -784,7 +784,7 @@ const EditProfile = () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <LocationAutocomplete
+              <GeoNamesAutocomplete
                 value={formData.location}
                 onChange={(location) => {
                   setFormData({ ...formData, location });

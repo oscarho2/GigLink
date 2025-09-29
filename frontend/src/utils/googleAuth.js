@@ -1,133 +1,221 @@
 import axios from 'axios';
 
-// Google OAuth utility for handling authentication
-
 class GoogleAuthService {
   constructor() {
-    this.isInitialized = false;
-    this.gapi = null;
+    this.isScriptLoaded = false;
+    this.loadPromise = null;
   }
 
-  // Initialize Google API
-  async initialize() {
-    return new Promise((resolve, reject) => {
-      if (this.isInitialized) {
+  loadGisScript() {
+    if (this.loadPromise) {
+      return this.loadPromise;
+    }
+
+    this.loadPromise = new Promise((resolve, reject) => {
+      if (typeof window === 'undefined') {
+        reject(new Error('Google sign-in is only available in the browser.'));
+        return;
+      }
+
+      if (window.google?.accounts?.id) {
+        this.isScriptLoaded = true;
         resolve();
         return;
       }
 
-      // Load Google API script
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.onload = () => {
-        window.gapi.load('auth2', () => {
-          window.gapi.auth2.init({
-            client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-            scope: 'profile email'
-          }).then(() => {
-            this.gapi = window.gapi;
-            this.isInitialized = true;
-            resolve();
-          }).catch(reject);
+      const existingScript = document.getElementById('google-identity-services');
+
+      if (existingScript) {
+        if (existingScript.dataset.loaded === 'true') {
+          this.isScriptLoaded = true;
+          resolve();
+          return;
+        }
+
+        existingScript.addEventListener('load', () => {
+          existingScript.dataset.loaded = 'true';
+          this.isScriptLoaded = true;
+          resolve();
         });
+
+        existingScript.addEventListener('error', () => {
+          this.loadPromise = null;
+          reject(new Error('Failed to load Google Identity Services'));
+        });
+
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.id = 'google-identity-services';
+      script.onload = () => {
+        script.dataset.loaded = 'true';
+        this.isScriptLoaded = true;
+        resolve();
       };
-      script.onerror = () => reject(new Error('Failed to load Google API'));
+      script.onerror = () => {
+        this.loadPromise = null;
+        reject(new Error('Failed to load Google Identity Services'));
+      };
       document.head.appendChild(script);
     });
+
+    return this.loadPromise;
   }
 
-  // Sign in with Google
-  async signIn() {
-    try {
-      if (!this.isInitialized) {
-        await this.initialize();
-      }
-
-      const authInstance = this.gapi.auth2.getAuthInstance();
-      const googleUser = await authInstance.signIn();
-      
-      const profile = googleUser.getBasicProfile();
-      const idToken = googleUser.getAuthResponse().id_token;
-
-      return {
-        success: true,
-        user: {
-          id: profile.getId(),
-          name: profile.getName(),
-          email: profile.getEmail(),
-          imageUrl: profile.getImageUrl(),
-          idToken: idToken
-        }
-      };
-    } catch (error) {
-      console.error('Google Sign-In Error:', error);
-      return {
-        success: false,
-        error: this.getErrorMessage(error)
-      };
+  async ensureGisLoaded() {
+    await this.loadGisScript();
+    if (!window.google?.accounts?.id) {
+      throw new Error('Google Identity Services not available');
     }
   }
 
-  // Sign out
-  async signOut() {
-    try {
-      if (!this.isInitialized) {
-        return { success: true };
-      }
+  decodeIdToken(idToken) {
+    if (!idToken) {
+      return null;
+    }
 
-      const authInstance = this.gapi.auth2.getAuthInstance();
-      await authInstance.signOut();
-      return { success: true };
+    try {
+      const payload = idToken.split('.')[1];
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = atob(base64);
+      const jsonPayload = decodeURIComponent(
+        decoded
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
     } catch (error) {
-      console.error('Google Sign-Out Error:', error);
-      return {
-        success: false,
-        error: this.getErrorMessage(error)
-      };
+      console.warn('Failed to decode Google ID token', error);
+      return null;
     }
   }
 
-  // Get user-friendly error messages
   getErrorMessage(error) {
-    if (error.error === 'popup_closed_by_user') {
-      return 'Sign-in was cancelled. Please try again.';
+    if (!error) {
+      return 'An error occurred during sign-in. Please try again.';
     }
-    if (error.error === 'access_denied') {
-      return 'Access denied. Please grant permission to continue.';
+
+    if (typeof axios.isAxiosError === 'function' && axios.isAxiosError(error)) {
+      const serverMessage = error.response?.data?.message || error.response?.data?.error;
+      if (serverMessage) {
+        return serverMessage;
+      }
     }
-    if (error.error === 'popup_blocked') {
-      return 'Popup was blocked. Please allow popups and try again.';
+
+    const message = error.message || error;
+    if (typeof message === 'string') {
+      const lower = message.toLowerCase();
+      if (lower.includes('popup_closed_by_user') || lower.includes('user_cancel')) {
+        return 'Sign-in was cancelled. Please try again.';
+      }
+      if (lower.includes('credential_unavailable')) {
+        return 'Unable to retrieve Google credentials. Please try again.';
+      }
+      if (lower.includes('prompt_not_displayed') || lower.includes('origin_mismatch')) {
+        return 'Google sign-in could not be displayed. Please check your browser settings.';
+      }
+      if (lower.includes('prompt_skipped') || lower.includes('no_session')) {
+        return 'Sign-in was skipped. Please try again.';
+      }
+      if (lower.includes('missing_client_id')) {
+        return 'Google sign-in is not configured properly.';
+      }
     }
+
+    if (error.response?.data?.message) {
+      return error.response.data.message;
+    }
+
     return 'An error occurred during sign-in. Please try again.';
   }
 
-  // Check if user is signed in
-  isSignedIn() {
-    if (!this.isInitialized || !this.gapi) {
-      return false;
+  async getIdToken() {
+    await this.ensureGisLoaded();
+
+    const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      throw new Error('missing_client_id');
     }
-    const authInstance = this.gapi.auth2.getAuthInstance();
-    return authInstance.isSignedIn.get();
-  }
 
-  // Complete Google sign-in: get Google ID token, then authenticate with backend
-  async signInWithGoogle() {
-    try {
-      // Ensure Google SDK is initialized and get Google user + idToken
-      const signInRes = await this.signIn();
-      if (!signInRes.success) {
-        return signInRes;
-      }
+    return new Promise((resolve, reject) => {
+      let completed = false;
 
-      const { user } = signInRes;
-      const payload = {
-        idToken: user.idToken,
-        email: user.email,
-        name: user.name,
-        imageUrl: user.imageUrl
+      const finalizeReject = (err) => {
+        if (completed) {
+          return;
+        }
+        completed = true;
+        if (window.google?.accounts?.id?.cancel) {
+          window.google.accounts.id.cancel();
+        }
+        reject(err);
       };
 
-      // Exchange Google ID token for app JWT
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (response) => {
+          if (completed) {
+            return;
+          }
+
+          if (response?.credential) {
+            completed = true;
+            resolve(response.credential);
+          } else if (response?.error) {
+            finalizeReject(new Error(response.error));
+          } else {
+            finalizeReject(new Error('credential_unavailable'));
+          }
+        },
+        ux_mode: 'popup',
+        auto_select: false,
+        itp_support: true,
+        cancel_on_tap_outside: true
+      });
+
+      window.google.accounts.id.prompt((notification) => {
+        if (completed) {
+          return;
+        }
+
+        if (notification.isDismissedMoment?.()) {
+          const reason = notification.getDismissedReason?.() || 'popup_closed_by_user';
+          finalizeReject(new Error(reason));
+          return;
+        }
+
+        if (notification.isNotDisplayed?.()) {
+          const reason = notification.getNotDisplayedReason?.() || 'prompt_not_displayed';
+          finalizeReject(new Error(reason));
+          return;
+        }
+
+        if (notification.isSkippedMoment?.()) {
+          const reason = notification.getSkippedReason?.() || 'prompt_skipped';
+          finalizeReject(new Error(reason));
+        }
+      });
+    });
+  }
+
+  async signInWithGoogle() {
+    try {
+      const idToken = await this.getIdToken();
+      const decoded = this.decodeIdToken(idToken) || {};
+      const fullName = decoded.name || [decoded.given_name, decoded.family_name].filter(Boolean).join(' ').trim() || undefined;
+
+      const payload = {
+        idToken,
+        email: decoded.email,
+        name: fullName,
+        imageUrl: decoded.picture
+      };
+
       const res = await axios.post('/api/auth/google', payload);
 
       return {
@@ -135,13 +223,14 @@ class GoogleAuthService {
         token: res.data?.token,
         user: res.data?.user
       };
-    } catch (err) {
-      console.error('Google OAuth server auth failed:', err);
-      const msg = err?.response?.data?.message || 'Server error during Google authentication';
-      return { success: false, error: msg };
+    } catch (error) {
+      console.error('Google OAuth failed:', error);
+      return {
+        success: false,
+        error: this.getErrorMessage(error)
+      };
     }
   }
 }
 
-// Export singleton instance
 export default new GoogleAuthService();

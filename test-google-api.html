@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Places API Test</title>
+</head>
+<body>
+    <h1>Google Places API Test</h1>
+    <input type="text" id="test-input" placeholder="Enter a city name" style="width: 300px; padding: 10px;"/>
+    <div id="results"></div>
+
+    <script>
+        // Test the Google Places API
+        function testGooglePlaces() {
+            const apiKey = 'AIzaSyCBnNi2DnANOelKhpoqw5IqnBg2zNp20kE';
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+            script.onload = function() {
+                console.log('Google Maps API loaded successfully');
+                document.getElementById('test-input').addEventListener('input', function(e) {
+                    const input = e.target.value;
+                    if (input.length > 2) {
+                        const service = new google.maps.places.AutocompleteService();
+                        service.getPlacePredictions({
+                            input: input,
+                            types: ['(cities)']
+                        }, function(predictions, status) {
+                            const resultsDiv = document.getElementById('results');
+                            if (status === google.maps.places.PlacesServiceStatus.OK) {
+                                resultsDiv.innerHTML = '<h3>Results:</h3>' + 
+                                    predictions.map(p => `<div>${p.description}</div>`).join('');
+                            } else {
+                                resultsDiv.innerHTML = '<h3>Error:</h3><p>' + status + '</p>';
+                            }
+                        });
+                    }
+                });
+            };
+            script.onerror = function() {
+                console.error('Failed to load Google Maps API');
+                document.getElementById('results').innerHTML = '<h3>Error:</h3><p>Failed to load Google Maps API</p>';
+            };
+            document.body.appendChild(script);
+        }
+        
+        testGooglePlaces();
+    </script>
+</body>
+</html>

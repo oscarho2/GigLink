@@ -17,8 +17,14 @@ function loadGoogleMapsScript(apiKey) {
     script.id = 'google-maps-script';
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
-    script.onload = resolve;
-    script.onerror = reject;
+    script.onload = () => {
+      console.log('Google Maps API loaded successfully');
+      resolve();
+    };
+    script.onerror = () => {
+      console.error('Failed to load Google Maps API');
+      reject(new Error('Failed to load Google Maps API'));
+    };
     document.body.appendChild(script);
   });
 }
@@ -49,33 +55,41 @@ export default function LocationAutocomplete({ value, onChange, label = 'Locatio
         setLoading(true);
         // Load Google Maps script with API key from environment variable
         await loadGoogleMapsScript(process.env.REACT_APP_GOOGLE_PLACES_API_KEY);
-        if (!window.google || !window.google.maps || !window.google.maps.places) {
-          setOptions([]);
-          setOpen(false);
-          setLoading(false);
-          return;
-        }
+         if (!window.google || !window.google.maps || !window.google.maps.places) {
+           console.error('Google Maps API not available');
+           setOptions([]);
+           setOpen(false);
+           setLoading(false);
+           return;
+         }
         const service = new window.google.maps.places.AutocompleteService();
         service.getPlacePredictions({ 
           input: q, 
-          types: ['(cities)'],
-          fields: ['formatted_address', 'name', 'place_id']
+          types: ['(cities)']
         }, (predictions, status) => {
           if (!active) return;
+          console.log('Google Places API status:', status, 'predictions:', predictions);
           if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-            setOptions(predictions.map(pred => ({ id: pred.place_id, name: pred.description })));
+            const mappedPredictions = predictions.map(pred => ({ id: pred.place_id, name: pred.description }));
+            setOptions(mappedPredictions);
             setOpen(true);
+            // Automatically select the first option if no value is currently set
+            if (!value && mappedPredictions.length > 0) {
+              onChange(mappedPredictions[0].name);
+            }
           } else {
+            console.log('No predictions found or error:', status);
             setOptions([]);
             setOpen(false);
           }
           setLoading(false);
         });
-      } catch (e) {
-        setOptions([]);
-        setOpen(false);
-        setLoading(false);
-      }
+       } catch (e) {
+         console.error('Google Places API error:', e);
+         setOptions([]);
+         setOpen(false);
+         setLoading(false);
+       }
     }, 250);
     return () => { active = false; clearTimeout(t); controller.abort(); };
   }, [input]);
@@ -159,8 +173,8 @@ export default function LocationAutocomplete({ value, onChange, label = 'Locatio
           if ((v || '').trim().length >= 1) setOpen(true); else setOpen(false);
         }
       }}
-      renderOption={(props, option) => (
-        <li {...props} key={option.id || option.name}>
+      renderOption={(props, option, { selected }) => (
+        <li {...props} key={option.id || option.name} style={{ backgroundColor: selected ? '#e0e0e0' : 'inherit' }}>
           <Box sx={{ fontSize: 14, fontWeight: 500 }}>{option.name}</Box>
         </li>
       )}

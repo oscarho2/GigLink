@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { TextField, Paper, List, ListItem, ListItemText, CircularProgress } from '@mui/material';
 
 const GeoNamesAutocomplete = ({ 
@@ -15,23 +15,12 @@ const GeoNamesAutocomplete = ({
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const timeoutRef = useRef(null);
   const containerRef = useRef(null);
   const listRef = useRef(null);
 
-  // Fallback cities for UK when GeoNames API fails
-  const fallbackCities = useMemo(() => [
-    'London', 'Manchester', 'Birmingham', 'Liverpool', 'Leeds', 'Sheffield', 
-    'Bristol', 'Glasgow', 'Edinburgh', 'Newcastle', 'Cardiff', 'Belfast',
-    'Nottingham', 'Leicester', 'Coventry', 'Bradford', 'Stoke-on-Trent',
-    'Wolverhampton', 'Plymouth', 'Southampton', 'Reading', 'Derby',
-    'Dudley', 'Northampton', 'Portsmouth', 'Norwich', 'Luton', 'Solihull',
-    'Islington', 'Aberdeen', 'Bournemouth', 'Swindon', 'Huddersfield',
-    'Poole', 'Oxford', 'Middlesbrough', 'Blackpool', 'Bolton', 'Ipswich',
-    'York', 'West Bromwich', 'Telford', 'Exeter', 'Chelmsford', 'Basildon',
-    'Gloucester', 'Crawley', 'Worthing', 'Cambridge'
-  ], []);
+
 
   // GeoNames API configuration
   // NOTE: Using 'demo' username for testing. For production:
@@ -39,7 +28,7 @@ const GeoNamesAutocomplete = ({
   // 2. Enable web services in your account settings
   // 3. Replace 'demo' with your actual GeoNames username
   const GEONAMES_USERNAME = 'oscarho'; // Using demo for testing - replace with your username for production
-  const GEONAMES_API_URL = 'http://api.geonames.org/searchJSON'; // Note: HTTPS may have CORS issues in development
+  const GEONAMES_API_URL = 'https://secure.geonames.org/searchJSON'; // Using HTTPS to avoid CORS issues
 
   useEffect(() => {
     // Handle empty, null, undefined, or "Location not specified" values
@@ -47,11 +36,49 @@ const GeoNamesAutocomplete = ({
     setInputValue(cleanValue);
   }, [value]);
 
+  const scrollToSelectedItem = useCallback((index) => {
+    if (listRef.current && index >= 0 && index < suggestions.length) {
+      const listElement = listRef.current;
+      const selectedElement = listElement.children[index];
+      if (selectedElement) {
+        try {
+          // Use scrollIntoView for the most reliable cross-browser scrolling
+          selectedElement.scrollIntoView({
+            block: 'nearest',
+            behavior: 'smooth'
+          });
+        } catch (e) {
+          // Fallback for browsers that don't support scrollIntoView options
+          const itemTop = selectedElement.offsetTop;
+          const itemHeight = selectedElement.offsetHeight;
+          const listHeight = listElement.clientHeight;
+          const scrollTop = listElement.scrollTop;
+          
+          // If item is below visible area, scroll down
+          if (itemTop + itemHeight > scrollTop + listHeight) {
+            listElement.scrollTop = itemTop + itemHeight - listHeight;
+          }
+          // If item is above visible area, scroll up
+          else if (itemTop < scrollTop) {
+            listElement.scrollTop = itemTop;
+          }
+        }
+      }
+    }
+  }, [suggestions.length]);
+
+  // Scroll to selected item when selection changes
+  useEffect(() => {
+    if (showSuggestions && selectedIndex >= 0 && suggestions.length > 0) {
+      requestAnimationFrame(() => scrollToSelectedItem(selectedIndex));
+    }
+  }, [selectedIndex, showSuggestions, suggestions.length, scrollToSelectedItem]);
+
   const fetchSuggestions = useCallback(async (query) => {
     if (query.length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
-      setSelectedIndex(-1);
+      setSelectedIndex(0); // Preselect first option when resetting
       return;
     }
 
@@ -76,30 +103,7 @@ const GeoNamesAutocomplete = ({
           console.warn('Demo account daily limit exceeded. Using UK fallback cities.');
         }
         
-        // Use fallback cities when API fails
-        const filteredCities = fallbackCities
-          .filter(city => city.toLowerCase().includes(query.toLowerCase()))
-          .slice(0, 10)
-          .map((city, index) => {
-            const displayName = city;
-            return {
-              id: `fallback-${index}`,
-              name: city,
-              adminName1: '',
-              countryName: '',
-              displayName
-            };
-          });
-        
-        // Remove duplicates based on displayName
-        const uniqueFallbackCities = filteredCities.filter((item, index, self) => 
-          index === self.findIndex(t => t.displayName === item.displayName)
-        );
-        
-        setSuggestions(uniqueFallbackCities);
-         setShowSuggestions(uniqueFallbackCities.length > 0);
-         setSelectedIndex(-1);
-        return;
+
       }
 
       if (data.geonames) {
@@ -124,46 +128,24 @@ const GeoNamesAutocomplete = ({
         
         setSuggestions(uniqueSuggestions);
         setShowSuggestions(true);
-        setSelectedIndex(-1);
+        setSelectedIndex(0); // Preselect the first option
       } else {
         setSuggestions([]);
         setShowSuggestions(false);
-        setSelectedIndex(-1);
+        setSelectedIndex(0); // Keep first option selected even when no suggestions
       }
     } catch (error) {
       console.error('Error fetching GeoNames data:', error);
-      console.warn('GeoNames API request failed. Using fallback cities.');
-      
-      // Use fallback cities when network request fails
-      const filteredCities = fallbackCities
-        .filter(city => city.toLowerCase().includes(query.toLowerCase()))
-        .slice(0, 10)
-        .map((city, index) => {
-          return {
-            id: `fallback-${index}`,
-            name: city,
-            adminName1: '',
-            countryName: '',
-            displayName: city
-          };
-        });
-      
-      // Remove duplicates based on displayName
-      const uniqueFallbackCities = filteredCities.filter((item, index, self) => 
-        index === self.findIndex(t => t.displayName === item.displayName)
-      );
-      
-      setSuggestions(uniqueFallbackCities);
-      setShowSuggestions(uniqueFallbackCities.length > 0);
+
     } finally {
       setLoading(false);
     }
-  }, [fallbackCities]);
+  }, []);
 
   const handleInputChange = useCallback((event) => {
     const newValue = event.target.value;
     setInputValue(newValue);
-    setSelectedIndex(-1); // Reset selection when typing
+    setSelectedIndex(0); // Preselect first option when typing
 
     // Clear existing timeout
     if (timeoutRef.current) {
@@ -176,46 +158,42 @@ const GeoNamesAutocomplete = ({
     }, 300);
   }, [fetchSuggestions]);
 
-  const scrollToSelectedItem = (index) => {
-    if (listRef.current && index >= 0) {
-      const listElement = listRef.current;
-      const selectedElement = listElement.children[index];
-      if (selectedElement) {
-        const itemHeight = selectedElement.offsetHeight;
-        const itemTop = selectedElement.offsetTop;
-        const listHeight = listElement.clientHeight;
-        const scrollTop = listElement.scrollTop;
-        
-        // Check if item is below visible area
-        if (itemTop + itemHeight > scrollTop + listHeight) {
-          listElement.scrollTop = itemTop + itemHeight - listHeight;
-        }
-        // Check if item is above visible area
-        else if (itemTop < scrollTop) {
-          listElement.scrollTop = itemTop;
-        }
-      }
-    }
-  };
-
   const handleKeyDown = (event) => {
     if (!showSuggestions || suggestions.length === 0) return;
 
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
-        setSelectedIndex(prev => {
-          const newIndex = prev < suggestions.length - 1 ? prev + 1 : 0;
-          setTimeout(() => scrollToSelectedItem(newIndex), 0);
-          return newIndex;
-        });
+        setSelectedIndex(prev => prev < suggestions.length - 1 ? prev + 1 : 0);
         break;
       case 'ArrowUp':
         event.preventDefault();
+        setSelectedIndex(prev => prev > 0 ? prev - 1 : suggestions.length - 1);
+        break;
+      case 'Home':
+        event.preventDefault();
+        if (showSuggestions && suggestions.length > 0) {
+          setSelectedIndex(0);
+        }
+        break;
+      case 'End':
+        event.preventDefault();
+        if (showSuggestions && suggestions.length > 0) {
+          setSelectedIndex(suggestions.length - 1);
+        }
+        break;
+      case 'PageDown':
+        event.preventDefault();
         setSelectedIndex(prev => {
-          const newIndex = prev > 0 ? prev - 1 : suggestions.length - 1;
-          setTimeout(() => scrollToSelectedItem(newIndex), 0);
-          return newIndex;
+          const increment = Math.min(5, suggestions.length - 1);
+          return Math.min(prev + increment, suggestions.length - 1);
+        });
+        break;
+      case 'PageUp':
+        event.preventDefault();
+        setSelectedIndex(prev => {
+          const decrement = Math.min(5, prev);
+          return Math.max(prev - decrement, 0);
         });
         break;
       case 'Enter':
@@ -226,7 +204,7 @@ const GeoNamesAutocomplete = ({
         break;
       case 'Escape':
         setShowSuggestions(false);
-        setSelectedIndex(-1);
+        setSelectedIndex(0); // Reset to first option instead of -1
         break;
       default:
         break;
@@ -236,7 +214,7 @@ const GeoNamesAutocomplete = ({
  const handleSuggestionClick = (suggestion) => {
     setInputValue(suggestion.displayName || suggestion.name);
     setShowSuggestions(false);
-    setSelectedIndex(-1);
+    setSelectedIndex(0); // Reset to first option
     if (onChange) {
       onChange(suggestion.displayName || suggestion.name);
     }
@@ -246,7 +224,7 @@ const GeoNamesAutocomplete = ({
     // Delay hiding suggestions to allow for click events
     setTimeout(() => {
       setShowSuggestions(false);
-      setSelectedIndex(-1);
+      setSelectedIndex(0); // Reset to first option
     }, 150);
   };
 
@@ -276,6 +254,11 @@ const GeoNamesAutocomplete = ({
         onFocus={handleInputFocus}
         placeholder={placeholder}
         disabled={disabled}
+        autoComplete="off"
+        role="combobox"
+        aria-expanded={showSuggestions}
+        aria-haspopup="listbox"
+        aria-activedescendant={showSuggestions && selectedIndex >= 0 && suggestions.length > 0 ? `suggestion-${selectedIndex}` : undefined}
         InputProps={{
           endAdornment: loading && <CircularProgress size={20} />
         }}
@@ -288,24 +271,45 @@ const GeoNamesAutocomplete = ({
             top: '100%',
             left: 0,
             right: 0,
-            zIndex: 1000,
-            maxHeight: '200px',
-            overflow: 'auto'
+            zIndex: 1300, // Higher z-index to ensure it appears above other elements
+            maxHeight: '300px', // Increased height for better visibility
+            overflow: 'hidden', // Hide overflow on the Paper to let List handle scrolling
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)' // Better shadow
           }}
-          elevation={3}
+          elevation={8}
         >
-          <List dense ref={listRef}>
+          <List 
+            dense 
+            ref={listRef}
+            role="listbox"
+            style={{
+              maxHeight: '300px',
+              overflow: 'auto',
+              scrollBehavior: 'smooth' // Enable smooth scrolling
+            }}
+          >
             {suggestions.map((suggestion, index) => (
               <ListItem
                 key={suggestion.id}
+                id={`suggestion-${index}`}
                 button
                 onClick={() => handleSuggestionClick(suggestion)}
-                style={{
+                selected={selectedIndex === index}
+                role="option"
+                aria-selected={selectedIndex === index}
+                sx={{
                   cursor: 'pointer',
-                  backgroundColor: selectedIndex === index ? '#e3f2fd' : 'transparent',
+                  backgroundColor: selectedIndex === index ? '#f5f5f5' : 'transparent', // Light grey for selected
                   '&:hover': {
-                    backgroundColor: selectedIndex === index ? '#e3f2fd' : '#f5f5f5'
-                  }
+                    backgroundColor: selectedIndex === index ? '#f5f5f5' : 'action.hover'
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: '#f5f5f5', // Light grey for selected
+                    '&:hover': {
+                      backgroundColor: '#f5f5f5'
+                    }
+                  },
+                  transition: 'background-color 0.15s ease'
                 }}
               >
                 <ListItemText

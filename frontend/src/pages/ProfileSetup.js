@@ -3,7 +3,7 @@ import { Container, Typography, Box, Paper, TextField, Button, Grid, Autocomplet
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import LocationAutocomplete from '../components/LocationAutocomplete';
+import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 import { formatLocationString } from '../utils/text';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
@@ -86,34 +86,47 @@ const ProfileSetup = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    
+    // Validation: If user is a musician, they must select at least one instrument and one genre
+    if (formData.isMusician === 'yes') {
+      if (!formData.instruments || formData.instruments.length === 0) {
+        setError('Musicians must select at least one instrument.');
+        setLoading(false);
+        return;
+      }
+      if (!formData.genres || formData.genres.length === 0) {
+        setError('Musicians must select at least one genre.');
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
+      // Transform form data to match backend expectations (same as EditProfile)
+      const updateData = {
+        bio: formData.bio,
+        skills: Array.isArray(formData.instruments) ? formData.instruments : [],
+        availability: formData.availability,
+        location: formData.location,
+        isMusician: formData.isMusician,
+        instruments: Array.isArray(formData.instruments) ? formData.instruments : [],
+        genres: Array.isArray(formData.genres) ? formData.genres : [],
+        videos: []
+      };
+
       // First try to create a new profile
       try {
-        await axios.post('/api/profiles', {
-          bio: formData.bio,
-          skills: formData.instruments,
-          availability: formData.availability,
-          location: formData.location,
-          instruments: formData.instruments,
-          genres: formData.genres,
-          isMusician: formData.isMusician
-        }, {
+        await axios.post('/api/profiles', updateData, {
           headers: { 'x-auth-token': token }
         });
       } catch (createError) {
         // If profile already exists, update it instead
         if (createError.response?.status === 400 || createError.response?.data?.message?.includes('already exists')) {
-          await axios.put('/api/profiles/me', {
-            bio: formData.bio,
-            skills: formData.instruments,
-            availability: formData.availability,
-            location: formData.location,
-            instruments: formData.instruments,
-            genres: formData.genres,
-            isMusician: formData.isMusician
-          }, {
-            headers: { 'x-auth-token': token }
+          await axios.put('/api/profiles/me', updateData, {
+            headers: { 
+              'x-auth-token': token,
+              'Content-Type': 'application/json'
+            }
           });
         } else {
           throw createError;
@@ -147,7 +160,7 @@ const ProfileSetup = () => {
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <LocationAutocomplete
+              <GeoNamesAutocomplete
                 value={formData.location}
                 onChange={(location) => {
                   setFormData({ ...formData, location });

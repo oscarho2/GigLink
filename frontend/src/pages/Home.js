@@ -24,7 +24,7 @@ const Home = () => {
   const [error, setError] = useState('');
   const [showError, setShowError] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { loginWithToken } = useAuth();
 
   // Handle Google OAuth sign-in
   const handleGoogleSignIn = async () => {
@@ -32,41 +32,22 @@ const Home = () => {
       setIsLoading(true);
       setError('');
       
-      const result = await googleAuthService.signIn();
+      const result = await googleAuthService.signInWithGoogle();
       
-      if (result.success) {
-        // Send Google user data to backend for authentication
-        const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/auth/google`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            idToken: result.user.idToken,
-            email: result.user.email,
-            name: result.user.name,
-            imageUrl: result.user.imageUrl
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          // Store token and user data
-          localStorage.setItem('token', data.token);
-          login(data.user);
-          
-          // Navigate to dashboard or profile setup
-          if (data.user.profileComplete) {
+      if (result.success && result.token) {
+        const loginOk = loginWithToken(result.token, result.user);
+
+        if (loginOk) {
+          if (result.user?.profileComplete) {
             navigate('/dashboard');
           } else {
             navigate('/profile-setup');
           }
         } else {
-          throw new Error(data.message || 'Authentication failed');
+          throw new Error('Failed to establish session from Google token');
         }
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Google sign-in failed');
       }
     } catch (error) {
       console.error('Google Sign-In Error:', error);
