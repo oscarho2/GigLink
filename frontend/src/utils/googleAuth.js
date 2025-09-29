@@ -73,6 +73,20 @@ class GoogleAuthService {
     }
   }
 
+  clearGoogleOneTapState() {
+    // Clear Google One Tap state to avoid cooldown issues
+    try {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.disableAutoSelect();
+        // Clear any stored state
+        localStorage.removeItem('g_state');
+        sessionStorage.removeItem('g_state');
+      }
+    } catch (error) {
+      console.warn('Could not clear Google One Tap state:', error);
+    }
+  }
+
   decodeIdToken(idToken) {
     if (!idToken) {
       return null;
@@ -143,69 +157,99 @@ class GoogleAuthService {
     }
 
     return new Promise((resolve, reject) => {
-      let completed = false;
+      try {
+        // Initialize Google Sign-In
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response) => {
+            if (response?.credential) {
+              resolve(response.credential);
+            } else if (response?.error) {
+              reject(new Error(response.error));
+            } else {
+              reject(new Error('No credential received'));
+            }
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
 
-      const finalizeReject = (err) => {
-        if (completed) {
-          return;
-        }
-        completed = true;
-        if (window.google?.accounts?.id?.cancel) {
-          window.google.accounts.id.cancel();
-        }
-        reject(err);
-      };
-
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: (response) => {
-          if (completed) {
-            return;
+        // Try the prompt first
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed()) {
+            console.log('Prompt not displayed:', notification.getNotDisplayedReason());
+            // Instead of rejecting, try alternative method
+            this.triggerSignInButton(resolve, reject);
+          } else if (notification.isSkippedMoment()) {
+            console.log('Prompt skipped');
+            this.triggerSignInButton(resolve, reject);
+          } else if (notification.isDismissedMoment()) {
+            console.log('Prompt dismissed');
+            this.triggerSignInButton(resolve, reject);
           }
+        });
 
-          if (response?.credential) {
-            completed = true;
-            resolve(response.credential);
-          } else if (response?.error) {
-            finalizeReject(new Error(response.error));
-          } else {
-            finalizeReject(new Error('credential_unavailable'));
-          }
-        },
-        ux_mode: 'popup',
-        auto_select: false,
-        itp_support: true,
-        cancel_on_tap_outside: true
-      });
-
-      window.google.accounts.id.prompt((notification) => {
-        if (completed) {
-          return;
-        }
-
-        if (notification.isDismissedMoment?.()) {
-          const reason = notification.getDismissedReason?.() || 'popup_closed_by_user';
-          finalizeReject(new Error(reason));
-          return;
-        }
-
-        if (notification.isNotDisplayed?.()) {
-          const reason = notification.getNotDisplayedReason?.() || 'prompt_not_displayed';
-          finalizeReject(new Error(reason));
-          return;
-        }
-
-        if (notification.isSkippedMoment?.()) {
-          const reason = notification.getSkippedReason?.() || 'prompt_skipped';
-          finalizeReject(new Error(reason));
-        }
-      });
+      } catch (error) {
+        console.error('Google sign-in initialization error:', error);
+        reject(error);
+      }
     });
+  }
+
+  triggerSignInButton(resolve, reject) {
+    // Create a temporary invisible button to trigger sign-in
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.opacity = '0';
+    tempDiv.style.pointerEvents = 'none';
+    document.body.appendChild(tempDiv);
+
+    try {
+      window.google.accounts.id.renderButton(tempDiv, {
+        type: 'standard',
+        size: 'large',
+        theme: 'outline',
+        text: 'sign_in_with',
+        shape: 'rectangular'
+      });
+
+      // Programmatically click the button
+      setTimeout(() => {
+        const googleButton = tempDiv.querySelector('[role="button"]');
+        if (googleButton) {
+          googleButton.click();
+        } else {
+          document.body.removeChild(tempDiv);
+          reject(new Error('Unable to create sign-in button'));
+        }
+      }, 100);
+
+      // Clean up the temporary element after a delay
+      setTimeout(() => {
+        if (document.body.contains(tempDiv)) {
+          document.body.removeChild(tempDiv);
+        }
+      }, 5000);
+
+    } catch (error) {
+      if (document.body.contains(tempDiv)) {
+        document.body.removeChild(tempDiv);
+      }
+      reject(error);
+    }
   }
 
   async signInWithGoogle() {
     try {
+      console.log('Starting Google sign-in process...');
+      
+      // Clear any previous One Tap state to avoid cooldown issues
+      this.clearGoogleOneTapState();
+      
       const idToken = await this.getIdToken();
+      console.log('Received ID token from Google');
+      
       const decoded = this.decodeIdToken(idToken) || {};
       const fullName = decoded.name || [decoded.given_name, decoded.family_name].filter(Boolean).join(' ').trim() || undefined;
 
@@ -216,7 +260,9 @@ class GoogleAuthService {
         imageUrl: decoded.picture
       };
 
+      console.log('Sending payload to backend:', { ...payload, idToken: '***' });
       const res = await axios.post('/api/auth/google', payload);
+      console.log('Backend response received');
 
       return {
         success: true,
@@ -225,6 +271,7 @@ class GoogleAuthService {
       };
     } catch (error) {
       console.error('Google OAuth failed:', error);
+      console.error('Error response:', error.response?.data);
       return {
         success: false,
         error: this.getErrorMessage(error)
@@ -233,4 +280,5 @@ class GoogleAuthService {
   }
 }
 
-export default new GoogleAuthService();
+const googleAuthService = new GoogleAuthService();
+export default googleAuthService;

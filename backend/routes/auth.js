@@ -122,6 +122,10 @@ router.post('/google', async (req, res) => {
   try {
     const { idToken, email, name, imageUrl } = req.body;
 
+    if (!idToken) {
+      return res.status(400).json({ message: 'ID token is required' });
+    }
+
     // Verify Google ID token
     const ticket = await googleClient.verifyIdToken({
       idToken: idToken,
@@ -131,31 +135,60 @@ router.post('/google', async (req, res) => {
     const payload = ticket.getPayload();
     const googleId = payload['sub'];
     const verifiedEmail = payload['email'];
+    const emailVerified = payload['email_verified'];
 
     // Verify email matches
     if (verifiedEmail !== email) {
       return res.status(400).json({ message: 'Email verification failed' });
     }
 
+    // Normalize email
+    const normalizedEmail = verifiedEmail.toLowerCase().trim();
+
     // Check if user already exists
-    let user = await User.findOne({ email: verifiedEmail });
+    let user = await User.findOne({ 
+      $or: [
+        { email: normalizedEmail },
+        { googleId: googleId }
+      ]
+    });
     
     if (user) {
-      // Update Google ID if not set
+      // Update Google ID and avatar if not set
+      let needsUpdate = false;
       if (!user.googleId) {
         user.googleId = googleId;
+        needsUpdate = true;
+      }
+      if (imageUrl && (!user.avatar || user.avatar !== imageUrl)) {
+        user.avatar = imageUrl;
+        needsUpdate = true;
+      }
+      if (!user.isEmailVerified && emailVerified) {
+        user.isEmailVerified = true;
+        needsUpdate = true;
+      }
+      
+      if (needsUpdate) {
         await user.save();
       }
     } else {
-      // Create new user
+      // Create new user with pre-hashed placeholder password
+      const salt = await require('bcryptjs').genSalt(10);
+      const hashedPlaceholder = await require('bcryptjs').hash('google_oauth_user', salt);
+      
       user = new User({
-        name: name,
-        email: verifiedEmail,
+        name: name || verifiedEmail.split('@')[0],
+        email: normalizedEmail,
         googleId: googleId,
         avatar: imageUrl,
-        password: 'google_oauth_user' // Placeholder password for Google users
+        password: hashedPlaceholder,
+        isEmailVerified: emailVerified || true // Google users are considered verified
       });
-      await user.save();
+      
+      // Skip password hashing middleware for this user
+      user.isNew = false;
+      await user.save({ validateBeforeSave: true });
     }
 
     // Check if user has a profile
@@ -165,7 +198,10 @@ router.post('/google', async (req, res) => {
     // Generate JWT token
     const jwtPayload = {
       user: {
-        id: user.id
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isEmailVerified: user.isEmailVerified
       }
     };
 
@@ -174,7 +210,10 @@ router.post('/google', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '7d' },
       (err, token) => {
-        if (err) throw err;
+        if (err) {
+          console.error('JWT signing error:', err);
+          return res.status(500).json({ message: 'Error generating token' });
+        }
         res.json({
           token,
           user: {
@@ -182,6 +221,7 @@ router.post('/google', async (req, res) => {
             name: user.name,
             email: user.email,
             avatar: user.avatar,
+            isEmailVerified: user.isEmailVerified,
             profileComplete: profileComplete
           }
         });
@@ -189,7 +229,16 @@ router.post('/google', async (req, res) => {
     );
   } catch (error) {
     console.error('Google OAuth Error:', error);
-    res.status(500).json({ message: 'Server error during Google authentication' });
+    
+    // Provide more specific error messages
+    if (error.message && error.message.includes('Invalid token')) {
+      return res.status(400).json({ message: 'Invalid Google token' });
+    }
+    
+    res.status(500).json({ 
+      message: 'Server error during Google authentication',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
+    });
   }
 });
 
