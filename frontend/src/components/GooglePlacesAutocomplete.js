@@ -101,6 +101,13 @@ const GooglePlacesAutocomplete = ({ value, onChange, placeholder = "Enter locati
         fullWidth
         disabled={disabled}
         autoComplete="off"
+        onKeyDown={(e) => {
+          // Handle backspace key specifically to ensure it works when editing existing values
+          if (e.key === 'Backspace') {
+            // Allow default behavior to continue
+            return;
+          }
+        }}
       />
       {loading && <CircularProgress size={20} style={{ position: 'absolute', right: 10, top: 10 }} />}
       {showSuggestions && suggestions.length > 0 && (

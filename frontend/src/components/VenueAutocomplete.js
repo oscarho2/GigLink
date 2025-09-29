@@ -1,10 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Autocomplete, TextField, Box, IconButton } from '@mui/material';
-import { formatLocationString } from '../utils/text';
 import CloseIcon from '@mui/icons-material/Close';
 
 export default function VenueAutocomplete({ value, onChange, near, onLocationChange, global = true, label = 'Venue', placeholder = 'Search venues' }) {
   const [input, setInput] = useState(value || '');
+  const valueRef = useRef(value);
+  
+  // Update valueRef when value prop changes
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
   const [loading, setLoading] = useState(false);
   const [options, setOptions] = useState([]);
   const sessionRef = useRef('');
@@ -12,8 +17,6 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
   const [ll, setLl] = useState('');
   const focusedRef = useRef(false);
   const suppressNextOpenRef = useRef(false);
-
-  // Intentionally no geolocation/near bias: global autocomplete
 
   const ensureSession = () => {
     if (sessionRef.current && sessionRef.current.length === 32) return sessionRef.current;
@@ -24,11 +27,6 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
     return s;
   };
 
-  // Parse patterns like:
-  // - "Venue, City"
-  // - "Venue in City"
-  // - "Venue - City"
-  // - "Venue (City)"
   const parseInput = (raw) => {
     const s = (raw || '').trim();
     if (!s) return { cleanQuery: '', derivedNear: '' };
@@ -61,8 +59,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
   };
 
   const deriveLocationFromAddress = (addr) => {
-    // Preserve the full address (including street if present) but fix capitalization
-    return formatLocationString(addr || '');
+    return addr || '';
   };
 
   const hasStreetInAddress = (addr) => {
@@ -75,7 +72,6 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
 
   useEffect(() => { setInput(value || ''); }, [value]);
 
-  // Try to bias by user's current location (like Google Maps) when no near is provided
   useEffect(() => {
     if (!navigator.geolocation) return;
     const opts = { enableHighAccuracy: true, timeout: 5000, maximumAge: 300000 };
@@ -103,8 +99,6 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       return () => { active = false; controller.abort(); };
     }
     if (!focusedRef.current) { setOptions([]); setOpen(false); return () => { active = false; controller.abort(); }; }
-    // Compute location-aware fallback query: if user hasn't typed a venue but provided a location,
-    // query generic venues for that area.
     const effectiveNear = derivedNear || (near && near.trim() ? near.trim() : '');
     const effectiveQuery = q.length >= 1 ? q : (effectiveNear ? 'venue' : '');
     if (!effectiveQuery || effectiveQuery.trim().length < 2) { setOptions([]); setOpen(false); return () => { active = false; controller.abort(); }; }
@@ -113,9 +107,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       let abortTimer;
       try {
         setLoading(true);
-        // Autocomplete request with optional near derived from user input or parent
         const params = new URLSearchParams({ q: effectiveQuery, limit: '100', types: 'place', session_token: ensureSession() });
-        // If the user ended the token with a space, switch to broad search mode to return more matches
         if (endedWithSpace && q.length >= 1) {
           params.set('broad', '1');
         }
@@ -124,10 +116,8 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
         }
         if (effectiveNear) {
           params.set('near', effectiveNear);
-          // Expand the considered area to ~50km
           params.set('radius', '50000');
         } else if (!endedWithSpace && ll) {
-          // Use precise coordinate bias if available and no near provided
           params.set('ll', ll);
         }
         abortTimer = setTimeout(() => controller.abort(), 4000);
@@ -153,20 +143,62 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
     return () => { active = false; clearTimeout(t); controller.abort(); };
   }, [input]);
 
-  // current selected value object for Autocomplete
   const selected = useMemo(() => {
-    if (!value) return null;
-    const existing = options.find(o => o.name === value);
-    return existing || { id: value, name: value, address: '' };
-  }, [value, options]);
+    if (!input) return null;
+    // First check if the current input matches any option exactly
+    const existing = options.find(o => `${o.name}, ${o.address}` === input || o.name === input);
+    if (existing) return existing;
+    
+    // If not, check if it matches the value prop
+    if (value) {
+      const valueMatch = options.find(o => `${o.name}, ${o.address}` === value || o.name === value);
+      if (valueMatch) return valueMatch;
+    }
+    
+    // If no matches, create a custom option based on input
+    return { id: input, name: input, address: '' };
+  }, [value, input, options]);
+
+  const handleSelectOption = (option) => {
+    if (!option) return;
+    
+    const addr = option.address || '';
+    const isCity = !hasStreetInAddress(addr);
+    
+    // For all selections, show the full information in the input
+    const fullDisplay = addr ? `${option.name}, ${addr}` : option.name;
+    if (onChange) onChange(fullDisplay);
+    
+    // Handle location change for backend
+    const loc = deriveLocationFromAddress(addr) || addr;
+    if (onLocationChange && loc) onLocationChange(loc);
+    
+    // Update input to show full information
+    setInput(fullDisplay);
+    
+    setOpen(false);
+    setOptions([]);
+    suppressNextOpenRef.current = true;
+    try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {}
+  };
+
+  const handleCustomInput = (inputValue) => {
+    const raw = (inputValue || '').trim();
+    if (raw) {
+      const formatted = raw.split(', ')
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(', ');
+      if (onChange) onChange(formatted);
+      if (onLocationChange) onLocationChange(formatted);
+    }
+    setOpen(false);
+    setOptions([]);
+    try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {}
+  };
 
   return (
     <Autocomplete
       freeSolo
-      autoHighlight
-      selectOnFocus
-      clearOnBlur
-      handleHomeEndKeys
       disableClearable
       ListboxProps={{ style: { maxHeight: 560, overflow: 'auto' } }}
       open={open}
@@ -176,7 +208,6 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       }}
       onClose={() => setOpen(false)}
       noOptionsText={input && input.trim().length >= 1 ? 'No venues found' : 'Type to search venues'}
-      // Filter by what the user typed first; prioritize name startsWith/word-start
       filterOptions={(options, state) => {
         const getLabel = (opt) => (typeof opt === 'string' ? opt : (opt?.name || ''));
         const getAddress = (opt) => (typeof opt === 'string' ? '' : (opt?.address || ''));
@@ -195,7 +226,6 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
         const filtered = options.filter((opt) => {
           const nameN = norm(getLabel(opt));
           const addrN = norm(getAddress(opt));
-          // All tokens must appear somewhere in name or address
           return qTokens.every(tok => nameN.includes(tok) || addrN.includes(tok));
         });
 
@@ -223,8 +253,13 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
         });
       }}
       options={options}
-      // Do not show loading spinner in the field or dropdown
-      getOptionLabel={(opt) => (typeof opt === 'string' ? opt : (opt?.name || ''))}
+      getOptionLabel={(opt) => {
+        if (typeof opt === 'string') return opt;
+        if (opt?.name && opt?.address) {
+          return `${opt.name}, ${opt.address}`;
+        }
+        return opt?.name || '';
+      }}
       isOptionEqualToValue={(opt, val) => (opt?.name || '') === (val?.name || '')}
       value={selected}
       onChange={(_e, v) => {
@@ -238,22 +273,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
           suppressNextOpenRef.current = true;
           try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {}
         } else if (v && v.name) {
-          const addr = v.address || '';
-          const isCity = !hasStreetInAddress(addr);
-          if (isCity) {
-            const loc = deriveLocationFromAddress([v.name, addr].filter(Boolean).join(', '));
-            onChange && onChange('');
-            if (onLocationChange && loc) onLocationChange(loc);
-            setInput('');
-          } else {
-            onChange && onChange(v.name);
-            const loc = deriveLocationFromAddress(addr) || addr;
-            if (onLocationChange && loc) onLocationChange(loc);
-          }
-          setOpen(false);
-          setOptions([]);
-          suppressNextOpenRef.current = true;
-          try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {}
+          handleSelectOption(v);
         } else {
           onChange && onChange('');
           setOpen(false);
@@ -264,7 +284,9 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       inputValue={input}
       onInputChange={(_e, v, reason) => {
         setInput(v || '');
-        if ((v || '').trim().length >= 1) setOpen(true); else setOpen(false);
+        if (reason !== 'reset') {
+          if ((v || '').trim().length >= 1) setOpen(true); else setOpen(false);
+        }
       }}
       renderOption={(props, option) => (
         <li {...props} key={option.id || option.name}>
@@ -290,45 +312,10 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
             setOptions([]);
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              // Select the top suggestion like map apps
-              const top = options && options[0];
-              e.preventDefault();
-              e.stopPropagation();
-              if (top && top.name) {
-                const addr = top.address || '';
-                const isCity = !hasStreetInAddress(addr);
-                if (isCity) {
-                  const loc = deriveLocationFromAddress([top.name, addr].filter(Boolean).join(', '));
-                  if (onChange) onChange('');
-                  if (onLocationChange && loc) onLocationChange(loc);
-                  setInput('');
-                } else {
-                  if (onChange) onChange(top.name);
-                  const loc = deriveLocationFromAddress(addr) || addr;
-                  if (onLocationChange && loc) onLocationChange(loc);
-                }
-                setOpen(false);
-                setOptions([]);
-                // Hide keyboard focus dropdown
-                try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {}
-              } else {
-                // Accept typed value
-                const raw = (input || '').trim();
-                if (raw) {
-                  const { derivedNear } = parseInput(raw);
-                  if (derivedNear && onLocationChange) onLocationChange(deriveLocationFromAddress(derivedNear));
-                  if (derivedNear && derivedNear.length === raw.length) {
-                    if (onChange) onChange('');
-                    setInput('');
-                  } else {
-                    if (onChange) onChange(raw);
-                  }
-                }
-                setOpen(false);
-                setOptions([]);
-                try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {}
-              }
+            // Handle backspace key specifically to ensure it works when editing existing values
+            if (e.key === 'Backspace') {
+              // Allow default behavior to continue
+              return;
             }
           }}
           InputProps={{

@@ -1,6 +1,4 @@
 
-const { AsYouTypeFormatter } = require('google-libphonenumber');
-
 function parseLocation(locationString) {
   if (!locationString) {
     return {
@@ -10,13 +8,8 @@ function parseLocation(locationString) {
     };
   }
 
-  const formatter = new AsYouTypeFormatter('US');
-  let formatted = '';
-  for (let i = 0; i < locationString.length; i++) {
-    formatted = formatter.inputDigit(locationString[i]);
-  }
-
-  const parts = formatted.split(' ');
+  // Use frontend-formatted string directly
+  const parts = locationString.split(', ').reverse();
   let city = null;
   let region = null;
   let country = null;
