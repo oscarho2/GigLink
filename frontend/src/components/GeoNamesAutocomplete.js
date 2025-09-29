@@ -216,7 +216,7 @@ const GeoNamesAutocomplete = ({
     setShowSuggestions(false);
     setSelectedIndex(0); // Reset to first option
     if (onChange) {
-      onChange(suggestion.displayName || suggestion.name);
+      onChange(suggestion);
     }
   };
 

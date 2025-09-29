@@ -47,7 +47,19 @@ const Register = () => {
     try {
       setIsGoogleLoading(true);
       setError(null);
-      const result = await googleAuthService.signInWithGoogle();
+      setCaptchaError(null);
+
+      let turnstileToken = null;
+      if (TURNSTILE_SITE_KEY && turnstileReadyRef.current) {
+        turnstileToken = await executeTurnstile();
+        if (!turnstileToken) {
+          setCaptchaError('Please complete the challenge to continue');
+          setIsGoogleLoading(false);
+          return;
+        }
+      }
+
+      const result = await googleAuthService.signInWithGoogle(turnstileToken);
       
       if (result.success && result.token) {
         const loginOk = loginWithToken(result.token, result.user);
@@ -55,9 +67,18 @@ const Register = () => {
           setError('Failed to establish session from Google token');
           return;
         }
-        navigate('/dashboard');
+        if (result.user.profileComplete) {
+          navigate('/dashboard');
+        } else {
+          navigate('/profile-setup');
+        }
       } else {
-        setError(result.error || 'Google sign-in failed');
+        if (result.captchaRequired) {
+          setCaptchaError('Please complete the challenge to continue');
+          resetTurnstile();
+        } else {
+          setError(result.error || 'Google sign-in failed');
+        }
       }
     } catch (error) {
       console.error('Google sign-in error:', error);

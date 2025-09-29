@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 import {
   Avatar,
@@ -18,6 +18,7 @@ import LockResetIcon from '@mui/icons-material/LockReset';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import axios from 'axios';
+import { ensureInvisibleTurnstile, executeTurnstile, resetTurnstile } from '../utils/turnstile';
 
 const ResetPassword = () => {
   const location = useLocation();
@@ -31,10 +32,29 @@ const ResetPassword = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [showPw2, setShowPw2] = useState(false);
+  const turnstileReadyRef = useRef(false);
+  const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY;
+
+  useEffect(() => {
+    const setup = async () => {
+      if (!TURNSTILE_SITE_KEY) return;
+      try {
+        await ensureInvisibleTurnstile({
+          containerId: 'cf-turnstile-container',
+          siteKey: TURNSTILE_SITE_KEY,
+        });
+        turnstileReadyRef.current = true;
+      } catch (e) {
+        console.warn('Turnstile load failed:', e);
+      }
+    };
+    setup();
+  }, [TURNSTILE_SITE_KEY]);
 
   const meetsPolicy = useMemo(() => {
     const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
@@ -45,6 +65,7 @@ const ResetPassword = () => {
     e.preventDefault();
     setError('');
     setMessage('');
+    setCaptchaError('');
 
     if (!token) {
       setError('Reset token is missing or invalid. Please use the link from your email.');
@@ -60,12 +81,26 @@ const ResetPassword = () => {
     }
 
     setIsLoading(true);
+
+    let turnstileToken = null;
+    if (TURNSTILE_SITE_KEY && turnstileReadyRef.current) {
+      turnstileToken = await executeTurnstile();
+      if (!turnstileToken) {
+        setCaptchaError('Please complete the challenge to continue');
+        setIsLoading(false);
+        return;
+      }
+    }
+
     try {
-      const response = await axios.post('/api/auth/reset-password', { token, password });
+      const response = await axios.post('/api/auth/reset-password', { token, password, turnstileToken });
       setMessage(response.data.message || 'Password reset successfully. You can now sign in.');
       setIsSubmitted(true);
     } catch (err) {
-      if (err.response?.data?.errors) {
+      if (err.response?.data?.captchaRequired) {
+        setCaptchaError('Please complete the challenge to continue');
+        resetTurnstile();
+      } else if (err.response?.data?.errors) {
         setError(err.response.data.errors[0]?.msg || 'Invalid input.');
       } else if (err.response?.data?.message) {
         setError(err.response.data.message);
@@ -122,6 +157,11 @@ const ResetPassword = () => {
                   {error}
                 </Alert>
               )}
+              {captchaError && (
+                <Alert severity="warning" sx={{ width: '100%', mb: 2 }}>
+                  {captchaError}
+                </Alert>
+              )}
 
               <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
                 <TextField
@@ -168,6 +208,7 @@ const ResetPassword = () => {
                     )
                   }}
                 />
+                <div id="cf-turnstile-container" />
                 <Button
                   type="submit"
                   fullWidth
@@ -203,6 +244,3 @@ const ResetPassword = () => {
     </Container>
   );
 };
-
-export default ResetPassword;
-

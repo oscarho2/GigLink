@@ -151,8 +151,18 @@ const EditProfile = () => {
     setFormData({ ...formData, genres: newValue });
   };
 
-  const handleLocationChange = (event, newValue) => {
-    setFormData({ ...formData, location: newValue || '' });
+  const handleLocationChange = (suggestion) => {
+    if (suggestion) {
+      setFormData({
+        ...formData,
+        location: suggestion.displayName,
+        city: suggestion.name,
+        region: suggestion.adminName1,
+        country: suggestion.countryName,
+      });
+    } else {
+      setFormData({ ...formData, location: '', city: '', region: '', country: '' });
+    }
   };
 
   const handleMusicianChange = (event) => {
@@ -607,6 +617,9 @@ const EditProfile = () => {
         skills: Array.isArray(formData.instruments) ? formData.instruments : [],
   
         location: formData.location,
+        city: formData.city,
+        region: formData.region,
+        country: formData.country,
         isMusician: formData.isMusician,
         instruments: Array.isArray(formData.instruments) ? formData.instruments : [],
         genres: Array.isArray(formData.genres) ? formData.genres : [],
@@ -786,9 +799,7 @@ const EditProfile = () => {
             <Grid item xs={12} sm={6}>
               <GeoNamesAutocomplete
                 value={formData.location}
-                onChange={(location) => {
-                  setFormData({ ...formData, location });
-                }}
+                onChange={handleLocationChange}
                 placeholder="Enter your city"
               />
             </Grid>

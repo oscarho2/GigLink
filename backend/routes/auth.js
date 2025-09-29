@@ -7,7 +7,9 @@ const { OAuth2Client } = require('google-auth-library');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
-const { sendPasswordResetEmail } = require('../utils/emailService');
+const { checkTurnstile } = require('../middleware/turnstile');
+const { downloadImage } = require('../utils/imageDownloader');
+const path = require('path');
 
 // Initialize Google OAuth client
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -35,6 +37,7 @@ router.get('/', auth, async (req, res) => {
 // @access  Public
 router.post(
   '/',
+  checkTurnstile,
   [
     check('email', 'Please include a valid email')
       .isEmail()
@@ -120,12 +123,15 @@ router.post(
 // @access  Public
 router.post('/google', async (req, res) => {
   try {
+    console.log('🔵 Google OAuth request started');
     const { idToken, email, name, imageUrl } = req.body;
 
     if (!idToken) {
+      console.log('❌ No ID token provided');
       return res.status(400).json({ message: 'ID token is required' });
     }
 
+    console.log('🔍 Verifying Google ID token...');
     // Verify Google ID token
     const ticket = await googleClient.verifyIdToken({
       idToken: idToken,
@@ -137,14 +143,18 @@ router.post('/google', async (req, res) => {
     const verifiedEmail = payload['email'];
     const emailVerified = payload['email_verified'];
 
+    console.log('✅ Google token verified for:', verifiedEmail);
+
     // Verify email matches
     if (verifiedEmail !== email) {
+      console.log('❌ Email verification failed');
       return res.status(400).json({ message: 'Email verification failed' });
     }
 
     // Normalize email
     const normalizedEmail = verifiedEmail.toLowerCase().trim();
 
+    console.log('🔍 Checking for existing user...');
     // Check if user already exists
     let user = await User.findOne({ 
       $or: [
@@ -153,15 +163,24 @@ router.post('/google', async (req, res) => {
       ]
     });
     
+    console.log('📥 Downloading avatar image...');
+    let avatarPath = null;
+    if (imageUrl) {
+      const uploadsDir = path.join(__dirname, '../uploads/images');
+      avatarPath = await downloadImage(imageUrl, uploadsDir);
+      console.log('📸 Avatar download result:', avatarPath ? 'Success' : 'Failed');
+    }
+
     if (user) {
+      console.log('👤 Found existing user:', user._id);
       // Update Google ID and avatar if not set
       let needsUpdate = false;
       if (!user.googleId) {
         user.googleId = googleId;
         needsUpdate = true;
       }
-      if (imageUrl && (!user.avatar || user.avatar !== imageUrl)) {
-        user.avatar = imageUrl;
+      if (avatarPath && (!user.avatar || user.avatar !== avatarPath)) {
+        user.avatar = avatarPath;
         needsUpdate = true;
       }
       if (!user.isEmailVerified && emailVerified) {
@@ -170,31 +189,34 @@ router.post('/google', async (req, res) => {
       }
       
       if (needsUpdate) {
+        console.log('💾 Updating existing user...');
         await user.save();
+        console.log('✅ User updated successfully');
       }
     } else {
-      // Create new user with pre-hashed placeholder password
-      const salt = await require('bcryptjs').genSalt(10);
-      const hashedPlaceholder = await require('bcryptjs').hash('google_oauth_user', salt);
-      
+      console.log('➕ Creating new user...');
+      // Create new user - let the pre-save middleware handle password hashing
       user = new User({
         name: name || verifiedEmail.split('@')[0],
         email: normalizedEmail,
         googleId: googleId,
-        avatar: imageUrl,
-        password: hashedPlaceholder,
+        avatar: avatarPath,
+        password: 'google_oauth_user', // This will be hashed by the pre-save middleware
         isEmailVerified: emailVerified || true // Google users are considered verified
       });
       
-      // Skip password hashing middleware for this user
-      user.isNew = false;
-      await user.save({ validateBeforeSave: true });
+      // Save the new user normally
+      await user.save();
+      console.log('✅ New user created:', user._id);
     }
 
+    console.log('🔍 Checking for user profile...');
     // Check if user has a profile
     let profile = await Profile.findOne({ user: user._id });
     const profileComplete = !!profile;
+    console.log('📋 Profile complete:', profileComplete);
 
+    console.log('🔑 Generating JWT token...');
     // Generate JWT token
     const jwtPayload = {
       user: {
@@ -211,9 +233,11 @@ router.post('/google', async (req, res) => {
       { expiresIn: '7d' },
       (err, token) => {
         if (err) {
-          console.error('JWT signing error:', err);
+          console.error('❌ JWT signing error:', err);
           return res.status(500).json({ message: 'Error generating token' });
         }
+        
+        console.log('✅ Google OAuth completed successfully for user:', user._id);
         res.json({
           token,
           user: {
@@ -228,7 +252,8 @@ router.post('/google', async (req, res) => {
       }
     );
   } catch (error) {
-    console.error('Google OAuth Error:', error);
+    console.error('❌ Google OAuth Error:', error);
+    console.error('📍 Error stack:', error.stack);
     
     // Provide more specific error messages
     if (error.message && error.message.includes('Invalid token')) {
@@ -298,6 +323,7 @@ router.get('/verify-email/:token', async (req, res) => {
 // @access  Public
 router.post(
   '/forgot-password',
+  checkTurnstile,
   [
     check('email', 'Please include a valid email')
       .isEmail()
@@ -361,6 +387,7 @@ router.post(
 // @access  Public
 router.post(
   '/reset-password',
+  checkTurnstile,
   [
     check('token', 'Reset token is required')
       .not().isEmpty(),

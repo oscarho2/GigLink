@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Avatar,
@@ -14,34 +14,67 @@ import {
 } from '@mui/material';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import axios from 'axios';
+import { ensureInvisibleTurnstile, executeTurnstile, resetTurnstile } from '../utils/turnstile';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const turnstileReadyRef = useRef(false);
+  const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY;
+
+  useEffect(() => {
+    const setup = async () => {
+      if (!TURNSTILE_SITE_KEY) return;
+      try {
+        await ensureInvisibleTurnstile({
+          containerId: 'cf-turnstile-container',
+          siteKey: TURNSTILE_SITE_KEY,
+        });
+        turnstileReadyRef.current = true;
+      } catch (e) {
+        console.warn('Turnstile load failed:', e);
+      }
+    };
+    setup();
+  }, [TURNSTILE_SITE_KEY]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
+    setCaptchaError('');
     setIsLoading(true);
 
-    // Basic email validation
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Please enter a valid email address.');
       setIsLoading(false);
       return;
     }
 
+    let turnstileToken = null;
+    if (TURNSTILE_SITE_KEY && turnstileReadyRef.current) {
+      turnstileToken = await executeTurnstile();
+      if (!turnstileToken) {
+        setCaptchaError('Please complete the challenge to continue');
+        setIsLoading(false);
+        return;
+      }
+    }
+
     try {
-      const response = await axios.post('/api/auth/forgot-password', { email });
+      const response = await axios.post('/api/auth/forgot-password', { email, turnstileToken });
       
       setMessage(response.data.message || 'If an account with that email exists, we have sent a password reset link.');
       setIsSubmitted(true);
     } catch (err) {
-      if (err.response?.data?.errors) {
+      if (err.response?.data?.captchaRequired) {
+        setCaptchaError('Please complete the challenge to continue');
+        resetTurnstile();
+      } else if (err.response?.data?.errors) {
         setError(err.response.data.errors[0].msg);
       } else if (err.response?.data?.message) {
         setError(err.response.data.message);
@@ -55,7 +88,8 @@ const ForgotPassword = () => {
 
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
-    if (error) setError(''); // Clear error when user starts typing
+    if (error) setError('');
+    if (captchaError) setCaptchaError('');
   };
 
   return (
@@ -97,6 +131,11 @@ const ForgotPassword = () => {
                   {error}
                 </Alert>
               )}
+              {captchaError && (
+                <Alert severity="warning" sx={{ width: '100%', mb: 2 }}>
+                  {captchaError}
+                </Alert>
+              )}
               
               <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
                 <TextField
@@ -112,6 +151,7 @@ const ForgotPassword = () => {
                   onChange={handleEmailChange}
                   disabled={isLoading}
                 />
+                <div id="cf-turnstile-container" />
                 <Button
                   type="submit"
                   fullWidth
@@ -172,5 +212,3 @@ const ForgotPassword = () => {
     </Container>
   );
 };
-
-export default ForgotPassword;

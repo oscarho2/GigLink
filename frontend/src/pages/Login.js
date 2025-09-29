@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
@@ -17,7 +17,7 @@ import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
 import AuthContext from '../context/AuthContext';
 import googleAuthService from '../utils/googleAuth';
-import { useAuth } from '../context/AuthContext';
+import { ensureInvisibleTurnstile, executeTurnstile, resetTurnstile } from '../utils/turnstile';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -27,26 +27,65 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [captchaError, setCaptchaError] = useState(null);
+  const turnstileReadyRef = useRef(false);
   const { login, loginWithToken, isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
+  const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY;
+
+  useEffect(() => {
+    const setup = async () => {
+      if (!TURNSTILE_SITE_KEY) return;
+      try {
+        await ensureInvisibleTurnstile({
+          containerId: 'cf-turnstile-container',
+          siteKey: TURNSTILE_SITE_KEY,
+        });
+        turnstileReadyRef.current = true;
+      } catch (e) {
+        console.warn('Turnstile load failed:', e);
+      }
+    };
+    setup();
+  }, [TURNSTILE_SITE_KEY]);
 
   const handleGoogleSignIn = async () => {
     try {
       setIsGoogleLoading(true);
       setError(null);
-      const result = await googleAuthService.signInWithGoogle();
+      setCaptchaError(null);
+
+      let turnstileToken = null;
+      if (TURNSTILE_SITE_KEY && turnstileReadyRef.current) {
+        turnstileToken = await executeTurnstile();
+        if (!turnstileToken) {
+          setCaptchaError('Please complete the challenge to continue');
+          setIsGoogleLoading(false);
+          return;
+        }
+      }
+
+      const result = await googleAuthService.signInWithGoogle(turnstileToken);
 
       if (result.success && result.token) {
-        // Use provider-issued JWT from backend to set auth state
         const ok = loginWithToken(result.token, result.user);
         if (!ok) {
           setError('Failed to establish session from Google token');
           return;
         }
-        navigate('/dashboard');
+        if (result.user.profileComplete) {
+          navigate('/dashboard');
+        } else {
+          navigate('/profile-setup');
+        }
       } else {
-        setError(result.error || 'Google sign-in failed');
+        if (result.captchaRequired) {
+          setCaptchaError('Please complete the challenge to continue');
+          resetTurnstile();
+        } else {
+          setError(result.error || 'Google sign-in failed');
+        }
       }
     } catch (error) {
       console.error('Google sign-in error:', error);
@@ -76,22 +115,37 @@ const Login = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    setCaptchaError(null);
+
+    let turnstileToken = null;
+    if (TURNSTILE_SITE_KEY && turnstileReadyRef.current) {
+      turnstileToken = await executeTurnstile();
+      if (!turnstileToken) {
+        setCaptchaError('Please complete the challenge to continue');
+        return;
+      }
+    }
+
     const searchParams = new URLSearchParams(location.search);
     const redirect = searchParams.get('redirect');
-    const result = await login({ email, password }, redirect);
+    const result = await login({ email, password, turnstileToken }, redirect);
+
     if (result && result.error) {
-      // Safely extract error message
-      let errorMessage = 'Login failed';
-      if (Array.isArray(result.error) && result.error.length > 0 && result.error[0].msg) {
-        errorMessage = result.error[0].msg;
-      } else if (typeof result.error === 'string') {
-        errorMessage = result.error;
+      if (result.captchaRequired) {
+        setCaptchaError('Please complete the challenge to continue');
+        resetTurnstile();
+      } else {
+        let errorMessage = 'Login failed';
+        if (Array.isArray(result.error) && result.error.length > 0 && result.error[0].msg) {
+          errorMessage = result.error[0].msg;
+        } else if (typeof result.error === 'string') {
+          errorMessage = result.error;
+        }
+        setError({
+          message: errorMessage,
+          type: result.type || 'general'
+        });
       }
-      
-      setError({
-        message: errorMessage,
-        type: result.type || 'general'
-      });
     }
   };
 
@@ -143,6 +197,11 @@ const Login = () => {
                 </Button>
               </Box>
             )}
+          </Alert>
+        )}
+        {captchaError && (
+          <Alert severity="warning" sx={{ width: '100%', mt: 2 }}>
+            {captchaError}
           </Alert>
         )}
         <Box component="form" onSubmit={onSubmit} noValidate sx={{ mt: { xs: 2, sm: 1 }, width: '100%' }}>
@@ -240,6 +299,7 @@ const Login = () => {
               ),
             }}
           />
+          <div id="cf-turnstile-container" />
           <Button
             type="submit"
             fullWidth

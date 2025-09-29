@@ -128,12 +128,14 @@ export const AuthProvider = ({ children }) => {
       if (redirectPath) {
         localStorage.setItem('redirectPath', redirectPath);
       }
-      return true;
+      return { success: true };
     } catch (err) {
       console.error('Login error:', err);
+      const captchaRequired = err.response?.data?.captchaRequired === true;
       return { 
         error: err.response?.data?.errors || [{ msg: 'Login failed' }],
-        type: err.response?.data?.type
+        type: err.response?.data?.type,
+        captchaRequired
       };
     }
   };

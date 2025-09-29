@@ -93,6 +93,37 @@ class GoogleAuthService {
     this.isSigningIn = false;
   }
 
+  clearAllAuthState() {
+    // Comprehensive state clearing for troubleshooting
+    try {
+      // Clear all authentication related localStorage items
+      localStorage.removeItem('token');
+      localStorage.removeItem('hasLoggedOut');
+      localStorage.removeItem('redirectPath');
+      localStorage.removeItem('g_state');
+      
+      // Clear all authentication related sessionStorage items
+      sessionStorage.removeItem('g_state');
+      sessionStorage.removeItem('token');
+      
+      // Clear Google One Tap state
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.disableAutoSelect();
+      }
+      
+      // Clear axios headers
+      delete window.axios?.defaults?.headers?.common['x-auth-token'];
+      
+      // Reset internal state
+      this.isSigningIn = false;
+      this.lastPromptTime = 0;
+      
+      console.log('All authentication state cleared');
+    } catch (error) {
+      console.warn('Error clearing auth state:', error);
+    }
+  }
+
   canAttemptSignIn() {
     const now = Date.now();
     const timeSinceLastPrompt = now - this.lastPromptTime;
@@ -164,17 +195,21 @@ class GoogleAuthService {
   }
 
   async getIdToken() {
+    console.log('🔄 Getting ID token - ensuring GIS loaded...');
     await this.ensureGisLoaded();
 
     if (!this.canAttemptSignIn()) {
+      console.log('⏰ Cannot attempt sign-in - too soon or already in progress');
       throw new Error('Sign-in already in progress or too soon after last attempt');
     }
 
     const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
     if (!clientId) {
+      console.log('❌ Missing Google Client ID');
       throw new Error('missing_client_id');
     }
 
+    console.log('🔑 Client ID found, starting sign-in process...');
     this.isSigningIn = true;
     this.lastPromptTime = Date.now();
 
@@ -184,25 +219,32 @@ class GoogleAuthService {
       };
 
       const resolveWithCleanup = (result) => {
+        console.log('✅ Sign-in successful, cleaning up...');
         cleanup();
         resolve(result);
       };
 
       const rejectWithCleanup = (error) => {
+        console.log('❌ Sign-in failed, cleaning up...', error.message);
         cleanup();
         reject(error);
       };
 
       try {
+        console.log('🔧 Initializing Google Sign-In...');
         // Initialize Google Sign-In fresh each time
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: (response) => {
+            console.log('📞 Google callback received');
             if (response?.credential) {
+              console.log('🎫 Credential received from Google');
               resolveWithCleanup(response.credential);
             } else if (response?.error) {
+              console.log('❌ Error in Google callback:', response.error);
               rejectWithCleanup(new Error(response.error));
             } else {
+              console.log('❌ No credential in Google callback');
               rejectWithCleanup(new Error('No credential received'));
             }
           },
@@ -210,23 +252,25 @@ class GoogleAuthService {
           cancel_on_tap_outside: true
         });
 
+        console.log('🎯 Triggering Google prompt...');
         // Try the prompt first
         window.google.accounts.id.prompt((notification) => {
+          console.log('📢 Google prompt notification:', notification);
           if (notification.isNotDisplayed()) {
-            console.log('Prompt not displayed:', notification.getNotDisplayedReason());
+            console.log('⚠️ Prompt not displayed, reason:', notification.getNotDisplayedReason());
             // Instead of rejecting, try alternative method
             this.triggerSignInButton(resolveWithCleanup, rejectWithCleanup);
           } else if (notification.isSkippedMoment()) {
-            console.log('Prompt skipped');
+            console.log('⏭️ Prompt skipped, trying button method');
             this.triggerSignInButton(resolveWithCleanup, rejectWithCleanup);
           } else if (notification.isDismissedMoment()) {
-            console.log('Prompt dismissed');
+            console.log('🚫 Prompt dismissed, trying button method');
             this.triggerSignInButton(resolveWithCleanup, rejectWithCleanup);
           }
         });
 
       } catch (error) {
-        console.error('Google sign-in initialization error:', error);
+        console.error('💥 Google sign-in initialization error:', error);
         rejectWithCleanup(error);
       }
     });
@@ -281,15 +325,17 @@ class GoogleAuthService {
     }
   }
 
-  async signInWithGoogle() {
+  async signInWithGoogle(turnstileToken = null) {
     try {
-      console.log('Starting Google sign-in process...');
+      console.log('🚀 Starting Google sign-in process...');
       
       // Clear any previous One Tap state to avoid cooldown issues
       this.clearGoogleOneTapState();
+      console.log('🧹 Cleared Google One Tap state');
       
+      console.log('🔑 Attempting to get ID token from Google...');
       const idToken = await this.getIdToken();
-      console.log('Received ID token from Google');
+      console.log('✅ Received ID token from Google');
       
       const decoded = this.decodeIdToken(idToken) || {};
       const fullName = decoded.name || [decoded.given_name, decoded.family_name].filter(Boolean).join(' ').trim() || undefined;
@@ -298,12 +344,20 @@ class GoogleAuthService {
         idToken,
         email: decoded.email,
         name: fullName,
-        imageUrl: decoded.picture
+        imageUrl: decoded.picture,
+        turnstileToken
       };
 
-      console.log('Sending payload to backend:', { ...payload, idToken: '***' });
+      console.log('📤 Sending payload to backend:', { 
+        ...payload, 
+        idToken: 'ID_TOKEN_PRESENT',
+        hasToken: !!idToken,
+        email: payload.email,
+        name: payload.name 
+      });
+      
       const res = await axios.post('/api/auth/google', payload);
-      console.log('Backend response received');
+      console.log('📨 Backend response received:', res.status);
 
       return {
         success: true,
@@ -311,11 +365,23 @@ class GoogleAuthService {
         user: res.data?.user
       };
     } catch (error) {
-      console.error('Google OAuth failed:', error);
-      console.error('Error response:', error.response?.data);
+      console.error('❌ Google OAuth failed at stage:', error.message);
+      console.error('📍 Full error:', error);
+      console.error('🔍 Error response data:', error.response?.data);
+      
+      const isCaptchaError = error.response?.data?.captchaRequired === true;
+      
+      // If this is a server error for a deleted account, provide more specific guidance
+      let errorMessage = this.getErrorMessage(error);
+      if (error.response?.status === 500) {
+        console.error('🚨 Server error detected - possibly related to deleted account');
+        errorMessage = 'An error occurred during sign-in. If you recently deleted your account, please try clearing your browser data and signing in again.';
+      }
+
       return {
         success: false,
-        error: this.getErrorMessage(error)
+        error: errorMessage,
+        captchaRequired: isCaptchaError
       };
     }
   }

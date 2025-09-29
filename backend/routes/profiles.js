@@ -57,6 +57,7 @@ router.post('/', auth, async (req, res) => {
       name,
       location,
       country,
+      region,
       city,
       instruments,
       genres,
@@ -96,6 +97,9 @@ router.post('/', auth, async (req, res) => {
       }
       if (country !== undefined) {
         user.locationData.country = country;
+      }
+      if (region !== undefined) {
+        user.locationData.region = region;
       }
       if (city !== undefined) {
         user.locationData.city = city;
@@ -199,7 +203,7 @@ router.post('/', auth, async (req, res) => {
 router.put('/me', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { bio, skills, hourlyRate, availability, location, country, city, instruments, genres, videos } = req.body;
+    const { bio, skills, hourlyRate, availability, location, country, region, city, instruments, genres, videos } = req.body;
     
     // Update user fields if provided
     const userUpdateFields = {};
@@ -211,10 +215,11 @@ router.put('/me', auth, async (req, res) => {
     if (availability !== undefined) userUpdateFields.isAvailableForGigs = availability === 'Available';
 
     // Update locationData fields
-    if (country !== undefined || city !== undefined) {
+    if (country !== undefined || region !== undefined || city !== undefined) {
       const user = await User.findById(userId);
       if (user) {
         if (country !== undefined) user.locationData.country = country;
+        if (region !== undefined) user.locationData.region = region;
         if (city !== undefined) user.locationData.city = city;
         await user.save();
       }
