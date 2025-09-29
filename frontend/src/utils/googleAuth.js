@@ -4,6 +4,9 @@ class GoogleAuthService {
   constructor() {
     this.isScriptLoaded = false;
     this.loadPromise = null;
+    this.isSigningIn = false;
+    this.lastPromptTime = 0;
+    this.promptCooldown = 2000; // 2 seconds cooldown between attempts
   }
 
   loadGisScript() {
@@ -85,6 +88,15 @@ class GoogleAuthService {
     } catch (error) {
       console.warn('Could not clear Google One Tap state:', error);
     }
+    
+    // Reset our internal state
+    this.isSigningIn = false;
+  }
+
+  canAttemptSignIn() {
+    const now = Date.now();
+    const timeSinceLastPrompt = now - this.lastPromptTime;
+    return !this.isSigningIn && timeSinceLastPrompt >= this.promptCooldown;
   }
 
   decodeIdToken(idToken) {
@@ -125,7 +137,7 @@ class GoogleAuthService {
     if (typeof message === 'string') {
       const lower = message.toLowerCase();
       if (lower.includes('popup_closed_by_user') || lower.includes('user_cancel')) {
-        return 'Sign-in was cancelled. Please try again.';
+        return 'Sign-in was cancelled. Please click the button again to try.';
       }
       if (lower.includes('credential_unavailable')) {
         return 'Unable to retrieve Google credentials. Please try again.';
@@ -139,6 +151,9 @@ class GoogleAuthService {
       if (lower.includes('missing_client_id')) {
         return 'Google sign-in is not configured properly.';
       }
+      if (lower.includes('already in progress') || lower.includes('too soon')) {
+        return 'Please wait a moment before trying again.';
+      }
     }
 
     if (error.response?.data?.message) {
@@ -151,23 +166,44 @@ class GoogleAuthService {
   async getIdToken() {
     await this.ensureGisLoaded();
 
+    if (!this.canAttemptSignIn()) {
+      throw new Error('Sign-in already in progress or too soon after last attempt');
+    }
+
     const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
     if (!clientId) {
       throw new Error('missing_client_id');
     }
 
+    this.isSigningIn = true;
+    this.lastPromptTime = Date.now();
+
     return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        this.isSigningIn = false;
+      };
+
+      const resolveWithCleanup = (result) => {
+        cleanup();
+        resolve(result);
+      };
+
+      const rejectWithCleanup = (error) => {
+        cleanup();
+        reject(error);
+      };
+
       try {
-        // Initialize Google Sign-In
+        // Initialize Google Sign-In fresh each time
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: (response) => {
             if (response?.credential) {
-              resolve(response.credential);
+              resolveWithCleanup(response.credential);
             } else if (response?.error) {
-              reject(new Error(response.error));
+              rejectWithCleanup(new Error(response.error));
             } else {
-              reject(new Error('No credential received'));
+              rejectWithCleanup(new Error('No credential received'));
             }
           },
           auto_select: false,
@@ -179,19 +215,19 @@ class GoogleAuthService {
           if (notification.isNotDisplayed()) {
             console.log('Prompt not displayed:', notification.getNotDisplayedReason());
             // Instead of rejecting, try alternative method
-            this.triggerSignInButton(resolve, reject);
+            this.triggerSignInButton(resolveWithCleanup, rejectWithCleanup);
           } else if (notification.isSkippedMoment()) {
             console.log('Prompt skipped');
-            this.triggerSignInButton(resolve, reject);
+            this.triggerSignInButton(resolveWithCleanup, rejectWithCleanup);
           } else if (notification.isDismissedMoment()) {
             console.log('Prompt dismissed');
-            this.triggerSignInButton(resolve, reject);
+            this.triggerSignInButton(resolveWithCleanup, rejectWithCleanup);
           }
         });
 
       } catch (error) {
         console.error('Google sign-in initialization error:', error);
-        reject(error);
+        rejectWithCleanup(error);
       }
     });
   }
@@ -203,7 +239,15 @@ class GoogleAuthService {
     tempDiv.style.left = '-9999px';
     tempDiv.style.opacity = '0';
     tempDiv.style.pointerEvents = 'none';
+    tempDiv.id = 'temp-google-signin-' + Date.now(); // Unique ID each time
     document.body.appendChild(tempDiv);
+
+    let buttonClicked = false;
+    const cleanup = () => {
+      if (document.body.contains(tempDiv)) {
+        document.body.removeChild(tempDiv);
+      }
+    };
 
     try {
       window.google.accounts.id.renderButton(tempDiv, {
@@ -216,26 +260,23 @@ class GoogleAuthService {
 
       // Programmatically click the button
       setTimeout(() => {
+        if (buttonClicked) return; // Prevent double click
+        
         const googleButton = tempDiv.querySelector('[role="button"]');
         if (googleButton) {
+          buttonClicked = true;
           googleButton.click();
+          
+          // Clean up after a reasonable delay
+          setTimeout(cleanup, 5000);
         } else {
-          document.body.removeChild(tempDiv);
+          cleanup();
           reject(new Error('Unable to create sign-in button'));
         }
       }, 100);
 
-      // Clean up the temporary element after a delay
-      setTimeout(() => {
-        if (document.body.contains(tempDiv)) {
-          document.body.removeChild(tempDiv);
-        }
-      }, 5000);
-
     } catch (error) {
-      if (document.body.contains(tempDiv)) {
-        document.body.removeChild(tempDiv);
-      }
+      cleanup();
       reject(error);
     }
   }

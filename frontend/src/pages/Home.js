@@ -31,6 +31,7 @@ const Home = () => {
     try {
       setIsLoading(true);
       setError('');
+      setShowError(false); // Clear any previous error display
       
       const result = await googleAuthService.signInWithGoogle();
       
