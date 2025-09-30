@@ -509,27 +509,55 @@ const Dashboard = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
                 <UserAvatar
                   user={profile?.user || user}
-                  size={80}
-                  mobileSize={64}
-                  sx={{ mb: 2 }}
+                  size={120}
+                  mobileSize={100}
+                  sx={{ mb: { xs: 1.5, sm: 2 } }}
                 />
-                <Typography variant="h6" component="h2" align="center" gutterBottom>
+                <Typography 
+                  variant="h6" 
+                  component="h2" 
+                  align="center" 
+                  gutterBottom
+                  sx={{
+                    fontSize: { xs: '1.25rem', sm: '1.5rem' }
+                  }}
+                >
                   {profile?.user?.name || user?.name}
                 </Typography>
                 {(profile?.user?.location || user?.location) && (
                   profile?.user?.locationData && profile.user.locationData.city ? (
-                    <Box sx={{ textAlign: 'center', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                    <Box sx={{ textAlign: 'center', mb: { xs: 1.5, sm: 2 } }}>
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary" 
+                        sx={{ 
+                          fontSize: { xs: '0.875rem', sm: '0.875rem' }, 
+                          fontWeight: 'bold' 
+                        }}
+                      >
                         {profile.user.locationData.city}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary" 
+                        sx={{ 
+                          fontSize: { xs: '0.75rem', sm: '0.8rem' } 
+                        }}
+                      >
                         {[profile.user.locationData.region, profile.user.locationData.country].filter(Boolean).join(', ')}
                       </Typography>
                     </Box>
                   ) : (
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 }, justifyContent: 'center' }}>
                       <LocationOnIcon sx={{ mr: 0.5, mt: 0.25, color: 'text.secondary', fontSize: '1rem' }} />
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary"
+                        sx={{
+                          fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                          textAlign: 'center'
+                        }}
+                      >
                         {formatLocationString(profile?.user?.location || user?.location)}
                       </Typography>
                     </Box>
@@ -629,21 +657,24 @@ const Dashboard = () => {
                 </Grid>
               )}
             </CardContent>
-                        <CardActions sx={{
-                          flexDirection: { xs: 'row', sm: 'column' },
-                          gap: { xs: 1.5, sm: 2 },
-                          px: { xs: 2, sm: 2 },
-                          pt: { xs: 1, sm: 1.25 },
-                          pb: { xs: 2, sm: 2 },
-                          justifyContent: 'center'
-                        }}>              <Button
+                        <CardActions sx={{ 
+              display: 'flex', 
+              flexDirection: 'row', 
+              gap: 1, 
+              justifyContent: 'center',
+              px: 2,
+              pt: 1,
+              pb: 2
+            }}>
+              <Button
                 component={RouterLink}
                 to={`/profile/${profile?.user?._id || user?.id || user?._id}`}
                 variant="outlined"
-                sx={{ 
-                  minHeight: { xs: 48, sm: 40 },
-                  flex: { xs: 1, sm: 1 },
-                  fontWeight: 500
+                sx={{
+                  minHeight: { xs: 40, sm: 32 },
+                  fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                  px: { xs: 2, sm: 1.5 },
+                  flex: 1
                 }}
               >
                 View Profile
@@ -652,10 +683,11 @@ const Dashboard = () => {
                 component={RouterLink}
                 to="/edit-profile"
                 variant="contained"
-                sx={{ 
-                  minHeight: { xs: 48, sm: 40 },
-                  flex: { xs: 1, sm: 1 },
-                  fontWeight: 500
+                sx={{
+                  minHeight: { xs: 40, sm: 32 },
+                  fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                  px: { xs: 2, sm: 1.5 },
+                  flex: 1
                 }}
               >
                 Edit Profile

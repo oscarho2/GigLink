@@ -1,23 +1,37 @@
+const { normalizeLocation } = require('./location');
 
 function parseLocation(locationString) {
-  if (!locationString) {
+  if (!locationString || typeof locationString !== 'string') {
     return {
-      city: null,
-      region: null,
-      country: null,
+      city: '',
+      region: '',
+      country: '',
     };
   }
 
-  // Use frontend-formatted string directly
-  const parts = locationString.split(', ').reverse();
-  let city = null;
-  let region = null;
-  let country = null;
+  const normalized = normalizeLocation(locationString);
+  if (!normalized) {
+    return {
+      city: '',
+      region: '',
+      country: '',
+    };
+  }
 
-  if (parts.length === 3) {
-    city = parts[0];
-    region = parts[1];
-    country = parts[2];
+  const parts = normalized
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean);
+
+  let city = '';
+  let region = '';
+  let country = '';
+
+  if (parts.length >= 3) {
+    const offset = parts.length - 3;
+    city = parts[offset];
+    region = parts[offset + 1];
+    country = parts[offset + 2];
   } else if (parts.length === 2) {
     city = parts[0];
     country = parts[1];

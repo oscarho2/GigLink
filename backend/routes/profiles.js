@@ -5,6 +5,7 @@ const Profile = require('../models/Profile');
 const User = require('../models/User');
 const { upload, getPublicUrl, getStorageConfig } = require('../utils/r2Config');
 const { normalizeLocation } = require('../utils/location');
+const { parseLocation } = require('../utils/locationParser');
 const path = require('path');
 const fs = require('fs');
 
@@ -163,8 +164,10 @@ router.post('/', auth, async (req, res) => {
       if (name !== undefined) {
         user.name = name;
       }
+      let normalizedLocation = null;
       if (location !== undefined) {
-        user.location = normalizeLocation(location);
+        normalizedLocation = normalizeLocation(location);
+        user.location = normalizedLocation;
       }
       if (bio !== undefined) {
         user.bio = bio;
@@ -181,14 +184,36 @@ router.post('/', auth, async (req, res) => {
       if (availability !== undefined) {
         user.isAvailableForGigs = availability === 'Available';
       }
-      if (country !== undefined) {
-        user.locationData.country = country;
+      let derivedCity;
+      let derivedRegion;
+      let derivedCountry;
+
+      const cityProvided = city !== undefined;
+      const regionProvided = region !== undefined;
+      const countryProvided = country !== undefined;
+
+      if (!cityProvided && !regionProvided && !countryProvided) {
+        const source = normalizedLocation || user.location || '';
+        if (source) {
+          const parsed = parseLocation(source);
+          derivedCity = parsed.city || '';
+          derivedRegion = parsed.region || '';
+          derivedCountry = parsed.country || '';
+        }
       }
-      if (region !== undefined) {
-        user.locationData.region = region;
+
+      const resolvedCountry = countryProvided ? (country || '') : (derivedCountry ?? undefined);
+      const resolvedRegion = regionProvided ? (region || '') : (derivedRegion ?? undefined);
+      const resolvedCity = cityProvided ? (city || '') : (derivedCity ?? undefined);
+
+      if (resolvedCountry !== undefined) {
+        user.locationData.country = resolvedCountry;
       }
-      if (city !== undefined) {
-        user.locationData.city = city;
+      if (resolvedRegion !== undefined) {
+        user.locationData.region = resolvedRegion;
+      }
+      if (resolvedCity !== undefined) {
+        user.locationData.city = resolvedCity;
       }
       await user.save();
     }
@@ -390,11 +415,14 @@ router.put('/me', auth, async (req, res) => {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const { country, city } = req.query;
+    const { country, region, city } = req.query;
     const userQuery = {};
 
     if (country) {
       userQuery['locationData.country'] = new RegExp(country, 'i');
+    }
+    if (region) {
+      userQuery['locationData.region'] = new RegExp(region, 'i');
     }
     if (city) {
       userQuery['locationData.city'] = new RegExp(city, 'i');
@@ -827,43 +855,238 @@ router.get('/cities', async (req, res) => {
 // @access  Public
 router.get('/locations', async (req, res) => {
   try {
-    const { q = '', limit = 10 } = req.query;
-    const numericLimit = Math.min(parseInt(limit) || 10, 50);
+    const {
+      q = '',
+      limit = 10,
+      scope = '',
+      country: countryFilter = '',
+      region: regionFilter = ''
+    } = req.query;
+    const numericLimit = Math.min(parseInt(limit, 10) || 10, 50);
 
     const rx = q && q.trim()
       ? new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
       : null;
 
-    // Aggregate distinct locations from user.location
-    const pipeline = [
-      { $match: { location: { $exists: true, $ne: '' } } },
-      ...(rx ? [{ $match: { location: { $regex: rx } } }] : []),
+    const regexStages = rx
+      ? [{
+          $match: {
+            $or: [
+              { 'locationData.city': { $regex: rx } },
+              { 'locationData.region': { $regex: rx } },
+              { 'locationData.country': { $regex: rx } },
+              { location: { $regex: rx } }
+            ]
+          }
+        }]
+      : [];
+
+    const locationDataPipeline = [
+      {
+        $match: {
+          $and: [
+            {
+              $or: [
+                { 'locationData.city': { $exists: true } },
+                { 'locationData.region': { $exists: true } },
+                { 'locationData.country': { $exists: true } },
+                { location: { $exists: true, $ne: '' } }
+              ]
+            },
+            ...regexStages
+          ]
+        }
+      },
+      {
+        $project: {
+          city: { $ifNull: ['$locationData.city', ''] },
+          region: { $ifNull: ['$locationData.region', ''] },
+          country: { $ifNull: ['$locationData.country', ''] }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            city: { $toLower: '$city' },
+            region: { $toLower: '$region' },
+            country: { $toLower: '$country' }
+          },
+          city: { $first: '$city' },
+          region: { $first: '$region' },
+          country: { $first: '$country' },
+          count: { $sum: 1 }
+        }
+      },
+      { $limit: 1000 }
+    ];
+
+    const legacyPipeline = [
+      {
+        $match: {
+          location: { $exists: true, $ne: '' },
+          ...(rx ? { location: { $regex: rx } } : {})
+        }
+      },
       {
         $group: {
           _id: { $toLower: '$location' },
-          count: { $sum: 1 },
-          label: { $first: '$location' }
+          label: { $first: '$location' },
+          count: { $sum: 1 }
         }
       },
-      { $sort: { count: -1, label: 1 } },
-      { $limit: numericLimit },
-      { $project: { _id: 0, label: 1, count: 1 } }
+      { $limit: 500 }
     ];
 
-    const agg = await User.aggregate(pipeline);
-    // Normalize labels for display consistency
-    const normCount = new Map();
-    for (const row of agg) {
-      const norm = normalizeLocation(row.label || '');
-      if (!norm) continue;
-      const key = norm.toLowerCase();
-      const prev = normCount.get(key) || { label: norm, count: 0 };
-      prev.count += row.count || 0;
-      normCount.set(key, prev);
-    }
-    const results = Array.from(normCount.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    const [locationDataAgg, legacyAgg] = await Promise.all([
+      User.aggregate(locationDataPipeline),
+      User.aggregate(legacyPipeline)
+    ]);
 
-    res.json({ locationStats: results });
+    const suggestionMaps = {
+      city: new Map(),
+      region: new Map(),
+      country: new Map()
+    };
+
+    const addSuggestion = (type, hierarchy, count) => {
+      const cityVal = (hierarchy.city || '').trim();
+      const regionVal = (hierarchy.region || '').trim();
+      const countryVal = (hierarchy.country || '').trim();
+
+      let label = '';
+      if (type === 'city') {
+        label = normalizeLocation([cityVal, regionVal, countryVal].filter(Boolean).join(', '));
+      } else if (type === 'region') {
+        label = normalizeLocation([regionVal, countryVal].filter(Boolean).join(', '));
+      } else {
+        label = normalizeLocation(countryVal);
+      }
+
+      if (!label) return;
+      const map = suggestionMaps[type];
+      const key = label.toLowerCase();
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += count;
+      } else {
+        map.set(key, {
+          type,
+          label,
+          value: label,
+          hierarchy: { city: cityVal, region: regionVal, country: countryVal },
+          count
+        });
+      }
+    };
+
+    for (const row of locationDataAgg) {
+      const cityVal = (row.city || '').trim();
+      const regionVal = (row.region || '').trim();
+      const countryVal = (row.country || '').trim();
+      const count = row.count || 0;
+
+      if (cityVal) {
+        addSuggestion('city', { city: cityVal, region: regionVal, country: countryVal }, count);
+      }
+      if (regionVal) {
+        addSuggestion('region', { city: '', region: regionVal, country: countryVal }, count);
+      }
+      if (countryVal) {
+        addSuggestion('country', { city: '', region: '', country: countryVal }, count);
+      }
+    }
+
+    for (const row of legacyAgg) {
+      const parsed = parseLocation(row.label || '') || {};
+      const cityVal = (parsed.city || '').trim();
+      const regionVal = (parsed.region || '').trim();
+      const countryVal = (parsed.country || '').trim();
+      const count = row.count || 0;
+
+      if (cityVal) {
+        addSuggestion('city', { city: cityVal, region: regionVal, country: countryVal }, count);
+      }
+      if (regionVal) {
+        addSuggestion('region', { city: '', region: regionVal, country: countryVal }, count);
+      }
+      if (countryVal) {
+        addSuggestion('country', { city: '', region: '', country: countryVal }, count);
+      }
+    }
+
+    const sortSuggestions = (map) => Array.from(map.values()).sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.label.localeCompare(b.label);
+    });
+
+    const cityList = sortSuggestions(suggestionMaps.city);
+    const regionList = sortSuggestions(suggestionMaps.region);
+    const countryList = sortSuggestions(suggestionMaps.country);
+
+    const normalizedScope = String(scope || '').toLowerCase();
+    const countryFilterLc = String(countryFilter || '').trim().toLowerCase();
+    const regionFilterLc = String(regionFilter || '').trim().toLowerCase();
+
+    const passesFilters = (item) => {
+      if (countryFilterLc && (item.hierarchy.country || '').toLowerCase() !== countryFilterLc) {
+        return false;
+      }
+      if (regionFilterLc && (item.hierarchy.region || '').toLowerCase() !== regionFilterLc) {
+        return false;
+      }
+      return true;
+    };
+
+    const filteredCities = cityList.filter(passesFilters);
+    const filteredRegions = regionList.filter(passesFilters);
+    const filteredCountries = countryList.filter(passesFilters);
+
+    const takeWithLimit = (list) => list.slice(0, numericLimit);
+
+    if (['city', 'region', 'country'].includes(normalizedScope)) {
+      const scoped = normalizedScope === 'city'
+        ? filteredCities
+        : normalizedScope === 'region'
+          ? filteredRegions
+          : filteredCountries;
+      return res.json({ locationStats: takeWithLimit(scoped) });
+    }
+
+    const merged = [];
+    let cityIndex = 0;
+    let regionIndex = 0;
+    let countryIndex = 0;
+
+    while (merged.length < numericLimit) {
+      let added = false;
+      if (cityIndex < filteredCities.length && merged.length < numericLimit) {
+        merged.push(filteredCities[cityIndex++]);
+        added = true;
+      }
+      if (regionIndex < filteredRegions.length && merged.length < numericLimit) {
+        merged.push(filteredRegions[regionIndex++]);
+        added = true;
+      }
+      if (countryIndex < filteredCountries.length && merged.length < numericLimit) {
+        merged.push(filteredCountries[countryIndex++]);
+        added = true;
+      }
+      if (!added) {
+        break;
+      }
+    }
+
+    if (merged.length < numericLimit) {
+      const remaining = filteredCities.slice(cityIndex)
+        .concat(filteredRegions.slice(regionIndex))
+        .concat(filteredCountries.slice(countryIndex));
+      for (const item of remaining) {
+        merged.push(item);
+        if (merged.length >= numericLimit) break;
+      }
+    }
+
+    res.json({ locationStats: merged.slice(0, numericLimit) });
   } catch (err) {
     console.error('Error fetching location suggestions:', err);
     res.status(500).json({ message: 'Server error' });

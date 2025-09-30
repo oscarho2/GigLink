@@ -341,7 +341,7 @@ const Discover = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
-    location: '',
+    location: null,
     instrument: '',
     genre: '',
     userType: ''
@@ -360,6 +360,35 @@ const Discover = () => {
   const sentinelRef = useRef(null);
   const usersRef = useRef([]);
   const scrollDebounceRef = useRef(null);
+  const defaultLocationAppliedRef = useRef(false);
+
+  // Memoized search handler
+  const handleSearch = useCallback((event) => {
+    setSearchTerm(event.target.value);
+  }, []);
+  
+  // Filter handlers
+  const handleFilterChange = useCallback((filterName, value) => {
+    setFilters(prev => {
+      if (prev[filterName] === value) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [filterName]: value
+      };
+    });
+  }, []);
+  
+  const resetFilters = useCallback(() => {
+    setFilters({
+      location: null,
+      instrument: '',
+      genre: '',
+      userType: ''
+    });
+    setLocationQuery('');
+  }, []);
   
 
   // Fetch users (server-side filtering) with debounce
@@ -375,7 +404,34 @@ const Discover = () => {
         if (searchTerm.trim()) params.q = searchTerm.trim();
         if (filters.instrument) params.instruments = filters.instrument;
         if (filters.genre) params.genres = filters.genre;
-        if (filters.location) params.location = filters.location;
+
+        if (filters.location) {
+          const { type, hierarchy = {}, label = '' } = filters.location;
+          const fallbackCity = label.split(',')[0]?.trim() || '';
+
+          if (type === 'city') {
+            if (hierarchy.city || fallbackCity) {
+              params.city = hierarchy.city || fallbackCity;
+            }
+            if (hierarchy.region) {
+              params.region = hierarchy.region;
+            }
+            if (hierarchy.country) {
+              params.country = hierarchy.country;
+            }
+          } else if (type === 'region') {
+            if (hierarchy.region || fallbackCity) {
+              params.region = hierarchy.region || fallbackCity;
+            }
+            if (hierarchy.country) {
+              params.country = hierarchy.country;
+            }
+          } else if (type === 'country') {
+            if (hierarchy.country || label) {
+              params.country = hierarchy.country || label;
+            }
+          }
+        }
         if (filters.userType) params.userType = filters.userType;
 
         const response = await axios.get('/api/profiles', {
@@ -411,32 +467,39 @@ const Discover = () => {
   const [loadingLocations, setLoadingLocations] = useState(false);
 
   useEffect(() => {
+    if (filters.location && filters.location.label) {
+      const label = filters.location.label;
+      setLocationQuery(prev => (prev === label ? prev : label));
+    }
+  }, [filters.location]);
+
+  useEffect(() => {
     let active = true;
     const controller = new AbortController();
     const t = setTimeout(async () => {
       try {
         setLoadingLocations(true);
         const res = await axios.get('/api/profiles/locations', {
-          params: { q: locationQuery || '', limit: 12 },
+          params: {
+            q: locationQuery || '',
+            limit: 15
+          },
           signal: controller.signal
         });
         if (!active) return;
         const stats = Array.isArray(res.data?.locationStats) ? res.data.locationStats : [];
-        const locs = stats.map((s) => {
-          const parts = String(s.label || '').split(',');
-          const primary = (parts[0] || '').trim();
-          const secondary = parts.slice(1).join(',').trim();
-          return {
-            value: s.label,
-            primary,
-            secondary,
-            count: s.count || 0
-          };
-        });
-        setLocationOptions(locs);
+        const options = stats.map((s) => ({
+          ...s,
+          type: s.type || 'country',
+          label: s.label || '',
+          value: s.value || s.label || '',
+          hierarchy: s.hierarchy || {},
+          count: s.count || 0
+        }));
+        setLocationOptions(options);
       } catch (e) {
         if (e.name !== 'CanceledError') {
-          // ignore
+          // ignore fetch errors
         }
       } finally {
         if (active) setLoadingLocations(false);
@@ -444,6 +507,100 @@ const Discover = () => {
     }, 250);
     return () => { active = false; clearTimeout(t); controller.abort(); };
   }, [locationQuery]);
+
+  useEffect(() => {
+    if (defaultLocationAppliedRef.current) return;
+    if (filters.location || locationQuery.trim()) return;
+
+    defaultLocationAppliedRef.current = true;
+    let cancelled = false;
+
+    const ensureOptionPresence = (suggestion) => {
+      setLocationOptions(prev => {
+        if (prev.some(opt => opt.type === suggestion.type && opt.label === suggestion.label)) {
+          return prev;
+        }
+        return [suggestion, ...prev];
+      });
+    };
+
+    const applyCountrySuggestion = (countryName) => {
+      if (!countryName || cancelled) return;
+      const label = countryName.trim();
+      if (!label) return;
+      const suggestion = {
+        type: 'country',
+        label,
+        value: label,
+        hierarchy: { city: '', region: '', country: label },
+        count: 0
+      };
+      ensureOptionPresence(suggestion);
+      handleFilterChange('location', suggestion);
+      setLocationQuery(label);
+    };
+
+    const fallbackFromLocale = () => {
+      try {
+        const locale = navigator.language || (Array.isArray(navigator.languages) && navigator.languages[0]) || '';
+        const localeParts = locale.split('-');
+        const regionCode = (localeParts[1] || localeParts[2] || '').toUpperCase();
+        if (!regionCode) return;
+        if (typeof Intl === 'undefined' || typeof Intl.DisplayNames !== 'function') return;
+        const displayNames = new Intl.DisplayNames([locale || 'en'], { type: 'region' });
+        const countryName = displayNames.of(regionCode);
+        if (countryName) {
+          applyCountrySuggestion(countryName);
+        }
+      } catch (err) {
+        // ignore locale fallback errors
+      }
+    };
+
+    const handleGeoSuccess = async (position) => {
+      if (cancelled) return;
+      const { latitude, longitude } = position?.coords || {};
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        fallbackFromLocale();
+        return;
+      }
+      try {
+        const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`;
+        const response = await fetch(url, { method: 'GET' });
+        if (!response.ok) {
+          fallbackFromLocale();
+          return;
+        }
+        const data = await response.json();
+        const countryName = data?.countryName || data?.countryNameNative || data?.country || '';
+        if (countryName) {
+          applyCountrySuggestion(countryName);
+        } else {
+          fallbackFromLocale();
+        }
+      } catch (err) {
+        fallbackFromLocale();
+      }
+    };
+
+    const handleGeoError = () => {
+      fallbackFromLocale();
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(handleGeoSuccess, handleGeoError, {
+        enableHighAccuracy: false,
+        timeout: 5000,
+        maximumAge: 600000
+      });
+    } else {
+      fallbackFromLocale();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.location, locationQuery, handleFilterChange]);
 
   // Check link status for a specific user
   const checkLinkStatus = useCallback(async (userId) => {
@@ -649,29 +806,6 @@ const Discover = () => {
     setSnackbar({ open: false, message: '', severity: 'info' });
   }, []);
 
-  // Memoized search handler
-  const handleSearch = useCallback((event) => {
-    setSearchTerm(event.target.value);
-  }, []);
-  
-  // Filter handlers
-  const handleFilterChange = useCallback((filterName, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterName]: value
-    }));
-  }, []);
-  
-  const resetFilters = useCallback(() => {
-    setFilters({
-      location: '',
-      instrument: '',
-      genre: '',
-      userType: ''
-    });
-    setLocationQuery('');
-  }, []);
-
   // Memoized filtered musicians (including current user)
   const filteredUsers = useMemo(() => {
     let result = [...users];
@@ -696,8 +830,75 @@ const Discover = () => {
     }
 
     if (filters.location) {
-      const location = filters.location.toLowerCase();
-      result = result.filter(musician => musician.user.location && formatLocationString(musician.user.location).toLowerCase().includes(location));
+      const { type, hierarchy = {}, label = '' } = filters.location;
+      const parts = label.split(',').map(part => part.trim()).filter(Boolean);
+      const fallbackCountry = hierarchy.country || (parts.length ? parts[parts.length - 1] : '');
+      let fallbackRegion = hierarchy.region || '';
+      if (!fallbackRegion && parts.length >= 2) {
+        fallbackRegion = type === 'region' ? parts[0] : parts[parts.length - 2] || '';
+      }
+      const fallbackCity = hierarchy.city || (type === 'city' ? parts[0] : '');
+
+      const targetCountry = (fallbackCountry || '').toLowerCase();
+      const targetRegion = (fallbackRegion || '').toLowerCase();
+      const targetCity = (fallbackCity || '').toLowerCase();
+      const normalizedLabel = label.toLowerCase();
+
+      result = result.filter(musician => {
+        const locationData = musician.user?.locationData || {};
+        const candidateCity = (locationData.city || '').toLowerCase();
+        const candidateRegion = (locationData.region || '').toLowerCase();
+        const candidateCountry = (locationData.country || '').toLowerCase();
+
+        if (type === 'city') {
+          if (targetCity) {
+            if (candidateCity) {
+              if (candidateCity !== targetCity) return false;
+              if (targetRegion && candidateRegion && candidateRegion !== targetRegion) return false;
+              if (targetRegion && !candidateRegion) return false;
+              if (targetCountry && candidateCountry && candidateCountry !== targetCountry) return false;
+              if (targetCountry && !candidateCountry) return false;
+              return true;
+            }
+            const formatted = formatLocationString(musician.user.location || '').toLowerCase();
+            if (!formatted.includes(targetCity)) return false;
+            if (targetRegion && !formatted.includes(targetRegion)) return false;
+            if (targetCountry && !formatted.includes(targetCountry)) return false;
+            return true;
+          }
+          return false;
+        }
+
+        if (type === 'region') {
+          if (targetRegion) {
+            if (candidateRegion) {
+              if (candidateRegion !== targetRegion) return false;
+              if (targetCountry && candidateCountry && candidateCountry !== targetCountry) return false;
+              if (targetCountry && !candidateCountry) return false;
+              return true;
+            }
+            const formatted = formatLocationString(musician.user.location || '').toLowerCase();
+            if (!formatted.includes(targetRegion)) return false;
+            if (targetCountry && !formatted.includes(targetCountry)) return false;
+            return true;
+          }
+          return false;
+        }
+
+        if (type === 'country') {
+          if (targetCountry) {
+            if (candidateCountry) {
+              return candidateCountry === targetCountry;
+            }
+            const formatted = formatLocationString(musician.user.location || '').toLowerCase();
+            return formatted.includes(targetCountry);
+          }
+          return false;
+        }
+
+        const formatted = formatLocationString(musician.user.location || '').toLowerCase();
+        return formatted.includes(normalizedLabel);
+      });
     }
 
     if (filters.userType) {
@@ -883,45 +1084,51 @@ const Discover = () => {
                 options={locationOptions}
                 autoHighlight
                 loading={loadingLocations}
-                filterOptions={(x) => x} // use backend suggestions as-is
-                getOptionLabel={(opt) => (opt?.value || '')}
-                isOptionEqualToValue={(opt, val) => (opt?.value || '') === (val?.value || '')}
-                value={filters.location ? {
-                  value: filters.location,
-                  primary: (filters.location.split(',')[0] || '').trim(),
-                  secondary: filters.location.split(',').slice(1).join(',').trim(),
-                  count: 0
-                } : null}
-                onChange={(_e, v) => {
-                  if (v && v.value) {
-                    handleFilterChange('location', v.value);
-                    setLocationQuery(v.value);
-                  } else {
-                    handleFilterChange('location', '');
-                    setLocationQuery('');
-                  }
+                filterOptions={(x) => x}
+                getOptionLabel={(option) => option?.label || ''}
+                isOptionEqualToValue={(option, value) =>
+                  option?.type === value?.type && (option?.label || '') === (value?.label || '')
+                }
+                value={filters.location}
+                onChange={(_e, value) => {
+                  handleFilterChange('location', value || null);
+                  setLocationQuery(value ? value.label : '');
                 }}
                 inputValue={locationQuery}
-                onInputChange={(_e, v) => setLocationQuery(v || '')}
-                renderOption={(props, option) => (
-                  <li {...props} key={option.value}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                      <Box sx={{ fontSize: 14, fontWeight: 500 }}>
-                        {option.primary}{option.count ? ` (${option.count})` : ''}
-                      </Box>
-                      {option.secondary && (
-                        <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
-                          {option.secondary}
+                onInputChange={(_e, value, reason) => {
+                  setLocationQuery(value || '');
+                  if (reason === 'clear' || reason === 'input' || !value) {
+                    handleFilterChange('location', null);
+                  }
+                }}
+                renderOption={(props, option) => {
+                  const typeLabel = option.type === 'city' ? 'City' : option.type === 'region' ? 'Region / State' : 'Country';
+                  const countLabel = typeof option.count === 'number'
+                    ? option.count.toLocaleString()
+                    : option.count;
+                  const hierarchyParts = [option.hierarchy?.city, option.hierarchy?.region, option.hierarchy?.country]
+                    .filter(Boolean)
+                    .join(', ');
+                  return (
+                    <li {...props} key={`${option.type}-${option.label}`}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Box sx={{ fontSize: 14, fontWeight: 600 }}>
+                          {option.label}
                         </Box>
-                      )}
-                    </Box>
-                  </li>
-                )}
+                        <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
+                          {[typeLabel, hierarchyParts && hierarchyParts !== option.label ? hierarchyParts : null, `Matches: ${countLabel}`]
+                            .filter(Boolean)
+                            .join(' • ')}
+                        </Box>
+                      </Box>
+                    </li>
+                  );
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Location"
-                    placeholder="Search locations"
+                    placeholder="City, region, or country"
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (

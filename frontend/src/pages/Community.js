@@ -1529,7 +1529,7 @@ const Community = () => {
               <input
                 type="file"
                 multiple
-                accept="image/*,video/*,audio/*"
+                accept="image/*"
                 onChange={handleFileSelect}
                 style={{ display: 'none' }}
                 id="file-upload-modal"
@@ -1545,14 +1545,14 @@ const Community = () => {
                       '&:hover': { bgcolor: '#2c5282' }
                     }}
                   >
-                    Add Media
+                    Photo
                   </Button>
                 </label>
               </Box>
               
               {selectedFiles.length === 0 && (
                 <Typography variant="body2" color="text.secondary">
-                  Upload images, videos, or audio files to share with your post
+                  Upload images to share with your post
                 </Typography>
               )}
               

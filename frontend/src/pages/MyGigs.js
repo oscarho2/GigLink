@@ -206,7 +206,6 @@ const MyGigs = () => {
     const matchesStatus = applicationStatusFilter === 'all' ||
                          (applicationStatusFilter === 'pending' && application.applicationStatus === 'pending') ||
                          (applicationStatusFilter === 'accepted' && application.applicationStatus === 'accepted') ||
-                         (applicationStatusFilter === 'rejected' && application.applicationStatus === 'rejected') ||
                          (applicationStatusFilter === 'filled' && application.acceptedByOther);
     
     return matchesSearch && matchesStatus;
@@ -223,7 +222,7 @@ const MyGigs = () => {
   };
   
   const getStatusText = (status, acceptedByOther) => {
-    if (acceptedByOther && status !== 'accepted') return 'Position Filled';
+    if (acceptedByOther && status !== 'accepted') return 'Position Fixed';
     switch (status) {
       case 'accepted': return 'Accepted';
       case 'rejected': return 'Rejected';
@@ -323,7 +322,7 @@ const MyGigs = () => {
               >
                 <MenuItem value="all">All</MenuItem>
                 <MenuItem value="open">Open</MenuItem>
-                <MenuItem value="filled">Filled</MenuItem>
+                <MenuItem value="filled">Fixed</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -520,8 +519,7 @@ const MyGigs = () => {
                 <MenuItem value="all">All</MenuItem>
                 <MenuItem value="pending">Pending</MenuItem>
                 <MenuItem value="accepted">Accepted</MenuItem>
-                <MenuItem value="rejected">Rejected</MenuItem>
-                <MenuItem value="filled">Position Filled</MenuItem>
+                <MenuItem value="filled">Position Fixed</MenuItem>
               </Select>
             </FormControl>
           </Box>

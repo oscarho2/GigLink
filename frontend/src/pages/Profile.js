@@ -274,12 +274,11 @@ const Profile = () => {
     switch (linkStatus) {
       case 'links':
         return (
-          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1, justifyContent: 'center' }}>
             <Button
               variant="outlined"
               startIcon={<PersonRemoveIcon />}
               onClick={handleRemoveLink}
-              size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
                 fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -292,7 +291,6 @@ const Profile = () => {
               variant="outlined"
               startIcon={<ChatIcon />}
               onClick={handleStartConversation}
-              size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
                 fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -305,12 +303,11 @@ const Profile = () => {
         );
       case 'pending':
         return (
-          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1, justifyContent: 'center' }}>
             <Button
               variant="outlined"
               startIcon={<HourglassEmptyIcon />}
               onClick={handleCancelRequest}
-              size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
                 fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -323,7 +320,6 @@ const Profile = () => {
               variant="outlined"
               startIcon={<ChatIcon />}
               onClick={handleStartConversation}
-              size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
                 fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -336,14 +332,13 @@ const Profile = () => {
         );
       case 'received':
         return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
                 variant="contained"
                 color="success"
                 startIcon={<CheckCircleIcon />}
                 onClick={handleAcceptLinkRequest}
-                size="small"
                 sx={{
                   minHeight: { xs: 40, sm: 32 },
                   fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -356,7 +351,6 @@ const Profile = () => {
                 variant="outlined"
                 color="error"
                 onClick={handleDeclineLinkRequest}
-                size="small"
                 sx={{
                   minHeight: { xs: 40, sm: 32 },
                   fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -370,7 +364,6 @@ const Profile = () => {
               variant="outlined"
               startIcon={<ChatIcon />}
               onClick={handleStartConversation}
-              size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
                 fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -384,12 +377,11 @@ const Profile = () => {
       case 'none':
       default:
         return (
-          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1, justifyContent: 'center' }}>
             <Button
               variant="contained"
               startIcon={<PersonAddIcon />}
               onClick={handleSendLinkRequest}
-              size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
                 fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -406,7 +398,6 @@ const Profile = () => {
               variant="outlined"
               startIcon={<ChatIcon />}
               onClick={handleStartConversation}
-              size="small"
               sx={{
                 minHeight: { xs: 40, sm: 32 },
                 fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -516,7 +507,6 @@ const Profile = () => {
                   to="/edit-profile"
                   variant="contained"
                   startIcon={<EditIcon />}
-                  size="small"
                   sx={{
                     minHeight: { xs: 40, sm: 32 },
                     fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -530,7 +520,6 @@ const Profile = () => {
                   to={`/user/${id || user._id || user.id}/links`}
                   variant="outlined"
                   startIcon={<PeopleIcon />}
-                  size="small"
                   sx={{
                     minHeight: { xs: 40, sm: 32 },
                     fontSize: { xs: '0.875rem', sm: '0.8125rem' },
@@ -548,7 +537,6 @@ const Profile = () => {
                   to={`/user/${id || user._id || user.id}/links`}
                   variant="outlined"
                   startIcon={<PeopleIcon />}
-                  size="small"
                   sx={{
                     minHeight: { xs: 40, sm: 32 },
                     fontSize: { xs: '0.875rem', sm: '0.8125rem' },
