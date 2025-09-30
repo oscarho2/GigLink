@@ -6,8 +6,146 @@ const User = require('../models/User');
 const Message = require('../models/Message');
 const { createNotification } = require('./notifications');
 
-const { normalizeLocation } = require('../utils/location');
-const { parseLocation } = require('../utils/locationParser');
+const ACRONYM_SET = new Set([
+  'UK', 'GB', 'USA', 'US', 'UAE', 'EU', 'NYC',
+  'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
+  'AB','BC','MB','NB','NL','NS','NT','NU','ON','PE','QC','SK','YT',
+  'NSW','VIC','QLD','SA','WA','TAS','ACT','NT'
+]);
+
+const stripPostalCodes = (value = '') => {
+  if (!value) return '';
+  let result = String(value);
+
+  result = result.replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/gi, '');
+  result = result.replace(/\b[A-Z]\d[A-Z]\s?\d[A-Z]\d\b/gi, '');
+
+  const segments = result
+    .split(',')
+    .map(segment => {
+      const words = segment
+        .split(/\s+/)
+        .filter(Boolean);
+      const filtered = words.filter((word, idx) => {
+        const normalized = word.replace(/[^A-Za-z0-9-]/g, '');
+        if (!normalized) return false;
+        const isNumericPostal = /^\d{4,6}$/.test(normalized);
+        const isPlusFour = /^\d{5}-\d{4}$/.test(normalized);
+        if ((isNumericPostal || isPlusFour) && idx >= words.length - 1) {
+          return false;
+        }
+        return true;
+      });
+      return filtered.join(' ');
+    })
+    .filter(Boolean);
+
+  result = segments.join(', ');
+
+  return result
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/^,\s*/, '')
+    .replace(/,\s*$/, '')
+    .trim();
+};
+
+const titleCaseToken = (token = '') => {
+  if (!token) return '';
+  const upper = token.toUpperCase();
+  if (upper === token && (token.length <= 3 || ACRONYM_SET.has(upper))) {
+    return upper;
+  }
+  return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
+};
+
+const titleCaseSegment = (segment = '') => {
+  if (!segment) return '';
+  return segment
+    .split(/([\s\-'])/)
+    .map((part) => {
+      if (!part) return part;
+      if (/^[\s\-']$/.test(part)) return part;
+      return titleCaseToken(part);
+    })
+    .join('')
+    .trim();
+};
+
+const dedupeSegments = (segments) => {
+  const seen = new Set();
+  const result = [];
+  for (const segment of segments) {
+    if (!segment) continue;
+    const key = segment.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(segment);
+  }
+  return result;
+};
+
+const buildLocationObject = ({ venue = '', street = '', city = '', region = '', country = '' }) => {
+  const cleanVenue = titleCaseSegment(stripPostalCodes(venue));
+  const cleanStreet = titleCaseSegment(stripPostalCodes(street));
+  const cleanCity = titleCaseSegment(stripPostalCodes(city));
+  const cleanRegion = titleCaseSegment(stripPostalCodes(region));
+  const cleanCountry = titleCaseSegment(stripPostalCodes(country));
+
+  const nameSegments = dedupeSegments([
+    cleanVenue,
+    cleanStreet,
+    cleanCity,
+    cleanRegion,
+    cleanCountry,
+  ]);
+
+  return {
+    name: nameSegments.join(', '),
+    street: cleanStreet,
+    city: cleanCity,
+    region: cleanRegion,
+    country: cleanCountry,
+  };
+};
+
+const normalizeLocationInput = (input) => {
+  if (!input) return null;
+
+  if (typeof input === 'string') {
+    const sanitized = stripPostalCodes(input);
+    const parts = sanitized.split(',').map(part => part.trim()).filter(Boolean);
+    if (!parts.length) return null;
+
+    const [venue, ...rest] = parts;
+    const remaining = [...rest];
+    const country = remaining.length ? remaining.pop() : '';
+    const region = remaining.length ? remaining.pop() : '';
+    const city = remaining.length ? remaining.pop() : '';
+    const street = remaining.join(', ');
+
+    return buildLocationObject({ venue, street, city, region, country });
+  }
+
+  if (typeof input === 'object') {
+    const sanitizedName = stripPostalCodes(input.name || '');
+    const nameParts = sanitizedName.split(',').map(part => part.trim()).filter(Boolean);
+    const venue = nameParts.length ? nameParts[0] : (input.venue || '');
+
+    const street = input.street || (nameParts.length > 1 ? nameParts[1] : '');
+    const city = input.city || (nameParts.length > 2 ? nameParts[2] : '');
+    const countryFallbackIndex = nameParts.length ? nameParts.length - 1 : -1;
+    const regionFromName = nameParts.length > 3 ? nameParts[nameParts.length - 2] : '';
+    const countryFromName = countryFallbackIndex >= 0 ? nameParts[countryFallbackIndex] : '';
+
+    const region = input.region || regionFromName;
+    const country = input.country || countryFromName;
+
+    return buildLocationObject({ venue, street, city, region, country });
+  }
+
+  return null;
+};
 
 // @route   POST api/gigs
 // @desc    Create a gig
@@ -42,44 +180,7 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Genres must be an array.' });
     }
 
-    const buildLocationFromString = (raw) => {
-      const normalizedName = normalizeLocation(raw) || (raw || '').trim();
-      const parsed = parseLocation(normalizedName);
-      const segments = (normalizedName || '')
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
-
-      const fallbackCountry = segments.length ? segments[segments.length - 1] : '';
-      const fallbackCity = segments.length > 1 ? segments[segments.length - 2] : (segments[0] || '');
-      const fallbackRegion = segments.length > 2 ? segments[segments.length - 3] : '';
-      const streetRegex = /(\d|\b(?:st|street|rd|road|ave|avenue|blvd|drive|dr|ln|lane|way|place|pl|ct|court)\b)/i;
-      const cityCandidate = parsed.city && !streetRegex.test(parsed.city) ? parsed.city : fallbackCity;
-      const regionCandidate = parsed.region && parsed.region !== cityCandidate ? parsed.region : fallbackRegion;
-
-      return {
-        name: normalizedName || (raw || '').trim(),
-        city: cityCandidate,
-        region: regionCandidate,
-        country: parsed.country || fallbackCountry,
-      };
-    };
-
-    if (typeof payload.location === 'string') {
-      payload.location = buildLocationFromString(payload.location);
-    } else if (payload.location && typeof payload.location === 'object') {
-      const composedName = payload.location.name || [payload.location.street, payload.location.city, payload.location.region, payload.location.country]
-        .filter(Boolean)
-        .join(', ');
-      const normalized = buildLocationFromString(composedName);
-      payload.location = {
-        ...payload.location,
-        name: normalized.name,
-        city: payload.location.city || normalized.city,
-        region: payload.location.region || normalized.region,
-        country: payload.location.country || normalized.country,
-      };
-    }
+    payload.location = normalizeLocationInput(payload.location);
 
     if (!payload.location || !payload.location.city || !payload.location.country) {
       return res.status(400).json({ msg: 'Location must include both a city and a country.' });
@@ -441,18 +542,8 @@ router.put('/:id', auth, async (req, res) => {
     // Update gig
     const update = { ...req.body };
 
-    if (typeof update.location === 'string') {
-      const parsed = parseLocation(update.location);
-      update.location = {
-        name: update.location,
-        city: parsed.city || '',
-        region: parsed.region || '',
-        country: parsed.country || '',
-      };
-    } else if (update.location && typeof update.location === 'object') {
-      if (!update.location.name) {
-        update.location.name = [update.location.city, update.location.region, update.location.country].filter(Boolean).join(', ');
-      }
+    if (update.location) {
+      update.location = normalizeLocationInput(update.location);
     }
 
     gig = await Gig.findByIdAndUpdate(

@@ -77,7 +77,8 @@ const CreateGig = () => {
   const [formData, setFormData] = useState({
     title: '',
     venue: '',
-    location: '',
+    location: null,
+    locationString: '',
     date: '',
     time: '',
     payment: '',
@@ -121,8 +122,20 @@ const CreateGig = () => {
 
   const setCurrencyFromLocationString = (loc) => {
     if (!loc || userSetCurrency) return;
-    const parts = String(loc).split(',').map(s => s.trim()).filter(Boolean);
-    const token = parts[parts.length - 1] || '';
+
+    let locationText = '';
+    let countryToken = '';
+    if (typeof loc === 'string') {
+      locationText = loc;
+    } else if (typeof loc === 'object') {
+      countryToken = loc.country || '';
+      locationText = loc.name || [loc.city, loc.region, loc.country].filter(Boolean).join(', ');
+    }
+
+    if (!locationText) return;
+
+    const parts = String(locationText).split(',').map(s => s.trim()).filter(Boolean);
+    const token = (countryToken || parts[parts.length - 1] || '').trim();
     const code = countryToCurrency(token);
     if (code && allowedCurrencyCodes.includes(code)) setCurrency(code);
   };
@@ -233,10 +246,14 @@ const CreateGig = () => {
             <Grid item xs={12}>
               <VenueAutocomplete
                 value={formData.venue}
-                near={formData.location}
+                near={formData.locationString}
                 onChange={(venue) => setFormData(prev => ({ ...prev, venue }))}
                 onLocationChange={(loc) => {
-                  setFormData(prev => ({ ...prev, location: loc || '' }));
+                  setFormData(prev => ({
+                    ...prev,
+                    location: loc || null,
+                    locationString: loc?.name || '',
+                  }));
                   setCurrencyFromLocationString(loc);
                 }}
                 label="Venue/Location"

@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Autocomplete, TextField, Box, IconButton } from '@mui/material';
+import { Autocomplete, TextField, Box, IconButton, CircularProgress } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import axios from 'axios';
 import { formatLocationString } from '../utils/text';
+import { buildGigLocation, buildGigLocationFromFreeform, stripPostalCodes } from '../utils/gigLocation';
 
 export default function VenueAutocomplete({ value, onChange, near, onLocationChange, global = true, label = 'Venue', placeholder = 'Search venues' }) {
   const [input, setInput] = useState(value || '');
@@ -18,6 +20,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
   const [ll, setLl] = useState('');
   const focusedRef = useRef(false);
   const suppressNextOpenRef = useRef(false);
+  const [resolvingPlace, setResolvingPlace] = useState(false);
 
   const ensureSession = () => {
     if (sessionRef.current && sessionRef.current.length === 32) return sessionRef.current;
@@ -59,16 +62,42 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
     return { cleanQuery: s, derivedNear: '' };
   };
 
-  const deriveLocationFromAddress = (addr) => {
-    return addr || '';
+  const resolvePlaceId = async (placeId) => {
+    if (!placeId) {
+      return null;
+    }
+
+    try {
+      setResolvingPlace(true);
+      const response = await axios.post('/api/locations/resolve', { place_id: placeId });
+      const location = response.data?.location;
+      if (location && typeof location === 'object') {
+        if (!location.placeId) location.placeId = placeId;
+        return location;
+      }
+    } catch (error) {
+      console.error('Failed to resolve venue place_id on server:', error);
+    } finally {
+      setResolvingPlace(false);
+    }
+    return null;
   };
 
-  const hasStreetInAddress = (addr) => {
-    const a = String(addr || '');
-    if (!a) return false;
-    if (/\d{1,5}/.test(a)) return true;
-    if (/\b(st|street|rd|road|ave|avenue|blvd|drive|dr|ln|lane|way|place|pl|ct|court)\b/i.test(a)) return true;
-    return false;
+  const extractStreet = (addr, city, region, country) => {
+    if (!addr) return '';
+    const sanitized = stripPostalCodes(addr);
+    const parts = sanitized
+      .split(',')
+      .map(part => part.trim())
+      .filter(Boolean)
+      .filter(part => {
+        const lower = part.toLowerCase();
+        if (city && lower === city.toLowerCase()) return false;
+        if (region && lower === region.toLowerCase()) return false;
+        if (country && lower === country.toLowerCase()) return false;
+        return true;
+      });
+    return parts.length ? parts[0] : '';
   };
 
   useEffect(() => { setInput(value || ''); }, [value]);
@@ -161,27 +190,31 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
     return { id: input, name: input, address: '' };
   }, [value, input, options]);
 
-  const handleSelectOption = (option) => {
+  const handleSelectOption = async (option) => {
     if (!option) return;
-    
+
     const addr = option.address || '';
-    
-    // For all selections, show the full information in the input
-    const fullDisplay = addr ? `${option.name}, ${addr}` : option.name;
-    if (onChange) onChange(fullDisplay);
-    
-    // Handle location change for backend
-    if (onLocationChange) {
-      onLocationChange({
-        city: option.name,
-        region: option.adminName1,
-        country: option.countryName,
-      });
-    }
-    
-    // Update input to show full information
-    setInput(fullDisplay);
-    
+    const resolved = await resolvePlaceId(option.id);
+    const city = resolved?.city || '';
+    const region = resolved?.region || '';
+    const country = resolved?.country || '';
+    const street = resolved?.street || extractStreet(addr, city, region, country);
+
+    const gigLocation = buildGigLocation({
+      venueName: option.name,
+      street,
+      city,
+      region,
+      country,
+    });
+
+    const displayValue = gigLocation.name || (addr ? `${option.name}, ${addr}` : option.name);
+
+    if (onChange) onChange(displayValue);
+    if (onLocationChange) onLocationChange(gigLocation);
+
+    setInput(displayValue);
+
     setOpen(false);
     setOptions([]);
     suppressNextOpenRef.current = true;
@@ -191,11 +224,9 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
   const handleCustomInput = (inputValue) => {
     const raw = (inputValue || '').trim();
     if (raw) {
-      const formatted = raw.split(', ')
-        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-        .join(', ');
-      if (onChange) onChange(formatted);
-      if (onLocationChange) onLocationChange(formatted);
+      const location = buildGigLocationFromFreeform(raw);
+      if (onChange) onChange(location.name);
+      if (onLocationChange) onLocationChange(location);
     }
     setOpen(false);
     setOptions([]);
@@ -207,6 +238,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       freeSolo
       autoHighlight
       disableClearable
+      loading={loading || resolvingPlace}
       ListboxProps={{ style: { maxHeight: 560, overflow: 'auto' } }}
       open={open}
       onOpen={() => {
@@ -272,9 +304,9 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       onChange={(_e, v) => {
         if (typeof v === 'string') {
           const raw = v.trim();
-          const { derivedNear } = parseInput(raw);
-          if (derivedNear && onLocationChange) onLocationChange(deriveLocationFromAddress(derivedNear));
-          onChange && onChange(raw);
+          const location = buildGigLocationFromFreeform(raw);
+          if (onLocationChange) onLocationChange(location);
+          onChange && onChange(location.name || raw);
           setOpen(false);
           setOptions([]);
           suppressNextOpenRef.current = true;
@@ -333,14 +365,15 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
               ...params.InputProps,
               endAdornment: (
                 <>
-                  {showClearButton ? (
+                  {(loading || resolvingPlace) ? <CircularProgress color="inherit" size={20} /> : null}
+                  {showClearButton && !(loading || resolvingPlace) ? (
                     <IconButton
                       aria-label="clear venue and location"
                       size="small"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onChange) onChange('');
-                        if (onLocationChange) onLocationChange('');
+                        if (onLocationChange) onLocationChange(null);
                         setInput('');
                         setOptions([]);
                         setOpen(false);

@@ -278,6 +278,10 @@ const Community = () => {
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
+    if (selectedFiles.length + files.length > 5) {
+      toast.error('You can upload a maximum of 5 photos.');
+      return;
+    }
     setSelectedFiles(prev => [...prev, ...files]);
   };
 
@@ -322,7 +326,8 @@ const Community = () => {
         setCreatePostModalOpen(false);
         toast.success('Post created successfully!');
       } else {
-        throw new Error('Failed to create post');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create post');
       }
     } catch (error) {
       console.error('Error creating post:', error);
@@ -800,17 +805,15 @@ const Community = () => {
 
   const renderPhotoGrid = (images, post) => {
     const imageCount = images.length;
-    
+
     if (imageCount === 1) {
-      // Single image - standardized size with better vertical support
       const normalizedUrl = normalizeMediaUrl(images[0].url);
       return (
         <Box sx={{ width: '100%', maxWidth: '500px', mx: 'auto' }}>
           <img
             src={normalizedUrl}
             alt="Post media"
-            onClick={() => openMediaModal(normalizedUrl, images[0].caption || '', 0, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
-            onLoad={(e) => handleImageLoad(post._id, 0, e)}
+            onClick={() => openMediaModal(normalizedUrl, images[0].caption || '', 0, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}            onLoad={(e) => handleImageLoad(post._id, 0, e)}
             style={{
               width: '100%',
               height: '500px',
@@ -822,9 +825,8 @@ const Community = () => {
         </Box>
       );
     }
-    
+
     if (imageCount === 2) {
-      // Two images - side by side
       return (
         <Box sx={{ display: 'flex', gap: 1, maxWidth: '500px', mx: 'auto' }}>
           {images.map((image, index) => {
@@ -834,8 +836,7 @@ const Community = () => {
                 <img
                   src={normalizedUrl}
                   alt="Post media"
-                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
-                  onLoad={(e) => handleImageLoad(post._id, index, e)}
+                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}                  onLoad={(e) => handleImageLoad(post._id, index, e)}
                   style={{
                     width: '100%',
                     height: '250px',
@@ -850,9 +851,8 @@ const Community = () => {
         </Box>
       );
     }
-    
+
     if (imageCount === 3) {
-      // Three images - CSS grid layout for perfect alignment
       return (
         <Box sx={{ 
           display: 'grid', 
@@ -867,8 +867,7 @@ const Community = () => {
             <img
               src={normalizeMediaUrl(images[0].url)}
               alt="Post media"
-              onClick={() => openMediaModal(normalizeMediaUrl(images[0].url), images[0].caption || '', 0, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
-              onLoad={(e) => handleImageLoad(post._id, 0, e)}
+              onClick={() => openMediaModal(normalizeMediaUrl(images[0].url), images[0].caption || '', 0, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}              onLoad={(e) => handleImageLoad(post._id, 0, e)}
               style={{
                 width: '100%',
                 height: '100%',
@@ -887,8 +886,7 @@ const Community = () => {
                 <img
                   src={normalizedUrl}
                   alt="Post media"
-                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index + 1, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
-                  onLoad={(e) => handleImageLoad(post._id, index + 1, e)}
+                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index + 1, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}                  onLoad={(e) => handleImageLoad(post._id, index + 1, e)}
                   style={{
                     width: '100%',
                     height: '100%',
@@ -905,9 +903,8 @@ const Community = () => {
         </Box>
       );
     }
-    
+
     if (imageCount === 4) {
-      // Four images - 2x2 grid with better aspect ratio
       return (
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, maxWidth: '500px', mx: 'auto', aspectRatio: '1' }}>
           {images.map((image, index) => {
@@ -917,8 +914,7 @@ const Community = () => {
                 <img
                   src={normalizedUrl}
                   alt="Post media"
-                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
-                  onLoad={(e) => handleImageLoad(post._id, index, e)}
+                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}                  onLoad={(e) => handleImageLoad(post._id, index, e)}
                   style={{
                     width: '100%',
                     height: '100%',
@@ -935,88 +931,74 @@ const Community = () => {
         </Box>
       );
     }
-    
-    // Five or more images - 2 large on top, 3+ smaller below
-    return (
-      <Box sx={{ maxWidth: '500px', mx: 'auto' }}>
-        {/* Top row - 2 large images */}
-        <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-          {images.slice(0, 2).map((image, index) => {
-            const normalizedUrl = normalizeMediaUrl(image.url);
-            return (
-              <Box key={index} sx={{ flex: 1 }}>
-                <img
-                  src={normalizedUrl}
-                  alt="Post media"
-                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
-                  onLoad={(e) => handleImageLoad(post._id, index, e)}
-                  style={{
-                    width: '100%',
-                    height: '200px',
-                    objectFit: 'cover',
-                    borderRadius: '8px',
-                    cursor: 'pointer'
-                  }}
-                />
-              </Box>
-            );
-          })}
-        </Box>
-        
-        {/* Bottom row - remaining images with consistent aspect ratio */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: imageCount === 5 ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)', gap: 1 }}>
-          {images.slice(2, imageCount === 5 ? 5 : 6).map((image, index) => {
-            const normalizedUrl = normalizeMediaUrl(image.url);
-            const actualIndex = index + 2;
-            const isLast = actualIndex === 5 && imageCount > 6;
-            
-            return (
-              <Box key={actualIndex} sx={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: '8px' }}>
-                <img
-                  src={normalizedUrl}
-                  alt="Post media"
-                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', actualIndex, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
-                  onLoad={(e) => handleImageLoad(post._id, actualIndex, e)}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    cursor: 'pointer',
-                    filter: isLast ? 'brightness(0.6)' : 'none',
-                    transition: 'transform 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => !isLast && (e.target.style.transform = 'scale(1.05)')}
-                  onMouseLeave={(e) => !isLast && (e.target.style.transform = 'scale(1)')}
-                />
-                {isLast && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      fontSize: '1.5rem',
-                      fontWeight: 'bold',
+
+    if (imageCount >= 5) {
+      const displayImages = images.slice(0, 5);
+      const remainingCount = imageCount - 5;
+
+      return (
+        <Box sx={{ maxWidth: '500px', mx: 'auto' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 1 }}>
+            {displayImages.slice(0, 2).map((image, index) => {
+              const normalizedUrl = normalizeMediaUrl(image.url);
+              return (
+                <Box key={index} sx={{ aspectRatio: '1.5', overflow: 'hidden', borderRadius: '8px' }}>
+                  <img
+                    src={normalizedUrl}
+                    alt="Post media"
+                    onClick={() => openMediaModal(normalizedUrl, image.caption || '', index, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}                    style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                  />
+                </Box>
+              );
+            })}
+          </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1 }}>
+            {displayImages.slice(2, 5).map((image, index) => {
+              const actualIndex = index + 2;
+              const isOverlay = actualIndex === 4 && remainingCount > 0;
+              const normalizedUrl = normalizeMediaUrl(image.url);
+
+              return (
+                <Box key={actualIndex} sx={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: '8px' }}>
+                  <img
+                    src={normalizedUrl}
+                    alt="Post media"
+                    onClick={() => openMediaModal(normalizedUrl, image.caption || '', actualIndex, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
                       cursor: 'pointer',
-                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                      borderRadius: '8px'
+                      filter: isOverlay ? 'brightness(0.5)' : 'none',
                     }}
-                    onClick={() => openMediaModal(normalizedUrl, image.caption || '', actualIndex, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
-                  >
-                    +{imageCount - 6}
-                  </Box>
-                )}
-              </Box>
-            );
-          })}
+                  />
+                  {isOverlay && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '2rem',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      +{remainingCount}
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
         </Box>
-      </Box>
-    );
+      );
+    }
+
+    return null;
   };
 
   const renderMedia = (post) => {
@@ -1322,7 +1304,7 @@ const Community = () => {
             <MentionInput
               fullWidth
               multiline
-              rows={4}
+              minRows={4}
               placeholder="What's on your mind? Share your musical journey..."
               value={postContent}
               onChange={(e) => {

@@ -23,13 +23,21 @@ if (isR2Configured) {
     signatureVersion: 'v4',
     s3ForcePathStyle: true
   });
+} else {
+    console.warn("R2 storage is not configured. File uploads will be disabled.");
 }
 
-// Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+
+// Define a storage engine that rejects all files if R2 is not configured.
+const disabledStorage = {
+  _handleFile: function (req, file, cb) {
+    cb(new Error('File uploads are disabled because R2 storage is not configured.'));
+  },
+  _removeFile: function (req, file, cb) {
+    cb(null);
+  }
+};
 
 // Multer configuration - R2 or local storage
 const upload = multer({
@@ -62,32 +70,7 @@ const upload = multer({
       });
     },
     contentType: multerS3.AUTO_CONTENT_TYPE
-  }) : multer.diskStorage({
-    destination: function (req, file, cb) {
-      let folder = 'misc';
-      if (file.mimetype.startsWith('image/')) {
-        folder = 'images';
-      } else if (file.mimetype.startsWith('video/')) {
-        folder = 'videos';
-      } else if (file.mimetype.startsWith('audio/')) {
-        folder = 'audio';
-      }
-      
-      const folderPath = path.join(uploadsDir, folder);
-      if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath, { recursive: true });
-      }
-      
-      cb(null, folderPath);
-    },
-    filename: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      const ext = file.originalname.split('.').pop();
-      const name = file.originalname.split('.').slice(0, -1).join('.');
-      const filename = `${name}-${uniqueSuffix}.${ext}`;
-      cb(null, filename);
-    }
-  }),
+  }) : disabledStorage,
   fileFilter: (req, file, cb) => {
     // Allowed file types
     const allowedTypes = {
@@ -138,52 +121,44 @@ const upload = multer({
 
 // Helper function to delete files
 const deleteFile = async (fileKey) => {
+  if (!isR2Configured || !s3) {
+    console.error('Error deleting file: R2 is not configured.');
+    return false;
+  }
   try {
-    if (isR2Configured && s3) {
-      const params = {
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: fileKey
-      };
-      await s3.deleteObject(params).promise();
-      return true;
-    } else {
-      // Local file deletion
-      const filePath = path.join(uploadsDir, fileKey);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        return true;
-      }
-      return false;
-    }
+    const params = {
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: fileKey
+    };
+    await s3.deleteObject(params).promise();
+    return true;
   } catch (error) {
-    console.error('Error deleting file:', error);
+    console.error('Error deleting file from R2:', error);
     return false;
   }
 };
 
 // Helper function to generate signed URLs for private files
 const getSignedUrl = (fileKey, expiresIn = 3600) => {
-  if (isR2Configured && s3) {
-    const params = {
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: fileKey,
-      Expires: expiresIn
-    };
-    return s3.getSignedUrl('getObject', params);
-  } else {
-    // For local files, return the public URL
-    return `http://localhost:${process.env.PORT || 5001}/uploads/${fileKey}`;
+  if (!isR2Configured || !s3) {
+    console.error('Cannot get signed URL: R2 is not configured.');
+    return ''; // Return an empty string or a placeholder URL
   }
+  const params = {
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: fileKey,
+    Expires: expiresIn
+  };
+  return s3.getSignedUrl('getObject', params);
 };
 
 // Helper function to get public URL for files
 const getPublicUrl = (fileKey) => {
-  if (isR2Configured) {
-    return `${process.env.R2_PUBLIC_URL}/${fileKey}`;
-  } else {
-    // For local files, return the local server URL
-    return `http://localhost:${process.env.PORT || 5001}/uploads/${fileKey}`;
+  if (!isR2Configured) {
+    console.error('Cannot get public URL: R2 is not configured.');
+    return ''; // Return an empty string or a placeholder URL
   }
+  return `${process.env.R2_PUBLIC_URL}/${fileKey}`;
 };
 
 // Export configuration status for use in other modules

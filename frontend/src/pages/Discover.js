@@ -377,6 +377,7 @@ const Discover = () => {
   const [locLoading, setLocLoading] = useState(false);
   const locDebounceRef = useRef(null);
   const locAbortRef = useRef(null);
+  const [userLocationChecked, setUserLocationChecked] = useState(false);
   
   // Link-related state
   const [linkStatuses, setLinkStatuses] = useState({});
@@ -643,6 +644,35 @@ const Discover = () => {
   const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
   const [hasTypedLocation, setHasTypedLocation] = useState(false);
 
+  const applyCountryFilter = useCallback((countryName, { addToOptions = false } = {}) => {
+    const label = String(countryName || '').trim();
+    if (!label) return null;
+
+    const suggestion = {
+      type: 'country',
+      label,
+      value: label,
+      hierarchy: { city: '', region: '', country: label },
+      count: 0
+    };
+
+    if (addToOptions && hasTypedLocation) {
+      setLocationOptions(prev => {
+        if (prev.some(opt => opt.type === suggestion.type && (opt.value || opt.label) === (suggestion.value || suggestion.label))) {
+          return prev;
+        }
+        return [suggestion, ...prev];
+      });
+    }
+
+    handleFilterChange('location', suggestion);
+    setLocationQuery(label);
+    setHasTypedLocation(false);
+    setLocationDropdownOpen(false);
+
+    return suggestion;
+  }, [handleFilterChange, hasTypedLocation, setLocationOptions, setLocationQuery, setHasTypedLocation, setLocationDropdownOpen]);
+
   useEffect(() => {
     if (filters.location) {
       const { type, hierarchy = {}, value = '', label = '' } = filters.location;
@@ -663,6 +693,58 @@ const Discover = () => {
       setHasTypedLocation(false);
     }
   }, [filters.location]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (defaultLocationAppliedRef.current) {
+      setUserLocationChecked(true);
+      return undefined;
+    }
+
+    if (filters.location || locationQuery.trim()) {
+      defaultLocationAppliedRef.current = true;
+      setUserLocationChecked(true);
+      return undefined;
+    }
+
+    if (!user || !token) {
+      setUserLocationChecked(true);
+      return undefined;
+    }
+
+    setUserLocationChecked(false);
+
+    const fetchUserLocation = async () => {
+      try {
+        const response = await axios.get('/api/profiles/me', {
+          headers: { 'x-auth-token': token }
+        });
+        if (cancelled) return;
+
+        const locationData = response.data?.user?.locationData || null;
+        const countryName = String(locationData?.country || '').trim();
+        if (countryName && !defaultLocationAppliedRef.current && !filters.location && !locationQuery.trim()) {
+          const applied = applyCountryFilter(countryName);
+          if (applied) {
+            defaultLocationAppliedRef.current = true;
+          }
+        }
+      } catch (err) {
+        // ignore profile fetch errors
+      } finally {
+        if (!cancelled) {
+          setUserLocationChecked(true);
+        }
+      }
+    };
+
+    fetchUserLocation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, token, filters.location, locationQuery, applyCountryFilter]);
 
   useEffect(() => {
     let active = true;
@@ -794,36 +876,18 @@ const Discover = () => {
   useEffect(() => {
     if (defaultLocationAppliedRef.current) return;
     if (filters.location || locationQuery.trim()) return;
+    if (!userLocationChecked) return;
 
-    defaultLocationAppliedRef.current = true;
     let cancelled = false;
 
-    const ensureOptionPresence = (suggestion) => {
-      if (!hasTypedLocation) return;
-      setLocationOptions(prev => {
-        if (prev.some(opt => opt.type === suggestion.type && (opt.value || opt.label) === (suggestion.value || suggestion.label))) {
-          return prev;
-        }
-        return [suggestion, ...prev];
-      });
-    };
-
-    const applyCountrySuggestion = (countryName) => {
-      if (!countryName || cancelled) return;
-      const label = countryName.trim();
-      if (!label) return;
-      const suggestion = {
-        type: 'country',
-        label,
-        value: label,
-        hierarchy: { city: '', region: '', country: label },
-        count: 0
-      };
-      ensureOptionPresence(suggestion);
-      handleFilterChange('location', suggestion);
-      setLocationQuery(label);
-      setHasTypedLocation(false);
-      setLocationDropdownOpen(false);
+    const applyFromCountry = (countryName) => {
+      if (cancelled) return false;
+      const applied = applyCountryFilter(countryName, { addToOptions: true });
+      if (applied) {
+        defaultLocationAppliedRef.current = true;
+        return true;
+      }
+      return false;
     };
 
     const fallbackFromLocale = () => {
@@ -836,7 +900,7 @@ const Discover = () => {
         const displayNames = new Intl.DisplayNames([locale || 'en'], { type: 'region' });
         const countryName = displayNames.of(regionCode);
         if (countryName) {
-          applyCountrySuggestion(countryName);
+          applyFromCountry(countryName);
         }
       } catch (err) {
         // ignore locale fallback errors
@@ -859,9 +923,7 @@ const Discover = () => {
         }
         const data = await response.json();
         const countryName = data?.countryName || data?.countryNameNative || data?.country || '';
-        if (countryName) {
-          applyCountrySuggestion(countryName);
-        } else {
+        if (!applyFromCountry(countryName)) {
           fallbackFromLocale();
         }
       } catch (err) {
@@ -873,20 +935,20 @@ const Discover = () => {
       fallbackFromLocale();
     };
 
-    if (navigator.geolocation) {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      fallbackFromLocale();
+    } else {
       navigator.geolocation.getCurrentPosition(handleGeoSuccess, handleGeoError, {
         enableHighAccuracy: false,
         timeout: 5000,
         maximumAge: 600000
       });
-    } else {
-      fallbackFromLocale();
     }
 
     return () => {
       cancelled = true;
     };
-  }, [filters.location, locationQuery, handleFilterChange, hasTypedLocation]);
+  }, [filters.location, locationQuery, userLocationChecked, applyCountryFilter]);
 
   // Check link status for a specific user
   const checkLinkStatus = useCallback(async (userId) => {
@@ -1392,7 +1454,7 @@ const Discover = () => {
                     handleFilterChange('location', null);
                   }
                 }}
-                noOptionsText=""
+                noOptionsText={locInput ? "No locations found" : "Type to search"}
                 renderOption={(props, option) => {
                   const typeLabel = option.type === 'city' ? 'City' : option.type === 'region' ? 'Region / State' : 'Country';
                   const typeDescriptor = `\u2014 ${typeLabel}`;
