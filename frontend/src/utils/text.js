@@ -10,6 +10,13 @@
  * @returns {string}
  */
 export function formatLocationString(value) {
+  if (typeof value === 'object' && value !== null && ('name' in value || 'city' in value)) {
+    const city = value.city || value.name || '';
+    const region = value.region || '';
+    const country = value.country || '';
+    value = [city, region, country].filter(Boolean).join(', ');
+  }
+
   if (typeof value !== 'string') return value;
   const str = value.trim();
   if (!str) return str;

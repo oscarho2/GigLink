@@ -582,7 +582,15 @@ const Discover = () => {
           return a.idx - b.idx;
         });
 
-        setLocationOptions(scored.map(item => item.option));
+        let filteredScored = scored;
+        if (queryText) {
+          filteredScored = scored.filter(item => item.score < 50);
+          if (filteredScored.length === 0) {
+            filteredScored = scored.slice(0, 6);
+          }
+        }
+
+        setLocationOptions(filteredScored.map(item => item.option));
       } catch (e) {
         if (e.name !== 'CanceledError') {
           // ignore fetch errors
@@ -1079,28 +1087,7 @@ const Discover = () => {
             >
               {showFilters ? 'Hide Filters' : 'Show Filters'}
             </Button>
-            {(filters.location || filters.instrument || filters.genre) && (
-              <Button
-                variant="contained"
-                startIcon={<ClearIcon />}
-                onClick={resetFilters}
-                sx={{
-                  py: { xs: 1, sm: 1.2 },
-                  px: { xs: 2, sm: 3 },
-                  borderRadius: 2,
-                  fontWeight: 'bold',
-                  fontSize: { xs: '0.8125rem', sm: '0.875rem' },
-                  minHeight: { xs: 40, sm: 44 },
-                  flex: { xs: 1, md: 'none' },
-                  bgcolor: '#6b7280',
-                  '&:hover': {
-                    bgcolor: '#4b5563'
-                  }
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
+
           </Box>
         </Box>
       </Paper>
@@ -1234,9 +1221,6 @@ const Discover = () => {
                   }
                 }}
                 renderOption={(props, option) => {
-                  const countLabel = typeof option.count === 'number'
-                    ? option.count.toLocaleString()
-                    : option.count;
                   const typeLabel = option.type === 'city' ? 'City' : option.type === 'region' ? 'Region / State' : 'Country';
 
                   const valueParts = String(option.value || option.label || '')
@@ -1277,7 +1261,7 @@ const Discover = () => {
                           </Box>
                         )}
                         <Box sx={{ fontSize: 11, color: 'text.secondary', mt: 0.25 }}>
-                          {`${typeLabel} • Matches: ${countLabel}`}
+                          {`- ${typeLabel}`}
                         </Box>
                       </Box>
                     </li>

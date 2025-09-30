@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Autocomplete, TextField, Box, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import { formatLocationString } from '../utils/text';
 
 export default function VenueAutocomplete({ value, onChange, near, onLocationChange, global = true, label = 'Venue', placeholder = 'Search venues' }) {
   const [input, setInput] = useState(value || '');
@@ -99,7 +100,8 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       return () => { active = false; controller.abort(); };
     }
     if (!focusedRef.current) { setOptions([]); setOpen(false); return () => { active = false; controller.abort(); }; }
-    const effectiveNear = derivedNear || (near && near.trim() ? near.trim() : '');
+    const formattedNear = formatLocationString(near);
+    const effectiveNear = derivedNear || (formattedNear && formattedNear.trim() ? formattedNear.trim() : '');
     const effectiveQuery = q.length >= 1 ? q : (effectiveNear ? 'venue' : '');
     if (!effectiveQuery || effectiveQuery.trim().length < 2) { setOptions([]); setOpen(false); return () => { active = false; controller.abort(); }; }
     setOpen(true);
@@ -141,7 +143,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       }
     }, 250);
     return () => { active = false; clearTimeout(t); controller.abort(); };
-  }, [input]);
+  }, [input, near, global, ll]);
 
   const selected = useMemo(() => {
     if (!input) return null;

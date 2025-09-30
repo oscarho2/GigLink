@@ -987,6 +987,10 @@ router.get('/locations', async (req, res) => {
       country: new Map()
     };
 
+    const includeCities = !normalizedScope || normalizedScope === 'city';
+    const includeRegions = !normalizedScope || normalizedScope === 'region';
+    const includeCountries = !normalizedScope || normalizedScope === 'country';
+
     const sameValue = (a, b) => {
       if (!a || !b) return false;
       return a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -1032,42 +1036,39 @@ router.get('/locations', async (req, res) => {
       }
     };
 
-    for (const row of cityAgg) {
-      const cityVal = (row.city || '').trim();
-      const regionVal = (row.region || '').trim();
-      const countryVal = (row.country || '').trim();
-      const count = row.count || 0;
+    if (includeCities) {
+      for (const row of cityAgg) {
+        const cityVal = (row.city || '').trim();
+        const regionVal = (row.region || '').trim();
+        const countryVal = (row.country || '').trim();
+        const count = row.count || 0;
 
-      if (cityVal && !sameValue(cityVal, regionVal) && !sameValue(cityVal, countryVal)) {
-        addSuggestion('city', { city: cityVal, region: regionVal, country: countryVal }, count);
-      }
-      if (regionVal && !sameValue(regionVal, countryVal)) {
-        addSuggestion('region', { city: '', region: regionVal, country: countryVal }, count);
-      }
-      if (countryVal) {
-        addSuggestion('country', { city: '', region: '', country: countryVal }, count);
+        if (cityVal) {
+          addSuggestion('city', { city: cityVal, region: regionVal, country: countryVal }, count);
+        }
       }
     }
 
-    for (const row of regionAgg) {
-      const regionVal = (row.region || '').trim();
-      const countryVal = (row.country || '').trim();
-      const count = row.count || 0;
+    if (includeRegions) {
+      for (const row of regionAgg) {
+        const regionVal = (row.region || '').trim();
+        const countryVal = (row.country || '').trim();
+        const count = row.count || 0;
 
-      if (regionVal && !sameValue(regionVal, countryVal)) {
-        addSuggestion('region', { city: '', region: regionVal, country: countryVal }, count);
-      }
-      if (countryVal) {
-        addSuggestion('country', { city: '', region: '', country: countryVal }, count);
+        if (regionVal) {
+          addSuggestion('region', { city: '', region: regionVal, country: countryVal }, count);
+        }
       }
     }
 
-    for (const row of countryAgg) {
-      const countryVal = (row.country || '').trim();
-      const count = row.count || 0;
+    if (includeCountries) {
+      for (const row of countryAgg) {
+        const countryVal = (row.country || '').trim();
+        const count = row.count || 0;
 
-      if (countryVal) {
-        addSuggestion('country', { city: '', region: '', country: countryVal }, count);
+        if (countryVal) {
+          addSuggestion('country', { city: '', region: '', country: countryVal }, count);
+        }
       }
     }
 
@@ -1078,13 +1079,13 @@ router.get('/locations', async (req, res) => {
       const countryVal = (parsed.country || '').trim();
       const count = row.count || 0;
 
-      if (cityVal && !sameValue(cityVal, regionVal) && !sameValue(cityVal, countryVal)) {
+      if (includeCities && cityVal && !sameValue(cityVal, regionVal) && !sameValue(cityVal, countryVal)) {
         addSuggestion('city', { city: cityVal, region: regionVal, country: countryVal }, count);
       }
-      if (regionVal && !sameValue(regionVal, countryVal)) {
+      if (includeRegions && regionVal && !sameValue(regionVal, countryVal)) {
         addSuggestion('region', { city: '', region: regionVal, country: countryVal }, count);
       }
-      if (countryVal) {
+      if (includeCountries && countryVal) {
         addSuggestion('country', { city: '', region: '', country: countryVal }, count);
       }
     }
