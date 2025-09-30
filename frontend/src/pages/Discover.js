@@ -1457,7 +1457,7 @@ const Discover = () => {
                 noOptionsText={locInput ? "No locations found" : "Type to search"}
                 renderOption={(props, option) => {
                   const typeLabel = option.type === 'city' ? 'City' : option.type === 'region' ? 'Region / State' : 'Country';
-                  const typeDescriptor = `\u2014 ${typeLabel}`;
+                  const typeDescriptor = `- ${typeLabel}`;
                   const primaryText = option.display || (function(){
                     const val = String(option.value || option.label || '').trim();
                     const type = option.type || 'city';

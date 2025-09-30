@@ -56,6 +56,82 @@ const pulse = keyframes`
   }
 `;
 
+const getPrimaryLocationText = (option) => {
+  if (!option) return '';
+  const display = String(option.display || '').trim();
+  if (display) {
+    const parts = display.split(',').map(part => part.trim()).filter(Boolean);
+    if (parts.length > 0) {
+      return parts[0];
+    }
+  }
+
+  const fallback = String(option.value || option.label || '').trim();
+  if (fallback) {
+    const parts = fallback.split(',').map(part => part.trim()).filter(Boolean);
+    if (parts.length > 0) {
+      return parts[0];
+    }
+    return fallback;
+  }
+
+  const hierarchy = option.hierarchy || {};
+  return hierarchy.city || hierarchy.region || hierarchy.country || '';
+};
+
+const mapGigLocationStatToOption = (stat) => {
+  const raw = String(stat?.label || stat?.value || '').trim();
+  if (!raw) {
+    return {
+      ...stat,
+      type: 'city',
+      value: '',
+      label: '',
+      display: '',
+      hierarchy: {}
+    };
+  }
+
+  const parts = raw.split(',').map(part => part.trim()).filter(Boolean);
+  const city = parts[0] || '';
+  let region = parts.length >= 3 ? parts[parts.length - 2] : '';
+  let country = parts.length >= 2 ? parts[parts.length - 1] : '';
+
+  if (parts.length === 1) {
+    country = parts[0];
+  }
+
+  if (region && city && region.toLowerCase() === city.toLowerCase()) {
+    region = '';
+  }
+
+  if (country && city && country.toLowerCase() === city.toLowerCase()) {
+    country = '';
+  }
+
+  if (country && region && country.toLowerCase() === region.toLowerCase()) {
+    country = '';
+  }
+
+  const hierarchy = {
+    city: city || '',
+    region: region || '',
+    country: country || ''
+  };
+
+  const displayParts = [hierarchy.city, hierarchy.region, hierarchy.country].filter((value, index, self) => value && self.indexOf(value) === index);
+  const display = displayParts.length ? displayParts.join(', ') : raw;
+
+  return {
+    ...stat,
+    type: displayParts.length <= 1 ? 'country' : 'city',
+    value: raw,
+    label: raw,
+    display,
+    hierarchy
+  };
+};
+
 const Gigs = () => {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
@@ -72,7 +148,7 @@ const Gigs = () => {
   const [sort, setSort] = useState('dateAsc');
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
-    location: '',
+    location: null,
     minFee: 0,
     maxFee: Infinity,
     date: '',
@@ -82,10 +158,12 @@ const Gigs = () => {
   });
   const [showPastGigs, setShowPastGigs] = useState(false);
   
-  // Dynamic filter options from backend
-  const [locationOptions, setLocationOptions] = useState([]);
-  const [locationQuery, setLocationQuery] = useState('');
-  const [loadingLocations, setLoadingLocations] = useState(false);
+  // Predictive backend-driven location suggestions
+  const [locInput, setLocInput] = useState('');
+  const [locOptions, setLocOptions] = useState([]);
+  const [locLoading, setLocLoading] = useState(false);
+  const locDebounceRef = useRef(null);
+  const locAbortRef = useRef(null);
 
 
 
@@ -114,7 +192,8 @@ const Gigs = () => {
         if (searchTerm.trim()) params.q = searchTerm.trim();
         if (filters.instrument) params.instruments = filters.instrument;
         if (filters.genre) params.genres = filters.genre;
-        if (filters.location) params.location = filters.location;
+        const locationLabel = filters.location ? (filters.location.value || filters.location.label || filters.location.display || '') : '';
+        if (locationLabel) params.location = locationLabel;
         const today = new Date().toISOString().slice(0, 10);
         if (filters.date) {
           params.dateFrom = filters.date; // YYYY-MM-DD
@@ -145,41 +224,66 @@ const Gigs = () => {
     };
   }, [searchTerm, filters, showPastGigs]);
 
-  // Predictive backend-driven location suggestions (no GeoNames)
+  // Predictive backend-driven location suggestions (Atlas gigs data)
   useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    const t = setTimeout(async () => {
+    if (locDebounceRef.current) {
+      clearTimeout(locDebounceRef.current);
+      locDebounceRef.current = null;
+    }
+    if (locAbortRef.current) {
       try {
-        setLoadingLocations(true);
+        locAbortRef.current.abort();
+      } catch (err) {
+        // ignore abort errors
+      }
+      locAbortRef.current = null;
+    }
+
+    setLocOptions([]);
+
+    const trimmed = (locInput || '').trim();
+    if (!trimmed) {
+      setLocLoading(false);
+      return undefined;
+    }
+
+    locDebounceRef.current = setTimeout(async () => {
+      setLocLoading(true);
+      const controller = new AbortController();
+      locAbortRef.current = controller;
+      try {
         const res = await axios.get('/api/gigs/locations', {
-          params: { q: locationQuery || '', limit: 12 },
+          params: { q: trimmed, limit: 20 },
           signal: controller.signal
         });
-        if (!active) return;
         const stats = Array.isArray(res.data?.locationStats) ? res.data.locationStats : [];
-        const locs = stats.map((s) => {
-          const parts = String(s.label || '').split(',');
-          const primary = (parts[0] || '').trim();
-          const secondary = parts.slice(1).join(',').trim();
-          return {
-            value: s.label,
-            primary,
-            secondary,
-            count: s.count || 0
-          };
-        });
-        setLocationOptions(locs);
-      } catch (e) {
-        if (e.name !== 'CanceledError') {
-          // ignore
+        const mapped = stats.map(mapGigLocationStatToOption).filter(opt => opt.value);
+        setLocOptions(mapped);
+      } catch (err) {
+        if (err.name !== 'CanceledError') {
+          console.error('Error fetching gig location suggestions:', err);
         }
       } finally {
-        if (active) setLoadingLocations(false);
+        setLocLoading(false);
+        locAbortRef.current = null;
       }
-    }, 250);
-    return () => { active = false; clearTimeout(t); controller.abort(); };
-  }, [locationQuery]);
+    }, 300);
+
+    return () => {
+      if (locDebounceRef.current) {
+        clearTimeout(locDebounceRef.current);
+        locDebounceRef.current = null;
+      }
+      if (locAbortRef.current) {
+        try {
+          locAbortRef.current.abort();
+        } catch (err) {
+          // ignore abort errors
+        }
+        locAbortRef.current = null;
+      }
+    };
+  }, [locInput]);
 
 
 
@@ -291,7 +395,7 @@ const Gigs = () => {
   // Reset filters
   const resetFilters = () => {
     setFilters({
-      location: '',
+      location: null,
       minFee: 0,
       maxFee: Infinity,
       date: '',
@@ -299,7 +403,8 @@ const Gigs = () => {
       instrument: '',
       genre: ''
     });
-    setLocationQuery('');
+    setLocInput('');
+    setLocOptions([]);
   };
 
   return (
@@ -473,53 +578,65 @@ const Gigs = () => {
 
               <Grid item xs={12} sm={6} md={4}>
                 <Autocomplete
-                  options={locationOptions}
-                  autoHighlight
-                  loading={loadingLocations}
-                  filterOptions={(x) => x} // use backend suggestions as-is
-                  getOptionLabel={(opt) => (opt?.value || '')}
-                  isOptionEqualToValue={(opt, val) => (opt?.value || '') === (val?.value || '')}
-                  value={filters.location ? {
-                    value: filters.location,
-                    primary: (filters.location.split(',')[0] || '').trim(),
-                    secondary: filters.location.split(',').slice(1).join(',').trim(),
-                    count: 0
-                  } : null}
-                  onChange={(_e, v) => {
-                    if (v && v.value) {
-                      handleFilterChange('location', v.value);
-                      setLocationQuery(v.value);
+                  options={locOptions}
+                  loading={locLoading}
+                  filterOptions={(options) => options}
+                  getOptionLabel={(option) => {
+                    if (!option) return '';
+                    if (typeof option === 'string') return option;
+                    return option.display || option.value || option.label || '';
+                  }}
+                  isOptionEqualToValue={(option, value) =>
+                    option?.type === value?.type && ((option?.value || option?.label || '') === (value?.value || value?.label || ''))
+                  }
+                  value={filters.location}
+                  onChange={(_e, value) => {
+                    handleFilterChange('location', value || null);
+                    if (value) {
+                      setLocInput(getPrimaryLocationText(value));
                     } else {
-                      handleFilterChange('location', '');
-                      setLocationQuery('');
+                      setLocInput('');
                     }
                   }}
-                  inputValue={locationQuery}
-                  onInputChange={(_e, v) => setLocationQuery(v || '')}
-                  renderOption={(props, option) => (
-                    <li {...props} key={option.value}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                        <Box sx={{ fontSize: 14, fontWeight: 500 }}>
-                          {option.primary}{option.count ? ` (${option.count})` : ''}
+                  inputValue={locInput}
+                  onInputChange={(_e, value, reason) => {
+                    if (reason === 'reset') return;
+                    setLocInput(value || '');
+                    if (reason === 'clear' || !value) {
+                      handleFilterChange('location', null);
+                    }
+                  }}
+                  noOptionsText={locInput ? 'No locations found' : 'Type to search'}
+                  renderOption={(props, option) => {
+                    const typeLabel = option.type === 'city' ? 'City' : option.type === 'region' ? 'Region / State' : 'Country';
+                    const typeDescriptor = `- ${typeLabel}`;
+                    const val = String(option.display || option.value || option.label || '').trim();
+                    const parts = val.split(',').map(part => part.trim()).filter(Boolean);
+                    const primaryLine = parts[0] || val;
+                    const secondaryLine = parts.slice(primaryLine ? 1 : 0).join(', ');
+
+                    return (
+                      <li {...props} key={`${option.type}-${option.value || option.label}`}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                          <Box sx={{ fontSize: 14, fontWeight: 600 }}>{primaryLine}</Box>
+                          {secondaryLine && (
+                            <Box sx={{ fontSize: 12, color: 'text.secondary', fontWeight: 400 }}>{secondaryLine}</Box>
+                          )}
+                          <Box sx={{ fontSize: 11, color: 'text.secondary', mt: 0.5 }}>{typeDescriptor}</Box>
                         </Box>
-                        {option.secondary && (
-                          <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
-                            {option.secondary}
-                          </Box>
-                        )}
-                      </Box>
-                    </li>
-                  )}
+                      </li>
+                    );
+                  }}
                   renderInput={(params) => (
                     <TextField
                       {...params}
                       label="Location"
-                      placeholder="Search locations"
+                      placeholder="City, region, or country"
                       InputProps={{
                         ...params.InputProps,
                         endAdornment: (
                           <>
-                            {loadingLocations ? (
+                            {locLoading ? (
                               <CircularProgress color="inherit" size={16} />
                             ) : null}
                             {params.InputProps.endAdornment}
