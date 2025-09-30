@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { TextField, Paper, List, ListItem, ListItemText, CircularProgress } from '@mui/material';
+import { TextField, Paper, List, ListItem, ListItemText, CircularProgress, IconButton } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 
 const GeoNamesAutocomplete = ({ 
   value, 
@@ -260,7 +261,25 @@ const GeoNamesAutocomplete = ({
         aria-haspopup="listbox"
         aria-activedescendant={showSuggestions && selectedIndex >= 0 && suggestions.length > 0 ? `suggestion-${selectedIndex}` : undefined}
         InputProps={{
-          endAdornment: loading && <CircularProgress size={20} />
+          endAdornment: (
+            <>
+              {loading && <CircularProgress size={20} />}
+              {inputValue && (
+                <IconButton
+                  aria-label="clear location"
+                  size="small"
+                  onClick={() => {
+                    setInputValue('');
+                    setSuggestions([]);
+                    setShowSuggestions(false);
+                    if (onChange) onChange(null);
+                  }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              )}
+            </>
+          )
         }}
       />
       

@@ -20,7 +20,6 @@ import {
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import VenueAutocomplete from '../components/VenueAutocomplete';
-import MusicianToggle from '../components/MusicianToggle';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import Flatpickr from 'react-flatpickr';
@@ -96,7 +95,6 @@ function EditGig() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [musicianStatus, setMusicianStatus] = useState('no');
   
   const [formData, setFormData] = useState({
     title: '',
@@ -166,24 +164,8 @@ function EditGig() {
 
   useEffect(() => {
     fetchGig();
-    fetchMusicianStatus();
   }, [id]);
 
-  const fetchMusicianStatus = async () => {
-    try {
-      const response = await fetch('/api/profiles/musician-status', {
-        headers: {
-          'x-auth-token': token
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setMusicianStatus(data.isMusician || 'no');
-      }
-    } catch (err) {
-      console.error('Error fetching musician status:', err);
-    }
-  };
 
   const fetchGig = async () => {
     try {
@@ -337,7 +319,7 @@ function EditGig() {
             <Grid item xs={12}>
               <VenueAutocomplete
                 value={formData.venue}
-                near={formData.location}
+                near={typeof formData.location === 'string' ? formData.location : formData.location?.name}
                 onChange={(venue) => setFormData(prev => ({ ...prev, venue }))}
                 onLocationChange={(loc) => {
                   setFormData(prev => ({ ...prev, location: loc || '' }));
@@ -686,21 +668,7 @@ function EditGig() {
               <TextField fullWidth label="Requirements (Optional)" name="requirements" multiline rows={3} value={formData.requirements} onChange={handleChange} variant="outlined" placeholder="Any specific requirements or qualifications needed..." />
             </Grid>
 
-            {/* Musician Status Section */}
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>Musician Status</Typography>
-              <MusicianToggle
-                initialValue={musicianStatus}
-                token={token}
-                onSuccess={(newStatus) => {
-                  setMusicianStatus(newStatus);
-                  setSuccess(`Musician status updated to: ${newStatus}`);
-                }}
-                onError={(errorMsg) => {
-                  setError(`Failed to update musician status: ${errorMsg}`);
-                }}
-              />
-            </Grid>
+
             
             {error && (
               <Grid item xs={12}>

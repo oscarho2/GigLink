@@ -26,6 +26,24 @@ const GigDetail = () => {
   const [hasApplied, setHasApplied] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState(null); // 'pending', 'accepted', 'rejected'
 
+  const formatFullLocation = (venue, location) => {
+    const locationString = typeof location === 'string'
+      ? location
+      : location?.name || [location?.city, location?.region, location?.country].filter(Boolean).join(', ');
+
+    const formattedLocation = formatLocationString(locationString);
+
+    if (!venue) return formattedLocation;
+    if (!formattedLocation) return venue;
+    
+    // Avoid duplication if venue is already in the location string
+    if (formattedLocation.toLowerCase().includes(venue.toLowerCase())) {
+      return formattedLocation;
+    }
+    
+    return `${venue}, ${formattedLocation}`;
+  };
+
   useEffect(() => {
     const fetchGig = async () => {
       try {
@@ -320,7 +338,7 @@ const GigDetail = () => {
                 fontSize: { xs: '1rem', sm: '1.125rem', md: '1.25rem' }
               }}
             >
-              {gig.venue}, {formatLocationString(gig.location)}
+              {formatFullLocation(gig.venue, gig.location)}
             </Typography>
           </Box>
         </Box>

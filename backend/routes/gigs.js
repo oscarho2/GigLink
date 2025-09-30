@@ -297,34 +297,46 @@ router.get('/locations', async (req, res) => {
   try {
     const { q = '', limit = 10 } = req.query;
     const numericLimit = Math.min(parseInt(limit) || 10, 50);
+    const trimmed = (q || '').trim();
+    const rx = trimmed ? new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
 
-    const rx = q && q.trim()
-      ? new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
-      : null;
+    const gigs = await Gig.find({}, { location: 1 }).lean();
+    const counts = new Map();
 
-    // Aggregate distinct locations from gig.location
-    const pipeline = [
-      {
-        $project: {
-          loc: '$location.city'
-        }
-      },
-      { $match: { loc: { $exists: true, $ne: '' } } },
-      ...(rx ? [{ $match: { loc: { $regex: rx } } }] : []),
-      {
-        $group: {
-          _id: { $toLower: '$loc' },
-          count: { $sum: 1 },
-          label: { $first: '$loc' }
-        }
-      },
-      { $sort: { count: -1, label: 1 } },
-      { $limit: numericLimit },
-      { $project: { _id: 0, label: 1, count: 1 } }
-    ];
+    const pushLabel = (label) => {
+      if (!label) return;
+      if (rx && !rx.test(label)) return;
+      const key = label.toLowerCase();
+      const entry = counts.get(key);
+      if (entry) {
+        entry.count += 1;
+      } else {
+        counts.set(key, { label, count: 1 });
+      }
+    };
 
-    const agg = await Gig.aggregate(pipeline);
-    res.json({ locationStats: agg });
+    for (const gig of gigs) {
+      const loc = gig?.location || {};
+      const city = String(loc.city || '').trim();
+      const region = String(loc.region || '').trim();
+      const country = String(loc.country || '').trim();
+      const name = String(loc.name || '').trim();
+
+      const components = [];
+      if (city) components.push(city);
+      if (region && !components.some(part => part.toLowerCase() === region.toLowerCase())) components.push(region);
+      if (country && !components.some(part => part.toLowerCase() === country.toLowerCase())) components.push(country);
+      if (!components.length && name) components.push(name);
+
+      const label = components.join(', ');
+      pushLabel(label);
+    }
+
+    const sorted = Array.from(counts.values())
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .slice(0, numericLimit);
+
+    res.json({ locationStats: sorted });
   } catch (err) {
     console.error('Error fetching location suggestions:', err);
     res.status(500).json({ message: 'Server error' });
@@ -428,6 +440,21 @@ router.put('/:id', auth, async (req, res) => {
     
     // Update gig
     const update = { ...req.body };
+
+    if (typeof update.location === 'string') {
+      const parsed = parseLocation(update.location);
+      update.location = {
+        name: update.location,
+        city: parsed.city || '',
+        region: parsed.region || '',
+        country: parsed.country || '',
+      };
+    } else if (update.location && typeof update.location === 'object') {
+      if (!update.location.name) {
+        update.location.name = [update.location.city, update.location.region, update.location.country].filter(Boolean).join(', ');
+      }
+    }
+
     gig = await Gig.findByIdAndUpdate(
       req.params.id,
       { $set: update },
@@ -436,8 +463,9 @@ router.put('/:id', auth, async (req, res) => {
     
     res.json(gig);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error('Error updating gig:', err);
+    console.error('Request Body:', req.body);
+    res.status(500).json({ msg: 'Server Error', error: err.message, details: err });
   }
 });
 

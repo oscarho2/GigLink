@@ -165,15 +165,19 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
     if (!option) return;
     
     const addr = option.address || '';
-    const isCity = !hasStreetInAddress(addr);
     
     // For all selections, show the full information in the input
     const fullDisplay = addr ? `${option.name}, ${addr}` : option.name;
     if (onChange) onChange(fullDisplay);
     
     // Handle location change for backend
-    const loc = deriveLocationFromAddress(addr) || addr;
-    if (onLocationChange && loc) onLocationChange(loc);
+    if (onLocationChange) {
+      onLocationChange({
+        city: option.name,
+        region: option.adminName1,
+        country: option.countryName,
+      });
+    }
     
     // Update input to show full information
     setInput(fullDisplay);
@@ -201,6 +205,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
   return (
     <Autocomplete
       freeSolo
+      autoHighlight
       disableClearable
       ListboxProps={{ style: { maxHeight: 560, overflow: 'auto' } }}
       open={open}
@@ -300,54 +305,59 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
           </Box>
         </li>
       )}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={label}
-          placeholder={placeholder}
-          onFocus={() => { focusedRef.current = true; }}
-          onBlur={() => {
-            focusedRef.current = false;
-            const raw = (input || '').trim();
-            if (!raw) { setOpen(false); setOptions([]); return; }
-            setOpen(false);
-            setOptions([]);
-          }}
-          onKeyDown={(e) => {
-            // Handle backspace key specifically to ensure it works when editing existing values
-            if (e.key === 'Backspace') {
-              // Allow default behavior to continue
-              return;
-            }
-          }}
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <>
-                {((input && input.trim()) || (near && near.trim())) ? (
-                  <IconButton
-                    aria-label="clear venue and location"
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onChange) onChange('');
-                      if (onLocationChange) onLocationChange('');
-                      setInput('');
-                      setOptions([]);
-                      setOpen(false);
-                      suppressNextOpenRef.current = true;
-                    }}
-                    sx={{ mr: 0.5 }}
-                  >
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                ) : null}
-                {params.InputProps.endAdornment}
-              </>
-            )
-          }}
-        />
-      )}
+      renderInput={(params) => {
+        const formattedNear = formatLocationString(near);
+        const showClearButton = (input && input.trim()) || (formattedNear && formattedNear.trim());
+
+        return (
+          <TextField
+            {...params}
+            label={label}
+            placeholder={placeholder}
+            onFocus={() => { focusedRef.current = true; }}
+            onBlur={() => {
+              focusedRef.current = false;
+              const raw = (input || '').trim();
+              if (!raw) { setOpen(false); setOptions([]); return; }
+              setOpen(false);
+              setOptions([]);
+            }}
+            onKeyDown={(e) => {
+              // Handle backspace key specifically to ensure it works when editing existing values
+              if (e.key === 'Backspace') {
+                // Allow default behavior to continue
+                return;
+              }
+            }}
+            InputProps={{
+              ...params.InputProps,
+              endAdornment: (
+                <>
+                  {showClearButton ? (
+                    <IconButton
+                      aria-label="clear venue and location"
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onChange) onChange('');
+                        if (onLocationChange) onLocationChange('');
+                        setInput('');
+                        setOptions([]);
+                        setOpen(false);
+                        suppressNextOpenRef.current = true;
+                      }}
+                      sx={{ mr: 0.5 }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  ) : null}
+                  {params.InputProps.endAdornment}
+                </>
+              )
+            }}
+          />
+        );
+      }}
     />
   );
 }

@@ -47,6 +47,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 import UserAvatar from '../components/UserAvatar';
+import LocationFilterInput from '../components/LocationFilterInput';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
 // Define pulse animation
@@ -387,7 +388,6 @@ const Discover = () => {
       genre: '',
       userType: ''
     });
-    setLocationQuery('');
   }, []);
   
 
@@ -472,6 +472,8 @@ const Discover = () => {
   const [locationOptions, setLocationOptions] = useState([]);
   const [locationQuery, setLocationQuery] = useState('');
   const [loadingLocations, setLoadingLocations] = useState(false);
+  const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
+  const [hasTypedLocation, setHasTypedLocation] = useState(false);
 
   useEffect(() => {
     if (filters.location) {
@@ -490,6 +492,7 @@ const Discover = () => {
         display = hierarchy.country || valueParts[valueParts.length - 1] || label;
       }
       setLocationQuery(prev => (prev === display ? prev : display));
+      setHasTypedLocation(false);
     }
   }, [filters.location]);
 
@@ -498,12 +501,20 @@ const Discover = () => {
     const controller = new AbortController();
     const t = setTimeout(async () => {
       try {
+        const trimmedQuery = (locationQuery || '').trim();
+        const hasQuery = trimmedQuery.length >= 2;
+        if (!hasTypedLocation || !hasQuery) {
+          setLocationOptions([]);
+          setLoadingLocations(false);
+          return;
+        }
+
         setLoadingLocations(true);
         const scopes = ['city', 'region', 'country'];
         const requests = scopes.map(scope =>
           axios.get('/api/profiles/locations', {
             params: {
-              q: locationQuery || '',
+              q: trimmedQuery,
               limit: 6,
               scope
             },
@@ -546,7 +557,7 @@ const Discover = () => {
           deduped.push(option);
         }
 
-        const queryText = (locationQuery || '').trim().toLowerCase();
+        const queryText = trimmedQuery.toLowerCase();
         const scored = deduped.map((option, idx) => {
           if (!queryText) {
             return { option, score: 100, idx };
@@ -600,7 +611,7 @@ const Discover = () => {
       }
     }, 250);
     return () => { active = false; clearTimeout(t); controller.abort(); };
-  }, [locationQuery]);
+  }, [locationQuery, hasTypedLocation]);
 
   useEffect(() => {
     if (defaultLocationAppliedRef.current) return;
@@ -610,6 +621,7 @@ const Discover = () => {
     let cancelled = false;
 
     const ensureOptionPresence = (suggestion) => {
+      if (!hasTypedLocation) return;
       setLocationOptions(prev => {
         if (prev.some(opt => opt.type === suggestion.type && (opt.value || opt.label) === (suggestion.value || suggestion.label))) {
           return prev;
@@ -632,6 +644,8 @@ const Discover = () => {
       ensureOptionPresence(suggestion);
       handleFilterChange('location', suggestion);
       setLocationQuery(label);
+      setHasTypedLocation(false);
+      setLocationDropdownOpen(false);
     };
 
     const fallbackFromLocale = () => {
@@ -694,7 +708,7 @@ const Discover = () => {
     return () => {
       cancelled = true;
     };
-  }, [filters.location, locationQuery, handleFilterChange]);
+  }, [filters.location, locationQuery, handleFilterChange, hasTypedLocation]);
 
   // Check link status for a specific user
   const checkLinkStatus = useCallback(async (userId) => {
@@ -1158,133 +1172,42 @@ const Discover = () => {
            
            <Grid container spacing={{ xs: 2, sm: 3 }}>
             <Grid item xs={12} sm={6} md={3}>
-              <Autocomplete
-                options={locationOptions}
-                autoHighlight
-                loading={loadingLocations}
-                filterOptions={(x) => x}
-                getOptionLabel={(option) => {
-                  if (!option) return '';
-                  const valueParts = String(option.value || option.label || '')
-                    .split(',')
-                    .map(part => part.trim())
-                    .filter(Boolean);
-                  if (option.type === 'city') {
-                    return option.hierarchy?.city || valueParts[0] || option.label || '';
+              <LocationFilterInput
+                value={(function() {
+                  const loc = filters.location;
+                  if (!loc) return '';
+                  const { type, hierarchy = {}, value = '', label = '' } = loc;
+                  const parts = String(value || label).split(',').map(p=>p.trim()).filter(Boolean);
+                  if (type === 'city') return hierarchy.city || parts[0] || label;
+                  if (type === 'region') return hierarchy.region || (parts.length >= 2 ? parts[parts.length - 2] : parts[0] || label);
+                  if (type === 'country') return hierarchy.country || parts[parts.length - 1] || label;
+                  return label || value || '';
+                })()}
+                onChange={(raw) => handleFilterChange('location', raw || null)}
+                endpoint="/api/profiles/locations"
+                returnRaw
+                mapOption={(s) => {
+                  const type = s.type || 'city';
+                  const label = String(s.value || s.label || '').trim();
+                  const parts = label.split(',').map(p => p.trim()).filter(Boolean);
+                  const h = s.hierarchy || {};
+                  let primary = label; let secondary = '';
+                  if (type === 'city') {
+                    primary = h.city || parts[0] || label;
+                    const region = h.region || (parts.length >= 2 ? parts[parts.length - 2] : '');
+                    const country = h.country || parts[parts.length - 1] || '';
+                    secondary = [region, country].filter(Boolean).join(', ');
+                  } else if (type === 'region') {
+                    primary = h.region || (parts.length >= 2 ? parts[parts.length - 2] : parts[0] || label);
+                    secondary = h.country || parts[parts.length - 1] || '';
+                  } else if (type === 'country') {
+                    primary = h.country || parts[parts.length - 1] || label;
+                    secondary = '';
                   }
-                  if (option.type === 'region') {
-                    if (option.hierarchy?.region) return option.hierarchy.region;
-                    if (valueParts.length >= 2) return valueParts[valueParts.length - 2];
-                    return valueParts[0] || option.label || '';
-                  }
-                  if (option.type === 'country') {
-                    if (option.hierarchy?.country) return option.hierarchy.country;
-                    return valueParts[valueParts.length - 1] || option.label || '';
-                  }
-                  return option.label || '';
+                  return { id: `${type}:${label}`, value: label, primary, secondary, raw: { ...s, type, label: s.label || label, value: s.value || label, hierarchy: h } };
                 }}
-                isOptionEqualToValue={(option, value) =>
-                  option?.type === value?.type && ((option?.value || option?.label || '') === (value?.value || value?.label || ''))
-                }
-                value={filters.location}
-                onChange={(_e, value) => {
-                  handleFilterChange('location', value || null);
-                  if (value) {
-                    const valueParts = String(value.value || value.label || '')
-                      .split(',')
-                      .map(part => part.trim())
-                      .filter(Boolean);
-                    if (value.type === 'city') {
-                      setLocationQuery(value.hierarchy?.city || valueParts[0] || value.label || '');
-                    } else if (value.type === 'region') {
-                      if (value.hierarchy?.region) {
-                        setLocationQuery(value.hierarchy.region);
-                      } else if (valueParts.length >= 2) {
-                        setLocationQuery(valueParts[valueParts.length - 2]);
-                      } else {
-                        setLocationQuery(value.label || '');
-                      }
-                    } else if (value.type === 'country') {
-                      setLocationQuery(value.hierarchy?.country || valueParts[valueParts.length - 1] || value.label || '');
-                    } else {
-                      setLocationQuery(value.label || '');
-                    }
-                  } else {
-                    setLocationQuery('');
-                  }
-                }}
-                inputValue={locationQuery}
-                onInputChange={(_e, value, reason) => {
-                  setLocationQuery(value || '');
-                  if (reason === 'clear' || reason === 'input' || !value) {
-                    handleFilterChange('location', null);
-                  }
-                }}
-                renderOption={(props, option) => {
-                  const typeLabel = option.type === 'city' ? 'City' : option.type === 'region' ? 'Region / State' : 'Country';
-
-                  const valueParts = String(option.value || option.label || '')
-                    .split(',')
-                    .map(part => part.trim())
-                    .filter(Boolean);
-
-                  let primaryText = option.label || '';
-                  let secondaryText = '';
-
-                  if (option.type === 'city') {
-                    primaryText = option.hierarchy?.city || valueParts[0] || option.label || '';
-                    const region = option.hierarchy?.region || (valueParts.length >= 2 ? valueParts[valueParts.length - 2] : '');
-                    const country = option.hierarchy?.country || valueParts[valueParts.length - 1] || '';
-                    secondaryText = [region, country].filter(Boolean).join(', ');
-                  } else if (option.type === 'region') {
-                    if (option.hierarchy?.region) {
-                      primaryText = option.hierarchy.region;
-                    } else if (valueParts.length >= 2) {
-                      primaryText = valueParts[valueParts.length - 2];
-                    } else {
-                      primaryText = valueParts[0] || option.label || '';
-                    }
-                    secondaryText = option.hierarchy?.country || valueParts[valueParts.length - 1] || '';
-                  } else if (option.type === 'country') {
-                    primaryText = option.hierarchy?.country || valueParts[valueParts.length - 1] || option.label || '';
-                  }
-
-                  return (
-                    <li {...props} key={`${option.type}-${option.value || option.label}`}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                        <Box sx={{ fontSize: 14, fontWeight: 600 }}>
-                          {primaryText}
-                        </Box>
-                        {secondaryText && (
-                          <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
-                            {secondaryText}
-                          </Box>
-                        )}
-                        <Box sx={{ fontSize: 11, color: 'text.secondary', mt: 0.25 }}>
-                          {`- ${typeLabel}`}
-                        </Box>
-                      </Box>
-                    </li>
-                  );
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Location"
-                    placeholder="City, region, or country"
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {loadingLocations ? (
-                            <CircularProgress color="inherit" size={16} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      )
-                    }}
-                  />
-                )}
+                placeholder="City, region, or country"
+                label="Location"
               />
             </Grid>
             
