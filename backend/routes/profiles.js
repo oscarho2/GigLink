@@ -987,6 +987,8 @@ router.get('/locations', async (req, res) => {
       country: new Map()
     };
 
+    // Determine which scopes to include before building suggestions
+    const normalizedScope = String(scope || '').toLowerCase();
     const includeCities = !normalizedScope || normalizedScope === 'city';
     const includeRegions = !normalizedScope || normalizedScope === 'region';
     const includeCountries = !normalizedScope || normalizedScope === 'country';
@@ -1099,7 +1101,6 @@ router.get('/locations', async (req, res) => {
     const regionList = sortSuggestions(suggestionMaps.region);
     const countryList = sortSuggestions(suggestionMaps.country);
 
-    const normalizedScope = String(scope || '').toLowerCase();
     const countryFilterLc = String(countryFilter || '').trim().toLowerCase();
     const regionFilterLc = String(regionFilter || '').trim().toLowerCase();
 

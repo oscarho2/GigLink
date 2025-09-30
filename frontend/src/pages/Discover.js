@@ -47,7 +47,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
 import GeoNamesAutocomplete from '../components/GeoNamesAutocomplete';
 import UserAvatar from '../components/UserAvatar';
-import LocationFilterInput from '../components/LocationFilterInput';
+// (Reverted) using MUI Autocomplete for location filter
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
 // Define pulse animation
@@ -62,6 +62,29 @@ const pulse = keyframes`
     opacity: 1;
   }
 `;
+
+const getPrimaryLocationText = (option) => {
+  if (!option) return '';
+  const hierarchy = option.hierarchy || {};
+  const display = String(option.display || '').trim();
+  if (display) {
+    const parts = display.split(',').map(part => part.trim()).filter(Boolean);
+    if (parts.length > 0) {
+      return parts[0];
+    }
+  }
+
+  const fallback = String(option.value || option.label || '').trim();
+  if (fallback) {
+    const parts = fallback.split(',').map(part => part.trim()).filter(Boolean);
+    if (parts.length > 0) {
+      return parts[0];
+    }
+    return fallback;
+  }
+
+  return hierarchy.city || hierarchy.region || hierarchy.country || '';
+};
 
 // Memoized MusicianCard component for better performance
 const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
@@ -347,6 +370,13 @@ const Discover = () => {
     genre: '',
     userType: ''
   });
+
+  // New minimal location search state (replaces legacy suggestion state)
+  const [locInput, setLocInput] = useState('');
+  const [locOptions, setLocOptions] = useState([]);
+  const [locLoading, setLocLoading] = useState(false);
+  const locDebounceRef = useRef(null);
+  const locAbortRef = useRef(null);
   
   // Link-related state
   const [linkStatuses, setLinkStatuses] = useState({});
@@ -388,6 +418,14 @@ const Discover = () => {
       genre: '',
       userType: ''
     });
+    setLocationQuery('');
+    setHasTypedLocation(false);
+    setLocationDropdownOpen(false);
+    setLocationOptions([]);
+    // Reset new location search state
+    setLocInput('');
+    setLocOptions([]);
+    setLocLoading(false);
   }, []);
   
 
@@ -468,6 +506,136 @@ const Discover = () => {
     };
   }, [searchTerm, filters]);
 
+  // Minimal suggestions: debounce locInput, fetch from /api/profiles/locations
+  useEffect(() => {
+    if (locDebounceRef.current) clearTimeout(locDebounceRef.current);
+    // Clear options while typing
+    setLocOptions([]);
+    if (locAbortRef.current) { try { locAbortRef.current.abort(); } catch { /* noop */ } locAbortRef.current = null; }
+
+    const trimmed = (locInput || '').trim();
+    if (!trimmed) { setLocLoading(false); return; }
+
+    locDebounceRef.current = setTimeout(async () => {
+      setLocLoading(true);
+      const controller = new AbortController();
+      locAbortRef.current = controller;
+      try {
+        const res = await axios.get('/api/profiles/locations', {
+          params: { q: trimmed, limit: 20 },
+          signal: controller.signal
+        });
+        const stats = Array.isArray(res.data?.locationStats) ? res.data.locationStats : [];
+        const queryLower = trimmed.toLowerCase();
+
+        const mapped = stats.map((s) => {
+          const type = s.type || 'city';
+          const label = String(s.value || s.label || '').trim();
+          const parts = label.split(',').map(p => p.trim()).filter(Boolean);
+          const h = s.hierarchy || {};
+          let display = label;
+          if (type === 'city') {
+            const city = h.city || parts[0] || label;
+            const region = h.region || (parts.length >= 2 ? parts[parts.length - 2] : '');
+            const country = h.country || parts[parts.length - 1] || '';
+            display = [city, region, country].filter(Boolean).join(', ');
+          } else if (type === 'region') {
+            const region = h.region || (parts.length >= 2 ? parts[parts.length - 2] : parts[0] || label);
+            const country = h.country || parts[parts.length - 1] || '';
+            display = [region, country].filter(Boolean).join(', ');
+          } else if (type === 'country') {
+            display = h.country || parts[parts.length - 1] || label;
+          }
+          return { ...s, type, value: label, label: s.label || label, hierarchy: h, display };
+        });
+
+        const includesQuery = (option) => {
+          if (!queryLower) return true;
+          const hierarchy = option.hierarchy || {};
+          const candidates = [
+            option.display,
+            option.value,
+            option.label,
+            hierarchy.city,
+            hierarchy.region,
+            hierarchy.country
+          ];
+          return candidates.some(text => (text || '').toLowerCase().includes(queryLower));
+        };
+
+        const filtered = mapped.filter(includesQuery);
+        const base = filtered.length > 0 ? filtered : mapped;
+
+        const scored = base.map((option, idx) => {
+          const rawLabel = (option.value || option.label || '').toLowerCase();
+          const displayLabel = (option.display || rawLabel).toLowerCase();
+          const labelParts = displayLabel.split(',').map(part => part.trim()).filter(Boolean);
+          const rawParts = rawLabel.split(',').map(part => part.trim()).filter(Boolean);
+          const primaryValue = (labelParts[0] || rawParts[0] || rawLabel).trim();
+          const hierarchyValues = [
+            option.hierarchy?.city,
+            option.hierarchy?.region,
+            option.hierarchy?.country
+          ].map(val => (val || '').trim().toLowerCase()).filter(Boolean);
+
+          let score = 200;
+
+          if (!queryLower) {
+            score = 100;
+          } else if (primaryValue === queryLower) {
+            score = 0;
+          } else if (rawLabel === queryLower || displayLabel === queryLower) {
+            score = 1;
+          } else if (primaryValue.startsWith(queryLower)) {
+            score = 2;
+          } else if (displayLabel.startsWith(queryLower) || rawLabel.startsWith(queryLower)) {
+            score = 3;
+          } else if (hierarchyValues.includes(queryLower)) {
+            score = option.type === 'country' ? 4 : option.type === 'region' ? 5 : 6;
+          } else if (hierarchyValues.some(val => val.startsWith(queryLower))) {
+            score = option.type === 'country' ? 7 : option.type === 'region' ? 8 : 9;
+          } else if (primaryValue.includes(queryLower)) {
+            score = 10;
+          } else if (displayLabel.includes(queryLower) || rawLabel.includes(queryLower)) {
+            score = 20;
+          } else if (hierarchyValues.some(val => val.includes(queryLower))) {
+            score = 30;
+          }
+
+          const typePriority = option.type === 'city' ? 0 : option.type === 'region' ? 1 : 2;
+          return { option, score, typePriority, idx };
+        });
+
+        scored.sort((a, b) => {
+          if (a.score !== b.score) return a.score - b.score;
+          if (a.typePriority !== b.typePriority) return a.typePriority - b.typePriority;
+          return a.idx - b.idx;
+        });
+
+        const sortedOptions = scored.map((item) => item.option);
+        setLocOptions(sortedOptions);
+      } catch (e) {
+        // ignore
+      } finally {
+        setLocLoading(false);
+        locAbortRef.current = null;
+      }
+    }, 300);
+
+    return () => {
+      if (locDebounceRef.current) { clearTimeout(locDebounceRef.current); locDebounceRef.current = null; }
+    };
+  }, [locInput]);
+
+  useEffect(() => {
+    if (!filters.location) {
+      setLocInput(prev => (prev ? '' : prev));
+      return;
+    }
+    const primary = getPrimaryLocationText(filters.location);
+    setLocInput(prev => (prev === primary ? prev : primary));
+  }, [filters.location]);
+
   // Predictive backend-driven location suggestions (like Gigs page)
   const [locationOptions, setLocationOptions] = useState([]);
   const [locationQuery, setLocationQuery] = useState('');
@@ -502,7 +670,7 @@ const Discover = () => {
     const t = setTimeout(async () => {
       try {
         const trimmedQuery = (locationQuery || '').trim();
-        const hasQuery = trimmedQuery.length >= 2;
+        const hasQuery = trimmedQuery.length >= 1;
         if (!hasTypedLocation || !hasQuery) {
           setLocationOptions([]);
           setLoadingLocations(false);
@@ -510,98 +678,108 @@ const Discover = () => {
         }
 
         setLoadingLocations(true);
-        const scopes = ['city', 'region', 'country'];
-        const requests = scopes.map(scope =>
-          axios.get('/api/profiles/locations', {
-            params: {
-              q: trimmedQuery,
-              limit: 6,
-              scope
-            },
-            signal: controller.signal
-          }).catch(() => ({ data: { locationStats: [] } }))
-        );
-
-        const responses = await Promise.all(requests);
-        if (!active) return;
-
-        const parsed = scopes.map((scope, index) => {
-          const stats = Array.isArray(responses[index]?.data?.locationStats)
-            ? responses[index].data.locationStats
-            : [];
-          return stats.map((s) => ({
-            ...s,
-            type: s.type || scope,
-            label: s.label || '',
-            value: s.value || s.label || '',
-            hierarchy: s.hierarchy || {},
-            count: s.count || 0
-          }));
+        const res = await axios.get('/api/profiles/locations', {
+          params: { q: trimmedQuery, limit: 20 },
+          signal: controller.signal
         });
-
-        const [cityList, regionList, countryList] = parsed;
-        const merged = [];
-        const maxLength = Math.max(cityList.length, regionList.length, countryList.length);
-        for (let i = 0; i < maxLength && merged.length < 20; i += 1) {
-          if (i < cityList.length) merged.push(cityList[i]);
-          if (i < regionList.length) merged.push(regionList[i]);
-          if (i < countryList.length) merged.push(countryList[i]);
-        }
+        if (!active) return;
+        const stats = Array.isArray(res.data?.locationStats) ? res.data.locationStats : [];
+        const merged = stats.map((s) => ({
+          ...s,
+          type: s.type || 'city',
+          label: s.label || '',
+          value: s.value || s.label || '',
+          hierarchy: s.hierarchy || {},
+          count: s.count || 0
+        }));
 
         const deduped = [];
         const seen = new Set();
-        for (const option of merged) {
-          const key = `${option.type}:${(option.value || option.label || '').toLowerCase()}`;
-          if (seen.has(key)) continue;
+        const makeKey = (option) => {
+          const hierarchy = option?.hierarchy || {};
+          const hierarchyKey = [hierarchy.city, hierarchy.region, hierarchy.country]
+            .map(val => (val || '').trim().toLowerCase())
+            .filter(Boolean)
+            .join('|');
+          if (hierarchyKey) {
+            return `${option.type}:${hierarchyKey}`;
+          }
+          const labelKey = (option.value || option.label || '').trim().toLowerCase();
+          return `${option.type}:${labelKey}`;
+        };
+        const ensureOption = (option) => {
+          const key = makeKey(option);
+          if (seen.has(key)) return;
           seen.add(key);
           deduped.push(option);
+        };
+
+        for (const option of merged) {
+          ensureOption(option);
         }
 
         const queryText = trimmedQuery.toLowerCase();
+
         const scored = deduped.map((option, idx) => {
+          const typePriority = option.type === 'country' ? 0 : option.type === 'region' ? 1 : 2;
+
           if (!queryText) {
-            return { option, score: 100, idx };
+            return { option, score: 200 + idx, typePriority, idx };
           }
 
-          const fullLabelLc = (option.value || option.label || '').toLowerCase();
+          const rawLabel = (option.value || option.label || '').toLowerCase();
+          const displayLabel = (option.display || rawLabel).toLowerCase();
+          const labelParts = displayLabel.split(',').map(part => part.trim()).filter(Boolean);
+          const rawParts = rawLabel.split(',').map(part => part.trim()).filter(Boolean);
+          const primaryValue = (labelParts[0] || rawParts[0] || rawLabel).trim();
           const hierarchyValues = [
             option.hierarchy?.city,
             option.hierarchy?.region,
             option.hierarchy?.country
           ].map(val => (val || '').trim().toLowerCase()).filter(Boolean);
 
-          let score = 50;
-          if (fullLabelLc === queryText || (option.label || '').toLowerCase() === queryText) {
+          let score = 200;
+
+          if (primaryValue === queryText) {
             score = 0;
+          } else if (rawLabel === queryText || displayLabel === queryText) {
+            score = 1;
+          } else if (primaryValue.startsWith(queryText)) {
+            score = 2;
+          } else if (displayLabel.startsWith(queryText) || rawLabel.startsWith(queryText)) {
+            score = 3;
           } else if (hierarchyValues.includes(queryText)) {
-            score = option.type === 'country' ? 1 : option.type === 'region' ? 2 : 3;
-          } else if (fullLabelLc.startsWith(queryText)) {
-            score = 4;
+            score = option.type === 'country' ? 4 : option.type === 'region' ? 5 : 6;
           } else if (hierarchyValues.some(val => val.startsWith(queryText))) {
-            score = 5;
-          } else if (fullLabelLc.includes(queryText)) {
-            score = 6;
+            score = option.type === 'country' ? 7 : option.type === 'region' ? 8 : 9;
+          } else if (primaryValue.includes(queryText)) {
+            score = 10;
+          } else if (displayLabel.includes(queryText) || rawLabel.includes(queryText)) {
+            score = 20;
           } else if (hierarchyValues.some(val => val.includes(queryText))) {
-            score = 7;
+            score = 30;
           }
 
-          return { option, score, idx };
+          return { option, score, typePriority, idx };
         });
 
         scored.sort((a, b) => {
           if (a.score !== b.score) return a.score - b.score;
+          if (a.typePriority !== b.typePriority) return a.typePriority - b.typePriority;
           return a.idx - b.idx;
         });
 
         let filteredScored = scored;
         if (queryText) {
-          filteredScored = scored.filter(item => item.score < 50);
+          filteredScored = scored.filter(item => item.score < 200);
           if (filteredScored.length === 0) {
             filteredScored = scored.slice(0, 6);
           }
         }
 
-        setLocationOptions(filteredScored.map(item => item.option));
+        const options = filteredScored.map(item => item.option);
+        setLocationOptions(options);
+        if (active) setLocationDropdownOpen(options.length > 0);
       } catch (e) {
         if (e.name !== 'CanceledError') {
           // ignore fetch errors
@@ -1172,42 +1350,94 @@ const Discover = () => {
            
            <Grid container spacing={{ xs: 2, sm: 3 }}>
             <Grid item xs={12} sm={6} md={3}>
-              <LocationFilterInput
-                value={(function() {
-                  const loc = filters.location;
-                  if (!loc) return '';
-                  const { type, hierarchy = {}, value = '', label = '' } = loc;
-                  const parts = String(value || label).split(',').map(p=>p.trim()).filter(Boolean);
-                  if (type === 'city') return hierarchy.city || parts[0] || label;
-                  if (type === 'region') return hierarchy.region || (parts.length >= 2 ? parts[parts.length - 2] : parts[0] || label);
-                  if (type === 'country') return hierarchy.country || parts[parts.length - 1] || label;
-                  return label || value || '';
-                })()}
-                onChange={(raw) => handleFilterChange('location', raw || null)}
-                endpoint="/api/profiles/locations"
-                returnRaw
-                mapOption={(s) => {
-                  const type = s.type || 'city';
-                  const label = String(s.value || s.label || '').trim();
-                  const parts = label.split(',').map(p => p.trim()).filter(Boolean);
-                  const h = s.hierarchy || {};
-                  let primary = label; let secondary = '';
+              <Autocomplete
+                options={locOptions}
+                autoHighlight
+                loading={locLoading}
+                openOnFocus
+                filterOptions={(x) => x}
+                getOptionLabel={(option) => {
+                  if (!option) return '';
+                  if (option.display) return option.display;
+                  const val = String(option.value || option.label || '').trim();
+                  const type = option.type || 'city';
+                  const parts = val.split(',').map(p=>p.trim()).filter(Boolean);
+                  const h = option.hierarchy || {};
                   if (type === 'city') {
-                    primary = h.city || parts[0] || label;
-                    const region = h.region || (parts.length >= 2 ? parts[parts.length - 2] : '');
-                    const country = h.country || parts[parts.length - 1] || '';
-                    secondary = [region, country].filter(Boolean).join(', ');
+                    const city = h.city || parts[0] || val; const region = h.region || (parts.length>=2?parts[parts.length-2]:''); const country = h.country || parts[parts.length-1] || '';
+                    return [city, region, country].filter(Boolean).join(', ');
                   } else if (type === 'region') {
-                    primary = h.region || (parts.length >= 2 ? parts[parts.length - 2] : parts[0] || label);
-                    secondary = h.country || parts[parts.length - 1] || '';
-                  } else if (type === 'country') {
-                    primary = h.country || parts[parts.length - 1] || label;
-                    secondary = '';
+                    const region = h.region || (parts.length>=2?parts[parts.length-2]:parts[0]||val); const country = h.country || parts[parts.length-1] || '';
+                    return [region, country].filter(Boolean).join(', ');
                   }
-                  return { id: `${type}:${label}`, value: label, primary, secondary, raw: { ...s, type, label: s.label || label, value: s.value || label, hierarchy: h } };
+                  return h.country || parts[parts.length-1] || val;
                 }}
-                placeholder="City, region, or country"
-                label="Location"
+                isOptionEqualToValue={(option, value) =>
+                  option?.type === value?.type && ((option?.value || option?.label || '') === (value?.value || value?.label || ''))
+                }
+                value={filters.location}
+                onChange={(_e, value) => {
+                  handleFilterChange('location', value || null);
+                  if (value) {
+                    setLocInput(getPrimaryLocationText(value));
+                  } else {
+                    setLocInput('');
+                  }
+                }}
+                inputValue={locInput}
+                onInputChange={(_e, value, reason) => {
+                  if (reason === 'reset') return;
+                  setLocInput(value || '');
+                  if (reason === 'clear' || !value) {
+                    handleFilterChange('location', null);
+                  }
+                }}
+                noOptionsText=""
+                renderOption={(props, option) => {
+                  const typeLabel = option.type === 'city' ? 'City' : option.type === 'region' ? 'Region / State' : 'Country';
+                  const typeDescriptor = `\u2014 ${typeLabel}`;
+                  const primaryText = option.display || (function(){
+                    const val = String(option.value || option.label || '').trim();
+                    const type = option.type || 'city';
+                    const parts = val.split(',').map(p=>p.trim()).filter(Boolean);
+                    const h = option.hierarchy || {};
+                    if (type === 'city') { const city=h.city||parts[0]||val; const region=h.region||(parts.length>=2?parts[parts.length-2]:''); const country=h.country||parts[parts.length-1]||''; return [city,region,country].filter(Boolean).join(', ');} 
+                    if (type === 'region') { const region=h.region||(parts.length>=2?parts[parts.length-2]:parts[0]||val); const country=h.country||parts[parts.length-1]||''; return [region,country].filter(Boolean).join(', ');} 
+                    return h.country||parts[parts.length-1]||val; })();
+                  const nameParts = primaryText.split(',').map(part => part.trim()).filter(Boolean);
+                  const primaryLine = nameParts[0] || primaryText;
+                  const secondaryLine = nameParts.slice(nameParts[0] ? 1 : 0).join(', ');
+
+                  return (
+                    <li {...props} key={`${option.type}-${option.value || option.label}`}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Box sx={{ fontSize: 14, fontWeight: 600 }}>{primaryLine}</Box>
+                        {secondaryLine && (
+                          <Box sx={{ fontSize: 12, color: 'text.secondary', fontWeight: 400 }}>{secondaryLine}</Box>
+                        )}
+                        <Box sx={{ fontSize: 11, color: 'text.secondary', mt: 0.5 }}>{typeDescriptor}</Box>
+                      </Box>
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Location"
+                    placeholder="City, region, or country"
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {locLoading ? (
+                            <CircularProgress color="inherit" size={16} />
+                          ) : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      )
+                    }}
+                  />
+                )}
               />
             </Grid>
             
