@@ -53,6 +53,7 @@ import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
 import UserAvatar from '../components/UserAvatar';
 import { formatLocationString } from '../utils/text';
+import { getLocationDisplayName } from '../utils/gigLocation';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Skeleton } from '@mui/material';
 
@@ -1049,7 +1050,21 @@ const Dashboard = () => {
                             <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 0.5 }}>
                               <LocationOnIcon sx={{ fontSize: '1rem', mr: 0.5, mt: 0.25, color: 'text.secondary' }} />
                               <Typography variant="body2" color="text.primary">
-                                {gig.venue} - {formatLocationString(gig.location)}
+                                {(() => {
+                                  const locationDisplay = getLocationDisplayName(gig.location);
+                                  const venueName = (gig.venue || '').trim();
+
+                                  if (venueName && locationDisplay) {
+                                    const normalizedVenue = venueName.toLowerCase();
+                                    const normalizedLocation = locationDisplay.toLowerCase();
+                                    if (normalizedLocation.startsWith(normalizedVenue)) {
+                                      return locationDisplay;
+                                    }
+                                    return `${venueName} - ${locationDisplay}`;
+                                  }
+
+                                  return venueName || locationDisplay || '';
+                                })()}
                               </Typography>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -1198,7 +1213,21 @@ const Dashboard = () => {
                                   whiteSpace: 'nowrap'
                                 }}
                               >
-                                {gig.venue} - {formatLocationString(gig.location)}
+                                {(() => {
+                                  const locationDisplay = getLocationDisplayName(gig.location);
+                                  const venueName = (gig.venue || '').trim();
+
+                                  if (venueName && locationDisplay) {
+                                    const normalizedVenue = venueName.toLowerCase();
+                                    const normalizedLocation = locationDisplay.toLowerCase();
+                                    if (normalizedLocation.startsWith(normalizedVenue)) {
+                                      return locationDisplay;
+                                    }
+                                    return `${venueName} - ${locationDisplay}`;
+                                  }
+
+                                  return venueName || locationDisplay || '';
+                                })()}
                               </Typography>
                               <Typography 
                                 variant="body2" 

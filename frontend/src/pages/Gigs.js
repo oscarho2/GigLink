@@ -31,7 +31,7 @@ import axios from 'axios';
 import { formatPayment, getPaymentValue } from '../utils/currency';
 import AddIcon from '@mui/icons-material/Add';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import { formatLocationString } from '../utils/text';
+import { getLocationDisplayName } from '../utils/gigLocation';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import Flatpickr from 'react-flatpickr';
 import 'flatpickr/dist/themes/material_blue.css';
@@ -1187,7 +1187,21 @@ const Gigs = () => {
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                   <LocationOnIcon sx={{ mr: 1, mt: 0.25, color: '#1a365d', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
                   <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>
-                    {gig.venue}, {formatLocationString(gig.location)}
+                    {(() => {
+                      const locationDisplay = getLocationDisplayName(gig.location);
+                      const venueName = (gig.venue || '').trim();
+
+                      if (venueName && locationDisplay) {
+                        const normalizedVenue = venueName.toLowerCase();
+                        const normalizedLocation = locationDisplay.toLowerCase();
+                        if (normalizedLocation.startsWith(normalizedVenue)) {
+                          return locationDisplay;
+                        }
+                        return `${venueName}, ${locationDisplay}`;
+                      }
+
+                      return venueName || locationDisplay || '';
+                    })()}
                   </Typography>
                 </Box>
 

@@ -5,6 +5,24 @@ import axios from 'axios';
 import { formatLocationString } from '../utils/text';
 import { buildGigLocation, buildGigLocationFromFreeform, stripPostalCodes } from '../utils/gigLocation';
 
+const pickStreetCandidate = (...candidates) => {
+  const normalized = candidates
+    .map(candidate => stripPostalCodes(candidate || ''))
+    .map(candidate => (candidate || '').trim())
+    .filter(Boolean);
+
+  if (!normalized.length) return '';
+
+  const withNumber = normalized.filter(value => /\d/.test(value));
+  const pool = withNumber.length ? withNumber : normalized;
+
+  return pool.reduce((best, current) => {
+    if (!best) return current;
+    if (current.length > best.length) return current;
+    return best;
+  }, '');
+};
+
 export default function VenueAutocomplete({ value, onChange, near, onLocationChange, global = true, label = 'Venue', placeholder = 'Search venues' }) {
   const [input, setInput] = useState(value || '');
   const valueRef = useRef(value);
@@ -194,21 +212,35 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
     if (!option) return;
 
     const addr = option.address || '';
+    const label = addr ? `${option.name}, ${addr}` : option.name;
+    const baseLocation = buildGigLocationFromFreeform(label);
     const resolved = await resolvePlaceId(option.id);
-    const city = resolved?.city || '';
-    const region = resolved?.region || '';
-    const country = resolved?.country || '';
-    const street = resolved?.street || extractStreet(addr, city, region, country);
+
+    const resolvedStreet = resolved?.street || '';
+    const resolvedCity = resolved?.city || '';
+    const resolvedRegion = resolved?.region || '';
+    const resolvedCountry = resolved?.country || '';
+
+    const fallbackStreet = extractStreet(addr, baseLocation.city, baseLocation.region, baseLocation.country);
+    const street = pickStreetCandidate(resolvedStreet, baseLocation.street, fallbackStreet);
 
     const gigLocation = buildGigLocation({
-      venueName: option.name,
+      venueName: option.name || baseLocation.name,
       street,
-      city,
-      region,
-      country,
+      city: resolvedCity || baseLocation.city,
+      region: resolvedRegion || baseLocation.region,
+      country: resolvedCountry || baseLocation.country,
     });
 
-    const displayValue = gigLocation.name || (addr ? `${option.name}, ${addr}` : option.name);
+    gigLocation.name = label;
+
+    if (resolved?.placeId) gigLocation.placeId = resolved.placeId;
+
+    if (resolved?.coordinates) {
+      gigLocation.coordinates = resolved.coordinates;
+    }
+
+    const displayValue = gigLocation.name || label;
 
     if (onChange) onChange(displayValue);
     if (onLocationChange) onLocationChange(gigLocation);

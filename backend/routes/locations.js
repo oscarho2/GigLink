@@ -19,20 +19,25 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 5000) => {
 };
 
 const findComponent = (components, types) => {
-  if (!Array.isArray(components)) return '';
+  if (!Array.isArray(components)) return null;
   const typeList = Array.isArray(types) ? types : [types];
-  const match = components.find(component => Array.isArray(component.types) && component.types.some(t => typeList.includes(t)));
-  return match ? (match.long_name || match.short_name || '') : '';
+  return components.find(component => Array.isArray(component.types) && component.types.some(t => typeList.includes(t))) || null;
 };
 
 const buildLocationPayload = (place, placeId) => {
   const components = place?.address_components || [];
-  const streetNumber = findComponent(components, 'street_number') || '';
-  const route = findComponent(components, 'route') || '';
-  const city =
-    findComponent(components, ['locality', 'postal_town', 'sublocality', 'sublocality_level_1']) || '';
-  const region = findComponent(components, 'administrative_area_level_1') || '';
-  const country = findComponent(components, 'country') || '';
+  const streetNumberComp = findComponent(components, 'street_number');
+  const routeComp = findComponent(components, 'route');
+  const cityComp = findComponent(components, ['locality', 'postal_town', 'sublocality', 'sublocality_level_1']);
+  const regionComp = findComponent(components, 'administrative_area_level_1');
+  const regionFallbackComp = findComponent(components, 'administrative_area_level_2');
+  const countryComp = findComponent(components, 'country');
+
+  const streetNumber = streetNumberComp?.long_name || streetNumberComp?.short_name || '';
+  const route = routeComp?.long_name || routeComp?.short_name || '';
+  const city = cityComp?.long_name || cityComp?.short_name || '';
+  const region = regionComp?.long_name || regionComp?.short_name || regionFallbackComp?.long_name || regionFallbackComp?.short_name || '';
+  const country = countryComp?.short_name || countryComp?.long_name || '';
   const formattedAddress = place?.formatted_address || components.map(c => c.long_name).filter(Boolean).join(', ');
   const street = [streetNumber, route].filter(Boolean).join(' ').trim();
 

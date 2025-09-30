@@ -41,7 +41,7 @@ import ApplicantSelectionModal from '../components/ApplicantSelectionModal';
 import axios from 'axios';
 import { formatPayment } from '../utils/currency';
 import UserAvatar from '../components/UserAvatar';
-import { formatLocationString } from '../utils/text';
+import { getLocationDisplayName } from '../utils/gigLocation';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -394,7 +394,21 @@ const MyGigs = () => {
                           <Box sx={{ display: 'flex', alignItems: 'flex-start', mt: 1, mb: 0.5 }}>
                             <LocationOnIcon sx={{ fontSize: '1rem', mr: 0.5, mt: 0.25, color: 'text.secondary' }} />
                             <span style={{ fontSize: '0.875rem', color: '#1976d2' }}>
-                              {gig.venue} - {formatLocationString(gig.location)}
+                              {(() => {
+                                const locationDisplay = getLocationDisplayName(gig.location);
+                                const venueName = (gig.venue || '').trim();
+
+                                if (venueName && locationDisplay) {
+                                  const normalizedVenue = venueName.toLowerCase();
+                                  const normalizedLocation = locationDisplay.toLowerCase();
+                                  if (normalizedLocation.startsWith(normalizedVenue)) {
+                                    return locationDisplay;
+                                  }
+                                  return `${venueName} - ${locationDisplay}`;
+                                }
+
+                                return venueName || locationDisplay || '';
+                              })()}
                             </span>
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
@@ -568,7 +582,21 @@ const MyGigs = () => {
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
                         <LocationOnIcon sx={{ mr: 0.5, mt: 0.25, color: 'text.secondary', fontSize: '1rem' }} />
                         <span style={{ fontSize: '0.875rem', color: 'rgba(0, 0, 0, 0.6)' }}>
-                          {application.venue} • {formatLocationString(application.location)}
+                          {(() => {
+                            const locationDisplay = getLocationDisplayName(application.location);
+                            const venueName = (application.venue || '').trim();
+
+                            if (venueName && locationDisplay) {
+                              const normalizedVenue = venueName.toLowerCase();
+                              const normalizedLocation = locationDisplay.toLowerCase();
+                              if (normalizedLocation.startsWith(normalizedVenue)) {
+                                return locationDisplay;
+                              }
+                              return `${venueName} • ${locationDisplay}`;
+                            }
+
+                            return venueName || locationDisplay || '';
+                          })()}
                         </span>
                       </Box>
                       

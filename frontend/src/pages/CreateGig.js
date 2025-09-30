@@ -195,9 +195,20 @@ const CreateGig = () => {
       return;
     }
 
+    if (!formData.location || !formData.location.city || !formData.location.country) {
+      setError('Please provide a location including city and country.');
+      return;
+    }
+
     try {
       const primaryDate = schedules[0]?.date || formData.date;
       const primaryTime = schedules[0]?.startTime || formData.time;
+
+      const {
+        location,
+        locationString,
+        ...restFormData
+      } = formData;
 
       const response = await fetch('/api/gigs', {
         method: 'POST',
@@ -206,7 +217,8 @@ const CreateGig = () => {
           'x-auth-token': token,
         },
         body: JSON.stringify({
-          ...formData,
+          ...restFormData,
+          location,
           date: primaryDate,
           time: primaryTime,
           currency,

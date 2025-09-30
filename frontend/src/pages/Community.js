@@ -73,6 +73,7 @@ const Community = () => {
   const sentinelRef = useRef(null);
   const postsRef = useRef([]);
   const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const pageSize = 20;
   const scrollDebounceRef = useRef(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +117,7 @@ const Community = () => {
   const fetchPosts = async () => {
     try {
       setLoading(true);
+      setHasMore(true);
 
       const queryParams = new URLSearchParams();
       
@@ -254,6 +256,10 @@ const Community = () => {
   };
 
   const loadMorePosts = async () => {
+    if (!hasMore) {
+      setLoadingMore(false);
+      return;
+    }
     try {
       const nextPage = page + 1;
       const url = `/api/posts?page=${nextPage}&limit=${pageSize}`;
@@ -263,6 +269,11 @@ const Community = () => {
         const data = await resp.json();
         newItems = Array.isArray(data) ? data : [];
       }
+
+      if (newItems.length === 0) {
+        setHasMore(false);
+      }
+
       const combined = dedupeById([...postsRef.current, ...newItems]);
       postsRef.current = combined;
       setPosts(combined);
@@ -2018,7 +2029,7 @@ const Community = () => {
       )}
       {/* Infinite scroll sentinel */}
       <Box ref={sentinelRef} sx={{ height: 1 }} />
-      {loadingMore && (
+      {loadingMore && hasMore && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
           <CircularProgress size={24} />
         </Box>

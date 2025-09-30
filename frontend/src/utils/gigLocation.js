@@ -1,3 +1,67 @@
+import { buildLocationFromDescription } from './locationParsing';
+
+const US_STATE_MAP = {
+  AL: 'Alabama',
+  AK: 'Alaska',
+  AZ: 'Arizona',
+  AR: 'Arkansas',
+  CA: 'California',
+  CO: 'Colorado',
+  CT: 'Connecticut',
+  DE: 'Delaware',
+  DC: 'District of Columbia',
+  FL: 'Florida',
+  GA: 'Georgia',
+  HI: 'Hawaii',
+  ID: 'Idaho',
+  IL: 'Illinois',
+  IN: 'Indiana',
+  IA: 'Iowa',
+  KS: 'Kansas',
+  KY: 'Kentucky',
+  LA: 'Louisiana',
+  ME: 'Maine',
+  MD: 'Maryland',
+  MA: 'Massachusetts',
+  MI: 'Michigan',
+  MN: 'Minnesota',
+  MS: 'Mississippi',
+  MO: 'Missouri',
+  MT: 'Montana',
+  NE: 'Nebraska',
+  NV: 'Nevada',
+  NH: 'New Hampshire',
+  NJ: 'New Jersey',
+  NM: 'New Mexico',
+  NY: 'New York',
+  NC: 'North Carolina',
+  ND: 'North Dakota',
+  OH: 'Ohio',
+  OK: 'Oklahoma',
+  OR: 'Oregon',
+  PA: 'Pennsylvania',
+  RI: 'Rhode Island',
+  SC: 'South Carolina',
+  SD: 'South Dakota',
+  TN: 'Tennessee',
+  TX: 'Texas',
+  UT: 'Utah',
+  VT: 'Vermont',
+  VA: 'Virginia',
+  WA: 'Washington',
+  WV: 'West Virginia',
+  WI: 'Wisconsin',
+  WY: 'Wyoming'
+}; 
+
+const normalizeCountry = (value = '') => {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return '';
+  const upper = trimmed.toUpperCase();
+  if (upper === 'GB' || upper === 'UK' || upper === 'UNITED KINGDOM' || upper === 'GREAT BRITAIN') return 'UK';
+  return trimmed.length === 2 ? upper : trimmed;
+};
+
 const sanitizeSegment = (value = '') => {
   if (!value) return '';
   let result = String(value);
@@ -37,20 +101,6 @@ const sanitizeSegment = (value = '') => {
     .trim();
 };
 
-const titleCase = (value = '') => {
-  if (!value) return '';
-  return value
-    .split(/([\s\-'])/)
-    .map((part) => {
-      if (!part) return part;
-      if (/^[\s\-']$/.test(part)) return part;
-      if (part.toUpperCase() === part && part.length <= 3) return part; // Preserve acronyms like UK, USA, NYC
-      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
-    })
-    .join('')
-    .trim();
-};
-
 const dedupeSegments = (segments) => {
   const seen = new Set();
   const result = [];
@@ -71,11 +121,32 @@ export const buildGigLocation = ({
   region = '',
   country = '',
 }) => {
-  const cleanVenue = titleCase(sanitizeSegment(venueName));
-  const cleanStreet = titleCase(sanitizeSegment(street));
-  const cleanCity = titleCase(sanitizeSegment(city));
-  const cleanRegion = titleCase(sanitizeSegment(region));
-  const cleanCountry = titleCase(sanitizeSegment(country));
+  const cleanVenue = sanitizeSegment(venueName);
+  const cleanStreet = sanitizeSegment(street);
+  let cleanCity = sanitizeSegment(city);
+  let cleanRegion = sanitizeSegment(region);
+  let cleanCountry = normalizeCountry(sanitizeSegment(country));
+
+  if (!cleanCity && cleanRegion) {
+    cleanCity = cleanRegion;
+    cleanRegion = '';
+  }
+
+  if (cleanRegion && cleanCity && cleanRegion.toLowerCase() === cleanCity.toLowerCase()) {
+    cleanRegion = '';
+  }
+
+  if (cleanCountry) {
+    const countryLower = cleanCountry.toLowerCase();
+    if (countryLower === 'uk') {
+      cleanRegion = '';
+    } else if (countryLower === 'us' || countryLower === 'usa' || countryLower === 'united states') {
+      if (cleanRegion && cleanRegion.length === 2) {
+        const mapped = US_STATE_MAP[cleanRegion.toUpperCase()];
+        if (mapped) cleanRegion = mapped;
+      }
+    }
+  }
 
   const segments = dedupeSegments([
     cleanVenue,
@@ -85,11 +156,13 @@ export const buildGigLocation = ({
     cleanCountry,
   ]);
 
+  const storedStreet = cleanStreet || ' ';
+
   const name = segments.join(', ');
 
   return {
     name,
-    street: cleanStreet,
+    street: storedStreet,
     city: cleanCity,
     region: cleanRegion,
     country: cleanCountry,
@@ -120,18 +193,70 @@ export const buildGigLocationFromFreeform = (rawInput = '') => {
   }
 
   const [venueName, ...rest] = parts;
-  const country = rest.length ? rest.pop() : '';
-  const region = rest.length ? rest.pop() : '';
-  const city = rest.length ? rest.pop() : '';
-  const street = rest.join(', ');
+  const remainder = rest.join(', ');
+  const parsed = buildLocationFromDescription(remainder);
 
-  return buildGigLocation({
+  let street = parsed.street || (rest.length ? rest[0] : '');
+  let city = parsed.city;
+  let region = parsed.region;
+  let country = parsed.country;
+
+  if (!city && region) {
+    city = region;
+    region = '';
+  }
+
+  if (region && city && region.toLowerCase() === city.toLowerCase()) {
+    region = '';
+  }
+
+  if (country) {
+    let normalizedCountry = normalizeCountry(country);
+    const countryLower = normalizedCountry.toLowerCase();
+    if (countryLower === 'uk') {
+      region = '';
+    } else if (countryLower === 'us' || countryLower === 'usa' || countryLower === 'united states') {
+      if (region && region.length === 2) {
+        const mapped = US_STATE_MAP[region.toUpperCase()];
+        if (mapped) region = mapped;
+      }
+    }
+    country = normalizedCountry;
+  }
+
+  const location = buildGigLocation({
     venueName,
     street,
     city,
     region,
     country,
   });
+
+  location.name = sanitized;
+
+  return location;
 };
 
 export const stripPostalCodes = sanitizeSegment;
+
+export const getLocationDisplayName = (location) => {
+  if (!location) return '';
+  if (typeof location === 'string') return location.trim();
+
+  const name = (location.name || '').trim();
+  if (name) return name;
+
+  const street = sanitizeSegment(location.street);
+  const city = sanitizeSegment(location.city);
+  const region = sanitizeSegment(location.region);
+  const country = normalizeCountry(sanitizeSegment(location.country));
+
+  const segments = dedupeSegments([
+    street,
+    city,
+    region,
+    country
+  ]).filter(Boolean);
+
+  return segments.join(', ');
+};

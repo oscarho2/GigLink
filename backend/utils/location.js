@@ -5,8 +5,10 @@ function titleCaseSegment(seg) {
   return seg
     .toLowerCase()
     .split(/([\s\-'])/) // keep delimiters
-    .map(part => {
+    .map((part, index, arr) => {
       if (/^[\s\-']$/.test(part)) return part; // keep delimiters as is
+      const isApostropheSuffix = index > 0 && arr[index - 1] === "'";
+      if (isApostropheSuffix) return part; // keep suffix such as "s" lower-case
       return part.charAt(0).toUpperCase() + part.slice(1);
     })
     .join('')

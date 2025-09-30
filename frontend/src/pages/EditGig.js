@@ -99,7 +99,8 @@ function EditGig() {
   const [formData, setFormData] = useState({
     title: '',
     venue: '',
-    location: '',
+    location: null,
+    locationString: '',
     date: '',
     time: '',
     payment: '',
@@ -141,8 +142,10 @@ function EditGig() {
   };
 
   const setCurrencyFromLocationString = (loc) => {
-    if (!loc || userSetCurrency) return;
-    const parts = String(loc).split(',').map(s => s.trim()).filter(Boolean);
+    if (userSetCurrency) return;
+    const normalized = typeof loc === 'string' ? loc : loc?.name || '';
+    if (!normalized) return;
+    const parts = normalized.split(',').map(s => s.trim()).filter(Boolean);
     const token = parts[parts.length - 1] || '';
     const code = countryToCurrency(token);
     if (code && allowedCurrencyCodes.includes(code)) setCurrency(code);
@@ -189,10 +192,15 @@ function EditGig() {
           return;
         }
         
+        const locationName = typeof gig.location === 'string'
+          ? gig.location
+          : gig.location?.name || '';
+
         setFormData({
           title: gig.title || '',
-          venue: gig.venue || '',
-          location: gig.location || '',
+          venue: gig.venue || locationName,
+          location: gig.location || null,
+          locationString: locationName,
           date: gig.date || '',
           time: gig.time || '',
           payment: gig.payment || '',
@@ -257,19 +265,23 @@ function EditGig() {
       const primaryDate = schedules[0]?.date || formData.date;
       const primaryTime = schedules[0]?.startTime || formData.time;
 
+      const { locationString, location, ...restForm } = formData;
+      const payload = {
+        ...restForm,
+        location: location || locationString || '',
+        date: primaryDate,
+        time: primaryTime,
+        currency,
+        schedules
+      };
+
       const response = await fetch(`/api/gigs/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'x-auth-token': token
         },
-        body: JSON.stringify({
-          ...formData,
-          date: primaryDate,
-          time: primaryTime,
-          currency,
-          schedules
-        })
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
@@ -319,11 +331,19 @@ function EditGig() {
             <Grid item xs={12}>
               <VenueAutocomplete
                 value={formData.venue}
-                near={typeof formData.location === 'string' ? formData.location : formData.location?.name}
+                near={
+                  formData.locationString ||
+                  (typeof formData.location === 'string' ? formData.location : formData.location?.name)
+                }
                 onChange={(venue) => setFormData(prev => ({ ...prev, venue }))}
                 onLocationChange={(loc) => {
-                  setFormData(prev => ({ ...prev, location: loc || '' }));
-                  setCurrencyFromLocationString(loc);
+                  const locationName = typeof loc === 'string' ? loc : loc?.name || '';
+                  setFormData(prev => ({
+                    ...prev,
+                    location: loc || null,
+                    locationString: locationName
+                  }));
+                  setCurrencyFromLocationString(locationName);
                 }}
                 label="Venue/Location"
                 placeholder="Search venues or locations"

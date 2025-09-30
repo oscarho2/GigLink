@@ -6,12 +6,70 @@ const User = require('../models/User');
 const Message = require('../models/Message');
 const { createNotification } = require('./notifications');
 
-const ACRONYM_SET = new Set([
-  'UK', 'GB', 'USA', 'US', 'UAE', 'EU', 'NYC',
-  'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
-  'AB','BC','MB','NB','NL','NS','NT','NU','ON','PE','QC','SK','YT',
-  'NSW','VIC','QLD','SA','WA','TAS','ACT','NT'
-]);
+const UK_REGION_NAMES = new Set(['england', 'scotland', 'wales', 'northern ireland', 'greater london']);
+const REGION_KEYWORD_REGEX = /( county| state| province| region| territory| prefecture)$/i;
+
+const US_STATE_MAP = {
+  AL: 'Alabama',
+  AK: 'Alaska',
+  AZ: 'Arizona',
+  AR: 'Arkansas',
+  CA: 'California',
+  CO: 'Colorado',
+  CT: 'Connecticut',
+  DE: 'Delaware',
+  DC: 'District of Columbia',
+  FL: 'Florida',
+  GA: 'Georgia',
+  HI: 'Hawaii',
+  ID: 'Idaho',
+  IL: 'Illinois',
+  IN: 'Indiana',
+  IA: 'Iowa',
+  KS: 'Kansas',
+  KY: 'Kentucky',
+  LA: 'Louisiana',
+  ME: 'Maine',
+  MD: 'Maryland',
+  MA: 'Massachusetts',
+  MI: 'Michigan',
+  MN: 'Minnesota',
+  MS: 'Mississippi',
+  MO: 'Missouri',
+  MT: 'Montana',
+  NE: 'Nebraska',
+  NV: 'Nevada',
+  NH: 'New Hampshire',
+  NJ: 'New Jersey',
+  NM: 'New Mexico',
+  NY: 'New York',
+  NC: 'North Carolina',
+  ND: 'North Dakota',
+  OH: 'Ohio',
+  OK: 'Oklahoma',
+  OR: 'Oregon',
+  PA: 'Pennsylvania',
+  RI: 'Rhode Island',
+  SC: 'South Carolina',
+  SD: 'South Dakota',
+  TN: 'Tennessee',
+  TX: 'Texas',
+  UT: 'Utah',
+  VT: 'Vermont',
+  VA: 'Virginia',
+  WA: 'Washington',
+  WV: 'West Virginia',
+  WI: 'Wisconsin',
+  WY: 'Wyoming'
+};
+
+const normalizeCountryCode = (value = '') => {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return '';
+  const upper = trimmed.toUpperCase();
+  if (upper === 'GB' || upper === 'UK' || upper === 'UNITED KINGDOM' || upper === 'GREAT BRITAIN') return 'UK';
+  return trimmed.length === 2 ? upper : trimmed;
+};
 
 const stripPostalCodes = (value = '') => {
   if (!value) return '';
@@ -50,28 +108,6 @@ const stripPostalCodes = (value = '') => {
     .trim();
 };
 
-const titleCaseToken = (token = '') => {
-  if (!token) return '';
-  const upper = token.toUpperCase();
-  if (upper === token && (token.length <= 3 || ACRONYM_SET.has(upper))) {
-    return upper;
-  }
-  return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
-};
-
-const titleCaseSegment = (segment = '') => {
-  if (!segment) return '';
-  return segment
-    .split(/([\s\-'])/)
-    .map((part) => {
-      if (!part) return part;
-      if (/^[\s\-']$/.test(part)) return part;
-      return titleCaseToken(part);
-    })
-    .join('')
-    .trim();
-};
-
 const dedupeSegments = (segments) => {
   const seen = new Set();
   const result = [];
@@ -85,12 +121,134 @@ const dedupeSegments = (segments) => {
   return result;
 };
 
+const cleanSegment = (segment = '') => {
+  return stripPostalCodes(segment || '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
+const stripLeadingNumber = (value = '') => {
+  return String(value || '').trim();
+};
+
+const isRegionCandidate = (segment = '', country = '') => {
+  if (!segment) return false;
+  const lower = segment.toLowerCase();
+  if (UK_REGION_NAMES.has(lower)) return true;
+  if (/^\d/.test(segment)) return false;
+  if (REGION_KEYWORD_REGEX.test(segment)) return true;
+  if (/^[A-Z]{2}$/.test(segment)) {
+    const countryLower = (country || '').toLowerCase();
+    if (countryLower.includes('united states') || countryLower.includes('usa') || countryLower.includes('canada')) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const isCityCandidate = (segment = '', country = '') => {
+  if (!segment) return false;
+  if (/^\d/.test(segment)) return false;
+  const upper = segment.toUpperCase();
+  const countryLower = (country || '').toLowerCase();
+  if (/^[A-Z]{2}$/.test(upper)) {
+    if (countryLower.includes('united states') || countryLower.includes('usa') || countryLower.includes('canada')) {
+      return false;
+    }
+  }
+  if (UK_REGION_NAMES.has(segment.toLowerCase())) return false;
+  if (REGION_KEYWORD_REGEX.test(segment)) return false;
+  return true;
+};
+
+const deriveLocationComponents = (segments = []) => {
+  const cleaned = segments
+    .map(cleanSegment)
+    .filter(Boolean);
+
+  if (!cleaned.length) {
+    return {
+      street: '',
+      city: '',
+      region: '',
+      country: ''
+    };
+  }
+
+  let country = normalizeCountryCode(cleaned.pop() || '');
+  if (country && country.length === 2) {
+    country = country.toUpperCase();
+  }
+  let city = '';
+  let region = '';
+
+  for (let i = cleaned.length - 1; i >= 0; i -= 1) {
+    const candidate = cleaned[i];
+    if (isCityCandidate(candidate, country)) {
+      city = candidate;
+      cleaned.splice(i, 1);
+      break;
+    }
+  }
+
+  for (let i = cleaned.length - 1; i >= 0; i -= 1) {
+    const candidate = cleaned[i];
+    if (isRegionCandidate(candidate, country)) {
+      region = candidate;
+      cleaned.splice(i, 1);
+      break;
+    }
+  }
+
+  if (!city && region) {
+    city = region;
+    region = '';
+  }
+
+  if (region && city && region.toLowerCase() === city.toLowerCase()) {
+    region = '';
+  }
+
+  const streetSegments = cleaned;
+  const street = streetSegments.join(', ');
+
+  return {
+    street: stripLeadingNumber(street),
+    city,
+    region,
+    country
+  };
+};
+
 const buildLocationObject = ({ venue = '', street = '', city = '', region = '', country = '' }) => {
-  const cleanVenue = titleCaseSegment(stripPostalCodes(venue));
-  const cleanStreet = titleCaseSegment(stripPostalCodes(street));
-  const cleanCity = titleCaseSegment(stripPostalCodes(city));
-  const cleanRegion = titleCaseSegment(stripPostalCodes(region));
-  const cleanCountry = titleCaseSegment(stripPostalCodes(country));
+  const cleanVenue = stripPostalCodes(venue);
+  let cleanStreet = stripPostalCodes(street);
+  let cleanCity = stripPostalCodes(city);
+  let cleanRegion = stripPostalCodes(region);
+  let cleanCountry = normalizeCountryCode(stripPostalCodes(country));
+
+  if (!cleanCity && cleanRegion) {
+    cleanCity = cleanRegion;
+    cleanRegion = '';
+  }
+
+  if (cleanRegion && cleanCity && cleanRegion.toLowerCase() === cleanCity.toLowerCase()) {
+    cleanRegion = '';
+  }
+
+  if (cleanCountry) {
+    const normalizedCountry = normalizeCountryCode(cleanCountry);
+    const countryLower = normalizedCountry.toLowerCase();
+    if (countryLower === 'uk') {
+      cleanRegion = '';
+    } else if (countryLower === 'us' || countryLower === 'usa' || countryLower === 'united states') {
+      if (cleanRegion && cleanRegion.length === 2) {
+        const mapped = US_STATE_MAP[cleanRegion.toUpperCase()];
+        if (mapped) cleanRegion = mapped;
+      }
+    }
+    cleanCountry = normalizedCountry;
+  }
 
   const nameSegments = dedupeSegments([
     cleanVenue,
@@ -100,9 +258,11 @@ const buildLocationObject = ({ venue = '', street = '', city = '', region = '', 
     cleanCountry,
   ]);
 
+  const storedStreet = cleanStreet || ' ';
+
   return {
     name: nameSegments.join(', '),
-    street: cleanStreet,
+    street: storedStreet,
     city: cleanCity,
     region: cleanRegion,
     country: cleanCountry,
@@ -118,13 +278,15 @@ const normalizeLocationInput = (input) => {
     if (!parts.length) return null;
 
     const [venue, ...rest] = parts;
-    const remaining = [...rest];
-    const country = remaining.length ? remaining.pop() : '';
-    const region = remaining.length ? remaining.pop() : '';
-    const city = remaining.length ? remaining.pop() : '';
-    const street = remaining.join(', ');
+    const derived = deriveLocationComponents(rest);
 
-    return buildLocationObject({ venue, street, city, region, country });
+    return buildLocationObject({
+      venue,
+      street: derived.street,
+      city: derived.city,
+      region: derived.region,
+      country: derived.country
+    });
   }
 
   if (typeof input === 'object') {
@@ -132,14 +294,13 @@ const normalizeLocationInput = (input) => {
     const nameParts = sanitizedName.split(',').map(part => part.trim()).filter(Boolean);
     const venue = nameParts.length ? nameParts[0] : (input.venue || '');
 
-    const street = input.street || (nameParts.length > 1 ? nameParts[1] : '');
-    const city = input.city || (nameParts.length > 2 ? nameParts[2] : '');
-    const countryFallbackIndex = nameParts.length ? nameParts.length - 1 : -1;
-    const regionFromName = nameParts.length > 3 ? nameParts[nameParts.length - 2] : '';
-    const countryFromName = countryFallbackIndex >= 0 ? nameParts[countryFallbackIndex] : '';
+    const remainder = nameParts.slice(1);
+    const derivedFromName = deriveLocationComponents(remainder);
 
-    const region = input.region || regionFromName;
-    const country = input.country || countryFromName;
+    const street = input.street !== undefined ? stripPostalCodes(input.street) : derivedFromName.street;
+    const city = input.city !== undefined ? stripPostalCodes(input.city) : derivedFromName.city;
+    const region = input.region !== undefined ? stripPostalCodes(input.region) : derivedFromName.region;
+    const country = input.country !== undefined ? normalizeCountryCode(stripPostalCodes(input.country)) : derivedFromName.country;
 
     return buildLocationObject({ venue, street, city, region, country });
   }

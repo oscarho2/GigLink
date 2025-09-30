@@ -1,4 +1,10 @@
-import { formatLocationString } from './text';
+const normalizeFreeform = (value = '') => {
+  if (!value) return '';
+  return String(value)
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
 
 const getComponentValue = (components, typeCandidates) => {
   if (!Array.isArray(components)) return '';
@@ -29,10 +35,6 @@ const cleanSegment = (segment) => {
 
 const stripLeadingNumber = (value) => {
   if (!value) return '';
-  const match = value.trim().match(/^\d+[\s,-]+(.+)$/);
-  if (match && match[1]) {
-    return match[1].trim();
-  }
   return value.trim();
 };
 
@@ -69,7 +71,7 @@ const isCityCandidate = (segment, country) => {
 };
 
 export const buildLocationFromDescription = (description) => {
-  const formatted = formatLocationString(description || '');
+  const formatted = normalizeFreeform(description || '');
   const segments = formatted.split(',').map((part) => part.trim()).filter(Boolean);
   const primaryName = segments[0] || formatted;
 
@@ -160,12 +162,15 @@ export const buildLocationFromPlace = (place, fallbackDescription = '') => {
   if (route) streetParts.push(route);
 
   const description = fallbackDescription || place?.formatted_address || place?.name || '';
-  const formattedName = formatLocationString(description);
+  const formattedName = normalizeFreeform(description);
   const fallback = buildLocationFromDescription(formattedName);
+
+  const composedStreet = stripLeadingNumber(streetParts.join(' ').trim());
+  const fallbackStreet = fallback.street ? stripLeadingNumber(fallback.street) : '';
 
   return {
     name: formattedName,
-    street: route || (fallback.street ? stripLeadingNumber(fallback.street) : '') || stripLeadingNumber(streetParts.join(' ').trim()),
+    street: composedStreet || fallbackStreet || route || streetParts.join(' ').trim(),
     city: locality || adminLevel2 || fallback.city,
     region: adminLevel1 || fallback.region,
     country: country || fallback.country

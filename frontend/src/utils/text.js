@@ -31,6 +31,7 @@ export function formatLocationString(value) {
     if (!word) return word;
     const upper = word.toUpperCase();
     if (ACRONYMS.has(upper)) return upper;
+    if (word.length <= 2 && word === word.toLowerCase()) return word;
     // Preserve internal punctuation by title-casing alpha sequences split by hyphens
     return word
       .split('-')
