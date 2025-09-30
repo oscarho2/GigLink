@@ -393,7 +393,7 @@ const MyGigs = () => {
                         <Box component="div">
                           <Box sx={{ display: 'flex', alignItems: 'flex-start', mt: 1, mb: 0.5 }}>
                             <LocationOnIcon sx={{ fontSize: '1rem', mr: 0.5, mt: 0.25, color: 'text.secondary' }} />
-                            <span style={{ fontSize: '0.875rem', color: '#1976d2' }}>
+                            <span style={{ fontSize: '0.875rem', color: 'rgba(0, 0, 0, 0.6)' }}>
                               {(() => {
                                 const locationDisplay = getLocationDisplayName(gig.location);
                                 const venueName = (gig.venue || '').trim();
