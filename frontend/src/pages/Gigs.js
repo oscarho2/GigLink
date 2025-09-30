@@ -400,7 +400,7 @@ const Gigs = () => {
       <Box sx={{ mb: 4 }}>
         <TextField
           fullWidth
-          placeholder="Search gigs by title, description, location, instruments, or genres..."
+          placeholder="Search gigs by title, location, instruments, or genres..."
           value={searchTerm}
           onChange={handleSearch}
           InputProps={{

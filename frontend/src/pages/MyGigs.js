@@ -193,7 +193,7 @@ const MyGigs = () => {
     
     const matchesStatus = gigStatusFilter === 'all' || 
                          (gigStatusFilter === 'open' && !gig.isFilled) ||
-                         (gigStatusFilter === 'filled' && gig.isFilled);
+                         (gigStatusFilter === 'fixed' && gig.isFilled);
     
     return matchesSearch && matchesStatus;
   });
@@ -206,7 +206,7 @@ const MyGigs = () => {
     const matchesStatus = applicationStatusFilter === 'all' ||
                          (applicationStatusFilter === 'pending' && application.applicationStatus === 'pending') ||
                          (applicationStatusFilter === 'accepted' && application.applicationStatus === 'accepted') ||
-                         (applicationStatusFilter === 'filled' && application.acceptedByOther);
+                         (applicationStatusFilter === 'fixed' && application.acceptedByOther);
     
     return matchesSearch && matchesStatus;
   });
@@ -322,7 +322,7 @@ const MyGigs = () => {
               >
                 <MenuItem value="all">All</MenuItem>
                 <MenuItem value="open">Open</MenuItem>
-                <MenuItem value="filled">Fixed</MenuItem>
+                <MenuItem value="fixed">Fixed</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -385,7 +385,7 @@ const MyGigs = () => {
                             color: gig.isFilled ? 'text.disabled' : 'inherit'
                           }}
                         >
-                          {gig.isFilled ? 'FILLED: ' : ''}{gig.title}
+                          {gig.isFilled ? 'FIXED: ' : ''}{gig.title}
                         </Typography>
                       }
                       secondaryTypographyProps={{ component: 'div' }}
@@ -422,7 +422,7 @@ const MyGigs = () => {
                     mt: { xs: 2, sm: 0 }
                   }}>
                     <Chip
-                      label={gig.isFilled ? 'Filled' : 'Open'}
+                      label={gig.isFilled ? 'Fixed' : 'Open'}
                       color={gig.isFilled ? 'default' : 'success'}
                       size="small"
                       sx={{ fontWeight: 'bold' }}
@@ -519,7 +519,7 @@ const MyGigs = () => {
                 <MenuItem value="all">All</MenuItem>
                 <MenuItem value="pending">Pending</MenuItem>
                 <MenuItem value="accepted">Accepted</MenuItem>
-                <MenuItem value="filled">Position Fixed</MenuItem>
+                <MenuItem value="fixed">Position Fixed</MenuItem>
               </Select>
             </FormControl>
           </Box>

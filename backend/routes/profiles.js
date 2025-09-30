@@ -415,7 +415,7 @@ router.put('/me', auth, async (req, res) => {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const { country, region, city } = req.query;
+    const { country, region, city, q, instruments, genres, userType } = req.query;
     const userQuery = {};
 
     if (country) {
@@ -426,6 +426,33 @@ router.get('/', async (req, res) => {
     }
     if (city) {
       userQuery['locationData.city'] = new RegExp(city, 'i');
+    }
+    if (instruments) {
+      userQuery.instruments = instruments;
+    }
+    if (genres) {
+      userQuery.genres = genres;
+    }
+    if (userType) {
+      if (userType === 'Musician') {
+        userQuery.isMusician = 'yes';
+      } else if (userType === 'Other') {
+        userQuery.isMusician = 'no';
+      }
+    }
+
+    if (q) {
+      const searchRegex = new RegExp(q, 'i');
+      userQuery.$or = [
+        { name: searchRegex },
+        { location: searchRegex },
+        { instruments: searchRegex },
+        { genres: searchRegex },
+        { bio: searchRegex },
+        { 'locationData.city': searchRegex },
+        { 'locationData.region': searchRegex },
+        { 'locationData.country': searchRegex },
+      ];
     }
 
     const dbProfiles = await Profile.find().populate({
@@ -881,43 +908,53 @@ router.get('/locations', async (req, res) => {
         }]
       : [];
 
-    const locationDataPipeline = [
-      {
-        $match: {
-          $and: [
-            {
-              $or: [
-                { 'locationData.city': { $exists: true } },
-                { 'locationData.region': { $exists: true } },
-                { 'locationData.country': { $exists: true } },
-                { location: { $exists: true, $ne: '' } }
-              ]
-            },
-            ...regexStages
-          ]
-        }
-      },
-      {
-        $project: {
-          city: { $ifNull: ['$locationData.city', ''] },
-          region: { $ifNull: ['$locationData.region', ''] },
-          country: { $ifNull: ['$locationData.country', ''] }
-        }
-      },
+    const cityPipeline = [
+      { $match: { 'locationData.city': { $exists: true, $ne: '' } } },
+      ...regexStages,
       {
         $group: {
           _id: {
-            city: { $toLower: '$city' },
-            region: { $toLower: '$region' },
-            country: { $toLower: '$country' }
+            city: { $toLower: '$locationData.city' },
+            region: { $toLower: { $ifNull: ['$locationData.region', ''] } },
+            country: { $toLower: { $ifNull: ['$locationData.country', ''] } }
           },
-          city: { $first: '$city' },
-          region: { $first: '$region' },
-          country: { $first: '$country' },
+          city: { $first: '$locationData.city' },
+          region: { $first: '$locationData.region' },
+          country: { $first: '$locationData.country' },
           count: { $sum: 1 }
         }
       },
-      { $limit: 1000 }
+      { $limit: 500 }
+    ];
+
+    const regionPipeline = [
+      { $match: { 'locationData.region': { $exists: true, $ne: '' } } },
+      ...regexStages,
+      {
+        $group: {
+          _id: {
+            region: { $toLower: '$locationData.region' },
+            country: { $toLower: { $ifNull: ['$locationData.country', ''] } }
+          },
+          region: { $first: '$locationData.region' },
+          country: { $first: '$locationData.country' },
+          count: { $sum: 1 }
+        }
+      },
+      { $limit: 500 }
+    ];
+
+    const countryPipeline = [
+      { $match: { 'locationData.country': { $exists: true, $ne: '' } } },
+      ...regexStages,
+      {
+        $group: {
+          _id: { country: { $toLower: '$locationData.country' } },
+          country: { $first: '$locationData.country' },
+          count: { $sum: 1 }
+        }
+      },
+      { $limit: 500 }
     ];
 
     const legacyPipeline = [
@@ -937,8 +974,10 @@ router.get('/locations', async (req, res) => {
       { $limit: 500 }
     ];
 
-    const [locationDataAgg, legacyAgg] = await Promise.all([
-      User.aggregate(locationDataPipeline),
+    const [cityAgg, regionAgg, countryAgg, legacyAgg] = await Promise.all([
+      User.aggregate(cityPipeline),
+      User.aggregate(regionPipeline),
+      User.aggregate(countryPipeline),
       User.aggregate(legacyPipeline)
     ]);
 
@@ -948,49 +987,85 @@ router.get('/locations', async (req, res) => {
       country: new Map()
     };
 
+    const sameValue = (a, b) => {
+      if (!a || !b) return false;
+      return a.trim().toLowerCase() === b.trim().toLowerCase();
+    };
+
     const addSuggestion = (type, hierarchy, count) => {
       const cityVal = (hierarchy.city || '').trim();
       const regionVal = (hierarchy.region || '').trim();
       const countryVal = (hierarchy.country || '').trim();
 
-      let label = '';
-      if (type === 'city') {
-        label = normalizeLocation([cityVal, regionVal, countryVal].filter(Boolean).join(', '));
-      } else if (type === 'region') {
-        label = normalizeLocation([regionVal, countryVal].filter(Boolean).join(', '));
-      } else {
-        label = normalizeLocation(countryVal);
+      const fullLabel = normalizeLocation(
+        type === 'city'
+          ? [cityVal, regionVal, countryVal].filter(Boolean).join(', ')
+          : type === 'region'
+            ? [regionVal, countryVal].filter(Boolean).join(', ')
+            : countryVal
+      );
+
+      if (!fullLabel) return;
+
+      let displayLabel = fullLabel;
+      if (type === 'city' && cityVal) {
+        displayLabel = cityVal;
+      } else if (type === 'region' && regionVal) {
+        displayLabel = regionVal;
+      } else if (type === 'country' && countryVal) {
+        displayLabel = countryVal;
       }
 
-      if (!label) return;
       const map = suggestionMaps[type];
-      const key = label.toLowerCase();
+      const key = `${type}:${fullLabel.toLowerCase()}`;
       const existing = map.get(key);
       if (existing) {
         existing.count += count;
       } else {
         map.set(key, {
           type,
-          label,
-          value: label,
+          label: displayLabel,
+          value: fullLabel,
           hierarchy: { city: cityVal, region: regionVal, country: countryVal },
           count
         });
       }
     };
 
-    for (const row of locationDataAgg) {
+    for (const row of cityAgg) {
       const cityVal = (row.city || '').trim();
       const regionVal = (row.region || '').trim();
       const countryVal = (row.country || '').trim();
       const count = row.count || 0;
 
-      if (cityVal) {
+      if (cityVal && !sameValue(cityVal, regionVal) && !sameValue(cityVal, countryVal)) {
         addSuggestion('city', { city: cityVal, region: regionVal, country: countryVal }, count);
       }
-      if (regionVal) {
+      if (regionVal && !sameValue(regionVal, countryVal)) {
         addSuggestion('region', { city: '', region: regionVal, country: countryVal }, count);
       }
+      if (countryVal) {
+        addSuggestion('country', { city: '', region: '', country: countryVal }, count);
+      }
+    }
+
+    for (const row of regionAgg) {
+      const regionVal = (row.region || '').trim();
+      const countryVal = (row.country || '').trim();
+      const count = row.count || 0;
+
+      if (regionVal && !sameValue(regionVal, countryVal)) {
+        addSuggestion('region', { city: '', region: regionVal, country: countryVal }, count);
+      }
+      if (countryVal) {
+        addSuggestion('country', { city: '', region: '', country: countryVal }, count);
+      }
+    }
+
+    for (const row of countryAgg) {
+      const countryVal = (row.country || '').trim();
+      const count = row.count || 0;
+
       if (countryVal) {
         addSuggestion('country', { city: '', region: '', country: countryVal }, count);
       }
@@ -1003,10 +1078,10 @@ router.get('/locations', async (req, res) => {
       const countryVal = (parsed.country || '').trim();
       const count = row.count || 0;
 
-      if (cityVal) {
+      if (cityVal && !sameValue(cityVal, regionVal) && !sameValue(cityVal, countryVal)) {
         addSuggestion('city', { city: cityVal, region: regionVal, country: countryVal }, count);
       }
-      if (regionVal) {
+      if (regionVal && !sameValue(regionVal, countryVal)) {
         addSuggestion('region', { city: '', region: regionVal, country: countryVal }, count);
       }
       if (countryVal) {
@@ -1016,7 +1091,7 @@ router.get('/locations', async (req, res) => {
 
     const sortSuggestions = (map) => Array.from(map.values()).sort((a, b) => {
       if (b.count !== a.count) return b.count - a.count;
-      return a.label.localeCompare(b.label);
+      return a.value.localeCompare(b.value);
     });
 
     const cityList = sortSuggestions(suggestionMaps.city);

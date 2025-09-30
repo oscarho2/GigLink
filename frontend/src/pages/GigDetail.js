@@ -37,7 +37,7 @@ const GigDetail = () => {
         // Check if user has applied using the yourApplicationStatus field
         if (res.data.yourApplicationStatus) {
           setHasApplied(true);
-          // Show 'fixed' status if gig is filled by another applicant
+          // Show 'fixed' status if gig is fixed by another applicant
           if (res.data.acceptedByOther && res.data.yourApplicationStatus === 'pending') {
             setApplicationStatus('fixed');
           } else {

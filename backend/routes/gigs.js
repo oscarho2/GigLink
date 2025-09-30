@@ -7,6 +7,7 @@ const Message = require('../models/Message');
 const { createNotification } = require('./notifications');
 
 const { normalizeLocation } = require('../utils/location');
+const { parseLocation } = require('../utils/locationParser');
 
 // @route   POST api/gigs
 // @desc    Create a gig
@@ -14,6 +15,76 @@ const { normalizeLocation } = require('../utils/location');
 router.post('/', auth, async (req, res) => {
   try {
     const payload = { ...req.body };
+    const { title, description, location, date, time, payment, instruments, genres } = payload;
+
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ msg: 'Title is required and must be a string.' });
+    }
+    if (!description || typeof description !== 'string') {
+      return res.status(400).json({ msg: 'Description is required and must be a string.' });
+    }
+    if (!location) {
+      return res.status(400).json({ msg: 'Location is required.' });
+    }
+    if (!date || typeof date !== 'string') {
+      return res.status(400).json({ msg: 'Date is required and must be a string.' });
+    }
+    if (!time || typeof time !== 'string') {
+      return res.status(400).json({ msg: 'Time is required and must be a string.' });
+    }
+    if (!payment || typeof payment !== 'string') {
+      return res.status(400).json({ msg: 'Payment is required and must be a string.' });
+    }
+    if (!Array.isArray(instruments) || instruments.length === 0) {
+      return res.status(400).json({ msg: 'Instruments are required and must be a non-empty array.' });
+    }
+    if (genres && !Array.isArray(genres)) {
+      return res.status(400).json({ msg: 'Genres must be an array.' });
+    }
+
+    const buildLocationFromString = (raw) => {
+      const normalizedName = normalizeLocation(raw) || (raw || '').trim();
+      const parsed = parseLocation(normalizedName);
+      const segments = (normalizedName || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      const fallbackCountry = segments.length ? segments[segments.length - 1] : '';
+      const fallbackCity = segments.length > 1 ? segments[segments.length - 2] : (segments[0] || '');
+      const fallbackRegion = segments.length > 2 ? segments[segments.length - 3] : '';
+      const streetRegex = /(\d|\b(?:st|street|rd|road|ave|avenue|blvd|drive|dr|ln|lane|way|place|pl|ct|court)\b)/i;
+      const cityCandidate = parsed.city && !streetRegex.test(parsed.city) ? parsed.city : fallbackCity;
+      const regionCandidate = parsed.region && parsed.region !== cityCandidate ? parsed.region : fallbackRegion;
+
+      return {
+        name: normalizedName || (raw || '').trim(),
+        city: cityCandidate,
+        region: regionCandidate,
+        country: parsed.country || fallbackCountry,
+      };
+    };
+
+    if (typeof payload.location === 'string') {
+      payload.location = buildLocationFromString(payload.location);
+    } else if (payload.location && typeof payload.location === 'object') {
+      const composedName = payload.location.name || [payload.location.street, payload.location.city, payload.location.region, payload.location.country]
+        .filter(Boolean)
+        .join(', ');
+      const normalized = buildLocationFromString(composedName);
+      payload.location = {
+        ...payload.location,
+        name: normalized.name,
+        city: payload.location.city || normalized.city,
+        region: payload.location.region || normalized.region,
+        country: payload.location.country || normalized.country,
+      };
+    }
+
+    if (!payload.location || !payload.location.city || !payload.location.country) {
+      return res.status(400).json({ msg: 'Location must include both a city and a country.' });
+    }
+
     if (Array.isArray(payload.schedules)) {
       payload.schedules = payload.schedules.map(s => ({
         ...s,
@@ -32,8 +103,9 @@ router.post('/', auth, async (req, res) => {
     
     res.json(gig);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error('Error creating gig:', err);
+    console.error('Request Body:', req.body);
+    res.status(500).json({ msg: 'Server Error', error: err.message, details: err });
   }
 });
 
@@ -62,7 +134,9 @@ router.get('/', async (req, res) => {
       and.push({
         $or: [
           { title: rx },
-          { description: rx },
+          { instruments: rx },
+          { genres: rx },
+          { location: rx },
           { 'location.name': rx },
           { 'location.city': rx },
           { 'location.region': rx },
@@ -478,7 +552,7 @@ router.post('/:id/apply', auth, async (req, res) => {
 });
 
 // @route   POST api/gigs/:id/accept/:applicantId
-// @desc    Accept an applicant and mark gig as filled
+// @desc    Accept an applicant and mark gig as fixed
 // @access  Private
 router.post('/:id/accept/:applicantId', auth, async (req, res) => {
   try {
@@ -505,7 +579,7 @@ router.post('/:id/accept/:applicantId', auth, async (req, res) => {
     // Update applicant status to accepted
     applicant.status = 'accepted';
     
-    // Mark gig as filled
+    // Mark gig as fixed
     gig.isFilled = true;
     
     await gig.save();
@@ -540,7 +614,7 @@ router.post('/:id/accept/:applicantId', auth, async (req, res) => {
       console.error('Failed to emit application status update:', emitErr);
     }
     
-    res.json({ msg: 'Applicant accepted and gig marked as filled', gig });
+    res.json({ msg: 'Applicant accepted and gig marked as fixed', gig });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -580,7 +654,7 @@ router.post('/:id/undo/:applicantId', auth, async (req, res) => {
       app => app.status === 'accepted' && app.user.toString() !== req.params.applicantId
     );
     
-    // Only mark gig as not filled if no other applicants are accepted
+    // Only mark gig as not fixed if no other applicants are accepted
     if (!hasOtherAcceptedApplicants) {
       gig.isFilled = false;
     }

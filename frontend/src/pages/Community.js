@@ -116,8 +116,7 @@ const Community = () => {
   const fetchPosts = async () => {
     try {
       setLoading(true);
-      // Always include a big batch of mock posts to test scrolling
-      const mockCount = 50;
+
       const queryParams = new URLSearchParams();
       
       if (filters.instruments.length > 0) {
@@ -137,8 +136,7 @@ const Community = () => {
       if (response.ok) {
         const data = await response.json();
         const serverPosts = Array.isArray(data) ? data : [];
-        // Prepend mocks for testing without losing server content
-        const postsData = [...generateMockPosts(user, mockCount), ...serverPosts];
+        const postsData = serverPosts;
         setPosts(postsData);
         postsRef.current = postsData;
         setLoadedCount(Math.min(postsData.length, loadStep));
@@ -155,14 +153,7 @@ const Community = () => {
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
-      // Fallback to mock posts for testing
-      const mocks = generateMockPosts(user, 400);
-      setPosts(mocks);
-      postsRef.current = mocks;
-      setLoadedCount(Math.min(mocks.length, loadStep));
-      setPage(1);
-      initCommentLikes(mocks);
-      toast.info('Loaded mock community posts for testing');
+      toast.error('Failed to fetch posts');
     } finally {
       setLoading(false);
     }
@@ -186,69 +177,7 @@ const Community = () => {
     setCommentLikes(initialCommentLikes);
   };
 
-  // Mock data generator for local testing
-  const generateMockPosts = (currentUser, count = 50) => {
-    const uid = (currentUser?._id || currentUser?.id) || 'me';
-    const u = (id, name) => ({ _id: id, name });
-    const names = ['Alex Drummer','Mia Vocal','Ben Keys','DJ Nova','Sam Bass','Lena Strings','Kai Sax','Rina Beats','Omar Perc','Zoe Harp'];
-    const instrumentsPool = ['Guitar','Bass','Drums','Vocals','Keys','Saxophone','Violin'];
-    const genresPool = ['Rock','Indie','Blues','Jazz','Electronic','House','Pop'];
-    const images = [
-      'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800',
-      'https://images.unsplash.com/photo-1513863321820-7b43f34d99b2?w=800',
-      'https://images.unsplash.com/photo-1507874457470-272b3c8d8ee2?w=800',
-      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800',
-      'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=800'
-    ];
-    const pick = (arr, n = 1) => {
-      const c = arr.slice().sort(() => Math.random() - 0.5);
-      return c.slice(0, n);
-    };
-    const now = Date.now();
-    const posts = Array.from({ length: count }).map((_, i) => {
-      const isMine = i % 7 === 1;
-      const author = isMine ? u(uid, currentUser?.name || 'You') : u(`u${(i % names.length) + 2}`, names[i % names.length]);
-      const likeCount = Math.floor(Math.random() * 30);
-      const withMedia = i % 3 === 0;
-      const media = withMedia ? pick(images, (i % 2) + 1).map(url => ({ type: 'image', url })) : [];
-      const createdAt = new Date(now - (i * 1000 * 60 * 37)).toISOString();
-      const comments = i % 4 === 0 ? [
-        {
-          _id: `m${i}-c1`,
-          user: u(`u${(i+3) % 10}`, names[(i+3) % names.length]),
-          content: 'Nice! DM sent ✉️',
-          createdAt,
-          likesCount: Math.floor(Math.random() * 4),
-          isLikedByUser: false,
-          pinned: i % 8 === 0,
-          replies: [
-            {
-              _id: `m${i}-c1-r1`,
-              user: author,
-              content: 'Cheers! 👍',
-              createdAt,
-              likesCount: 0,
-              isLikedByUser: false
-            }
-          ]
-        }
-      ] : [];
-      return {
-        _id: `mock-${i+1}`,
-        author,
-        content: isMine ? 'Sharing a clip from last night’s set — thoughts?' : 'Looking to collaborate this week. Hit me up!',
-        createdAt,
-        likesCount: likeCount,
-        isLikedByUser: isMine && likeCount % 2 === 0,
-        commentsCount: comments.length,
-        instruments: pick(instrumentsPool, (i % 2) + 1),
-        genres: pick(genresPool, (i % 2) + 1),
-        media,
-        comments
-      };
-    });
-    return posts;
-  };
+
 
   // Infinite scroll: observe sentinel to load more
   useEffect(() => {
@@ -334,24 +263,14 @@ const Community = () => {
         const data = await resp.json();
         newItems = Array.isArray(data) ? data : [];
       }
-      // If server returns nothing, generate more mock posts to keep scrolling
-      if (!newItems || newItems.length === 0) {
-        const start = postsRef.current.length;
-        newItems = generateMockPosts(user, loadStep).map((p, i) => ({ ...p, _id: p._id || `mock-extra-${start + i + 1}` }));
-      }
       const combined = dedupeById([...postsRef.current, ...newItems]);
       postsRef.current = combined;
       setPosts(combined);
       setPage(nextPage);
       setLoadedCount((prev) => Math.min(combined.length, prev + loadStep));
     } catch (e) {
-      // On error, still generate mock chunk to keep UX smooth
-      const start = postsRef.current.length;
-      const more = generateMockPosts(user, loadStep).map((p, i) => ({ ...p, _id: p._id || `mock-extra-${start + i + 1}` }));
-      const combined = dedupeById([...postsRef.current, ...more]);
-      postsRef.current = combined;
-      setPosts(combined);
-      setLoadedCount((prev) => Math.min(combined.length, prev + loadStep));
+      console.error('Error loading more posts:', e);
+      toast.error('Failed to load more posts');
     } finally {
       setLoadingMore(false);
     }

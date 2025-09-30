@@ -406,29 +406,36 @@ const Discover = () => {
         if (filters.genre) params.genres = filters.genre;
 
         if (filters.location) {
-          const { type, hierarchy = {}, label = '' } = filters.location;
-          const fallbackCity = label.split(',')[0]?.trim() || '';
+          const { type, hierarchy = {}, value = '', label = '' } = filters.location;
+          const valueParts = String(value || label)
+            .split(',')
+            .map(part => part.trim())
+            .filter(Boolean);
+
+          const cityPart = valueParts[0] || '';
+          const countryPart = valueParts[valueParts.length - 1] || '';
+          const regionPart = valueParts.length >= 2 ? valueParts[valueParts.length - 2] : '';
 
           if (type === 'city') {
-            if (hierarchy.city || fallbackCity) {
-              params.city = hierarchy.city || fallbackCity;
+            if (hierarchy.city || cityPart) {
+              params.city = hierarchy.city || cityPart;
             }
-            if (hierarchy.region) {
-              params.region = hierarchy.region;
+            if (hierarchy.region || regionPart) {
+              params.region = hierarchy.region || regionPart;
             }
-            if (hierarchy.country) {
-              params.country = hierarchy.country;
+            if (hierarchy.country || countryPart) {
+              params.country = hierarchy.country || countryPart;
             }
           } else if (type === 'region') {
-            if (hierarchy.region || fallbackCity) {
-              params.region = hierarchy.region || fallbackCity;
+            if (hierarchy.region || regionPart) {
+              params.region = hierarchy.region || regionPart;
             }
-            if (hierarchy.country) {
-              params.country = hierarchy.country;
+            if (hierarchy.country || countryPart) {
+              params.country = hierarchy.country || countryPart;
             }
           } else if (type === 'country') {
-            if (hierarchy.country || label) {
-              params.country = hierarchy.country || label;
+            if (hierarchy.country || countryPart) {
+              params.country = hierarchy.country || countryPart;
             }
           }
         }
@@ -467,9 +474,22 @@ const Discover = () => {
   const [loadingLocations, setLoadingLocations] = useState(false);
 
   useEffect(() => {
-    if (filters.location && filters.location.label) {
-      const label = filters.location.label;
-      setLocationQuery(prev => (prev === label ? prev : label));
+    if (filters.location) {
+      const { type, hierarchy = {}, value = '', label = '' } = filters.location;
+      const valueParts = String(value || label)
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean);
+
+      let display = label;
+      if (type === 'city') {
+        display = hierarchy.city || valueParts[0] || label;
+      } else if (type === 'region') {
+        display = hierarchy.region || (valueParts.length >= 2 ? valueParts[valueParts.length - 2] : valueParts[0] || label);
+      } else if (type === 'country') {
+        display = hierarchy.country || valueParts[valueParts.length - 1] || label;
+      }
+      setLocationQuery(prev => (prev === display ? prev : display));
     }
   }, [filters.location]);
 
@@ -479,24 +499,90 @@ const Discover = () => {
     const t = setTimeout(async () => {
       try {
         setLoadingLocations(true);
-        const res = await axios.get('/api/profiles/locations', {
-          params: {
-            q: locationQuery || '',
-            limit: 15
-          },
-          signal: controller.signal
-        });
+        const scopes = ['city', 'region', 'country'];
+        const requests = scopes.map(scope =>
+          axios.get('/api/profiles/locations', {
+            params: {
+              q: locationQuery || '',
+              limit: 6,
+              scope
+            },
+            signal: controller.signal
+          }).catch(() => ({ data: { locationStats: [] } }))
+        );
+
+        const responses = await Promise.all(requests);
         if (!active) return;
-        const stats = Array.isArray(res.data?.locationStats) ? res.data.locationStats : [];
-        const options = stats.map((s) => ({
-          ...s,
-          type: s.type || 'country',
-          label: s.label || '',
-          value: s.value || s.label || '',
-          hierarchy: s.hierarchy || {},
-          count: s.count || 0
-        }));
-        setLocationOptions(options);
+
+        const parsed = scopes.map((scope, index) => {
+          const stats = Array.isArray(responses[index]?.data?.locationStats)
+            ? responses[index].data.locationStats
+            : [];
+          return stats.map((s) => ({
+            ...s,
+            type: s.type || scope,
+            label: s.label || '',
+            value: s.value || s.label || '',
+            hierarchy: s.hierarchy || {},
+            count: s.count || 0
+          }));
+        });
+
+        const [cityList, regionList, countryList] = parsed;
+        const merged = [];
+        const maxLength = Math.max(cityList.length, regionList.length, countryList.length);
+        for (let i = 0; i < maxLength && merged.length < 20; i += 1) {
+          if (i < cityList.length) merged.push(cityList[i]);
+          if (i < regionList.length) merged.push(regionList[i]);
+          if (i < countryList.length) merged.push(countryList[i]);
+        }
+
+        const deduped = [];
+        const seen = new Set();
+        for (const option of merged) {
+          const key = `${option.type}:${(option.value || option.label || '').toLowerCase()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          deduped.push(option);
+        }
+
+        const queryText = (locationQuery || '').trim().toLowerCase();
+        const scored = deduped.map((option, idx) => {
+          if (!queryText) {
+            return { option, score: 100, idx };
+          }
+
+          const fullLabelLc = (option.value || option.label || '').toLowerCase();
+          const hierarchyValues = [
+            option.hierarchy?.city,
+            option.hierarchy?.region,
+            option.hierarchy?.country
+          ].map(val => (val || '').trim().toLowerCase()).filter(Boolean);
+
+          let score = 50;
+          if (fullLabelLc === queryText || (option.label || '').toLowerCase() === queryText) {
+            score = 0;
+          } else if (hierarchyValues.includes(queryText)) {
+            score = option.type === 'country' ? 1 : option.type === 'region' ? 2 : 3;
+          } else if (fullLabelLc.startsWith(queryText)) {
+            score = 4;
+          } else if (hierarchyValues.some(val => val.startsWith(queryText))) {
+            score = 5;
+          } else if (fullLabelLc.includes(queryText)) {
+            score = 6;
+          } else if (hierarchyValues.some(val => val.includes(queryText))) {
+            score = 7;
+          }
+
+          return { option, score, idx };
+        });
+
+        scored.sort((a, b) => {
+          if (a.score !== b.score) return a.score - b.score;
+          return a.idx - b.idx;
+        });
+
+        setLocationOptions(scored.map(item => item.option));
       } catch (e) {
         if (e.name !== 'CanceledError') {
           // ignore fetch errors
@@ -517,7 +603,7 @@ const Discover = () => {
 
     const ensureOptionPresence = (suggestion) => {
       setLocationOptions(prev => {
-        if (prev.some(opt => opt.type === suggestion.type && opt.label === suggestion.label)) {
+        if (prev.some(opt => opt.type === suggestion.type && (opt.value || opt.label) === (suggestion.value || suggestion.label))) {
           return prev;
         }
         return [suggestion, ...prev];
@@ -817,7 +903,8 @@ const Discover = () => {
         musician.user.name.toLowerCase().includes(term) ||
         (musician.skills && musician.skills.some(skill => skill.toLowerCase().includes(term))) ||
         (musician.user.instruments && musician.user.instruments.some(instrument => instrument.toLowerCase().includes(term))) ||
-        (musician.user.genres && musician.user.genres.some(genre => genre.toLowerCase().includes(term)))
+        (musician.user.genres && musician.user.genres.some(genre => genre.toLowerCase().includes(term))) ||
+        (musician.user.location && musician.user.location.toLowerCase().includes(term))
       );
     }
 
@@ -830,19 +917,23 @@ const Discover = () => {
     }
 
     if (filters.location) {
-      const { type, hierarchy = {}, label = '' } = filters.location;
-      const parts = label.split(',').map(part => part.trim()).filter(Boolean);
-      const fallbackCountry = hierarchy.country || (parts.length ? parts[parts.length - 1] : '');
-      let fallbackRegion = hierarchy.region || '';
-      if (!fallbackRegion && parts.length >= 2) {
-        fallbackRegion = type === 'region' ? parts[0] : parts[parts.length - 2] || '';
-      }
-      const fallbackCity = hierarchy.city || (type === 'city' ? parts[0] : '');
+      const { type, hierarchy = {}, value = '', label = '' } = filters.location;
+      const valueParts = String(value || label)
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean);
 
-      const targetCountry = (fallbackCountry || '').toLowerCase();
-      const targetRegion = (fallbackRegion || '').toLowerCase();
-      const targetCity = (fallbackCity || '').toLowerCase();
-      const normalizedLabel = label.toLowerCase();
+      const fallbackCountry = hierarchy.country || (valueParts[valueParts.length - 1] || '');
+      let fallbackRegion = hierarchy.region || '';
+      if (!fallbackRegion && valueParts.length >= 2) {
+        fallbackRegion = valueParts[valueParts.length - 2] || '';
+      }
+      const fallbackCity = hierarchy.city || (type === 'city' ? (valueParts[0] || '') : '');
+
+      const targetCountry = fallbackCountry.toLowerCase();
+      const targetRegion = fallbackRegion.toLowerCase();
+      const targetCity = fallbackCity.toLowerCase();
+      const normalizedValue = String(value || label).toLowerCase();
 
       result = result.filter(musician => {
         const locationData = musician.user?.locationData || {};
@@ -897,7 +988,7 @@ const Discover = () => {
         }
 
         const formatted = formatLocationString(musician.user.location || '').toLowerCase();
-        return formatted.includes(normalizedLabel);
+        return formatted.includes(normalizedValue);
       });
     }
 
@@ -1085,14 +1176,55 @@ const Discover = () => {
                 autoHighlight
                 loading={loadingLocations}
                 filterOptions={(x) => x}
-                getOptionLabel={(option) => option?.label || ''}
+                getOptionLabel={(option) => {
+                  if (!option) return '';
+                  const valueParts = String(option.value || option.label || '')
+                    .split(',')
+                    .map(part => part.trim())
+                    .filter(Boolean);
+                  if (option.type === 'city') {
+                    return option.hierarchy?.city || valueParts[0] || option.label || '';
+                  }
+                  if (option.type === 'region') {
+                    if (option.hierarchy?.region) return option.hierarchy.region;
+                    if (valueParts.length >= 2) return valueParts[valueParts.length - 2];
+                    return valueParts[0] || option.label || '';
+                  }
+                  if (option.type === 'country') {
+                    if (option.hierarchy?.country) return option.hierarchy.country;
+                    return valueParts[valueParts.length - 1] || option.label || '';
+                  }
+                  return option.label || '';
+                }}
                 isOptionEqualToValue={(option, value) =>
-                  option?.type === value?.type && (option?.label || '') === (value?.label || '')
+                  option?.type === value?.type && ((option?.value || option?.label || '') === (value?.value || value?.label || ''))
                 }
                 value={filters.location}
                 onChange={(_e, value) => {
                   handleFilterChange('location', value || null);
-                  setLocationQuery(value ? value.label : '');
+                  if (value) {
+                    const valueParts = String(value.value || value.label || '')
+                      .split(',')
+                      .map(part => part.trim())
+                      .filter(Boolean);
+                    if (value.type === 'city') {
+                      setLocationQuery(value.hierarchy?.city || valueParts[0] || value.label || '');
+                    } else if (value.type === 'region') {
+                      if (value.hierarchy?.region) {
+                        setLocationQuery(value.hierarchy.region);
+                      } else if (valueParts.length >= 2) {
+                        setLocationQuery(valueParts[valueParts.length - 2]);
+                      } else {
+                        setLocationQuery(value.label || '');
+                      }
+                    } else if (value.type === 'country') {
+                      setLocationQuery(value.hierarchy?.country || valueParts[valueParts.length - 1] || value.label || '');
+                    } else {
+                      setLocationQuery(value.label || '');
+                    }
+                  } else {
+                    setLocationQuery('');
+                  }
                 }}
                 inputValue={locationQuery}
                 onInputChange={(_e, value, reason) => {
@@ -1102,23 +1234,50 @@ const Discover = () => {
                   }
                 }}
                 renderOption={(props, option) => {
-                  const typeLabel = option.type === 'city' ? 'City' : option.type === 'region' ? 'Region / State' : 'Country';
                   const countLabel = typeof option.count === 'number'
                     ? option.count.toLocaleString()
                     : option.count;
-                  const hierarchyParts = [option.hierarchy?.city, option.hierarchy?.region, option.hierarchy?.country]
-                    .filter(Boolean)
-                    .join(', ');
+                  const typeLabel = option.type === 'city' ? 'City' : option.type === 'region' ? 'Region / State' : 'Country';
+
+                  const valueParts = String(option.value || option.label || '')
+                    .split(',')
+                    .map(part => part.trim())
+                    .filter(Boolean);
+
+                  let primaryText = option.label || '';
+                  let secondaryText = '';
+
+                  if (option.type === 'city') {
+                    primaryText = option.hierarchy?.city || valueParts[0] || option.label || '';
+                    const region = option.hierarchy?.region || (valueParts.length >= 2 ? valueParts[valueParts.length - 2] : '');
+                    const country = option.hierarchy?.country || valueParts[valueParts.length - 1] || '';
+                    secondaryText = [region, country].filter(Boolean).join(', ');
+                  } else if (option.type === 'region') {
+                    if (option.hierarchy?.region) {
+                      primaryText = option.hierarchy.region;
+                    } else if (valueParts.length >= 2) {
+                      primaryText = valueParts[valueParts.length - 2];
+                    } else {
+                      primaryText = valueParts[0] || option.label || '';
+                    }
+                    secondaryText = option.hierarchy?.country || valueParts[valueParts.length - 1] || '';
+                  } else if (option.type === 'country') {
+                    primaryText = option.hierarchy?.country || valueParts[valueParts.length - 1] || option.label || '';
+                  }
+
                   return (
-                    <li {...props} key={`${option.type}-${option.label}`}>
+                    <li {...props} key={`${option.type}-${option.value || option.label}`}>
                       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                         <Box sx={{ fontSize: 14, fontWeight: 600 }}>
-                          {option.label}
+                          {primaryText}
                         </Box>
-                        <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
-                          {[typeLabel, hierarchyParts && hierarchyParts !== option.label ? hierarchyParts : null, `Matches: ${countLabel}`]
-                            .filter(Boolean)
-                            .join(' • ')}
+                        {secondaryText && (
+                          <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
+                            {secondaryText}
+                          </Box>
+                        )}
+                        <Box sx={{ fontSize: 11, color: 'text.secondary', mt: 0.25 }}>
+                          {`${typeLabel} • Matches: ${countLabel}`}
                         </Box>
                       </Box>
                     </li>
