@@ -116,14 +116,15 @@ const Contact = () => {
 
     try {
       const response = await axios.post('/api/contact', formData);
-      
-      if (response.data.success) {
-        setSnackbar({ 
-          open: true, 
-          message: response.data.message, 
-          severity: 'success' 
+      const { success, message: responseMessage, error: responseError, delivery } = response.data || {};
+
+      if (success) {
+        setSnackbar({
+          open: true,
+          message: responseMessage || 'Message sent successfully.',
+          severity: delivery === 'queued' ? 'info' : 'success'
         });
-        
+
         // Reset form
         setFormData({
           name: '',
@@ -131,6 +132,19 @@ const Contact = () => {
           subject: '',
           message: '',
           category: 'general'
+        });
+      } else {
+        if (Array.isArray(response?.data?.errors)) {
+          const backendErrors = {};
+          response.data.errors.forEach(err => {
+            backendErrors[err.path || err.param] = err.msg;
+          });
+          setErrors(backendErrors);
+        }
+        setSnackbar({
+          open: true,
+          message: responseError || responseMessage || 'Unable to send your message right now. Please try again later.',
+          severity: 'error'
         });
       }
     } catch (error) {

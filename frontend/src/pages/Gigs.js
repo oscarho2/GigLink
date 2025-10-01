@@ -79,27 +79,57 @@ const getPrimaryLocationText = (option) => {
   return hierarchy.city || hierarchy.region || hierarchy.country || '';
 };
 
-const mapGigLocationStatToOption = (stat) => {
+const regionNameOf = (() => {
+  if (typeof Intl !== 'undefined' && typeof Intl.DisplayNames === 'function') {
+    try {
+      const displayNames = new Intl.DisplayNames(['en'], { type: 'region' });
+      return (code) => {
+        if (!code) return '';
+        const trimmed = String(code).trim();
+        if (!trimmed) return '';
+        const upper = trimmed.toUpperCase();
+        if (upper.length === 2 || upper.length === 3) {
+          try {
+            const name = displayNames.of(upper);
+            if (name && name.toUpperCase() !== upper) {
+              return name;
+            }
+          } catch (err) {
+            // ignore invalid codes
+          }
+        }
+        return trimmed;
+      };
+    } catch (err) {
+      // Intl.DisplayNames unsupported
+    }
+  }
+  return (code) => String(code || '').trim();
+})();
+
+const expandGigLocationStatToOptions = (stat) => {
   const raw = String(stat?.label || stat?.value || '').trim();
   if (!raw) {
-    return {
-      ...stat,
-      type: 'city',
-      value: '',
-      label: '',
-      display: '',
-      hierarchy: {}
-    };
+    return [];
   }
 
   const parts = raw.split(',').map(part => part.trim()).filter(Boolean);
-  const city = parts[0] || '';
+  let city = parts[0] || '';
   let region = parts.length >= 3 ? parts[parts.length - 2] : '';
   let country = parts.length >= 2 ? parts[parts.length - 1] : '';
 
   if (parts.length === 1) {
+    city = '';
+    region = '';
     country = parts[0];
+  } else if (parts.length === 2) {
+    region = '';
   }
+
+  const fallbackHierarchy = stat?.hierarchy || {};
+  if (!city && fallbackHierarchy.city) city = String(fallbackHierarchy.city).trim();
+  if (!region && fallbackHierarchy.region) region = String(fallbackHierarchy.region).trim();
+  if (!country && fallbackHierarchy.country) country = String(fallbackHierarchy.country).trim();
 
   if (region && city && region.toLowerCase() === city.toLowerCase()) {
     region = '';
@@ -113,27 +143,199 @@ const mapGigLocationStatToOption = (stat) => {
     country = '';
   }
 
+  const expandedCountry = regionNameOf(country);
+  const expandedRegion = regionNameOf(region);
+
+  if (expandedCountry && expandedCountry !== country) {
+    country = expandedCountry;
+  }
+  if (expandedRegion && expandedRegion !== region) {
+    region = expandedRegion;
+  }
+
   const hierarchy = {
-    city: city || '',
-    region: region || '',
-    country: country || ''
+    city: String(city || '').trim(),
+    region: String(region || '').trim(),
+    country: String(country || '').trim()
   };
 
-  const displayParts = [hierarchy.city, hierarchy.region, hierarchy.country].filter((value, index, self) => value && self.indexOf(value) === index);
+  const displayParts = [hierarchy.city, hierarchy.region, hierarchy.country]
+    .filter((value, index, self) => value && self.indexOf(value) === index);
   const display = displayParts.length ? displayParts.join(', ') : raw;
 
-  return {
-    ...stat,
-    type: displayParts.length <= 1 ? 'country' : 'city',
-    value: raw,
-    label: raw,
-    display,
-    hierarchy
+  const candidateTokens = Array.isArray(stat?.candidates) ? stat.candidates : [];
+  const codes = Array.isArray(stat?.codes)
+    ? stat.codes
+    : (stat?.code ? [stat.code] : []);
+
+  const baseTokens = new Set(
+    [raw, display, hierarchy.city, hierarchy.region, hierarchy.country, ...candidateTokens, ...codes]
+      .map((token) => String(token || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  const count = typeof stat?.count === 'number' ? stat.count : 0;
+
+  const options = [];
+  const added = new Set();
+
+  const pushOption = (type, value, displayValue, extraTokens = []) => {
+    const trimmedValue = String(value || '').trim();
+    const trimmedDisplay = String(displayValue || '').trim() || trimmedValue;
+    if (!trimmedValue) return;
+    const key = `${type}:${trimmedValue.toLowerCase()}`;
+    if (added.has(key)) return;
+    added.add(key);
+
+    const tokens = new Set(baseTokens);
+    extraTokens.forEach((token) => {
+      if (!token) return;
+      tokens.add(String(token).trim().toLowerCase());
+    });
+    tokens.add(trimmedValue.toLowerCase());
+    tokens.add(trimmedDisplay.toLowerCase());
+
+    options.push({
+      ...stat,
+      type,
+      value: trimmedValue,
+      label: trimmedValue,
+      display: trimmedDisplay,
+      hierarchy,
+      searchTokens: Array.from(tokens),
+      codes,
+      count
+    });
   };
+
+  if (hierarchy.city) {
+    const cityDisplay = [hierarchy.city, hierarchy.region, hierarchy.country]
+      .filter(Boolean)
+      .join(', ');
+    pushOption('city', cityDisplay, cityDisplay, [hierarchy.city, hierarchy.region, hierarchy.country]);
+  }
+
+  if (hierarchy.region) {
+    const regionDisplay = [hierarchy.region, hierarchy.country]
+      .filter(Boolean)
+      .join(', ') || hierarchy.region;
+    pushOption('region', regionDisplay, regionDisplay, [hierarchy.region, hierarchy.country, hierarchy.city]);
+  }
+
+  if (hierarchy.country) {
+    pushOption('country', hierarchy.country, hierarchy.country, [hierarchy.country, hierarchy.region, hierarchy.city]);
+  }
+
+  if (!options.length) {
+    pushOption('country', raw, displayParts.length ? display : raw);
+  }
+
+  return options;
+};
+
+const dedupeGigLocationOptions = (options = []) => {
+  const seen = new Set();
+  return options.filter((option) => {
+    const key = [
+      option.type,
+      String(option.value || '').trim().toLowerCase(),
+      String(option?.hierarchy?.city || '').trim().toLowerCase(),
+      String(option?.hierarchy?.region || '').trim().toLowerCase(),
+      String(option?.hierarchy?.country || '').trim().toLowerCase()
+    ].join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const sortGigLocationOptions = (options = []) => {
+  const priority = { city: 0, region: 1, country: 2 };
+  return options.slice().sort((a, b) => {
+    const countDiff = (b.count || 0) - (a.count || 0);
+    if (countDiff !== 0) return countDiff;
+    const typeDiff = (priority[a.type] ?? 3) - (priority[b.type] ?? 3);
+    if (typeDiff !== 0) return typeDiff;
+    return String(a.display || a.value || '')
+      .localeCompare(String(b.display || b.value || ''), undefined, { sensitivity: 'base' });
+  });
+};
+
+const COUNTRY_CODE_EXPANSIONS = {
+  uk: ['united kingdom', 'great britain', 'uk'],
+  gb: ['united kingdom', 'great britain', 'gb'],
+  us: ['united states', 'usa', 'america', 'united states of america', 'us'],
+  usa: ['united states', 'usa', 'america', 'united states of america', 'us'],
+  uae: ['united arab emirates', 'uae']
+};
+
+const COUNTRY_NAME_EXPANSIONS = {
+  'united kingdom': ['great britain', 'uk'],
+  'great britain': ['united kingdom', 'uk'],
+  'united states': ['united states of america', 'usa', 'us', 'america'],
+  'united states of america': ['united states', 'usa', 'us', 'america'],
+  america: ['united states', 'usa', 'us']
+};
+
+const filterCountryOptionsByQuery = (options = [], query = '') => {
+  const trimmed = String(query || '').trim().toLowerCase();
+  if (!trimmed) return options;
+
+  return options.filter((option) => {
+    if (!option || option.type !== 'country') return true;
+
+    const tokens = new Set();
+    const hierarchyCountry = option?.hierarchy?.country;
+    const pushToken = (value) => {
+      if (!value) return;
+      const text = String(value).trim().toLowerCase();
+      if (text) tokens.add(text);
+    };
+    const pushNameExpansions = (value) => {
+      if (!value) return;
+      const key = String(value).trim().toLowerCase();
+      if (!key) return;
+      const expansions = COUNTRY_NAME_EXPANSIONS[key];
+      if (Array.isArray(expansions)) {
+        expansions.forEach(pushToken);
+      }
+    };
+
+    pushToken(option.value);
+    pushToken(option.label);
+    pushToken(option.display);
+    pushToken(hierarchyCountry);
+    pushNameExpansions(option.value);
+    pushNameExpansions(option.label);
+    pushNameExpansions(option.display);
+    pushNameExpansions(hierarchyCountry);
+
+    if (Array.isArray(option.codes)) {
+      option.codes.forEach(code => {
+        pushToken(code);
+        const codeKey = String(code || '').trim().toLowerCase();
+        if (!codeKey) return;
+        const expansions = COUNTRY_CODE_EXPANSIONS[codeKey];
+        if (Array.isArray(expansions)) {
+          expansions.forEach(pushToken);
+        }
+      });
+    }
+
+    if (!tokens.size) return true;
+
+    for (const token of tokens) {
+      if (token.includes(trimmed) || trimmed.includes(token)) {
+        return true;
+      }
+    }
+
+    return false;
+  });
 };
 
 const Gigs = () => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, token } = useAuth();
   const navigate = useNavigate();
   const [showFilters, setShowFilters] = useState(false);
   const [gigs, setGigs] = useState([]);
@@ -164,6 +366,7 @@ const Gigs = () => {
   const [locLoading, setLocLoading] = useState(false);
   const locDebounceRef = useRef(null);
   const locAbortRef = useRef(null);
+  const defaultLocationAppliedRef = useRef(false);
 
 
 
@@ -183,7 +386,7 @@ const Gigs = () => {
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
-    const token = localStorage.getItem('token');
+    const authToken = token || localStorage.getItem('token');
 
     const t = setTimeout(async () => {
       try {
@@ -192,8 +395,20 @@ const Gigs = () => {
         if (searchTerm.trim()) params.q = searchTerm.trim();
         if (filters.instrument) params.instruments = filters.instrument;
         if (filters.genre) params.genres = filters.genre;
-        const locationLabel = filters.location ? (filters.location.value || filters.location.label || filters.location.display || '') : '';
-        if (locationLabel) params.location = locationLabel;
+        if (filters.location) {
+          const loc = filters.location;
+          const hierarchy = loc?.hierarchy || {};
+          const locationLabel = loc.value || loc.label || loc.display || '';
+          if (locationLabel) {
+            params.location = locationLabel;
+            params.locationValue = locationLabel;
+          }
+          if (hierarchy.city) params.locationCity = hierarchy.city;
+          if (hierarchy.region) params.locationRegion = hierarchy.region;
+          if (hierarchy.country) params.locationCountry = hierarchy.country;
+          const codes = Array.isArray(loc.codes) ? loc.codes.filter(Boolean) : [];
+          if (codes.length) params.locationCodes = codes.join(',');
+        }
         const today = new Date().toISOString().slice(0, 10);
         if (filters.date) {
           params.dateFrom = filters.date; // YYYY-MM-DD
@@ -205,7 +420,7 @@ const Gigs = () => {
         const response = await axios.get('/api/gigs', {
           params,
           signal: controller.signal,
-          headers: token ? { 'x-auth-token': token } : undefined
+          headers: authToken ? { 'x-auth-token': authToken } : undefined
         });
         if (active) setGigs(Array.isArray(response.data) ? response.data : []);
       } catch (err) {
@@ -222,7 +437,7 @@ const Gigs = () => {
       clearTimeout(t);
       controller.abort();
     };
-  }, [searchTerm, filters, showPastGigs]);
+  }, [searchTerm, filters, showPastGigs, token]);
 
   // Predictive backend-driven location suggestions (Atlas gigs data)
   useEffect(() => {
@@ -257,8 +472,11 @@ const Gigs = () => {
           signal: controller.signal
         });
         const stats = Array.isArray(res.data?.locationStats) ? res.data.locationStats : [];
-        const mapped = stats.map(mapGigLocationStatToOption).filter(opt => opt.value);
-        setLocOptions(mapped);
+        const expanded = stats.flatMap(expandGigLocationStatToOptions);
+        const deduped = dedupeGigLocationOptions(expanded).filter(opt => opt.value);
+        const sorted = sortGigLocationOptions(deduped);
+        const filtered = filterCountryOptionsByQuery(sorted, locInput);
+        setLocOptions(filtered);
       } catch (err) {
         if (err.name !== 'CanceledError') {
           console.error('Error fetching gig location suggestions:', err);
@@ -284,6 +502,69 @@ const Gigs = () => {
       }
     };
   }, [locInput]);
+
+
+
+  useEffect(() => {
+    if (defaultLocationAppliedRef.current) return;
+    if (!isAuthenticated) return;
+    if (filters.location) {
+      defaultLocationAppliedRef.current = true;
+      return;
+    }
+    if ((locInput || '').trim()) {
+      defaultLocationAppliedRef.current = true;
+      return;
+    }
+
+    const authToken = token || localStorage.getItem('token');
+    if (!authToken) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const fetchUserLocation = async () => {
+      try {
+        const res = await axios.get('/api/profiles/me', {
+          signal: controller.signal,
+          headers: { 'x-auth-token': authToken }
+        });
+        if (cancelled) return;
+
+        const locationData = res.data?.user?.locationData || {};
+        const countryName = String(locationData.country || '').trim();
+        if (countryName) {
+          const option = {
+            type: 'country',
+            value: countryName,
+            label: countryName,
+            display: countryName,
+            hierarchy: { country: countryName }
+          };
+          setFilters((prev) => ({
+            ...prev,
+            location: option
+          }));
+          setLocInput((prev) => (prev && prev.trim() ? prev : countryName));
+        }
+      } catch (err) {
+        if (err.name !== 'CanceledError') {
+          console.error('Error loading default gig location:', err);
+        }
+      } finally {
+        if (!cancelled) {
+          defaultLocationAppliedRef.current = true;
+        }
+      }
+    };
+
+    fetchUserLocation();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isAuthenticated, token, filters.location, locInput]);
 
 
 

@@ -71,6 +71,81 @@ const normalizeCountryCode = (value = '') => {
   return trimmed.length === 2 ? upper : trimmed;
 };
 
+const escapeRegex = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const COUNTRY_CODE_EXPANSIONS = {
+  UK: ['United Kingdom', 'Great Britain'],
+  GB: ['United Kingdom', 'Great Britain'],
+  US: ['United States', 'USA'],
+  USA: ['United States', 'US'],
+  UAE: ['United Arab Emirates'],
+};
+
+const buildLocationSearchTokens = (values = []) => {
+  const shortCodes = new Map();
+  const generalTokens = new Map();
+
+  const addGeneral = (token) => {
+    const text = String(token || '').trim();
+    if (!text || text.length <= 3) return;
+    const key = text.toLowerCase();
+    if (!generalTokens.has(key)) generalTokens.set(key, text);
+  };
+
+  const addShort = (code) => {
+    const text = String(code || '').trim();
+    if (!text || !/^[A-Za-z]{2,3}$/.test(text)) return;
+    const upper = text.toUpperCase();
+    if (!shortCodes.has(upper)) shortCodes.set(upper, upper);
+    const expansions = COUNTRY_CODE_EXPANSIONS[upper];
+    if (Array.isArray(expansions)) {
+      expansions.forEach(addGeneral);
+    }
+  };
+
+  const addValue = (value) => {
+    if (value === undefined || value === null) return;
+    if (Array.isArray(value)) {
+      value.forEach(addValue);
+      return;
+    }
+
+    const text = String(value || '').trim();
+    if (!text) return;
+
+    if (text.length > 3) addGeneral(text);
+    if (/^[A-Za-z]{2,3}$/.test(text)) {
+      addShort(text);
+    } else {
+      const normalized = normalizeCountryCode(text);
+      if (normalized && /^[A-Za-z]{2,3}$/.test(normalized)) {
+        addShort(normalized);
+      }
+    }
+
+    const segments = text.split(',').map(part => part.trim()).filter(Boolean);
+    segments.forEach((segment) => {
+      if (!segment) return;
+      if (/^[A-Za-z]{2,3}$/.test(segment)) {
+        addShort(segment);
+      } else {
+        addGeneral(segment);
+        const normalizedSegment = normalizeCountryCode(segment);
+        if (normalizedSegment && /^[A-Za-z]{2,3}$/.test(normalizedSegment)) {
+          addShort(normalizedSegment);
+        }
+      }
+    });
+  };
+
+  values.forEach(addValue);
+
+  return {
+    shortCodes: Array.from(shortCodes.values()),
+    generalTokens: Array.from(generalTokens.values())
+  };
+};
+
 const stripPostalCodes = (value = '') => {
   if (!value) return '';
   let result = String(value);
@@ -381,6 +456,11 @@ router.get('/', async (req, res) => {
       instruments,
       genres,
       location,
+      locationValue,
+      locationCity,
+      locationRegion,
+      locationCountry,
+      locationCodes,
       dateFrom,
       dateTo,
       limit = 50,
@@ -408,27 +488,137 @@ router.get('/', async (req, res) => {
     }
 
     // Location filter (match gig.location or fallback to gig owner's user.location)
-    if (location && location.trim()) {
-      const rxLoc = new RegExp(location.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      // Pre-fetch user IDs whose location matches
-      const matchingUsers = await User.find({
-        $or: [
-          { 'locationData.country': { $regex: rxLoc } },
-          { 'locationData.region': { $regex: rxLoc } },
-          { 'locationData.city': { $regex: rxLoc } },
-        ]
-      }).select('_id').lean();
-      const userIds = matchingUsers.map(u => u._id);
-      and.push({
-        $or: [
-          { 'location.name': { $regex: rxLoc } },
-          { 'location.street': { $regex: rxLoc } },
-          { 'location.city': { $regex: rxLoc } },
-          { 'location.region': { $regex: rxLoc } },
-          { 'location.country': { $regex: rxLoc } },
-          ...(userIds.length ? [{ user: { $in: userIds } }] : [])
-        ]
+    const hasLocationFilter = [location, locationValue, locationCity, locationRegion, locationCountry, locationCodes]
+      .some((input) => {
+        if (input === undefined || input === null) return false;
+        if (Array.isArray(input)) {
+          return input.some((val) => typeof val === 'string' ? val.trim().length > 0 : String(val || '').trim().length > 0);
+        }
+        if (typeof input === 'string') return input.trim().length > 0;
+        return String(input).trim().length > 0;
       });
+
+    if (hasLocationFilter) {
+      const rawValues = [];
+
+      const pushValue = (value) => {
+        if (value === undefined || value === null) return;
+        if (Array.isArray(value)) {
+          value.forEach(pushValue);
+          return;
+        }
+        const text = String(value).trim();
+        if (text) rawValues.push(text);
+      };
+
+      pushValue(locationValue);
+      pushValue(location);
+      pushValue(locationCity);
+      pushValue(locationRegion);
+      pushValue(locationCountry);
+      pushValue(locationCodes);
+
+      if (!rawValues.length && typeof location === 'string' && location.trim()) {
+        rawValues.push(location.trim());
+      }
+
+      const { shortCodes, generalTokens } = buildLocationSearchTokens(rawValues);
+
+      const locationOr = [];
+      const userOr = [];
+      const seenLocation = new Set();
+      const seenUser = new Set();
+
+      const addClause = (collection, seen, field, regex) => {
+        if (!regex) return;
+        const key = `${field}|${regex.source}|${regex.flags}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        collection.push({ [field]: { $regex: regex } });
+      };
+
+      shortCodes.forEach((code) => {
+        if (!code) return;
+        const anchored = new RegExp(`^${escapeRegex(code)}$`, 'i');
+        addClause(locationOr, seenLocation, 'location.country', anchored);
+        addClause(userOr, seenUser, 'locationData.country', anchored);
+
+        const boundary = new RegExp(`\\b${escapeRegex(code)}\\b`, 'i');
+        ['location.name', 'location.region', 'location.city', 'location.street'].forEach((field) => {
+          addClause(locationOr, seenLocation, field, boundary);
+        });
+        ['locationData.region', 'locationData.city'].forEach((field) => {
+          addClause(userOr, seenUser, field, boundary);
+        });
+      });
+
+      generalTokens.forEach((token) => {
+        if (!token) return;
+        const regex = new RegExp(escapeRegex(token), 'i');
+        ['location.name', 'location.street', 'location.city', 'location.region', 'location.country'].forEach((field) => {
+          addClause(locationOr, seenLocation, field, regex);
+        });
+        ['locationData.city', 'locationData.region', 'locationData.country'].forEach((field) => {
+          addClause(userOr, seenUser, field, regex);
+        });
+      });
+
+      if (!locationOr.length && typeof location === 'string' && location.trim()) {
+        const fallbackRegex = new RegExp(escapeRegex(location.trim()), 'i');
+        ['location.name', 'location.street', 'location.city', 'location.region', 'location.country'].forEach((field) => {
+          addClause(locationOr, seenLocation, field, fallbackRegex);
+        });
+        ['locationData.city', 'locationData.region', 'locationData.country'].forEach((field) => {
+          addClause(userOr, seenUser, field, fallbackRegex);
+        });
+      }
+
+      let userIds = [];
+      if (userOr.length) {
+        const matchingUsers = await User.find({ $or: userOr }).select('_id').lean();
+        userIds = matchingUsers.map(u => u._id);
+      }
+
+      const orConditions = [...locationOr];
+
+      if (userIds.length) {
+        const emptyLocationRegex = new RegExp('^\\s*$');
+        const fallbackEligibleClause = {
+          $or: [
+            { location: { $exists: false } },
+            { location: null },
+            {
+              $and: [
+                { location: { $type: 'object' } },
+                {
+                  $or: [
+                    { 'location.country': { $in: [null, ''] } },
+                    { 'location.city': { $in: [null, ''] } },
+                    { 'location.name': { $in: [null, ''] } }
+                  ]
+                }
+              ]
+            },
+            {
+              $and: [
+                { location: { $type: 'string' } },
+                { location: { $regex: emptyLocationRegex } }
+              ]
+            }
+          ]
+        };
+
+        orConditions.push({
+          $and: [
+            { user: { $in: userIds } },
+            fallbackEligibleClause
+          ]
+        });
+      }
+
+      if (orConditions.length) {
+        and.push({ $or: orConditions });
+      }
     }
 
     // Instruments filtering (support comma-separated or repeated params)
@@ -552,6 +742,52 @@ router.get('/filters', async (_req, res) => {
   }
 });
 
+// Region name helpers for location suggestions
+const REGION_FALLBACK_MAP = {
+  UK: 'United Kingdom',
+  GB: 'United Kingdom',
+  US: 'United States',
+  USA: 'United States',
+  UAE: 'United Arab Emirates'
+};
+
+const regionDisplayNames = (() => {
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' });
+  } catch (err) {
+    return null;
+  }
+})();
+
+const expandRegionName = (value = '') => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  const upper = trimmed.toUpperCase();
+  if (REGION_FALLBACK_MAP[upper]) {
+    return REGION_FALLBACK_MAP[upper];
+  }
+  if (regionDisplayNames && (upper.length === 2 || upper.length === 3)) {
+    try {
+      const resolved = regionDisplayNames.of(upper);
+      if (resolved && resolved.toUpperCase() !== upper) {
+        return resolved;
+      }
+    } catch (err) {
+      // ignore bad codes
+    }
+  }
+  return trimmed;
+};
+
+const normalizeIsoCode = (value = '') => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  if (/^[A-Za-z]{2,3}$/.test(trimmed)) {
+    return trimmed.toUpperCase();
+  }
+  return '';
+};
+
 // @route   GET api/gigs/locations
 // @desc    Predictive location suggestions from existing gigs (no GeoNames)
 // @access  Public
@@ -563,38 +799,81 @@ router.get('/locations', async (req, res) => {
     const rx = trimmed ? new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
 
     const gigs = await Gig.find({}, { location: 1 }).lean();
-    const counts = new Map();
+    const entries = new Map();
 
-    const pushLabel = (label) => {
+    const upsertEntry = (label, meta) => {
       if (!label) return;
-      if (rx && !rx.test(label)) return;
       const key = label.toLowerCase();
-      const entry = counts.get(key);
-      if (entry) {
-        entry.count += 1;
-      } else {
-        counts.set(key, { label, count: 1 });
+      let entry = entries.get(key);
+      if (!entry) {
+        entry = {
+          label,
+          count: 0,
+          codes: new Set(),
+          candidates: new Set()
+        };
+        entries.set(key, entry);
+      }
+      entry.count += 1;
+      if (meta?.code) entry.codes.add(meta.code);
+      if (Array.isArray(meta?.candidates)) {
+        meta.candidates.forEach((candidate) => {
+          if (candidate) entry.candidates.add(candidate.toLowerCase());
+        });
       }
     };
 
     for (const gig of gigs) {
       const loc = gig?.location || {};
-      const city = String(loc.city || '').trim();
-      const region = String(loc.region || '').trim();
-      const country = String(loc.country || '').trim();
-      const name = String(loc.name || '').trim();
+      const cityRaw = String(loc.city || '').trim();
+      const regionRaw = String(loc.region || '').trim();
+      const countryRaw = String(loc.country || '').trim();
+      const nameRaw = String(loc.name || '').trim();
 
-      const components = [];
-      if (city) components.push(city);
-      if (region && !components.some(part => part.toLowerCase() === region.toLowerCase())) components.push(region);
-      if (country && !components.some(part => part.toLowerCase() === country.toLowerCase())) components.push(country);
-      if (!components.length && name) components.push(name);
+      const countryCode = normalizeIsoCode(countryRaw);
+      const countryName = expandRegionName(countryRaw);
+      const regionName = expandRegionName(regionRaw) || regionRaw;
+      const cityName = cityRaw;
 
-      const label = components.join(', ');
-      pushLabel(label);
+      const parts = [];
+      if (cityName) parts.push(cityName);
+      if (regionName && !parts.some(part => part.toLowerCase() === regionName.toLowerCase())) parts.push(regionName);
+      if (countryName && !parts.some(part => part.toLowerCase() === countryName.toLowerCase())) parts.push(countryName);
+      if (!parts.length && nameRaw) parts.push(nameRaw);
+
+      const label = parts.join(', ');
+      if (!label) continue;
+
+      const candidateStrings = new Set([
+        label,
+        cityRaw,
+        regionRaw,
+        countryRaw,
+        countryCode,
+        countryName,
+        regionName,
+        cityName,
+        nameRaw
+      ].map(val => String(val || '').trim()).filter(Boolean));
+
+      if (rx) {
+        const matches = Array.from(candidateStrings).some((candidate) => rx.test(candidate));
+        if (!matches) continue;
+      }
+
+      upsertEntry(label, {
+        code: countryCode,
+        candidates: Array.from(candidateStrings)
+      });
     }
 
-    const sorted = Array.from(counts.values())
+    const sorted = Array.from(entries.values())
+      .map(entry => ({
+        label: entry.label,
+        count: entry.count,
+        codes: Array.from(entry.codes).filter(Boolean),
+        candidates: Array.from(entry.candidates)
+      }))
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
       .slice(0, numericLimit);
 

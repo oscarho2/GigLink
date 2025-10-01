@@ -3,6 +3,22 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
 const { sendContactEmail } = require('../utils/emailService');
+const fs = require('fs/promises');
+const path = require('path');
+
+const CONTACT_FALLBACK_PATH = path.join(__dirname, '..', 'logs', 'contact-fallback.log');
+
+const persistContactFallback = async (payload) => {
+  try {
+    await fs.mkdir(path.dirname(CONTACT_FALLBACK_PATH), { recursive: true });
+    const line = `${JSON.stringify({ ...payload, storedAt: new Date().toISOString() })}\n`;
+    await fs.appendFile(CONTACT_FALLBACK_PATH, line, 'utf8');
+    return true;
+  } catch (err) {
+    console.error('Failed to persist contact fallback message:', err);
+    return false;
+  }
+};
 
 // Rate limiting for contact form - 5 submissions per hour per IP
 const contactRateLimit = rateLimit({
@@ -82,6 +98,24 @@ router.post('/', contactRateLimit, contactValidation, async (req, res) => {
       });
     } else {
       console.error('Contact form email failed:', emailResult.error);
+      const stored = await persistContactFallback({
+        name,
+        email,
+        subject: subject || `Contact Form - ${category}`,
+        message,
+        category,
+        timestamp: new Date().toISOString(),
+        reason: emailResult.error
+      });
+
+      if (stored) {
+        return res.status(202).json({
+          success: true,
+          message: 'We received your message but could not send the confirmation email yet. Our team will review it shortly.',
+          delivery: 'queued'
+        });
+      }
+
       res.status(500).json({
         success: false,
         message: 'Failed to send message. Please try again later.',
