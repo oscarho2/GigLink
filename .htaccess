@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Do not rewrite requests for the API
+RewriteRule ^api/ - [L]
+
+# Rewrite all other requests to the frontend build directory
+RewriteRule ^$ /frontend/build/ [L]
+RewriteCond %{REQUEST_URI} !^/frontend/build/
+RewriteRule ^(.*)$ /frontend/build/$1 [L]
