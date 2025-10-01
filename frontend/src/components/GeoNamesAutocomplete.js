@@ -28,7 +28,7 @@ const GeoNamesAutocomplete = ({
   // 1. Register for a free GeoNames account at https://www.geonames.org/login
   // 2. Enable web services in your account settings
   // 3. Replace 'demo' with your actual GeoNames username
-  const GEONAMES_USERNAME = 'oscarho'; // Using demo for testing - replace with your username for production
+  const GEONAMES_USERNAME = process.env.REACT_APP_GEONAMES_USERNAME || 'oscarho'; // Using demo for testing - replace with your username for production
   const GEONAMES_API_URL = 'https://secure.geonames.org/searchJSON'; // Using HTTPS to avoid CORS issues
 
   useEffect(() => {
