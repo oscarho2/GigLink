@@ -23,16 +23,18 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
+const allowedOrigins = ["http://localhost:3000", "https://giglinksocial.com"];
+
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: allowedOrigins,
     methods: ["GET", "POST"]
   }
 });
 const PORT = process.env.PORT || 5001;
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 // Serve static uploads (public)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
