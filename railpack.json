@@ -1,0 +1,20 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "nixpacksConfig": {
+      "phases": {
+        "install": {
+          "cmds": ["npm ci --prefix frontend"]
+        },
+        "build": {
+          "cmds": ["CI=false npm run build --prefix frontend"]
+        }
+      }
+    }
+  },
+  "deploy": {
+    "startCommand": "serve -s frontend/build -l $PORT",
+    "healthcheckPath": "/",
+    "healthcheckTimeout": 100
+  }
+}

@@ -1,8 +1,0 @@
-[phases.install]
-cmds = ["npm ci --prefix frontend"]
-
-[phases.build]
-cmds = ["CI=false npm run build --prefix frontend"]
-
-[phases.start]
-cmd = "serve -s frontend/build -l $PORT"
