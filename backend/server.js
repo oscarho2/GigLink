@@ -23,18 +23,45 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const allowedOrigins = ["http://localhost:3000", "https://giglinksocial.com"];
+const defaultOrigins = [
+  'http://localhost:3000',
+  'https://giglinksocial.com'
+];
+
+const envOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
+  : [];
+
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+const allowAllOrigins = allowedOrigins.includes('*');
+
+const isOriginAllowed = (origin) => {
+  if (allowAllOrigins) {
+    return true;
+  }
+  if (!origin) {
+    return true; // Non-CORS requests (e.g. same-origin, server health checks)
+  }
+  return allowedOrigins.includes(origin);
+};
 
 const io = socketIo(server, {
   cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"]
+    origin: allowAllOrigins ? '*' : allowedOrigins,
+    methods: ['GET', 'POST']
   }
 });
 const PORT = process.env.PORT || 5001;
 
 // Middleware
-app.use(cors({ origin: allowedOrigins }));
+app.use(cors({
+  origin(origin, callback) {
+    if (isOriginAllowed(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+  }
+}));
 app.use(express.json());
 // Serve static uploads (public)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
