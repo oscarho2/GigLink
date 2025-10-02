@@ -28,13 +28,16 @@
     "react-toastify": "^11.0.5",
     "socket.io-client": "^4.8.1",
     "web-vitals": "^2.1.4",
-    "world-countries": "^5.1.0"
+    "world-countries": "^5.1.0",
+    "serve": "^14.2.0"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "serve": "serve -s build",
+    "start:prod": "npm run build && npm run serve"
   },
   "eslintConfig": {
     "extends": [
