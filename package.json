@@ -6,10 +6,9 @@
     "backup": "node scripts/backup-database.js",
     "backup:schedule": "node scripts/schedule-backups.js",
     "restore": "node scripts/restore-database.js",
-    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run start:dev --prefix frontend\"",
-    "start": "node backend/server.js",
-    "build": "npm run build --prefix frontend",
-    "postinstall": "npm install --prefix backend && npm install --prefix frontend"
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\"",
+    "start": "concurrently \"cd backend && npm start\" \"cd frontend && npm start\"",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
   "dependencies": {
     "axios": "^1.11.0",
