@@ -1,3 +1,6 @@
+[phases.install]
+cmds = ["npm ci --prefix frontend"]
+
 [phases.build]
 cmds = ["npm run build --prefix frontend"]
 
