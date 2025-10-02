@@ -2,7 +2,7 @@
 cmds = ["npm ci --prefix frontend"]
 
 [phases.build]
-cmds = ["npm run build --prefix frontend"]
+cmds = ["CI=false npm run build --prefix frontend"]
 
 [phases.start]
 cmd = "serve -s frontend/build -l $PORT"
