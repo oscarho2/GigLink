@@ -8,7 +8,8 @@
     "restore": "node scripts/restore-database.js",
     "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\"",
     "start": "concurrently \"cd backend && npm start\" \"cd frontend && npm start\"",
-    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "start:prod": "npm install --prefix frontend && npm install --prefix backend && npm run build --prefix frontend && node backend/server.js"
   },
   "dependencies": {
     "axios": "^1.11.0",
