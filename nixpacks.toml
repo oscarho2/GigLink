@@ -1,0 +1,15 @@
+[phases.install]
+cmds = [
+  "npm ci --prefix frontend"
+]
+
+[phases.build]
+cmds = [
+  "npm run build --prefix frontend"
+]
+
+[start]
+cmd = "npx --yes serve@14 -s frontend/build -l tcp://0.0.0.0:3000"
+
+[[ports]]
+port = 3000
