@@ -53,6 +53,17 @@ import UserAvatar from '../components/UserAvatar';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 import MentionInput from '../components/MentionInput';
 
+const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '') || '').replace(/\/$/, '');
+
+const toAbsoluteUrl = (relativePath) => {
+  if (!relativePath) {
+    return '';
+  }
+
+  const normalizedPath = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
+  return `${API_BASE_URL}${normalizedPath}`;
+};
+
 const MyPosts = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
@@ -311,25 +322,31 @@ const MyPosts = () => {
     // If URL already starts with http/https
     if (url.startsWith('http://') || url.startsWith('https://')) {
       normalizedUrl = url;
-      // Check if it needs the images subdirectory
+      // For legacy relative paths stored as absolute URLs ensure they include images folder
       if (normalizedUrl.includes('/uploads/') && !normalizedUrl.includes('/uploads/images/') && !normalizedUrl.includes('/uploads/posts/')) {
         normalizedUrl = normalizedUrl.replace('/uploads/', '/uploads/images/');
       }
-    }
-    // If URL starts with /, it's a relative path - prepend the backend URL
-    else if (url.startsWith('/')) {
-      // Check if it's a posts path or needs images subdirectory
-      if (url.includes('/uploads/posts/')) {
-        normalizedUrl = `http://localhost:5001${url}`;
-      } else if (url.startsWith('/uploads/') && !url.includes('/uploads/images/')) {
-        normalizedUrl = `http://localhost:5001${url.replace('/uploads/', '/uploads/images/')}`;
-      } else {
-        normalizedUrl = `http://localhost:5001${url}`;
+    } else if (url.startsWith('/')) {
+      let path = url;
+      if (path.includes('/uploads/') && !path.includes('/uploads/images/') && !path.includes('/uploads/posts/')) {
+        path = path.replace('/uploads/', '/uploads/images/');
       }
-    }
-    // If URL doesn't start with /, assume it's a relative path and add /uploads/images/
-    else {
-      normalizedUrl = `http://localhost:5001/uploads/images/${url}`;
+      normalizedUrl = toAbsoluteUrl(path);
+    } else {
+      let path = url;
+      if (path.startsWith('uploads/')) {
+        path = `/${path}`;
+      } else if (path.startsWith('images/') || path.startsWith('posts/')) {
+        path = `/uploads/${path}`;
+      } else {
+        path = `/uploads/images/${path}`;
+      }
+
+      if (path.includes('/uploads/') && !path.includes('/uploads/images/') && !path.includes('/uploads/posts/')) {
+        path = path.replace('/uploads/', '/uploads/images/');
+      }
+
+      normalizedUrl = toAbsoluteUrl(path);
     }
     
     return normalizedUrl;
