@@ -1,5 +1,6 @@
 [phases.install]
 cmds = [
+  "npm ci --prefix backend",
   "npm ci --prefix frontend"
 ]
 
@@ -9,7 +10,7 @@ cmds = [
 ]
 
 [start]
-cmd = "npx --yes serve@14 -s frontend/build -l tcp://0.0.0.0:3000"
+cmd = "node backend/server.js"
 
 [[ports]]
-port = 3000
+port = 5001

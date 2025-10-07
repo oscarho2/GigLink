@@ -5,6 +5,7 @@ const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
 const userRoutes = require('./routes/users');
 const authRoutes = require('./routes/auth');
 const gigRoutes = require('./routes/gigs');
@@ -82,15 +83,6 @@ app.use('/api/venues', venuesRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/locations', locationRoutes);
 
-// Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../frontend/build')));
-
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/build/index.html'));
-});
-
 // DB Health endpoint
 app.get('/api/health/db', async (req, res) => {
   try {
@@ -117,10 +109,20 @@ app.get('/api/health/db', async (req, res) => {
   }
 });
 
-// Default route
-app.get('/', (req, res) => {
-  res.send('GigLink API is running');
-});
+// Serve static frontend build for non-API routes when available
+const frontendBuildPath = path.join(__dirname, '..', 'frontend', 'build');
+if (fs.existsSync(frontendBuildPath)) {
+  app.use(express.static(frontendBuildPath));
+
+  app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  });
+} else {
+  console.warn('Frontend build directory not found; SPA routes may 404 until `npm run build --prefix frontend` runs.');
+}
 
 // Connect to MongoDB
 const connectDB = async () => {
