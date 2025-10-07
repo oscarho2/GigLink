@@ -1,25 +1,29 @@
-const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { pipeline } = require('stream');
+const { promisify } = require('util');
 const { v4: uuidv4 } = require('uuid');
+
+const streamPipeline = promisify(pipeline);
 
 const downloadImage = async (url, directory) => {
   try {
-    const response = await axios({ url, responseType: 'stream' });
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Unexpected response ${response.status}`);
+    }
 
-    const extension = response.headers['content-type'].split('/')[1];
+    const contentType = response.headers.get('content-type') || '';
+    const subtype = contentType.split('/')[1] || '';
+    const extension = subtype.split(';')[0] || 'jpg';
     const filename = `${uuidv4()}.${extension}`;
     const imagePath = path.join(directory, filename);
 
-    const writer = fs.createWriteStream(imagePath);
-    response.data.pipe(writer);
+    await streamPipeline(response.body, fs.createWriteStream(imagePath));
 
-    return new Promise((resolve, reject) => {
-      writer.on('finish', () => resolve(`/${path.join('uploads', 'images', filename)}`));
-      writer.on('error', reject);
-    });
+    return `/${path.join('uploads', 'images', filename)}`;
   } catch (error) {
-    console.error('Error downloading image:', error);
+    console.error('Error downloading image:', error.message || error);
     return null;
   }
 };
