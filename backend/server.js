@@ -1,4 +1,6 @@
 require('dotenv').config();
+// Suppress AWS SDK v2 maintenance warning (used for Cloudflare R2 S3 compatibility)
+process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
