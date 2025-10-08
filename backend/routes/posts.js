@@ -35,25 +35,25 @@ const addPostLikeStatus = (post, userId) => {
     if (commentObj.user) {
       commentObj.user.avatar = getPublicUrl(commentObj.user.avatar);
     }
+
+    if (commentObj.user) {
+      commentObj.user.avatar = getPublicUrl(commentObj.user.avatar);
+    }
     
     // Add like status for each reply
     if (comment.replies) {
-      commentObj.replies = comment.replies.map(reply => ({
-        ...reply,
-        isLikedByUser: reply.likes.some(like => like.user._id.toString() === userId),
-        likesCount: reply.likes.length
-      }));
-      commentObj.replies = commentObj.replies.map(reply => {
-        if (reply.user) {
-          return {
-            ...reply,
-            user: {
-              ...reply.user,
-              avatar: getPublicUrl(reply.user.avatar)
-            }
-          };
+      commentObj.replies = comment.replies.map(reply => {
+        const replyObj = {
+          ...reply,
+          isLikedByUser: reply.likes.some(like => like.user._id.toString() === userId),
+          likesCount: reply.likes.length
+        };
+
+        if (replyObj.user) {
+          replyObj.user.avatar = getPublicUrl(replyObj.user.avatar);
         }
-        return reply;
+
+        return replyObj;
       });
     }
     
