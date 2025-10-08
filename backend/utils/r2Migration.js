@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const { promisify } = require('util');
 const mongoose = require('mongoose');
-const { uploadFileFromDiskToR2, getStorageConfig } = require('./r2Config');
+const { uploadFileFromDiskToR2, getStorageConfig, getPublicUrl } = require('./r2Config');
 
 const Post = require('../models/Post');
 const User = require('../models/User');
@@ -25,16 +25,11 @@ const normalizeMediaUrlValue = (url) => {
     return url;
   }
 
-  const base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
-  if (!base) {
-    return url;
-  }
-
   const strippedHost = url.replace(/^https?:\/\/[^/]+/, '');
   const normalizedPath = strippedHost.replace(/^\/+/, '');
 
   if (normalizedPath.startsWith('uploads/')) {
-    return `${base}/${normalizedPath.replace(/^uploads\//, '')}`;
+    return getPublicUrl(normalizedPath.replace(/^uploads\//, ''));
   }
 
   if (
@@ -44,7 +39,7 @@ const normalizeMediaUrlValue = (url) => {
     normalizedPath.startsWith('messages/') ||
     normalizedPath.startsWith('videos/')
   ) {
-    return `${base}/${normalizedPath}`;
+    return getPublicUrl(normalizedPath);
   }
 
   return url;

@@ -22,6 +22,7 @@ const mentionRoutes = require('./routes/mentions');
 const venuesRoutes = require('./routes/venues');
 const contactRoutes = require('./routes/contact');
 const locationRoutes = require('./routes/locations');
+const mediaRoutes = require('./routes/media');
 const path = require('path');
 const { getStorageConfig } = require('./utils/r2Config');
 const {
@@ -93,6 +94,7 @@ app.use('/api/mentions', mentionRoutes);
 app.use('/api/venues', venuesRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/locations', locationRoutes);
+app.use('/api/media', mediaRoutes);
 
 // DB Health endpoint
 app.get('/api/health/db', async (req, res) => {

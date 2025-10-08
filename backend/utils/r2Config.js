@@ -1,4 +1,4 @@
-const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const multer = require('multer');
 const path = require('path');
@@ -132,6 +132,14 @@ const deleteFile = async (fileKey) => {
 };
 
 // Helper function to generate signed URLs for private files
+const getProxyUrl = (normalizedKey) => {
+  const encoded = normalizedKey
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+  return `/api/media/r2/${encoded}`;
+};
+
 const getPublicUrl = (fileKey) => {
   if (!fileKey) {
     return '';
@@ -140,7 +148,10 @@ const getPublicUrl = (fileKey) => {
   const normalizedKey = fileKey.replace(/^\/+/, '');
   if (isR2Configured) {
     const base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
-    return `${base}/${normalizedKey}`;
+    if (base) {
+      return `${base}/${normalizedKey}`;
+    }
+    return getProxyUrl(normalizedKey);
   }
   return `/uploads/${normalizedKey}`;
 };
@@ -208,6 +219,19 @@ const uploadFileFromDiskToR2 = async (localPath, key, contentType = 'application
   };
 };
 
+const getObjectStream = async (key) => {
+  if (!isR2Configured || !s3Client) {
+    throw new Error('R2 storage is not configured.');
+  }
+
+  const response = await s3Client.send(new GetObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: key
+  }));
+
+  return response;
+};
+
 module.exports = {
   s3Client,
   upload,
@@ -217,5 +241,6 @@ module.exports = {
   getPublicUrl,
   getStorageConfig,
   determineFolder,
-  uploadsDir
+  uploadsDir,
+  getObjectStream
 };
