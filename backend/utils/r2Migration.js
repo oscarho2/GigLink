@@ -25,24 +25,25 @@ const normalizeMediaUrlValue = (url) => {
     return url;
   }
 
-  const strippedHost = url.replace(/^https?:\/\/[^/]+/, '');
-  const normalizedPath = strippedHost.replace(/^\/+/, '');
-
-  if (normalizedPath.startsWith('uploads/')) {
-    return getPublicUrl(normalizedPath.replace(/^uploads\//, ''));
+  if (url.startsWith('/api/media/r2/')) {
+    return url;
   }
 
-  if (
-    normalizedPath.startsWith('images/') ||
-    normalizedPath.startsWith('posts/') ||
-    normalizedPath.startsWith('group-avatars/') ||
-    normalizedPath.startsWith('messages/') ||
-    normalizedPath.startsWith('videos/')
-  ) {
-    return getPublicUrl(normalizedPath);
+  const strippedHost = url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/+/, '');
+
+  if (!strippedHost) {
+    return getPublicUrl(url);
   }
 
-  return url;
+  if (strippedHost.startsWith('api/media/r2/')) {
+    return `/${strippedHost}`;
+  }
+
+  const normalizedPath = strippedHost.startsWith('uploads/')
+    ? strippedHost.replace(/^uploads\//, '')
+    : strippedHost;
+
+  return getPublicUrl(normalizedPath);
 };
 
 async function migrateLocalUploadsToR2({ logger = defaultLogger } = {}) {
@@ -89,12 +90,6 @@ async function migrateLocalUploadsToR2({ logger = defaultLogger } = {}) {
 }
 
 async function normalizeMediaUrls({ logger = defaultLogger } = {}) {
-  const base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
-  if (!base) {
-    logger.warn('[R2 Normalize] R2_PUBLIC_URL is not set. Skipping URL normalization.');
-    return { updatedPosts: 0, skipped: true };
-  }
-
   if (!mongoose.connection?.readyState) {
     logger.warn('[R2 Normalize] Mongoose connection is not ready. Skipping normalization.');
     return { updatedPosts: 0, skipped: true };
@@ -136,12 +131,6 @@ async function normalizeMediaUrls({ logger = defaultLogger } = {}) {
 }
 
 async function normalizeUserAvatars({ logger = defaultLogger } = {}) {
-  const base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
-  if (!base) {
-    logger.warn('[R2 Normalize Avatars] R2_PUBLIC_URL is not set. Skipping.');
-    return { updatedUsers: 0, skipped: true };
-  }
-
   if (!mongoose.connection?.readyState) {
     logger.warn('[R2 Normalize Avatars] Mongoose connection is not ready. Skipping.');
     return { updatedUsers: 0, skipped: true };

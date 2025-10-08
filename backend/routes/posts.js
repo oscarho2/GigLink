@@ -19,6 +19,10 @@ const addPostLikeStatus = (post, userId) => {
   postObj.isLikedByUser = post.likes.some(like => like.user._id.toString() === userId);
   postObj.likesCount = post.likes.length;
   postObj.commentsCount = post.comments.length;
+
+  if (postObj.author) {
+    postObj.author.avatar = getPublicUrl(postObj.author.avatar);
+  }
   
   // Add like status for each comment
   postObj.comments = postObj.comments.map(comment => {
@@ -27,6 +31,10 @@ const addPostLikeStatus = (post, userId) => {
       isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
       likesCount: comment.likes.length
     };
+
+    if (commentObj.user) {
+      commentObj.user.avatar = getPublicUrl(commentObj.user.avatar);
+    }
     
     // Add like status for each reply
     if (comment.replies) {
@@ -35,6 +43,18 @@ const addPostLikeStatus = (post, userId) => {
         isLikedByUser: reply.likes.some(like => like.user._id.toString() === userId),
         likesCount: reply.likes.length
       }));
+      commentObj.replies = commentObj.replies.map(reply => {
+        if (reply.user) {
+          return {
+            ...reply,
+            user: {
+              ...reply.user,
+              avatar: getPublicUrl(reply.user.avatar)
+            }
+          };
+        }
+        return reply;
+      });
     }
     
     return commentObj;

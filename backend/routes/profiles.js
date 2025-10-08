@@ -7,12 +7,38 @@ const {
   upload,
   getPublicUrl,
   getStorageConfig,
-  uploadBufferToR2
+  uploadBufferToR2,
+  deleteFile
 } = require('../utils/r2Config');
 const { normalizeLocation } = require('../utils/location');
 const { parseLocation } = require('../utils/locationParser');
 const path = require('path');
 const fs = require('fs');
+
+const formatPhoto = (photo) => {
+  if (!photo) {
+    return photo;
+  }
+
+  const plain = typeof photo.toObject === 'function' ? photo.toObject() : photo;
+  const currentUrl = plain.url || '';
+
+  if (currentUrl.startsWith('/api/media/r2/')) {
+    return plain;
+  }
+
+  if (/\.r2\.dev\//.test(currentUrl) || currentUrl.includes('uploads/')) {
+    return {
+      ...plain,
+      url: getPublicUrl(currentUrl)
+    };
+  }
+
+  return {
+    ...plain,
+    url: currentUrl
+  };
+};
 
 // SIMPLIFIED MUSICIAN STATUS ROUTES - REBUILD FROM GROUND UP
 
@@ -116,7 +142,7 @@ router.get('/me', auth, async (req, res) => {
       user: {
         _id: profile.user._id,
         name: profile.user.name,
-        avatar: profile.user.avatar || '',
+        avatar: getPublicUrl(profile.user.avatar),
         location: profile.user.location || 'Location not specified',
         locationData: profile.user.locationData,
         instruments: profile.user.instruments || [],
@@ -130,7 +156,7 @@ router.get('/me', auth, async (req, res) => {
       availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
       videos: profile.videos || [],
-      photos: profile.photos || []
+      photos: (profile.photos || []).map(formatPhoto)
     };
     
     res.json(transformedProfile);
@@ -268,7 +294,7 @@ router.post('/', auth, async (req, res) => {
         availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
         portfolio: [],
         videos: profile.videos || [],
-        photos: profile.photos || []
+        photos: (profile.photos || []).map(formatPhoto)
       };
       
       return res.json(transformedProfile);
@@ -291,7 +317,7 @@ router.post('/', auth, async (req, res) => {
       user: {
         _id: profile.user._id,
         name: profile.user.name,
-        avatar: profile.user.avatar || '',
+        avatar: getPublicUrl(profile.user.avatar),
         location: profile.user.location || 'Location not specified',
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
@@ -303,7 +329,7 @@ router.post('/', auth, async (req, res) => {
       availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
       videos: profile.videos || [],
-      photos: profile.photos || []
+      photos: (profile.photos || []).map(formatPhoto)
     };
     
     res.json(transformedProfile);
@@ -387,7 +413,7 @@ router.put('/me', auth, async (req, res) => {
       user: {
         _id: profile.user._id,
         name: profile.user.name,
-        avatar: profile.user.avatar || '',
+        avatar: getPublicUrl(profile.user.avatar),
         location: profile.user.location || 'Location not specified',
         locationData: profile.user.locationData,
         instruments: profile.user.instruments || [],
@@ -400,7 +426,7 @@ router.put('/me', auth, async (req, res) => {
       availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
       videos: profile.videos || [],
-      photos: profile.photos || []
+      photos: (profile.photos || []).map(formatPhoto)
     };
 
     console.log('📤 BACKEND: About to send response');
@@ -477,7 +503,7 @@ router.get('/', async (req, res) => {
       user: {
         _id: profile.user._id,
         name: profile.user.name,
-        avatar: profile.user.avatar || '',
+        avatar: getPublicUrl(profile.user.avatar),
         location: profile.user.location || 'Location not specified',
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
@@ -531,7 +557,7 @@ router.get('/user/:user_id', async (req, res) => {
       availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
       videos: profile.videos || [],
-      photos: profile.photos || []
+      photos: (profile.photos || []).map(formatPhoto)
     };
     
     res.json(transformedProfile);
@@ -642,17 +668,14 @@ router.post('/photos', auth, upload.single('photo'), async (req, res) => {
     }
 
     const { isR2Configured } = getStorageConfig();
-    let fileKey, photoUrl;
+    let fileKey;
 
     if (isR2Configured) {
-      // R2 upload
-      fileKey = req.file.key;
-      photoUrl = getPublicUrl(fileKey);
+      const result = await uploadBufferToR2(req.file);
+      fileKey = result.key;
     } else {
-      // Local upload
-      const relativePath = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path);
-      fileKey = relativePath.replace(/\\/g, '/'); // Normalize path separators
-      photoUrl = getPublicUrl(fileKey);
+      const relativePath = req.file.path ? path.relative(path.join(__dirname, '..', 'uploads'), req.file.path) : req.file.filename;
+      fileKey = relativePath.replace(/\\/g, '/');
     }
 
     const caption = req.body.caption || '';
@@ -663,7 +686,7 @@ router.post('/photos', auth, upload.single('photo'), async (req, res) => {
     }
 
     const newPhoto = {
-      url: photoUrl,
+      url: fileKey,
       caption: caption,
       date: new Date()
     };
@@ -671,7 +694,7 @@ router.post('/photos', auth, upload.single('photo'), async (req, res) => {
     profile.photos.push(newPhoto);
     await profile.save();
 
-    res.json({ message: 'Photo uploaded successfully', photo: newPhoto });
+    res.json({ message: 'Photo uploaded successfully', photo: formatPhoto(newPhoto) });
   } catch (err) {
     console.error('Photo upload error:', err.message);
     res.status(500).send('Server Error');
@@ -744,10 +767,19 @@ router.delete('/photos/:photoId', auth, async (req, res) => {
     profile.photos.splice(photoIndex, 1);
     await profile.save();
     
-    // Delete the actual file
-    const filePath = path.join(__dirname, '..', photoToDelete.url);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    const { isR2Configured } = getStorageConfig();
+    if (isR2Configured) {
+      let key = photoToDelete.url || '';
+      const match = key.match(/api\/media\/r2\/(.+)$/);
+      if (match && match[1]) {
+        key = decodeURIComponent(match[1]);
+      }
+      await deleteFile(key);
+    } else {
+      const filePath = path.join(__dirname, '..', photoToDelete.url || '');
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
     
     res.json({ message: 'Photo deleted successfully' });
@@ -786,7 +818,12 @@ router.put('/avatar', auth, upload.single('avatar'), async (req, res) => {
 
     user.avatar = avatarKey;
     await user.save();
-    
+
+    await Profile.updateOne(
+      { user: req.user.id },
+      { $set: { avatar: avatarKey } }
+    );
+
     res.json({
       message: 'Profile picture updated successfully',
       avatar: getPublicUrl(user.avatar)
