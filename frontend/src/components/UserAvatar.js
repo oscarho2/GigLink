@@ -11,7 +11,7 @@ const convertR2PublicUrlToProxy = (url) => {
     return '';
   }
 
-  const match = url.match(/\.r2\.dev\/[\w-]+\/(.+)$/);
+  const match = url.match(/(?:r2\.dev\/[\w-]+\/|uploads\/)(.+)$/);
   if (match && match[1]) {
     return `/api/media/r2/${encodeKey(match[1])}`;
   }
