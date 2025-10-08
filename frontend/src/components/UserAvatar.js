@@ -2,6 +2,21 @@ import React from 'react';
 import { Avatar } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 
+const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '') || '').replace(/\/$/, '');
+
+const toAbsoluteUrl = (input) => {
+  if (!input) {
+    return '';
+  }
+
+  if (input.startsWith('http://') || input.startsWith('https://')) {
+    return input;
+  }
+
+  const normalizedPath = input.startsWith('/') ? input : `/${input}`;
+  return `${API_BASE_URL}${normalizedPath}`;
+};
+
 const UserAvatar = ({ 
   user, 
   src, 
@@ -14,11 +29,8 @@ const UserAvatar = ({
 }) => {
   // Determine the avatar source
   const avatarSrc = src || user?.avatar || user?.profilePicture;
-  
-  // Build the full URL if we have a relative path
-  const fullAvatarSrc = avatarSrc && avatarSrc.startsWith('/') 
-    ? avatarSrc 
-    : avatarSrc;
+
+  const fullAvatarSrc = toAbsoluteUrl(avatarSrc);
 
   // Determine the alt text
   const avatarAlt = alt || user?.name || 'User';
