@@ -14,9 +14,12 @@ const isR2Configured = Boolean(
   !process.env.R2_ACCESS_KEY_ID.includes('your_r2_access_key')
 );
 
-let s3Client = null;
-if (isR2Configured) {
-  s3Client = new S3Client({
+const createS3Client = () => {
+  if (!isR2Configured) {
+    return null;
+  }
+
+  return new S3Client({
     endpoint: process.env.R2_ENDPOINT,
     region: 'auto',
     forcePathStyle: true,
@@ -25,7 +28,10 @@ if (isR2Configured) {
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
     }
   });
-} else {
+};
+
+let s3Client = createS3Client();
+if (!s3Client) {
   console.warn('R2 storage is not configured. File uploads will be disabled.');
 }
 
@@ -145,7 +151,11 @@ const getPublicUrl = (fileKey) => {
     return '';
   }
 
-  const normalizedKey = fileKey.replace(/^\/+/, '');
+  let normalizedKey = fileKey.replace(/^\/+/, '');
+
+  if (!normalizedKey.includes('/') && isR2Configured) {
+    normalizedKey = `images/${normalizedKey}`;
+  }
   if (isR2Configured) {
     const base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
     if (base) {
@@ -163,8 +173,12 @@ const getStorageConfig = () => ({
 });
 
 const uploadBufferToR2 = async (file) => {
-  if (!isR2Configured || !s3Client) {
+  if (!isR2Configured) {
     throw new Error('R2 storage is not configured.');
+  }
+
+  if (!s3Client) {
+    s3Client = createS3Client();
   }
 
   const folder = determineFolder(file.mimetype);
@@ -196,8 +210,12 @@ const uploadBufferToR2 = async (file) => {
 };
 
 const uploadFileFromDiskToR2 = async (localPath, key, contentType = 'application/octet-stream') => {
-  if (!isR2Configured || !s3Client) {
+  if (!isR2Configured) {
     throw new Error('R2 storage is not configured.');
+  }
+
+  if (!s3Client) {
+    s3Client = createS3Client();
   }
 
   const upload = new Upload({
@@ -220,16 +238,37 @@ const uploadFileFromDiskToR2 = async (localPath, key, contentType = 'application
 };
 
 const getObjectStream = async (key) => {
-  if (!isR2Configured || !s3Client) {
+  if (!isR2Configured) {
     throw new Error('R2 storage is not configured.');
   }
 
-  const response = await s3Client.send(new GetObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
-    Key: key
-  }));
+  if (!s3Client) {
+    s3Client = createS3Client();
+  }
 
-  return response;
+  const candidates = [key];
+
+  if (!key.includes('/')) {
+    candidates.push(`images/${key}`, `group-avatars/${key}`, `posts/${key}`, `videos/${key}`);
+  }
+
+  let lastError;
+  for (const candidate of candidates) {
+    try {
+      const response = await s3Client.send(new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: candidate
+      }));
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (error.name !== 'NoSuchKey') {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error('Object not found in R2');
 };
 
 module.exports = {

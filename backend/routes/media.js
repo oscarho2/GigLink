@@ -10,7 +10,7 @@ router.get('/r2/:key(*)', async (req, res) => {
     return res.status(404).end();
   }
 
-  const key = req.params.key;
+  const key = decodeURIComponent(req.params.key);
 
   try {
     const object = await getObjectStream(key);
