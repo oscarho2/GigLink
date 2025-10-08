@@ -23,6 +23,11 @@ const venuesRoutes = require('./routes/venues');
 const contactRoutes = require('./routes/contact');
 const locationRoutes = require('./routes/locations');
 const path = require('path');
+const { getStorageConfig } = require('./utils/r2Config');
+const {
+  migrateLocalUploadsToR2,
+  normalizeMediaUrls
+} = require('./utils/r2Migration');
 
 const app = express();
 const server = http.createServer(app);
@@ -55,6 +60,9 @@ const io = socketIo(server, {
   }
 });
 const PORT = process.env.PORT || 5001;
+
+const { isR2Configured } = getStorageConfig();
+console.log('[Startup] R2 configured:', isR2Configured, 'public URL:', process.env.R2_PUBLIC_URL || 'not set');
 
 // Middleware
 app.use(cors({
@@ -141,10 +149,11 @@ const connectDB = async () => {
       socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
     });
     console.log(`MongoDB Atlas connected successfully: ${conn.connection.host}`);
+    scheduleR2Maintenance();
   } catch (err) {
     console.error('MongoDB Atlas connection error:', err.message);
     console.log('Attempting to connect to local MongoDB...');
-    
+
     try {
       // Fallback to local MongoDB
       const localConn = await mongoose.connect('mongodb://localhost:27017/giglink', {
@@ -153,6 +162,7 @@ const connectDB = async () => {
         serverSelectionTimeoutMS: 3000,
       });
       console.log(`Local MongoDB connected successfully: ${localConn.connection.host}`);
+      scheduleR2Maintenance();
     } catch (localErr) {
       console.error('Local MongoDB connection also failed:', localErr.message);
       console.log('Running without database connection - authentication will not work');
@@ -162,6 +172,30 @@ const connectDB = async () => {
 
 // Initialize MongoDB connection
 connectDB();
+
+function scheduleR2Maintenance() {
+  if (process.env.AUTO_RUN_R2_MIGRATION === 'true' && isR2Configured) {
+    setImmediate(async () => {
+      try {
+        const migration = await migrateLocalUploadsToR2({ logger: console });
+        if (!migration.skipped) {
+          console.log(`[R2 Migration] Uploaded ${migration.migrated} files from local storage.`);
+        }
+      } catch (error) {
+        console.error('[R2 Migration] Failed to migrate local uploads:', error);
+      }
+
+      try {
+        const normalization = await normalizeMediaUrls({ logger: console });
+        if (!normalization.skipped) {
+          console.log(`[R2 Normalize] Updated ${normalization.updatedPosts} posts with R2 URLs.`);
+        }
+      } catch (error) {
+        console.error('[R2 Normalize] Failed to update media URLs:', error);
+      }
+    });
+  }
+}
 
 // Socket.IO authentication middleware
 io.use((socket, next) => {

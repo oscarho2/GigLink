@@ -1,0 +1,146 @@
+const path = require('path');
+const fs = require('fs');
+const { promisify } = require('util');
+const mongoose = require('mongoose');
+const { uploadFileFromDiskToR2, getStorageConfig, getPublicUrl } = require('./r2Config');
+
+const Post = require('../models/Post');
+
+const readdir = promisify(fs.readdir);
+const stat = promisify(fs.stat);
+
+const DIRECTORIES_TO_MIGRATE = ['group-avatars', 'images', 'messages', 'posts', 'videos'];
+
+const defaultLogger = {
+  info: console.log,
+  warn: console.warn,
+  error: console.error,
+};
+
+const normalizeKey = (key) => key.replace(/^\/+/, '').replace(/\\+/g, '/');
+
+const normalizeMediaUrlValue = (url) => {
+  if (!url) {
+    return url;
+  }
+
+  const base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+  if (!base) {
+    return url;
+  }
+
+  const strippedHost = url.replace(/^https?:\/\/[^/]+/, '');
+  const normalizedPath = strippedHost.replace(/^\/+/, '');
+
+  if (normalizedPath.startsWith('uploads/')) {
+    return `${base}/${normalizedPath.replace(/^uploads\//, '')}`;
+  }
+
+  if (
+    normalizedPath.startsWith('images/') ||
+    normalizedPath.startsWith('posts/') ||
+    normalizedPath.startsWith('group-avatars/') ||
+    normalizedPath.startsWith('messages/') ||
+    normalizedPath.startsWith('videos/')
+  ) {
+    return `${base}/${normalizedPath}`;
+  }
+
+  return url;
+};
+
+async function migrateLocalUploadsToR2({ logger = defaultLogger } = {}) {
+  const { isR2Configured, uploadsDir } = getStorageConfig();
+
+  if (!isR2Configured) {
+    logger.warn('[R2 Migration] R2 is not configured. Skipping migration.');
+    return { migrated: 0, skipped: true };
+  }
+
+  let migrated = 0;
+
+  for (const dir of DIRECTORIES_TO_MIGRATE) {
+    const localDir = path.join(uploadsDir, dir);
+    if (!fs.existsSync(localDir)) {
+      logger.info(`[R2 Migration] Directory ${localDir} does not exist, skipping.`);
+      continue;
+    }
+
+    const files = await readdir(localDir);
+    logger.info(`[R2 Migration] Migrating directory: ${dir} (${files.length} entries)`);
+
+    for (const file of files) {
+      const localPath = path.join(localDir, file);
+      const fileStat = await stat(localPath);
+
+      if (fileStat.isDirectory()) {
+        continue;
+      }
+
+      const key = normalizeKey(`${dir}/${file}`);
+
+      try {
+        await uploadFileFromDiskToR2(localPath, key);
+        migrated += 1;
+        logger.info(`[R2 Migration] Uploaded ${key}`);
+      } catch (error) {
+        logger.error(`[R2 Migration] Failed to upload ${key}:`, error);
+      }
+    }
+  }
+
+  return { migrated, skipped: false };
+}
+
+async function normalizeMediaUrls({ logger = defaultLogger } = {}) {
+  const base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+  if (!base) {
+    logger.warn('[R2 Normalize] R2_PUBLIC_URL is not set. Skipping URL normalization.');
+    return { updatedPosts: 0, skipped: true };
+  }
+
+  if (!mongoose.connection?.readyState) {
+    logger.warn('[R2 Normalize] Mongoose connection is not ready. Skipping normalization.');
+    return { updatedPosts: 0, skipped: true };
+  }
+
+  const posts = await Post.find({ 'media.url': { $regex: 'uploads/' } });
+  logger.info(`[R2 Normalize] Found ${posts.length} posts with legacy media URLs.`);
+
+  let updatedPosts = 0;
+
+  for (const post of posts) {
+    let updated = false;
+
+    post.media = post.media.map((item) => {
+      if (!item?.url) {
+        return item;
+      }
+
+      const newUrl = normalizeMediaUrlValue(item.url);
+      if (newUrl !== item.url) {
+        updated = true;
+        return {
+          ...item.toObject(),
+          url: newUrl,
+        };
+      }
+
+      return item;
+    });
+
+    if (updated) {
+      await post.save();
+      updatedPosts += 1;
+      logger.info(`[R2 Normalize] Updated post ${post._id}`);
+    }
+  }
+
+  return { updatedPosts, skipped: false };
+}
+
+module.exports = {
+  migrateLocalUploadsToR2,
+  normalizeMediaUrls,
+  normalizeMediaUrlValue,
+};
