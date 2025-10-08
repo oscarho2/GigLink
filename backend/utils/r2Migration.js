@@ -2,9 +2,10 @@ const path = require('path');
 const fs = require('fs');
 const { promisify } = require('util');
 const mongoose = require('mongoose');
-const { uploadFileFromDiskToR2, getStorageConfig, getPublicUrl } = require('./r2Config');
+const { uploadFileFromDiskToR2, getStorageConfig } = require('./r2Config');
 
 const Post = require('../models/Post');
+const User = require('../models/User');
 
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
@@ -139,8 +140,39 @@ async function normalizeMediaUrls({ logger = defaultLogger } = {}) {
   return { updatedPosts, skipped: false };
 }
 
+async function normalizeUserAvatars({ logger = defaultLogger } = {}) {
+  const base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+  if (!base) {
+    logger.warn('[R2 Normalize Avatars] R2_PUBLIC_URL is not set. Skipping.');
+    return { updatedUsers: 0, skipped: true };
+  }
+
+  if (!mongoose.connection?.readyState) {
+    logger.warn('[R2 Normalize Avatars] Mongoose connection is not ready. Skipping.');
+    return { updatedUsers: 0, skipped: true };
+  }
+
+  const users = await User.find({ avatar: { $regex: 'uploads/' } });
+  logger.info(`[R2 Normalize Avatars] Found ${users.length} users with legacy avatars.`);
+
+  let updatedUsers = 0;
+
+  for (const user of users) {
+    const newUrl = normalizeMediaUrlValue(user.avatar);
+    if (newUrl !== user.avatar) {
+      user.avatar = newUrl;
+      await user.save();
+      updatedUsers += 1;
+      logger.info(`[R2 Normalize Avatars] Updated user ${user._id}`);
+    }
+  }
+
+  return { updatedUsers, skipped: false };
+}
+
 module.exports = {
   migrateLocalUploadsToR2,
   normalizeMediaUrls,
+  normalizeUserAvatars,
   normalizeMediaUrlValue,
 };

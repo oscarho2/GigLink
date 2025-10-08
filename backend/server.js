@@ -26,7 +26,8 @@ const path = require('path');
 const { getStorageConfig } = require('./utils/r2Config');
 const {
   migrateLocalUploadsToR2,
-  normalizeMediaUrls
+  normalizeMediaUrls,
+  normalizeUserAvatars
 } = require('./utils/r2Migration');
 
 const app = express();
@@ -192,6 +193,15 @@ function scheduleR2Maintenance() {
         }
       } catch (error) {
         console.error('[R2 Normalize] Failed to update media URLs:', error);
+      }
+
+      try {
+        const avatarNormalization = await normalizeUserAvatars({ logger: console });
+        if (!avatarNormalization.skipped) {
+          console.log(`[R2 Normalize Avatars] Updated ${avatarNormalization.updatedUsers} users with R2 avatars.`);
+        }
+      } catch (error) {
+        console.error('[R2 Normalize Avatars] Failed to update avatar URLs:', error);
       }
     });
   }
