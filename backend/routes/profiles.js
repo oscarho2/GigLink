@@ -3,7 +3,12 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
-const { upload, getPublicUrl, getStorageConfig } = require('../utils/r2Config');
+const {
+  upload,
+  getPublicUrl,
+  getStorageConfig,
+  uploadBufferToR2
+} = require('../utils/r2Config');
 const { normalizeLocation } = require('../utils/location');
 const { parseLocation } = require('../utils/locationParser');
 const path = require('path');
@@ -769,26 +774,22 @@ router.put('/avatar', auth, upload.single('avatar'), async (req, res) => {
     
     // Get the public URL for the uploaded avatar
     const { isR2Configured } = getStorageConfig();
-    let fileKey, avatarUrl;
+    let avatarKey;
 
     if (isR2Configured) {
-      // R2 upload
-      fileKey = req.file.key;
-      avatarUrl = getPublicUrl(fileKey);
+      const result = await uploadBufferToR2(req.file);
+      avatarKey = result.key;
     } else {
-      // Local upload
-      const relativePath = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path);
-      fileKey = relativePath.replace(/\\/g, '/'); // Normalize path separators
-      avatarUrl = getPublicUrl(fileKey);
+      const relativePath = req.file.path ? path.relative(path.join(__dirname, '..', 'uploads'), req.file.path) : req.file.filename;
+      avatarKey = relativePath.replace(/\\/g, '/');
     }
-    
-    // Update user's avatar
-    user.avatar = avatarUrl;
+
+    user.avatar = avatarKey;
     await user.save();
     
     res.json({
       message: 'Profile picture updated successfully',
-      avatar: user.avatar
+      avatar: getPublicUrl(user.avatar)
     });
   } catch (err) {
     console.error(err.message);

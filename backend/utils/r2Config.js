@@ -246,10 +246,18 @@ const getObjectStream = async (key) => {
     s3Client = createS3Client();
   }
 
-  const candidates = [key];
+  const candidates = new Set();
+  candidates.add(key);
+
+  if (!key.startsWith('uploads/')) {
+    candidates.add(`uploads/${key}`);
+  }
 
   if (!key.includes('/')) {
-    candidates.push(`images/${key}`, `group-avatars/${key}`, `posts/${key}`, `videos/${key}`);
+    ['images', 'group-avatars', 'posts', 'videos', 'messages'].forEach((prefix) => {
+      candidates.add(`${prefix}/${key}`);
+      candidates.add(`uploads/${prefix}/${key}`);
+    });
   }
 
   let lastError;
