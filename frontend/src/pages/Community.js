@@ -65,13 +65,29 @@ import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
 const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '') || '').replace(/\/$/, '');
 
+const encodeKey = (key) => key.split('/').map(segment => encodeURIComponent(segment)).join('/');
+
+const convertR2PublicUrlToProxy = (url) => {
+  if (!url) {
+    return '';
+  }
+
+  const match = url.match(/\.r2\.dev\/[\w-]+\/(.+)$/);
+  if (match && match[1]) {
+    return `/api/media/r2/${encodeKey(match[1])}`;
+  }
+
+  return url;
+};
+
 const toAbsoluteUrl = (relativePath) => {
   if (!relativePath) {
     return '';
   }
 
   const normalizedPath = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
-  return `${API_BASE_URL}${normalizedPath}`;
+  const absolute = `${API_BASE_URL}${normalizedPath}`;
+  return convertR2PublicUrlToProxy(absolute);
 };
 
 const Community = () => {
@@ -800,7 +816,7 @@ const Community = () => {
     let normalizedUrl;
     // If URL already starts with http/https
     if (url.startsWith('http://') || url.startsWith('https://')) {
-      normalizedUrl = url;
+      normalizedUrl = convertR2PublicUrlToProxy(url);
       if (normalizedUrl.includes('/uploads/') && !normalizedUrl.includes('/uploads/images/') && !normalizedUrl.includes('/uploads/posts/')) {
         normalizedUrl = normalizedUrl.replace('/uploads/', '/uploads/images/');
       }
@@ -826,8 +842,8 @@ const Community = () => {
 
       normalizedUrl = toAbsoluteUrl(path);
     }
-    
-    return normalizedUrl;
+
+    return convertR2PublicUrlToProxy(normalizedUrl);
   };
 
   const renderPhotoGrid = (images, post) => {

@@ -4,17 +4,33 @@ import PersonIcon from '@mui/icons-material/Person';
 
 const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '') || '').replace(/\/$/, '');
 
+const encodeKey = (key) => key.split('/').map(segment => encodeURIComponent(segment)).join('/');
+
+const convertR2PublicUrlToProxy = (url) => {
+  if (!url) {
+    return '';
+  }
+
+  const match = url.match(/\.r2\.dev\/[\w-]+\/(.+)$/);
+  if (match && match[1]) {
+    return `/api/media/r2/${encodeKey(match[1])}`;
+  }
+
+  return url;
+};
+
 const toAbsoluteUrl = (input) => {
   if (!input) {
     return '';
   }
 
   if (input.startsWith('http://') || input.startsWith('https://')) {
-    return input;
+    return convertR2PublicUrlToProxy(input);
   }
 
   const normalizedPath = input.startsWith('/') ? input : `/${input}`;
-  return `${API_BASE_URL}${normalizedPath}`;
+  const absolute = `${API_BASE_URL}${normalizedPath}`;
+  return convertR2PublicUrlToProxy(absolute);
 };
 
 const UserAvatar = ({ 
