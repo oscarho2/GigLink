@@ -5,7 +5,13 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const { parseMentions, getMentionedUserIds } = require('../utils/mentionUtils');
-const { upload, getPublicUrl, deleteFile, getStorageConfig } = require('../utils/r2Config');
+const {
+  upload,
+  getPublicUrl,
+  deleteFile,
+  getStorageConfig,
+  uploadBufferToR2
+} = require('../utils/r2Config');
 
 // Helper function to add like status and counts to a post object
 const addPostLikeStatus = (post, userId) => {
@@ -68,20 +74,26 @@ router.post('/', auth, upload.array('media', 5), async (req, res) => {
     const media = [];
     if (req.files && req.files.length > 0) {
       const { isR2Configured } = getStorageConfig();
-      req.files.forEach(file => {
-        const mediaType = file.mimetype.startsWith('image/') ? 'image' : 'video';
-        
+
+      for (const file of req.files) {
+        const mediaType = file.mimetype?.startsWith('image/') ? 'image' : 'video';
+
         if (isR2Configured) {
-          // R2 storage - file has key property
+          if (!file.key || !file.location) {
+            const result = await uploadBufferToR2(file);
+            file.key = result.key;
+            file.location = result.url;
+            file.filename = result.filename;
+          }
+
           media.push({
             type: mediaType,
-            url: getPublicUrl(file.key),
-            filename: file.key.split('/').pop(),
+            url: getPublicUrl(file.key) || file.location || '',
+            filename: file.filename || file.key?.split('/').pop() || '',
             key: file.key
           });
         } else {
-          // Local storage - file has filename and path properties
-          const relativePath = file.path.replace(file.destination + '/', '');
+          const relativePath = file.path?.replace(`${file.destination}/`, '') || file.filename;
           media.push({
             type: mediaType,
             url: getPublicUrl(relativePath),
@@ -89,7 +101,7 @@ router.post('/', auth, upload.array('media', 5), async (req, res) => {
             key: relativePath
           });
         }
-      });
+      }
     }
 
     // Parse instruments and genres from form data

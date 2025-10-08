@@ -133,6 +133,10 @@ const deleteFile = async (fileKey) => {
 
 // Helper function to generate signed URLs for private files
 const getPublicUrl = (fileKey) => {
+  if (!fileKey) {
+    return '';
+  }
+
   const normalizedKey = fileKey.replace(/^\/+/, '');
   if (isR2Configured) {
     const base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
