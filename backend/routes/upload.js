@@ -1,6 +1,12 @@
 const express = require('express');
 const auth = require('../middleware/auth');
-const { upload, deleteFile, getPublicUrl, getStorageConfig } = require('../utils/r2Config');
+const {
+  upload,
+  deleteFile,
+  getPublicUrl,
+  getStorageConfig,
+  uploadBufferToR2
+} = require('../utils/r2Config');
 const path = require('path');
 const router = express.Router();
 
@@ -19,9 +25,12 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
     let fileKey, fileUrl;
 
     if (isR2Configured) {
-      // R2 upload
-      fileKey = req.file.key;
-      fileUrl = getPublicUrl(fileKey);
+      const result = await uploadBufferToR2(req.file);
+      fileKey = result.key;
+      fileUrl = result.url;
+      req.file.key = result.key;
+      req.file.location = result.url;
+      req.file.filename = result.filename;
     } else {
       // Local upload
       const relativePath = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path);
@@ -31,7 +40,7 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
 
     // Return file information
     res.json({
-      filename: req.file.filename || req.file.key?.split('/').pop(),
+      filename: req.file.filename || req.file.key?.split('/').pop() || path.basename(fileKey),
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
       size: req.file.size,

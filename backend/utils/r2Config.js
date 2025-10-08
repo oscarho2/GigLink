@@ -1,76 +1,70 @@
-const AWS = require('aws-sdk');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { Upload } = require('@aws-sdk/lib-storage');
 const multer = require('multer');
-const multerS3 = require('multer-s3');
 const path = require('path');
 const fs = require('fs');
 
 // Check if R2 credentials are properly configured
-const isR2Configured = process.env.R2_ENDPOINT && 
-                      process.env.R2_ACCESS_KEY_ID && 
-                      process.env.R2_SECRET_ACCESS_KEY && 
-                      process.env.R2_BUCKET_NAME &&
-                      !process.env.R2_ENDPOINT.includes('your-account-id') &&
-                      !process.env.R2_ACCESS_KEY_ID.includes('your_r2_access_key');
+const isR2Configured = Boolean(
+  process.env.R2_ENDPOINT &&
+  process.env.R2_ACCESS_KEY_ID &&
+  process.env.R2_SECRET_ACCESS_KEY &&
+  process.env.R2_BUCKET_NAME &&
+  !process.env.R2_ENDPOINT.includes('your-account-id') &&
+  !process.env.R2_ACCESS_KEY_ID.includes('your_r2_access_key')
+);
 
-let s3 = null;
+let s3Client = null;
 if (isR2Configured) {
-  // Configure AWS SDK for Cloudflare R2
-  s3 = new AWS.S3({
+  s3Client = new S3Client({
     endpoint: process.env.R2_ENDPOINT,
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
     region: 'auto',
-    signatureVersion: 'v4',
-    s3ForcePathStyle: true
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
+    }
   });
 } else {
-    console.warn("R2 storage is not configured. File uploads will be disabled.");
+  console.warn('R2 storage is not configured. File uploads will be disabled.');
 }
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 
-// Define a storage engine that rejects all files if R2 is not configured.
-const disabledStorage = {
-  _handleFile: function (req, file, cb) {
-    cb(new Error('File uploads are disabled because R2 storage is not configured.'));
-  },
-  _removeFile: function (req, file, cb) {
-    cb(null);
+const ensureDirExists = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
   }
 };
 
-// Multer configuration - R2 or local storage
+const determineFolder = (mimetype) => {
+  if (!mimetype) return 'misc';
+  if (mimetype.startsWith('image/')) return 'images';
+  if (mimetype.startsWith('video/')) return 'videos';
+  if (mimetype.startsWith('audio/')) return 'audio';
+  return 'misc';
+};
+
+const diskStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const folder = determineFolder(file.mimetype);
+    const targetDir = path.join(uploadsDir, folder);
+    ensureDirExists(targetDir);
+    cb(null, targetDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '';
+    const base = path.basename(file.originalname, ext)
+      .replace(/[^a-zA-Z0-9-_\.]/g, '-')
+      .substring(0, 80);
+    cb(null, `${base || 'file'}-${Date.now()}${ext.toLowerCase()}`);
+  }
+});
+
+const memoryStorage = multer.memoryStorage();
+
 const upload = multer({
-  storage: isR2Configured ? multerS3({
-    s3: s3,
-    bucket: process.env.R2_BUCKET_NAME,
-    acl: 'public-read',
-    key: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      const ext = file.originalname.split('.').pop();
-      const name = file.originalname.split('.').slice(0, -1).join('.');
-      const filename = `${name}-${uniqueSuffix}.${ext}`;
-      
-      let folder = 'misc';
-      if (file.mimetype.startsWith('image/')) {
-        folder = 'images';
-      } else if (file.mimetype.startsWith('video/')) {
-        folder = 'videos';
-      } else if (file.mimetype.startsWith('audio/')) {
-        folder = 'audio';
-      }
-      
-      cb(null, `${folder}/${filename}`);
-    },
-    metadata: function (req, file, cb) {
-      cb(null, {
-        fieldName: file.fieldname,
-        originalName: file.originalname,
-        uploadedBy: req.user ? req.user.id : 'anonymous'
-      });
-    },
-    contentType: multerS3.AUTO_CONTENT_TYPE
-  }) : disabledStorage,
+  storage: isR2Configured ? memoryStorage : diskStorage,
   fileFilter: (req, file, cb) => {
     // Allowed file types
     const allowedTypes = {
@@ -121,16 +115,15 @@ const upload = multer({
 
 // Helper function to delete files
 const deleteFile = async (fileKey) => {
-  if (!isR2Configured || !s3) {
+  if (!isR2Configured || !s3Client) {
     console.error('Error deleting file: R2 is not configured.');
     return false;
   }
   try {
-    const params = {
+    await s3Client.send(new DeleteObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
       Key: fileKey
-    };
-    await s3.deleteObject(params).promise();
+    }));
     return true;
   } catch (error) {
     console.error('Error deleting file from R2:', error);
@@ -139,26 +132,13 @@ const deleteFile = async (fileKey) => {
 };
 
 // Helper function to generate signed URLs for private files
-const getSignedUrl = (fileKey, expiresIn = 3600) => {
-  if (!isR2Configured || !s3) {
-    console.error('Cannot get signed URL: R2 is not configured.');
-    return ''; // Return an empty string or a placeholder URL
-  }
-  const params = {
-    Bucket: process.env.R2_BUCKET_NAME,
-    Key: fileKey,
-    Expires: expiresIn
-  };
-  return s3.getSignedUrl('getObject', params);
-};
-
-// Helper function to get public URL for files
 const getPublicUrl = (fileKey) => {
-  if (!isR2Configured) {
-    console.error('Cannot get public URL: R2 is not configured.');
-    return ''; // Return an empty string or a placeholder URL
+  const normalizedKey = fileKey.replace(/^\/+/, '');
+  if (isR2Configured) {
+    const base = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+    return `${base}/${normalizedKey}`;
   }
-  return `${process.env.R2_PUBLIC_URL}/${fileKey}`;
+  return `/uploads/${normalizedKey}`;
 };
 
 // Export configuration status for use in other modules
@@ -167,11 +147,71 @@ const getStorageConfig = () => ({
   uploadsDir
 });
 
+const uploadBufferToR2 = async (file) => {
+  if (!isR2Configured || !s3Client) {
+    throw new Error('R2 storage is not configured.');
+  }
+
+  const folder = determineFolder(file.mimetype);
+  const ext = path.extname(file.originalname) || '';
+  const base = path.basename(file.originalname, ext)
+    .replace(/[^a-zA-Z0-9-_\.]/g, '-')
+    .substring(0, 80) || 'file';
+  const filename = `${base}-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext.toLowerCase()}`;
+  const key = `${folder}/${filename}`.replace(/\\+/g, '/');
+
+  const upload = new Upload({
+    client: s3Client,
+    params: {
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      ACL: 'public-read'
+    }
+  });
+
+  await upload.done();
+
+  return {
+    key,
+    url: getPublicUrl(key),
+    filename
+  };
+};
+
+const uploadFileFromDiskToR2 = async (localPath, key, contentType = 'application/octet-stream') => {
+  if (!isR2Configured || !s3Client) {
+    throw new Error('R2 storage is not configured.');
+  }
+
+  const upload = new Upload({
+    client: s3Client,
+    params: {
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key,
+      Body: fs.createReadStream(localPath),
+      ContentType: contentType,
+      ACL: 'public-read'
+    }
+  });
+
+  await upload.done();
+
+  return {
+    key,
+    url: getPublicUrl(key)
+  };
+};
+
 module.exports = {
-  s3,
+  s3Client,
   upload,
+  uploadBufferToR2,
+  uploadFileFromDiskToR2,
   deleteFile,
-  getSignedUrl,
   getPublicUrl,
-  getStorageConfig
+  getStorageConfig,
+  determineFolder,
+  uploadsDir
 };

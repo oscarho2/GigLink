@@ -1,14 +1,18 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
-const { s3, getStorageConfig } = require('../utils/r2Config');
+const {
+  uploadFileFromDiskToR2,
+  getStorageConfig,
+  uploadsDir
+} = require('../utils/r2Config');
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
 
-const { isR2Configured, uploadsDir } = getStorageConfig();
+const { isR2Configured } = getStorageConfig();
 
-if (!isR2Configured || !s3) {
+if (!isR2Configured) {
   console.log('R2 is not configured. Aborting migration.');
   process.exit(1);
 }
@@ -39,14 +43,8 @@ async function migrate() {
       const r2Key = `${dir}/${file}`;
 
       console.log(`- Uploading ${file} to R2 with key ${r2Key}...`);
-
       try {
-        await s3.upload({
-          Bucket: process.env.R2_BUCKET_NAME,
-          Key: r2Key,
-          Body: fs.createReadStream(localPath),
-          ACL: 'public-read'
-        }).promise();
+        await uploadFileFromDiskToR2(localPath, r2Key);
         console.log(`  ...Success: ${r2Key}`);
       } catch (error) {
         console.error(`  ...Failed to upload ${r2Key}:`, error);
