@@ -65,16 +65,31 @@ const Profile = () => {
         }
         
         // Transform backend data to match UI expectations
+        const normalizeAvatar = (avatarUrl) => {
+          if (!avatarUrl) return '';
+          if (avatarUrl.startsWith('/api/media/r2/')) return avatarUrl;
+          if (/\.r2\.dev\//.test(avatarUrl) || avatarUrl.includes('uploads/')) {
+            const match = avatarUrl.match(/(?:r2\.dev\/[\w-]+\/|uploads\/)?(.+)$/);
+            if (match && match[1]) {
+              return `/api/media/r2/${encodeURIComponent(match[1])}`;
+            }
+          }
+          return avatarUrl;
+        };
+
         const transformedProfile = {
           name: profileData.user?.name || user?.name || 'User',
-          avatar: profileData.user?.avatar || '',
+          avatar: normalizeAvatar(profileData.user?.avatar),
           bio: (profileData.bio && profileData.bio !== 'No bio available') ? profileData.bio : '',
           location: profileData.user?.location || '',
           locationData: profileData.user?.locationData,
           instruments: profileData.user?.instruments || profileData.skills?.filter(skill => ['Piano', 'Guitar', 'Vocals', 'Drums', 'Bass', 'Violin', 'Saxophone'].includes(skill)) || [],
           genres: profileData.user?.genres || [],
-          photos: profileData.photos || [],
-          videos: profileData.videos || [],
+          photos: (profileData.photos || []).map(photo => ({
+            ...photo,
+            url: normalizeAvatar(photo?.url)
+          })),
+        videos: profileData.videos || [],
           availability: profileData.availability || '',
           hourlyRate: profileData.hourlyRate || null,
           userId: profileData.user?._id || user?._id || user?.id || null,
