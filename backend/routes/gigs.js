@@ -5,6 +5,7 @@ const Gig = require('../models/Gig');
 const User = require('../models/User');
 const Message = require('../models/Message');
 const { createNotification } = require('./notifications');
+const { parseLocation } = require('../utils/locationParser');
 
 const UK_REGION_NAMES = new Set(['england', 'scotland', 'wales', 'northern ireland', 'greater london']);
 const REGION_KEYWORD_REGEX = /( county| state| province| region| territory| prefecture)$/i;
@@ -79,6 +80,14 @@ const COUNTRY_CODE_EXPANSIONS = {
   US: ['United States', 'USA'],
   USA: ['United States', 'US'],
   UAE: ['United Arab Emirates'],
+};
+
+const COUNTRY_NAME_EXPANSIONS = {
+  'united kingdom': ['great britain', 'uk'],
+  'great britain': ['united kingdom', 'uk'],
+  'united states': ['united states of america', 'usa', 'us', 'america'],
+  'united states of america': ['united states', 'usa', 'us', 'america'],
+  america: ['united states', 'usa', 'us']
 };
 
 const buildLocationSearchTokens = (values = []) => {
@@ -522,7 +531,101 @@ router.get('/', async (req, res) => {
         rawValues.push(location.trim());
       }
 
-      const { shortCodes, generalTokens } = buildLocationSearchTokens(rawValues);
+      const exactCity = typeof locationCity === 'string' ? locationCity.trim() : '';
+      const exactRegion = typeof locationRegion === 'string' ? locationRegion.trim() : '';
+      const exactCountry = typeof locationCountry === 'string' ? locationCountry.trim() : '';
+
+      let locationCountryClause = null;
+      let userCountryClause = null;
+      if (exactCountry) {
+        const countryRegex = new RegExp(`^${escapeRegex(exactCountry)}$`, 'i');
+        locationCountryClause = { 'location.country': countryRegex };
+        userCountryClause = { 'locationData.country': countryRegex };
+      }
+
+      let { shortCodes, generalTokens } = buildLocationSearchTokens(rawValues);
+
+      const normalizeLower = (value) => String(value || '').trim().toLowerCase();
+      const lowerExactCity = normalizeLower(exactCity);
+      const lowerExactRegion = normalizeLower(exactRegion);
+      const lowerExactCountry = normalizeLower(exactCountry);
+
+      const citySpecified = Boolean(lowerExactCity);
+      const regionSpecified = Boolean(lowerExactRegion);
+      const countrySpecified = Boolean(lowerExactCountry);
+
+      const countrySynonyms = new Set();
+      if (countrySpecified) {
+        countrySynonyms.add(lowerExactCountry);
+        const nameExpansions = COUNTRY_NAME_EXPANSIONS[lowerExactCountry];
+        if (Array.isArray(nameExpansions)) {
+          nameExpansions.forEach(name => countrySynonyms.add(normalizeLower(name)));
+        }
+        const normalizedCountryCode = normalizeCountryCode(exactCountry);
+        if (normalizedCountryCode) {
+          countrySynonyms.add(normalizeLower(normalizedCountryCode));
+          const codeExpansions = COUNTRY_CODE_EXPANSIONS[normalizedCountryCode];
+          if (Array.isArray(codeExpansions)) {
+            codeExpansions.forEach(name => countrySynonyms.add(normalizeLower(name)));
+          }
+        }
+      }
+
+      const tokenContains = (token, lowerTerm) => {
+        if (!lowerTerm) return false;
+        const normalizedToken = token.toLowerCase();
+        if (!normalizedToken) return false;
+        if (lowerTerm.length <= 3) {
+          const boundaryRegex = new RegExp(`(^|[^A-Za-z0-9])${escapeRegex(lowerTerm)}([^A-Za-z0-9]|$)`, 'i');
+          return boundaryRegex.test(token);
+        }
+        return normalizedToken.includes(lowerTerm);
+      };
+
+      const filterGeneralTokens = (tokens) => {
+        return tokens
+          .map(token => String(token || '').trim())
+          .filter(Boolean)
+          .filter((token) => {
+            const lower = token.toLowerCase();
+            if (citySpecified) {
+              if (lowerExactCity && tokenContains(token, lowerExactCity)) return true;
+              return false;
+            }
+            if (regionSpecified) {
+              if (lowerExactRegion && tokenContains(token, lowerExactRegion)) return true;
+              return false;
+            }
+            if (countrySpecified) {
+              if (countrySynonyms.size && countrySynonyms.has(lower)) return true;
+              return false;
+            }
+            return true;
+          });
+      };
+
+      const filterShortCodes = (codes) => {
+        if (!Array.isArray(codes) || !codes.length) return [];
+        if (citySpecified) {
+          return [];
+        }
+        if (regionSpecified) {
+          return codes
+            .map(code => String(code || '').trim())
+            .filter(Boolean)
+            .filter(code => !countrySynonyms.has(code.toLowerCase()));
+        }
+        if (countrySpecified) {
+          return codes
+            .map(code => String(code || '').trim())
+            .filter(Boolean)
+            .filter(code => countrySynonyms.has(code.toLowerCase()));
+        }
+        return codes.map(code => String(code || '').trim()).filter(Boolean);
+      };
+
+      generalTokens = filterGeneralTokens(generalTokens);
+      shortCodes = filterShortCodes(shortCodes);
 
       const locationOr = [];
       const userOr = [];
@@ -537,6 +640,10 @@ router.get('/', async (req, res) => {
         collection.push({ [field]: { $regex: regex } });
       };
 
+      const hasExactCity = citySpecified;
+      const hasExactRegion = regionSpecified;
+      const hasExactCountry = countrySpecified;
+
       shortCodes.forEach((code) => {
         if (!code) return;
         const anchored = new RegExp(`^${escapeRegex(code)}$`, 'i');
@@ -544,10 +651,20 @@ router.get('/', async (req, res) => {
         addClause(userOr, seenUser, 'locationData.country', anchored);
 
         const boundary = new RegExp(`\\b${escapeRegex(code)}\\b`, 'i');
-        ['location.name', 'location.region', 'location.city', 'location.street'].forEach((field) => {
+        [
+          { field: 'location.name', skip: false },
+          { field: 'location.region', skip: false },
+          { field: 'location.city', skip: false },
+          { field: 'location.street', skip: false }
+        ].forEach(({ field, skip }) => {
+          if (skip) return;
           addClause(locationOr, seenLocation, field, boundary);
         });
-        ['locationData.region', 'locationData.city'].forEach((field) => {
+        [
+          { field: 'locationData.region', skip: false },
+          { field: 'locationData.city', skip: false }
+        ].forEach(({ field, skip }) => {
+          if (skip) return;
           addClause(userOr, seenUser, field, boundary);
         });
       });
@@ -555,15 +672,42 @@ router.get('/', async (req, res) => {
       generalTokens.forEach((token) => {
         if (!token) return;
         const regex = new RegExp(escapeRegex(token), 'i');
-        ['location.name', 'location.street', 'location.city', 'location.region', 'location.country'].forEach((field) => {
+        [
+          { field: 'location.name', skip: false },
+          { field: 'location.street', skip: false },
+          { field: 'location.city', skip: false },
+          { field: 'location.region', skip: false },
+          { field: 'location.country', skip: hasExactCountry }
+        ].forEach(({ field, skip }) => {
+          if (skip) return;
           addClause(locationOr, seenLocation, field, regex);
         });
-        ['locationData.city', 'locationData.region', 'locationData.country'].forEach((field) => {
+        [
+          { field: 'locationData.city', skip: false },
+          { field: 'locationData.region', skip: false },
+          { field: 'locationData.country', skip: hasExactCountry }
+        ].forEach(({ field, skip }) => {
+          if (skip) return;
           addClause(userOr, seenUser, field, regex);
         });
       });
 
-      if (!locationOr.length && typeof location === 'string' && location.trim()) {
+      const locationExactClauses = [];
+      const userExactClauses = [];
+
+      if (!exactCity && exactRegion) {
+        const regionRegex = new RegExp(`^${escapeRegex(exactRegion)}$`, 'i');
+        locationExactClauses.push({ 'location.region': regionRegex });
+        userExactClauses.push({ 'locationData.region': regionRegex });
+      }
+
+      if (exactCity) {
+        const cityRegex = new RegExp(`^${escapeRegex(exactCity)}$`, 'i');
+        locationExactClauses.push({ 'location.city': cityRegex });
+        userExactClauses.push({ 'locationData.city': cityRegex });
+      }
+
+      if (!locationOr.length && !locationExactClauses.length && typeof location === 'string' && location.trim()) {
         const fallbackRegex = new RegExp(escapeRegex(location.trim()), 'i');
         ['location.name', 'location.street', 'location.city', 'location.region', 'location.country'].forEach((field) => {
           addClause(locationOr, seenLocation, field, fallbackRegex);
@@ -573,13 +717,52 @@ router.get('/', async (req, res) => {
         });
       }
 
+      const userSpecificClauses = [];
+      if (userExactClauses.length) userSpecificClauses.push(...userExactClauses);
+      if (userOr.length) userSpecificClauses.push({ $or: userOr });
+
+      let userClause = null;
+      if (userSpecificClauses.length) {
+        userClause = userSpecificClauses.length === 1
+          ? userSpecificClauses[0]
+          : { $or: userSpecificClauses };
+      }
+      if (userCountryClause) {
+        userClause = userClause
+          ? { $and: [userCountryClause, userClause] }
+          : userCountryClause;
+      }
+
       let userIds = [];
-      if (userOr.length) {
-        const matchingUsers = await User.find({ $or: userOr }).select('_id').lean();
+      if (userClause) {
+        const matchingUsers = await User.find(userClause).select('_id').lean();
         userIds = matchingUsers.map(u => u._id);
       }
 
-      const orConditions = [...locationOr];
+      const orConditions = [];
+
+      const specificLocationClauses = [];
+      if (locationExactClauses.length) specificLocationClauses.push(...locationExactClauses);
+      if (locationOr.length) specificLocationClauses.push({ $or: locationOr });
+
+      let locationClause = null;
+      if (specificLocationClauses.length) {
+        locationClause = specificLocationClauses.length === 1
+          ? specificLocationClauses[0]
+          : { $or: specificLocationClauses };
+      }
+
+      if (locationCountryClause) {
+        if (locationClause) {
+          locationClause = { $and: [locationCountryClause, locationClause] };
+        } else {
+          locationClause = locationCountryClause;
+        }
+      }
+
+      if (locationClause) {
+        orConditions.push(locationClause);
+      }
 
       if (userIds.length) {
         const emptyLocationRegex = new RegExp('^\\s*$');
@@ -801,25 +984,70 @@ router.get('/locations', async (req, res) => {
     const gigs = await Gig.find({}, { location: 1 }).lean();
     const entries = new Map();
 
+    const addHierarchyValue = (collection, value) => {
+      if (!collection) return;
+      const trimmed = typeof value === 'string' ? value.trim() : '';
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      const existing = collection.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        collection.set(key, { value: trimmed, count: 1 });
+      }
+    };
+
+    const ensureEntry = (label, key) => {
+      let entry = entries.get(key);
+      if (entry) return entry;
+      entry = {
+        label,
+        count: 0,
+        codes: new Set(),
+        candidates: new Set(),
+        cityCounts: new Map(),
+        regionCounts: new Map(),
+        countryCounts: new Map(),
+        presence: { city: 0, region: 0, country: 0 }
+      };
+      entries.set(key, entry);
+      return entry;
+    };
+
     const upsertEntry = (label, meta) => {
       if (!label) return;
       const key = label.toLowerCase();
-      let entry = entries.get(key);
-      if (!entry) {
-        entry = {
-          label,
-          count: 0,
-          codes: new Set(),
-          candidates: new Set()
-        };
-        entries.set(key, entry);
-      }
+      const entry = ensureEntry(label, key);
       entry.count += 1;
       if (meta?.code) entry.codes.add(meta.code);
       if (Array.isArray(meta?.candidates)) {
         meta.candidates.forEach((candidate) => {
           if (candidate) entry.candidates.add(candidate.toLowerCase());
         });
+      }
+
+      if (meta) {
+        if (meta.city !== undefined) {
+          const trimmed = typeof meta.city === 'string' ? meta.city.trim() : '';
+          if (trimmed) {
+            addHierarchyValue(entry.cityCounts, trimmed);
+            entry.presence.city += 1;
+          }
+        }
+        if (meta.region !== undefined) {
+          const trimmed = typeof meta.region === 'string' ? meta.region.trim() : '';
+          if (trimmed) {
+            addHierarchyValue(entry.regionCounts, trimmed);
+            entry.presence.region += 1;
+          }
+        }
+        if (meta.country !== undefined) {
+          const trimmed = typeof meta.country === 'string' ? meta.country.trim() : '';
+          if (trimmed) {
+            addHierarchyValue(entry.countryCounts, trimmed);
+            entry.presence.country += 1;
+          }
+        }
       }
     };
 
@@ -830,10 +1058,36 @@ router.get('/locations', async (req, res) => {
       const countryRaw = String(loc.country || '').trim();
       const nameRaw = String(loc.name || '').trim();
 
-      const countryCode = normalizeIsoCode(countryRaw);
-      const countryName = expandRegionName(countryRaw);
-      const regionName = expandRegionName(regionRaw) || regionRaw;
-      const cityName = cityRaw;
+      let cityName = cityRaw;
+      let regionName = regionRaw;
+      let countryName = countryRaw;
+
+      if ((!cityName || !regionName || !countryName) && nameRaw) {
+        const parsedFromName = parseLocation(nameRaw);
+        if (!cityName && parsedFromName.city) cityName = parsedFromName.city;
+        if (!regionName && parsedFromName.region) regionName = parsedFromName.region;
+        if (!countryName && parsedFromName.country) countryName = parsedFromName.country;
+      }
+
+      if (!cityName && loc.displayName) {
+        const parsedDisplay = parseLocation(String(loc.displayName || '').trim());
+        if (!cityName && parsedDisplay.city) cityName = parsedDisplay.city;
+        if (!regionName && parsedDisplay.region) regionName = parsedDisplay.region;
+        if (!countryName && parsedDisplay.country) countryName = parsedDisplay.country;
+      }
+
+      const countryCodeRaw = normalizeIsoCode(countryRaw);
+      const countryCode = countryCodeRaw || normalizeIsoCode(countryName);
+
+      const normalizedCountry = expandRegionName(countryName);
+      if (normalizedCountry) countryName = normalizedCountry;
+
+      const normalizedRegion = expandRegionName(regionName);
+      if (normalizedRegion) regionName = normalizedRegion;
+
+      cityName = String(cityName || '').trim();
+      regionName = String(regionName || '').trim();
+      countryName = String(countryName || '').trim();
 
       const parts = [];
       if (cityName) parts.push(cityName);
@@ -863,17 +1117,44 @@ router.get('/locations', async (req, res) => {
 
       upsertEntry(label, {
         code: countryCode,
-        candidates: Array.from(candidateStrings)
+        candidates: Array.from(candidateStrings),
+        city: cityName,
+        region: regionName,
+        country: countryName
       });
     }
 
+    const pickMostLikely = (collection) => {
+      if (!collection || !collection.size) return '';
+      const sorted = Array.from(collection.values())
+        .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+      return sorted[0].value;
+    };
+
     const sorted = Array.from(entries.values())
-      .map(entry => ({
-        label: entry.label,
-        count: entry.count,
-        codes: Array.from(entry.codes).filter(Boolean),
-        candidates: Array.from(entry.candidates)
-      }))
+      .map(entry => {
+        const hierarchyCity = entry.cityCounts.size ? pickMostLikely(entry.cityCounts) : '';
+        const hierarchyRegion = entry.regionCounts.size ? pickMostLikely(entry.regionCounts) : '';
+        const hierarchyCountry = entry.countryCounts.size ? pickMostLikely(entry.countryCounts) : '';
+        const hasCity = entry.presence.city > 0;
+        const hasRegion = entry.presence.region > 0;
+        const hasCountry = entry.presence.country > 0;
+        const granularity = hasCity ? 'city' : (hasRegion ? 'region' : (hasCountry ? 'country' : 'unknown'));
+
+        const result = {
+          label: entry.label,
+          count: entry.count,
+          codes: Array.from(entry.codes).filter(Boolean),
+          candidates: Array.from(entry.candidates),
+          hierarchy: {
+            city: hierarchyCity || '',
+            region: hierarchyRegion || '',
+            country: hierarchyCountry || ''
+          },
+          granularity
+        };
+        return result;
+      })
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
       .slice(0, numericLimit);
 

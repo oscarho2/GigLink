@@ -197,16 +197,15 @@ const CreateGig = () => {
 
     const missingFields = [];
     
-    if (!formData.title?.trim()) missingFields.push('Gig title');
-    if (!formData.description?.trim()) missingFields.push('Gig description');
-    if (!formData.location?.city || !formData.location?.country) missingFields.push('Location (city and country)');
-    if (!formData.genre?.trim()) missingFields.push('Genre');
-    if (!formData.instrument?.trim()) missingFields.push('Instrument');
-    if (!formData.budget || formData.budget <= 0) missingFields.push('Budget');
-    if (!currency?.trim()) missingFields.push('Currency');
-    if (!formData.gigType?.trim()) missingFields.push('Gig type');
-    if (!formData.experienceLevel?.trim()) missingFields.push('Experience level');
-    if (!formData.applicationDeadline) missingFields.push('Application deadline');
+    if (!formData.title?.trim()) missingFields.push('title');
+    if (!formData.venue?.trim()) missingFields.push('venue/location');
+    if (!formData.location?.city || !formData.location?.country) missingFields.push('location (city and country)');
+    if (!schedules[0]?.date) missingFields.push('date');
+    if (!schedules[0]?.startTime) missingFields.push('start time');
+    if (!formData.payment?.trim()) missingFields.push('payment');
+    if (!Array.isArray(formData.instruments) || formData.instruments.length === 0) missingFields.push('instruments');
+    if (!Array.isArray(formData.genres) || formData.genres.length === 0) missingFields.push('genres');
+    if (!formData.description?.trim()) missingFields.push('description');
 
     if (missingFields.length) {
       if (missingFields.length === 1) {

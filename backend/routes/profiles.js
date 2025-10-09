@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
+const Link = require('../models/Link');
 const {
   upload,
   getPublicUrl,

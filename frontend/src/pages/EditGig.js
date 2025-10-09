@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -95,6 +95,24 @@ function EditGig() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const isoToDisplayDate = useCallback((iso) => {
+    if (!iso) return '';
+    const parts = String(iso).split('T')[0]?.split('-');
+    if (!parts || parts.length !== 3) return '';
+    const [year, month, day] = parts;
+    return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+  }, []);
+
+  const displayToIsoDate = useCallback((display) => {
+    if (!display) return '';
+    const match = String(display).match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/);
+    if (!match) return '';
+    const day = match[1].padStart(2, '0');
+    const month = match[2].padStart(2, '0');
+    const year = match[3];
+    return `${year}-${month}-${day}`;
+  }, []);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -217,9 +235,19 @@ function EditGig() {
         
         // Set schedules if available, otherwise use legacy date/time
         if (gig.schedules && gig.schedules.length > 0) {
-          setSchedules(gig.schedules);
+          const normalizedSchedules = gig.schedules.map((sched) => ({
+            ...sched,
+            date: isoToDisplayDate(sched.date),
+            startTime: sched.startTime || '',
+            endTime: sched.endTime || ''
+          }));
+          setSchedules(normalizedSchedules);
         } else if (gig.date || gig.time) {
-          setSchedules([{ date: gig.date || '', startTime: gig.time || '', endTime: '' }]);
+          setSchedules([{
+            date: isoToDisplayDate(gig.date || ''),
+            startTime: gig.time || '',
+            endTime: ''
+          }]);
         }
       } else {
         setError('Failed to fetch gig details');
@@ -263,18 +291,18 @@ function EditGig() {
 
     const missingFields = [];
 
-    if (!formData.title?.trim()) missingFields.push('Gig title');
-    if (!formData.description?.trim()) missingFields.push('Gig description');
-    if (!formData.genre?.trim()) missingFields.push('Genre');
-    if (!formData.instrument?.trim()) missingFields.push('Instrument');
-    if (!formData.budget || formData.budget <= 0) missingFields.push('Budget');
-    if (!currency?.trim()) missingFields.push('Currency');
-    if (!formData.gigType?.trim()) missingFields.push('Gig type');
-    if (!formData.experienceLevel?.trim()) missingFields.push('Experience level');
-    if (!formData.applicationDeadline) missingFields.push('Application deadline');
+    if (!formData.title?.trim()) missingFields.push('title');
+    if (!formData.venue?.trim()) missingFields.push('venue/location');
+    if (!formData.location) missingFields.push('location');
+    if (!schedules[0]?.date) missingFields.push('date');
+    if (!schedules[0]?.startTime) missingFields.push('start time');
+    if (!formData.payment?.trim()) missingFields.push('payment');
+    if (!Array.isArray(formData.instruments) || formData.instruments.length === 0) missingFields.push('instruments');
+    if (!Array.isArray(formData.genres) || formData.genres.length === 0) missingFields.push('genres');
+    if (!formData.description?.trim()) missingFields.push('description');
 
-    if (schedules.some(schedule => !schedule.date || !schedule.startTime || !schedule.endTime)) {
-      missingFields.push('Schedule date and times');
+    if (schedules.some(schedule => !schedule.date || !schedule.startTime)) {
+      missingFields.push('schedule date and start time');
     }
 
     if (missingFields.length) {
@@ -289,17 +317,20 @@ function EditGig() {
     }
 
     try {
-      const primaryDate = schedules[0]?.date || formData.date;
-      const primaryTime = schedules[0]?.startTime || formData.time;
+      const primaryDate = displayToIsoDate(schedules[0]?.date || '');
+      const primaryTime = schedules[0]?.startTime || '';
 
-      const { locationString, location, ...restForm } = formData;
+      const { locationString, location, date: _unusedDate, time: _unusedTime, ...restForm } = formData;
       const payload = {
         ...restForm,
         location: location || locationString || '',
         date: primaryDate,
         time: primaryTime,
         currency,
-        schedules
+        schedules: schedules.map((sched) => ({
+          ...sched,
+          date: displayToIsoDate(sched.date || ''),
+        }))
       };
 
       const response = await fetch(`/api/gigs/${id}`, {
@@ -394,7 +425,10 @@ function EditGig() {
                       clickOpens: false,
                       onChange: (_dates, _str, instance) => instance.close()
                     }}
-                    onChange={([d]) => handleScheduleChange(index, 'date', d ? d.toISOString().slice(0, 10) : '')}
+                    onChange={([d]) => {
+                      const iso = d ? d.toISOString().slice(0, 10) : '';
+                      handleScheduleChange(index, 'date', isoToDisplayDate(iso));
+                    }}
                     render={(props, ref) => (
                       <TextField
                         inputRef={ref}
@@ -410,8 +444,11 @@ function EditGig() {
                             if (v.length >= 5) v = `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4)}`;
                             else if (v.length >= 3) v = `${v.slice(0,2)}/${v.slice(2)}`;
                             e.target.value = v;
+                            handleScheduleChange(index, 'date', v);
                           }
                         }}
+                        value={schedule.date || ''}
+                        onChange={(e) => handleScheduleChange(index, 'date', e.target.value)}
                         fullWidth
                         size="small"
                         label="Date (DD/MM/YYYY)"
@@ -445,7 +482,7 @@ function EditGig() {
                             const y = m[3];
                             const dt = new Date(`${y}-${mo}-${d}T00:00:00Z`);
                             if (!isNaN(dt.getTime())) {
-                              handleScheduleChange(index, 'date', `${y}-${mo}-${d}`);
+                              handleScheduleChange(index, 'date', `${d}/${mo}/${y}`);
                             }
                           }
                         }}
@@ -484,8 +521,11 @@ function EditGig() {
                             let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
                             if (v.length >= 3) v = `${v.slice(0,2)}:${v.slice(2)}`;
                             e.target.value = v;
+                            handleScheduleChange(index, 'startTime', v);
                           }
                         }}
+                        value={schedule.startTime || ''}
+                        onChange={(e) => handleScheduleChange(index, 'startTime', e.target.value)}
                         fullWidth
                         size="small"
                         label="Start Time"
@@ -538,22 +578,25 @@ function EditGig() {
                         }
                       }}
                       onChange={([d]) => handleScheduleChange(index, 'endTime', d ? d.toTimeString().slice(0, 5) : '')}
-                      render={(props, ref) => (
-                        <TextField
-                          inputRef={ref}
-                          inputProps={{
-                            ...props,
-                            id: `edit-end-time-input-${index}`,
-                            inputMode: 'numeric',
-                            maxLength: 5,
-                            placeholder: '--:--',
-                            pattern: '(?:[01]\\d|2[0-3]):[0-5]\\d',
-                            onInput: (e) => {
-                              let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
-                              if (v.length >= 3) v = `${v.slice(0,2)}:${v.slice(2)}`;
-                              e.target.value = v;
-                            }
-                          }}
+                    render={(props, ref) => (
+                      <TextField
+                        inputRef={ref}
+                        inputProps={{
+                          ...props,
+                          id: `edit-end-time-input-${index}`,
+                          inputMode: 'numeric',
+                          maxLength: 5,
+                          placeholder: '--:--',
+                          pattern: '(?:[01]\\d|2[0-3]):[0-5]\\d',
+                          onInput: (e) => {
+                            let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                            if (v.length >= 3) v = `${v.slice(0,2)}:${v.slice(2)}`;
+                            e.target.value = v;
+                            handleScheduleChange(index, 'endTime', v);
+                          }
+                        }}
+                        value={schedule.endTime || ''}
+                        onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
                           fullWidth
                           size="small"
                           label="End Time (Optional)"

@@ -114,22 +114,67 @@ const expandGigLocationStatToOptions = (stat) => {
   }
 
   const parts = raw.split(',').map(part => part.trim()).filter(Boolean);
-  let city = parts[0] || '';
-  let region = parts.length >= 3 ? parts[parts.length - 2] : '';
-  let country = parts.length >= 2 ? parts[parts.length - 1] : '';
-
-  if (parts.length === 1) {
-    city = '';
-    region = '';
-    country = parts[0];
-  } else if (parts.length === 2) {
-    region = '';
-  }
+  const firstPart = parts[0] || '';
+  const lastPart = parts.length ? parts[parts.length - 1] : '';
+  const secondLastPart = parts.length >= 2 ? parts[parts.length - 2] : '';
 
   const fallbackHierarchy = stat?.hierarchy || {};
-  if (!city && fallbackHierarchy.city) city = String(fallbackHierarchy.city).trim();
-  if (!region && fallbackHierarchy.region) region = String(fallbackHierarchy.region).trim();
-  if (!country && fallbackHierarchy.country) country = String(fallbackHierarchy.country).trim();
+  const hasFallbackCity = Object.prototype.hasOwnProperty.call(fallbackHierarchy, 'city');
+  const hasFallbackRegion = Object.prototype.hasOwnProperty.call(fallbackHierarchy, 'region');
+  const hasFallbackCountry = Object.prototype.hasOwnProperty.call(fallbackHierarchy, 'country');
+
+  const fallbackCity = hasFallbackCity ? String(fallbackHierarchy.city || '').trim() : '';
+  const fallbackRegion = hasFallbackRegion ? String(fallbackHierarchy.region || '').trim() : '';
+  const fallbackCountry = hasFallbackCountry ? String(fallbackHierarchy.country || '').trim() : '';
+  const granularity = String(stat?.granularity || '').trim().toLowerCase();
+
+  let city = fallbackCity;
+  let region = fallbackRegion;
+  let country = fallbackCountry;
+
+  const ensureCountry = () => {
+    if (!country && lastPart) {
+      country = lastPart;
+    }
+  };
+
+  if (granularity === 'city') {
+    if (!city && firstPart) city = firstPart;
+    if (!region && parts.length >= 3 && secondLastPart) region = secondLastPart;
+    ensureCountry();
+  } else if (granularity === 'region') {
+    city = '';
+    if (!region && firstPart) region = firstPart;
+    ensureCountry();
+  } else if (granularity === 'country') {
+    city = '';
+    region = '';
+    if (!country && firstPart) country = firstPart;
+  } else {
+    ensureCountry();
+    if (!region && parts.length >= 3 && secondLastPart) {
+      region = secondLastPart;
+    }
+    if (!city && firstPart) {
+      city = firstPart;
+    }
+    if (!String(city || '').trim() && parts.length === 2 && !fallbackRegion && !fallbackCity) {
+      // Ambiguous two-part string with no fallback info; treat as region-level
+      region = firstPart;
+      city = '';
+    }
+  }
+
+  city = String(city || '').trim();
+  region = String(region || '').trim();
+  country = String(country || '').trim();
+
+  if (granularity === 'region') {
+    city = '';
+  } else if (granularity === 'country') {
+    city = '';
+    region = '';
+  }
 
   if (region && city && region.toLowerCase() === city.toLowerCase()) {
     region = '';
@@ -277,6 +322,24 @@ const COUNTRY_NAME_EXPANSIONS = {
   america: ['united states', 'usa', 'us']
 };
 
+const COUNTRY_NAME_TO_CODE = {
+  'united states': 'US',
+  'united states of america': 'US',
+  'usa': 'US',
+  'us': 'US',
+  'america': 'US',
+  'canada': 'CA',
+  'united kingdom': 'UK',
+  'great britain': 'UK',
+  'uk': 'UK',
+  'england': 'UK',
+  'scotland': 'UK',
+  'wales': 'UK',
+  'northern ireland': 'UK',
+  'australia': 'AU',
+  'new zealand': 'NZ'
+};
+
 const filterCountryOptionsByQuery = (options = [], query = '') => {
   const trimmed = String(query || '').trim().toLowerCase();
   if (!trimmed) return options;
@@ -367,7 +430,7 @@ const Gigs = () => {
   const locDebounceRef = useRef(null);
   const locAbortRef = useRef(null);
   const defaultLocationAppliedRef = useRef(false);
-  const [browserLocationAttempted, setBrowserLocationAttempted] = useState(false);
+  const prevUserIdRef = useRef(null);
 
 
 
@@ -385,12 +448,15 @@ const Gigs = () => {
     const label = String(countryName || '').trim();
     if (!label) return false;
 
+    const code = COUNTRY_NAME_TO_CODE[label.toLowerCase()] || '';
+
     const option = {
       type: 'country',
       value: label,
       label,
       display: label,
-      hierarchy: { country: label }
+      hierarchy: { country: label },
+      codes: code ? [code] : []
     };
 
     setFilters((prev) => ({
@@ -402,6 +468,60 @@ const Gigs = () => {
     return true;
   }, [setFilters, setLocInput]);
 
+  useEffect(() => {
+    const currentUserId = user?.id || user?._id || null;
+    if (prevUserIdRef.current !== currentUserId) {
+      prevUserIdRef.current = currentUserId;
+      defaultLocationAppliedRef.current = false;
+      if (!currentUserId) {
+        setFilters((prev) => ({ ...prev, location: null }));
+        setLocInput('');
+      }
+    }
+  }, [user, setFilters, setLocInput]);
+
+  const rankLocationOptions = useCallback((options, query) => {
+    const trimmed = (query || '').trim().toLowerCase();
+    if (!trimmed) return options;
+
+    const normalize = (value) => String(value || '').trim().toLowerCase();
+
+    const scored = options.map((option, idx) => {
+      const hierarchy = option?.hierarchy || {};
+      const primary = normalize(option?.display || option?.value || option?.label);
+      const value = normalize(option?.value);
+      const display = normalize(option?.display);
+      const label = normalize(option?.label);
+      const hierarchyValues = [
+        hierarchy.city,
+        hierarchy.region,
+        hierarchy.country
+      ].map(normalize).filter(Boolean);
+
+      let score = 200;
+      if (primary === trimmed) score = 0;
+      else if (value === trimmed || display === trimmed || label === trimmed) score = 1;
+      else if (primary.startsWith(trimmed)) score = 2;
+      else if (display.startsWith(trimmed) || value.startsWith(trimmed) || label.startsWith(trimmed)) score = 3;
+      else if (hierarchyValues.includes(trimmed)) score = option.type === 'country' ? 4 : option.type === 'region' ? 5 : 6;
+      else if (hierarchyValues.some(val => val.startsWith(trimmed))) score = option.type === 'country' ? 7 : option.type === 'region' ? 8 : 9;
+      else if (primary.includes(trimmed)) score = 10;
+      else if (display.includes(trimmed) || value.includes(trimmed) || label.includes(trimmed)) score = 20;
+      else if (hierarchyValues.some(val => val.includes(trimmed))) score = 30;
+
+      const typePriority = option.type === 'city' ? 0 : option.type === 'region' ? 1 : 2;
+
+      return { option, score, typePriority, idx };
+    });
+
+    scored.sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      if (a.typePriority !== b.typePriority) return a.typePriority - b.typePriority;
+      return a.idx - b.idx;
+    });
+
+    return scored.map(item => item.option);
+  }, []);
 
 
   // Fetch gigs (server-side filtering) with debounce
@@ -498,7 +618,18 @@ const Gigs = () => {
         const deduped = dedupeGigLocationOptions(expanded).filter(opt => opt.value);
         const sorted = sortGigLocationOptions(deduped);
         const filtered = filterCountryOptionsByQuery(sorted, locInput);
-        setLocOptions(filtered);
+
+        const dedupedByDisplay = [];
+        const seenDisplays = new Set();
+        filtered.forEach((option) => {
+          const key = (option?.display || option?.value || '').trim().toLowerCase();
+          if (!key || seenDisplays.has(key)) return;
+          seenDisplays.add(key);
+          dedupedByDisplay.push(option);
+        });
+
+        const ranked = rankLocationOptions(dedupedByDisplay, locInput);
+        setLocOptions(ranked);
       } catch (err) {
         if (err.name !== 'CanceledError') {
           console.error('Error fetching gig location suggestions:', err);
@@ -528,104 +659,7 @@ const Gigs = () => {
 
 
   useEffect(() => {
-    if (defaultLocationAppliedRef.current || browserLocationAttempted) return;
-    if (filters.location) {
-      defaultLocationAppliedRef.current = true;
-      setBrowserLocationAttempted(true);
-      return;
-    }
-    if ((locInput || '').trim()) {
-      defaultLocationAppliedRef.current = true;
-      setBrowserLocationAttempted(true);
-      return;
-    }
-
-    let cancelled = false;
-
-    const finalize = () => {
-      if (!cancelled) {
-        setBrowserLocationAttempted(true);
-      }
-    };
-
-    const applyFromCountry = (countryName) => {
-      if (cancelled) return false;
-      return applyDefaultCountry(countryName);
-    };
-
-    const fallbackFromLocale = () => {
-      if (cancelled) return;
-      try {
-        const locale = typeof navigator !== 'undefined'
-          ? (navigator.language || (Array.isArray(navigator.languages) && navigator.languages[0]) || '')
-          : '';
-        const localeParts = locale.split('-');
-        const regionCode = (localeParts[1] || localeParts[2] || '').toUpperCase();
-        if (!regionCode) return;
-        if (typeof Intl === 'undefined' || typeof Intl.DisplayNames !== 'function') return;
-        const displayNames = new Intl.DisplayNames([locale || 'en'], { type: 'region' });
-        const countryName = displayNames.of(regionCode);
-        if (countryName) {
-          applyFromCountry(countryName);
-        }
-      } catch (err) {
-        // ignore locale fallback errors
-      }
-    };
-
-    const handleGeoSuccess = async (position) => {
-      if (cancelled) return;
-      const { latitude, longitude } = position?.coords || {};
-      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-        fallbackFromLocale();
-        finalize();
-        return;
-      }
-      try {
-        const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
-        if (!response.ok) {
-          fallbackFromLocale();
-          return;
-        }
-        const data = await response.json();
-        const countryName = data?.countryName || data?.countryNameNative || data?.country || '';
-        if (!applyFromCountry(countryName)) {
-          fallbackFromLocale();
-        }
-      } catch (err) {
-        fallbackFromLocale();
-      } finally {
-        finalize();
-      }
-    };
-
-    const handleGeoError = () => {
-      fallbackFromLocale();
-      finalize();
-    };
-
-    if (typeof navigator === 'undefined') {
-      fallbackFromLocale();
-      finalize();
-    } else if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(handleGeoSuccess, handleGeoError, {
-        enableHighAccuracy: false,
-        timeout: 5000,
-        maximumAge: 600000
-      });
-    } else {
-      fallbackFromLocale();
-      finalize();
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [browserLocationAttempted, filters.location, locInput, applyDefaultCountry]);
-
-  useEffect(() => {
     if (defaultLocationAppliedRef.current) return;
-    if (!browserLocationAttempted) return;
     if (filters.location) {
       defaultLocationAppliedRef.current = true;
       return;
@@ -678,7 +712,7 @@ const Gigs = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [browserLocationAttempted, isAuthenticated, token, filters.location, locInput, applyDefaultCountry]);
+  }, [isAuthenticated, token, filters.location, locInput, applyDefaultCountry]);
 
 
 

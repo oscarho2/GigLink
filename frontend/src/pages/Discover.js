@@ -50,6 +50,24 @@ import UserAvatar from '../components/UserAvatar';
 // (Reverted) using MUI Autocomplete for location filter
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
+const COUNTRY_NAME_TO_CODE = {
+  'united states': 'US',
+  'united states of america': 'US',
+  'usa': 'US',
+  'us': 'US',
+  'america': 'US',
+  'canada': 'CA',
+  'united kingdom': 'UK',
+  'great britain': 'UK',
+  'uk': 'UK',
+  'england': 'UK',
+  'scotland': 'UK',
+  'wales': 'UK',
+  'northern ireland': 'UK',
+  'australia': 'AU',
+  'new zealand': 'NZ'
+};
+
 // Define pulse animation
 const pulse = keyframes`
   0% {
@@ -377,7 +395,6 @@ const Discover = () => {
   const [locLoading, setLocLoading] = useState(false);
   const locDebounceRef = useRef(null);
   const locAbortRef = useRef(null);
-  const [browserLocationAttempted, setBrowserLocationAttempted] = useState(false);
   
   // Link-related state
   const [linkStatuses, setLinkStatuses] = useState({});
@@ -393,6 +410,7 @@ const Discover = () => {
   const usersRef = useRef([]);
   const scrollDebounceRef = useRef(null);
   const defaultLocationAppliedRef = useRef(false);
+  const prevUserIdRef = useRef(null);
 
   // Memoized search handler
   const handleSearch = useCallback((event) => {
@@ -428,7 +446,50 @@ const Discover = () => {
     setLocOptions([]);
     setLocLoading(false);
   }, []);
-  
+
+  const rankLocationOptions = useCallback((options, query) => {
+    const trimmed = (query || '').trim().toLowerCase();
+    if (!trimmed) return options;
+
+    const normalize = (value) => String(value || '').trim().toLowerCase();
+
+    const scored = options.map((option, idx) => {
+      const hierarchy = option?.hierarchy || {};
+      const primary = normalize(option?.display || option?.value || option?.label);
+      const value = normalize(option?.value);
+      const display = normalize(option?.display);
+      const label = normalize(option?.label);
+      const hierarchyValues = [
+        hierarchy.city,
+        hierarchy.region,
+        hierarchy.country
+      ].map(normalize).filter(Boolean);
+
+      let score = 200;
+      if (primary === trimmed) score = 0;
+      else if (value === trimmed || display === trimmed || label === trimmed) score = 1;
+      else if (primary.startsWith(trimmed)) score = 2;
+      else if (display.startsWith(trimmed) || value.startsWith(trimmed) || label.startsWith(trimmed)) score = 3;
+      else if (hierarchyValues.includes(trimmed)) score = option.type === 'country' ? 4 : option.type === 'region' ? 5 : 6;
+      else if (hierarchyValues.some(val => val.startsWith(trimmed))) score = option.type === 'country' ? 7 : option.type === 'region' ? 8 : 9;
+      else if (primary.includes(trimmed)) score = 10;
+      else if (display.includes(trimmed) || value.includes(trimmed) || label.includes(trimmed)) score = 20;
+      else if (hierarchyValues.some(val => val.includes(trimmed))) score = 30;
+
+      const typePriority = option.type === 'city' ? 0 : option.type === 'region' ? 1 : 2;
+
+      return { option, score, typePriority, idx };
+    });
+
+    scored.sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      if (a.typePriority !== b.typePriority) return a.typePriority - b.typePriority;
+      return a.idx - b.idx;
+    });
+
+    return scored.map(item => item.option);
+  }, []);
+
 
   // Fetch users (server-side filtering) with debounce
   useEffect(() => {
@@ -644,15 +705,31 @@ const Discover = () => {
   const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
   const [hasTypedLocation, setHasTypedLocation] = useState(false);
 
+  useEffect(() => {
+    const currentUserId = user?.id || user?._id || null;
+    if (prevUserIdRef.current !== currentUserId) {
+      prevUserIdRef.current = currentUserId;
+      defaultLocationAppliedRef.current = false;
+      if (!currentUserId) {
+        setFilters(prev => ({ ...prev, location: null }));
+        setLocInput('');
+        setLocationQuery('');
+      }
+    }
+  }, [user, setFilters, setLocInput, setLocationQuery]);
+
   const applyCountryFilter = useCallback((countryName, { addToOptions = false } = {}) => {
     const label = String(countryName || '').trim();
     if (!label) return null;
+
+    const code = COUNTRY_NAME_TO_CODE[label.toLowerCase()] || '';
 
     const suggestion = {
       type: 'country',
       label,
       value: label,
       hierarchy: { city: '', region: '', country: label },
+      codes: code ? [code] : [],
       count: 0
     };
 
@@ -701,10 +778,6 @@ const Discover = () => {
       return undefined;
     }
 
-    if (!browserLocationAttempted) {
-      return undefined;
-    }
-
     if (filters.location || locationQuery.trim()) {
       defaultLocationAppliedRef.current = true;
       return undefined;
@@ -744,7 +817,7 @@ const Discover = () => {
     return () => {
       cancelled = true;
     };
-  }, [user, token, filters.location, locationQuery, applyCountryFilter, browserLocationAttempted]);
+  }, [user, token, filters.location, locationQuery, applyCountryFilter]);
 
   useEffect(() => {
     let active = true;
@@ -860,8 +933,19 @@ const Discover = () => {
         }
 
         const options = filteredScored.map(item => item.option);
-        setLocationOptions(options);
-        if (active) setLocationDropdownOpen(options.length > 0);
+
+        const dedupedByDisplay = [];
+        const seenDisplays = new Set();
+        options.forEach((option) => {
+          const key = (option?.display || option?.value || '').trim().toLowerCase();
+          if (!key || seenDisplays.has(key)) return;
+          seenDisplays.add(key);
+          dedupedByDisplay.push(option);
+        });
+
+        const ranked = rankLocationOptions(dedupedByDisplay, locationQuery);
+        setLocationOptions(ranked);
+        if (active) setLocationDropdownOpen(ranked.length > 0);
       } catch (e) {
         if (e.name !== 'CanceledError') {
           // ignore fetch errors
@@ -873,98 +957,7 @@ const Discover = () => {
     return () => { active = false; clearTimeout(t); controller.abort(); };
   }, [locationQuery, hasTypedLocation]);
 
-  useEffect(() => {
-    if (defaultLocationAppliedRef.current || browserLocationAttempted) return;
-    if (filters.location || locationQuery.trim()) {
-      defaultLocationAppliedRef.current = true;
-      setBrowserLocationAttempted(true);
-      return;
-    }
-
-    let cancelled = false;
-
-    const finalize = () => {
-      if (!cancelled) {
-        setBrowserLocationAttempted(true);
-      }
-    };
-
-    const applyFromCountry = (countryName) => {
-      if (cancelled) return false;
-      const applied = applyCountryFilter(countryName, { addToOptions: true });
-      if (applied) {
-        defaultLocationAppliedRef.current = true;
-        return true;
-      }
-      return false;
-    };
-
-    const fallbackFromLocale = () => {
-      try {
-        const locale = typeof navigator !== 'undefined'
-          ? (navigator.language || (Array.isArray(navigator.languages) && navigator.languages[0]) || '')
-          : '';
-        const localeParts = locale.split('-');
-        const regionCode = (localeParts[1] || localeParts[2] || '').toUpperCase();
-        if (!regionCode) return;
-        if (typeof Intl === 'undefined' || typeof Intl.DisplayNames !== 'function') return;
-        const displayNames = new Intl.DisplayNames([locale || 'en'], { type: 'region' });
-        const countryName = displayNames.of(regionCode);
-        if (countryName) {
-          applyFromCountry(countryName);
-        }
-      } catch (err) {
-        // ignore locale fallback errors
-      }
-    };
-
-    const handleGeoSuccess = async (position) => {
-      if (cancelled) return;
-      const { latitude, longitude } = position?.coords || {};
-      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-        fallbackFromLocale();
-        finalize();
-        return;
-      }
-      try {
-        const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`;
-        const response = await fetch(url, { method: 'GET' });
-        if (!response.ok) {
-          fallbackFromLocale();
-          return;
-        }
-        const data = await response.json();
-        const countryName = data?.countryName || data?.countryNameNative || data?.country || '';
-        if (!applyFromCountry(countryName)) {
-          fallbackFromLocale();
-        }
-      } catch (err) {
-        fallbackFromLocale();
-      } finally {
-        finalize();
-      }
-    };
-
-    const handleGeoError = () => {
-      fallbackFromLocale();
-      finalize();
-    };
-
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      fallbackFromLocale();
-      finalize();
-    } else {
-      navigator.geolocation.getCurrentPosition(handleGeoSuccess, handleGeoError, {
-        enableHighAccuracy: false,
-        timeout: 5000,
-        maximumAge: 600000
-      });
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [filters.location, locationQuery, applyCountryFilter, browserLocationAttempted]);
+  // Removed browser geolocation defaulting; users can select manually or rely on profile fallback
 
   // Check link status for a specific user
   const checkLinkStatus = useCallback(async (userId) => {
