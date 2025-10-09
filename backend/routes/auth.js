@@ -65,7 +65,7 @@ router.post(
   ],
   async (req, res) => {
     console.log('Login route hit');
-    console.log('Request body:', req.body);
+    console.log('Login request received for:', email);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('Validation errors:', errors.array());

@@ -196,23 +196,33 @@ router.get('/links', auth, async (req, res) => {
     const userId = req.user.id;
     const links = await Link.getLinks(userId);
 
+    const invalidLinkIds = links
+      .filter(link => !link?.requester || !link?.recipient)
+      .map(link => link._id);
+    if (invalidLinkIds.length) {
+      await Link.deleteMany({ _id: { $in: invalidLinkIds } });
+    }
+
     // Format links list
-    const linksList = links.map(link => {
-      const linkUser = link.requester._id.toString() === userId 
-        ? link.recipient 
-        : link.requester;
-      
-      return {
-        linkId: link._id,
-        link: {
-          id: linkUser._id,
-          name: linkUser.name,
-          email: linkUser.email,
-          avatar: linkUser.avatar
-        },
-        connectedAt: link.respondedAt || link.createdAt
-      };
-    });
+    const linksList = links
+      .filter(link => link?.requester && link?.recipient)
+      .map(link => {
+        const isRequester = link.requester._id.toString() === userId;
+        const linkUser = isRequester ? link.recipient : link.requester;
+        if (!linkUser) return null;
+
+        return {
+          linkId: link._id,
+          link: {
+            id: linkUser._id,
+            name: linkUser.name,
+            email: linkUser.email,
+            avatar: linkUser.avatar
+          },
+          connectedAt: link.respondedAt || link.createdAt
+        };
+      })
+      .filter(Boolean);
 
     res.json({ links: linksList });
   } catch (error) {
@@ -227,17 +237,26 @@ router.get('/requests/pending', auth, async (req, res) => {
     const userId = req.user.id;
     const pendingRequests = await Link.getPendingRequests(userId);
 
-    const requests = pendingRequests.map(link => ({
-      linkId: link._id,
-      requester: {
-        id: link.requester._id,
-        name: link.requester.name,
-        email: link.requester.email,
-        avatar: link.requester.avatar
-      },
-      note: link.note,
-      requestedAt: link.requestedAt
-    }));
+    const invalidPendingIds = pendingRequests
+      .filter(link => !link?.requester)
+      .map(link => link._id);
+    if (invalidPendingIds.length) {
+      await Link.deleteMany({ _id: { $in: invalidPendingIds } });
+    }
+
+    const requests = pendingRequests
+      .filter(link => link?.requester)
+      .map(link => ({
+        linkId: link._id,
+        requester: {
+          id: link.requester._id,
+          name: link.requester.name,
+          email: link.requester.email,
+          avatar: link.requester.avatar
+        },
+        note: link.note,
+        requestedAt: link.requestedAt
+      }));
 
     res.json({ requests });
   } catch (error) {
@@ -252,17 +271,26 @@ router.get('/requests/sent', auth, async (req, res) => {
     const userId = req.user.id;
     const sentRequests = await Link.getSentRequests(userId);
 
-    const requests = sentRequests.map(link => ({
-      linkId: link._id,
-      recipient: {
-        id: link.recipient._id,
-        name: link.recipient.name,
-        email: link.recipient.email,
-        avatar: link.recipient.avatar
-      },
-      note: link.note,
-      requestedAt: link.requestedAt
-    }));
+    const invalidSentIds = sentRequests
+      .filter(link => !link?.recipient)
+      .map(link => link._id);
+    if (invalidSentIds.length) {
+      await Link.deleteMany({ _id: { $in: invalidSentIds } });
+    }
+
+    const requests = sentRequests
+      .filter(link => link?.recipient)
+      .map(link => ({
+        linkId: link._id,
+        recipient: {
+          id: link.recipient._id,
+          name: link.recipient.name,
+          email: link.recipient.email,
+          avatar: link.recipient.avatar
+        },
+        note: link.note,
+        requestedAt: link.requestedAt
+      }));
 
     res.json({ requests });
   } catch (error) {

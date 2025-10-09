@@ -611,6 +611,7 @@ router.delete('/me', auth, async (req, res) => {
     const Gig = require('../models/Gig');
     const Message = require('../models/Message');
     const Post = require('../models/Post');
+    const Link = require('../models/Link');
     
     // Delete all user-related data
     // 1. Delete user's profile
@@ -631,14 +632,20 @@ router.delete('/me', auth, async (req, res) => {
     });
     console.log('Messages deleted:', messagesResult.deletedCount);
 
-    // 5. Remove user from gig applicants
+    // 5. Delete any link connections involving this user
+    const linksResult = await Link.deleteMany({
+      $or: [{ requester: userId }, { recipient: userId }]
+    });
+    console.log('Links deleted:', linksResult.deletedCount);
+
+    // 6. Remove user from gig applicants
     const gigApplicantsResult = await Gig.updateMany(
       { 'applicants.user': userId },
       { $pull: { applicants: { user: userId } } }
     );
     console.log('Removed from gig applications:', gigApplicantsResult.modifiedCount);
 
-    // 6. Finally, delete the user account
+    // 7. Finally, delete the user account
     const user = await User.findByIdAndDelete(userId);
     console.log('User account deleted:', user ? 'Yes' : 'No user found');
     
@@ -653,6 +660,7 @@ router.delete('/me', auth, async (req, res) => {
         gigs: gigsResult.deletedCount,
         posts: postsResult.deletedCount,
         messages: messagesResult.deletedCount,
+        links: linksResult.deletedCount,
         gigApplications: gigApplicantsResult.modifiedCount,
         user: !!user
       }
