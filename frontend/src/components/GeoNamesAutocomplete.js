@@ -31,14 +31,6 @@ const GeoNamesAutocomplete = ({
   const GEONAMES_USERNAME = process.env.REACT_APP_GEONAMES_USERNAME || 'oscarho'; // Using demo for testing - replace with your username for production
   const GEONAMES_API_URL = 'https://secure.geonames.org/searchJSON'; // Using HTTPS to avoid CORS issues
 
-  useEffect(() => {
-    const cleanValue = value && value.trim() && value !== 'Location not specified' ? value : '';
-    setInputValue(cleanValue);
-    if (cleanValue) {
-      fetchSuggestions(cleanValue);
-    }
-  }, [value, fetchSuggestions]);
-
   const scrollToSelectedItem = useCallback((index) => {
     if (listRef.current && index >= 0 && index < suggestions.length) {
       const listElement = listRef.current;
@@ -151,6 +143,14 @@ const GeoNamesAutocomplete = ({
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const cleanValue = value && value.trim() && value !== 'Location not specified' ? value : '';
+    setInputValue(cleanValue);
+    if (cleanValue) {
+      fetchSuggestions(cleanValue);
+    }
+  }, [value, fetchSuggestions]);
 
   const handleInputChange = useCallback((event) => {
     const newValue = event.target.value;
