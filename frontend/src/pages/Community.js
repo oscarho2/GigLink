@@ -1608,123 +1608,129 @@ const Community = () => {
           </Button>
         </Paper>
       ) : (
-        posts.slice(0, loadedCount).map((post) => (
-          <Card 
-            key={post._id} 
-            elevation={0}
-            sx={{ 
-              mb: 4,
-              borderRadius: 3,
-              border: '1px solid #e2e8f0',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: '0 8px 25px rgba(26, 54, 93, 0.1)',
-                borderColor: '#cbd5e0'
-              }
-            }}
-          >
-            <CardHeader
-              avatar={
-                <UserAvatar 
-                  user={post.author}
-                  size={48}
-                  mobileSize={40}
-                  onClick={() => navigate(`/profile/${post.author._id || post.author.id}`)}
-                />
-              }
-              title={
-                <Typography 
+        posts.slice(0, loadedCount).map((post) => {
+          const author = post?.author || {};
+          const authorId = author._id || author.id || '';
+          const currentUserId = user?._id || user?.id || '';
+          const authorProfileLink = authorId ? `/profile/${authorId}` : null;
+          const authorName = author.name || 'Unknown User';
+          const postTimestamp = post.createdAt ? new Date(post.createdAt) : null;
+
+          return (
+            <Card 
+              key={post._id} 
+              elevation={0}
+              sx={{ 
+                mb: 4,
+                borderRadius: 3,
+                border: '1px solid #e2e8f0',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 8px 25px rgba(26, 54, 93, 0.1)',
+                  borderColor: '#cbd5e0'
+                }
+              }}
+            >
+              <CardHeader
+                avatar={
+                  <UserAvatar 
+                    user={author}
+                    size={48}
+                    mobileSize={40}
+                    onClick={() => authorProfileLink && navigate(authorProfileLink)}
+                  />
+                }
+                title={
+                  <Typography 
                     variant="h6" 
-                    onClick={() => navigate(`/profile/${post.author._id || post.author.id}`)}
+                    onClick={() => authorProfileLink && navigate(authorProfileLink)}
                     sx={{ 
-                      cursor: 'pointer',
+                      cursor: authorProfileLink ? 'pointer' : 'default',
                       fontWeight: 'bold',
                       color: '#1a365d'
                     }}
                   >
-                    {post.author.name}
+                    {authorName}
                   </Typography>
-              }
-              subheader={
-                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
-                  {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
-                </Typography>
-              }
-              action={
-                ((post.author._id || post.author.id) === (user?._id || user?.id)) && (
-                  <IconButton
-                    onClick={(event) => handlePostMenuClick(event, post)}
-                    sx={{
-                      color: '#718096',
-                      '&:hover': {
-                        color: '#1a365d',
-                        bgcolor: 'rgba(26, 54, 93, 0.1)'
-                      }
-                    }}
-                  >
-                    <MoreVertIcon />
-                  </IconButton>
-                )
-              }
-              sx={{ pb: 1 }}
-            />
-            
-            <CardContent sx={{ pt: 0, px: 3, pb: 2 }}>
-              <Typography 
-                variant="body1" 
-                component="div"
-                sx={{
-                  lineHeight: 1.7,
-                  fontSize: '1rem',
-                  color: '#2d3748',
-                  mb: 3
-                }}
-              >
-                <MentionRenderer 
-                  content={post.parsedContent || post.content}
-                  mentions={post.mentions || []}
-                  variant="link"
-                />
-              </Typography>
+                }
+                subheader={
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
+                    {postTimestamp ? formatDistanceToNow(postTimestamp, { addSuffix: true }) : 'Just now'}
+                  </Typography>
+                }
+                action={
+                  authorId && authorId === currentUserId && (
+                    <IconButton
+                      onClick={(event) => handlePostMenuClick(event, post)}
+                      sx={{
+                        color: '#718096',
+                        '&:hover': {
+                          color: '#1a365d',
+                          bgcolor: 'rgba(26, 54, 93, 0.1)'
+                        }
+                      }}
+                    >
+                      <MoreVertIcon />
+                    </IconButton>
+                  )
+                }
+                sx={{ pb: 1 }}
+              />
               
-              {post.media && post.media.length > 0 && (
+              <CardContent sx={{ pt: 0, px: 3, pb: 2 }}>
+                <Typography 
+                  variant="body1" 
+                  component="div"
+                  sx={{
+                    lineHeight: 1.7,
+                    fontSize: '1rem',
+                    color: '#2d3748',
+                    mb: 3
+                  }}
+                >
+                  <MentionRenderer 
+                    content={post.parsedContent || post.content}
+                    mentions={post.mentions || []}
+                    variant="link"
+                  />
+                </Typography>
+                
+                {post.media && post.media.length > 0 && (
                   <Box sx={{ mb: 3 }}>
                     {renderMedia(post)}
                   </Box>
                 )}
-              
+              </CardContent>
 
-            </CardContent>
-
-            <CardActions disableSpacing>
-              <IconButton
-                onClick={() => handleLike(post._id, post.isLikedByUser)}
-                color={post.isLikedByUser ? "error" : "default"}
-              >
-                {post.isLikedByUser ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-              </IconButton>
-              <Typography variant="body2" sx={{ mr: 2 }}>
-                {post.likesCount}
-              </Typography>
-              
-              <IconButton onClick={() => toggleComments(post._id)}>
-                <CommentIcon />
-              </IconButton>
-              <Typography variant="body2" sx={{ mr: 2 }}>
-                {post.commentsCount}
-              </Typography>
-              
-              {(post.instruments?.length > 0 || post.genres?.length > 0) && (
+              <CardActions disableSpacing>
                 <IconButton
-                  onClick={() => toggleTags(post._id)}
-                  aria-expanded={expandedTags[post._id]}
-                  aria-label="show tags"
+                  onClick={() => handleLike(post._id, post.isLikedByUser)}
+                  color={post.isLikedByUser ? "error" : "default"}
                 >
-                  {expandedTags[post._id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  {post.isLikedByUser ? <FavoriteIcon /> : <FavoriteBorderIcon />}
                 </IconButton>
-              )}
-            </CardActions>
+                <Typography variant="body2" sx={{ mr: 2 }}>
+                  {post.likesCount}
+                </Typography>
+                
+                <IconButton onClick={() => toggleComments(post._id)}>
+                  <CommentIcon />
+                </IconButton>
+                <Typography variant="body2" sx={{ mr: 2 }}>
+                  {post.commentsCount}
+                </Typography>
+                
+                {(post.instruments?.length > 0 || post.genres?.length > 0) && (
+                  <IconButton
+                    onClick={() => toggleTags(post._id)}
+                    aria-expanded={expandedTags[post._id]}
+                    aria-label="show tags"
+                  >
+                    {expandedTags[post._id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                )}
+              </CardActions>
 
             <Collapse in={expandedTags[post._id]} timeout="auto" unmountOnExit>
               <CardContent>
@@ -1815,83 +1821,90 @@ const Community = () => {
                         // If both have same pin status, sort by creation date (newest first)
                         return new Date(b.createdAt) - new Date(a.createdAt);
                       })
-                      .map((comment) => (
-                      <Box key={comment._id}>
-                        <ListItem alignItems="flex-start">
-                          <ListItemAvatar>
-                            <UserAvatar
-                              user={comment.user}
-                              size={32}
-                              onClick={() => navigate(`/profile/${comment.user._id || comment.user.id}`)}
-                            />
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography 
-                                  variant="subtitle2"
-                                  onClick={() => navigate(`/profile/${comment.user._id || comment.user.id}`)}
-                                  sx={{ cursor: 'pointer' }}
-                                >
-                                  {comment.user.name}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-                                </Typography>
-                              </Box>
-                            }
-                            secondary={
-                              <Box>
-                                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                                  <Typography variant="body2" component="div" sx={{ fontSize: '1.1rem', mr: 2 }}>
-                                    <MentionRenderer 
-                                      content={comment.parsedContent || comment.content}
-                                      mentions={comment.mentions || []}
-                                      variant="link"
-                                    />
-                                  </Typography>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                                    {comment.pinned && (
-                                      <PushPinIcon fontSize="small" color="primary" />
-                                    )}
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleCommentLike(post._id, comment._id)}
-                                      color={commentLikes[comment._id] ? "error" : "default"}
-                                      sx={{ p: 0.5 }}
+                      .map((comment) => {
+                        const commentUser = comment?.user || {};
+                        const commentUserId = commentUser._id || commentUser.id || '';
+                        const commentProfileLink = commentUserId ? `/profile/${commentUserId}` : null;
+                        const commentUserName = commentUser.name || 'Unknown User';
+                        const commentTimestamp = comment.createdAt ? new Date(comment.createdAt) : null;
+
+                        return (
+                          <Box key={comment._id}>
+                            <ListItem alignItems="flex-start">
+                              <ListItemAvatar>
+                                <UserAvatar
+                                  user={commentUser}
+                                  size={32}
+                                  onClick={() => commentProfileLink && navigate(commentProfileLink)}
+                                />
+                              </ListItemAvatar>
+                              <ListItemText
+                                primary={
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography 
+                                      variant="subtitle2"
+                                      onClick={() => commentProfileLink && navigate(commentProfileLink)}
+                                      sx={{ cursor: commentProfileLink ? 'pointer' : 'default' }}
                                     >
-                                      {commentLikes[comment._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
-                                    </IconButton>
-                                    <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
-                                      {comment.likesCount || 0}
+                                      {commentUserName}
                                     </Typography>
-                                    <IconButton
-                                      size="small"
-                                      onClick={(e) => handleCommentMenuClick(e, comment)}
-                                      sx={{ p: 0.5 }}
-                                    >
-                                      <MoreVertIcon fontSize="small" />
-                                    </IconButton>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {commentTimestamp ? formatDistanceToNow(commentTimestamp, { addSuffix: true }) : 'Just now'}
+                                    </Typography>
                                   </Box>
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Button
-                                    size="small"
-                                    onClick={() => handleReplyToComment(comment._id)}
-                                    sx={{ 
-                                      textTransform: 'none',
-                                      minWidth: 'auto',
-                                      padding: '2px 8px',
-                                      fontSize: '0.75rem'
-                                    }}
-                                  >
-                                    Reply
-                                  </Button>
-                                </Box>
-                              </Box>
-                            }
-                          />
-                        </ListItem>
+                                }
+                                secondary={
+                                  <Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                                      <Typography variant="body2" component="div" sx={{ fontSize: '1.1rem', mr: 2 }}>
+                                        <MentionRenderer 
+                                          content={comment.parsedContent || comment.content}
+                                          mentions={comment.mentions || []}
+                                          variant="link"
+                                        />
+                                      </Typography>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                                        {comment.pinned && (
+                                          <PushPinIcon fontSize="small" color="primary" />
+                                        )}
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleCommentLike(post._id, comment._id)}
+                                          color={commentLikes[comment._id] ? "error" : "default"}
+                                          sx={{ p: 0.5 }}
+                                        >
+                                          {commentLikes[comment._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                                        </IconButton>
+                                        <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
+                                          {comment.likesCount || 0}
+                                        </Typography>
+                                        <IconButton
+                                          size="small"
+                                          onClick={(e) => handleCommentMenuClick(e, comment)}
+                                          sx={{ p: 0.5 }}
+                                        >
+                                          <MoreVertIcon fontSize="small" />
+                                        </IconButton>
+                                      </Box>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                      <Button
+                                        size="small"
+                                        onClick={() => handleReplyToComment(comment._id)}
+                                        sx={{ 
+                                          textTransform: 'none',
+                                          minWidth: 'auto',
+                                          padding: '2px 8px',
+                                          fontSize: '0.75rem'
+                                        }}
+                                      >
+                                        Reply
+                                      </Button>
+                                    </Box>
+                                  </Box>
+                                }
+                              />
+                            </ListItem>
                         
                         {/* Reply Input */}
                         {replyingTo === comment._id && (
@@ -1939,81 +1952,89 @@ const Community = () => {
                         {comment.replies && comment.replies.length > 0 && (
                           <Box sx={{ ml: 4 }}>
                             {/* Show only first reply or all replies if expanded */}
-                            {(expandedReplies[comment._id] ? comment.replies : comment.replies.slice(0, 1)).map((reply) => (
-                              <ListItem key={reply._id} alignItems="flex-start">
-                                <ListItemAvatar>
-                                  <UserAvatar
-                                    user={reply.user || { name: 'Unknown User', _id: null }}
-                                    size={24}
-                                    onClick={() => (reply.user?._id || reply.user?.id) && navigate(`/profile/${reply.user._id || reply.user.id}`)}
-                                  />
-                                </ListItemAvatar>
-                                <ListItemText
-                                  primary={
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Typography 
-                                        variant="subtitle2"
-                                        onClick={() => (reply.user?._id || reply.user?.id) && navigate(`/profile/${reply.user._id || reply.user.id}`)}
-                                        sx={{ cursor: (reply.user?._id || reply.user?.id) ? 'pointer' : 'default', fontSize: '0.875rem' }}
-                                      >
-                                        {reply.user?.name || 'Unknown User'}
-                                      </Typography>
-                                      <Typography variant="caption" color="text.secondary">
-                                        {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
-                                      </Typography>
-                                    </Box>
-                                  }
-                                  secondary={
-                                    <Box>
-                                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                                        <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem', flex: 1 }}>
-                                          <MentionRenderer 
-                                            content={reply.parsedContent || reply.content}
-                                            mentions={reply.mentions || []}
-                                            variant="link"
-                                          />
+                            {(expandedReplies[comment._id] ? comment.replies : comment.replies.slice(0, 1)).map((reply) => {
+                              const replyUser = reply?.user || {};
+                              const replyUserId = replyUser._id || replyUser.id || '';
+                              const replyProfileLink = replyUserId ? `/profile/${replyUserId}` : null;
+                              const replyUserName = replyUser.name || 'Unknown User';
+                              const replyTimestamp = reply.createdAt ? new Date(reply.createdAt) : null;
+
+                              return (
+                                <ListItem key={reply._id} alignItems="flex-start">
+                                  <ListItemAvatar>
+                                    <UserAvatar
+                                      user={replyUser}
+                                      size={24}
+                                      onClick={() => replyProfileLink && navigate(replyProfileLink)}
+                                    />
+                                  </ListItemAvatar>
+                                  <ListItemText
+                                    primary={
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Typography 
+                                          variant="subtitle2"
+                                          onClick={() => replyProfileLink && navigate(replyProfileLink)}
+                                          sx={{ cursor: replyProfileLink ? 'pointer' : 'default', fontSize: '0.875rem' }}
+                                        >
+                                          {replyUserName}
                                         </Typography>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handleReplyLike(comment._id, reply._id)}
-                                            color={commentLikes[reply._id] ? "error" : "default"}
-                                            sx={{ p: 0.5 }}
-                                          >
-                                            {commentLikes[reply._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
-                                          </IconButton>
-                                          <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
-                                            {reply.likesCount || 0}
+                                        <Typography variant="caption" color="text.secondary">
+                                          {replyTimestamp ? formatDistanceToNow(replyTimestamp, { addSuffix: true }) : 'Just now'}
+                                        </Typography>
+                                      </Box>
+                                    }
+                                    secondary={
+                                      <Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                          <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem', flex: 1 }}>
+                                            <MentionRenderer 
+                                              content={reply.parsedContent || reply.content}
+                                              mentions={reply.mentions || []}
+                                              variant="link"
+                                            />
                                           </Typography>
-                                          <IconButton
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <IconButton
+                                              size="small"
+                                              onClick={() => handleReplyLike(comment._id, reply._id)}
+                                              color={commentLikes[reply._id] ? "error" : "default"}
+                                              sx={{ p: 0.5 }}
+                                            >
+                                              {commentLikes[reply._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                                            </IconButton>
+                                            <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
+                                              {reply.likesCount || 0}
+                                            </Typography>
+                                            <IconButton
+                                              size="small"
+                                              onClick={(e) => handleReplyMenuClick(e, comment._id, reply._id)}
+                                              sx={{ p: 0.5 }}
+                                            >
+                                              <MoreVertIcon fontSize="small" />
+                                            </IconButton>
+                                          </Box>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                          <Button
                                             size="small"
-                                            onClick={(e) => handleReplyMenuClick(e, comment._id, reply._id)}
-                                            sx={{ p: 0.5 }}
+                                            onClick={() => handleReplyToReply(comment._id, reply._id, replyUserName)}
+                                            sx={{ 
+                                              textTransform: 'none',
+                                              minWidth: 'auto',
+                                              padding: '2px 8px',
+                                              fontSize: '0.75rem',
+                                              mt: 0.5
+                                            }}
                                           >
-                                            <MoreVertIcon fontSize="small" />
-                                          </IconButton>
+                                            Reply
+                                          </Button>
                                         </Box>
                                       </Box>
-                                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                        <Button
-                                          size="small"
-                                          onClick={() => handleReplyToReply(comment._id, reply._id, reply.user?.name || 'Unknown User')}
-                                          sx={{ 
-                                            textTransform: 'none',
-                                            minWidth: 'auto',
-                                            padding: '2px 8px',
-                                            fontSize: '0.75rem',
-                                            mt: 0.5
-                                          }}
-                                        >
-                                          Reply
-                                        </Button>
-                                      </Box>
-                                    </Box>
-                                  }
-                                />
-                              </ListItem>
-                            ))}
+                                    }
+                                  />
+                                </ListItem>
+                              );
+                            })}
                             
                             {/* View more replies button */}
                             {comment.replies.length > 1 && !expandedReplies[comment._id] && (
@@ -2050,14 +2071,16 @@ const Community = () => {
                             )}
                           </Box>
                         )}
-                      </Box>
-                    ))}
+                          </Box>
+                        );
+                      })}
                   </List>
                 )}
               </CardContent>
             </Collapse>
           </Card>
-        ))
+        );
+        })
       )}
       {/* Infinite scroll sentinel */}
       <Box ref={sentinelRef} sx={{ height: 1 }} />
@@ -2104,7 +2127,9 @@ const Community = () => {
         {/* Only show pin option if current user is the post author */}
         {(() => {
           const post = posts.find(p => p.comments.some(c => c._id === selectedComment?._id));
-          return post && post.author._id === user?.id && (
+          const postAuthorId = post?.author ? (post.author._id || post.author.id) : null;
+          const currentUserId = user?._id || user?.id || null;
+          return postAuthorId && currentUserId && postAuthorId === currentUserId && (
             <MenuItem onClick={handlePinComment}>
               <PushPinIcon sx={{ mr: 1, color: selectedComment?.pinned ? '#1976d2' : '#666' }} />
               {selectedComment?.pinned ? 'Unpin Comment' : 'Pin Comment'}
