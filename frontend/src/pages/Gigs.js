@@ -367,6 +367,7 @@ const Gigs = () => {
   const locDebounceRef = useRef(null);
   const locAbortRef = useRef(null);
   const defaultLocationAppliedRef = useRef(false);
+  const [browserLocationAttempted, setBrowserLocationAttempted] = useState(false);
 
 
 
@@ -379,6 +380,27 @@ const Gigs = () => {
       : gig?.user?.toString();
     return !!(currentUserId && gigUserId && currentUserId === gigUserId);
   };
+
+  const applyDefaultCountry = useCallback((countryName) => {
+    const label = String(countryName || '').trim();
+    if (!label) return false;
+
+    const option = {
+      type: 'country',
+      value: label,
+      label,
+      display: label,
+      hierarchy: { country: label }
+    };
+
+    setFilters((prev) => ({
+      ...prev,
+      location: option
+    }));
+    setLocInput((prev) => (prev && prev.trim() ? prev : label));
+    defaultLocationAppliedRef.current = true;
+    return true;
+  }, [setFilters, setLocInput]);
 
 
 
@@ -506,8 +528,104 @@ const Gigs = () => {
 
 
   useEffect(() => {
+    if (defaultLocationAppliedRef.current || browserLocationAttempted) return;
+    if (filters.location) {
+      defaultLocationAppliedRef.current = true;
+      setBrowserLocationAttempted(true);
+      return;
+    }
+    if ((locInput || '').trim()) {
+      defaultLocationAppliedRef.current = true;
+      setBrowserLocationAttempted(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    const finalize = () => {
+      if (!cancelled) {
+        setBrowserLocationAttempted(true);
+      }
+    };
+
+    const applyFromCountry = (countryName) => {
+      if (cancelled) return false;
+      return applyDefaultCountry(countryName);
+    };
+
+    const fallbackFromLocale = () => {
+      if (cancelled) return;
+      try {
+        const locale = typeof navigator !== 'undefined'
+          ? (navigator.language || (Array.isArray(navigator.languages) && navigator.languages[0]) || '')
+          : '';
+        const localeParts = locale.split('-');
+        const regionCode = (localeParts[1] || localeParts[2] || '').toUpperCase();
+        if (!regionCode) return;
+        if (typeof Intl === 'undefined' || typeof Intl.DisplayNames !== 'function') return;
+        const displayNames = new Intl.DisplayNames([locale || 'en'], { type: 'region' });
+        const countryName = displayNames.of(regionCode);
+        if (countryName) {
+          applyFromCountry(countryName);
+        }
+      } catch (err) {
+        // ignore locale fallback errors
+      }
+    };
+
+    const handleGeoSuccess = async (position) => {
+      if (cancelled) return;
+      const { latitude, longitude } = position?.coords || {};
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        fallbackFromLocale();
+        finalize();
+        return;
+      }
+      try {
+        const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+        if (!response.ok) {
+          fallbackFromLocale();
+          return;
+        }
+        const data = await response.json();
+        const countryName = data?.countryName || data?.countryNameNative || data?.country || '';
+        if (!applyFromCountry(countryName)) {
+          fallbackFromLocale();
+        }
+      } catch (err) {
+        fallbackFromLocale();
+      } finally {
+        finalize();
+      }
+    };
+
+    const handleGeoError = () => {
+      fallbackFromLocale();
+      finalize();
+    };
+
+    if (typeof navigator === 'undefined') {
+      fallbackFromLocale();
+      finalize();
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(handleGeoSuccess, handleGeoError, {
+        enableHighAccuracy: false,
+        timeout: 5000,
+        maximumAge: 600000
+      });
+    } else {
+      fallbackFromLocale();
+      finalize();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [browserLocationAttempted, filters.location, locInput, applyDefaultCountry]);
+
+  useEffect(() => {
     if (defaultLocationAppliedRef.current) return;
-    if (!isAuthenticated) return;
+    if (!browserLocationAttempted) return;
     if (filters.location) {
       defaultLocationAppliedRef.current = true;
       return;
@@ -516,9 +634,16 @@ const Gigs = () => {
       defaultLocationAppliedRef.current = true;
       return;
     }
+    if (!isAuthenticated) {
+      defaultLocationAppliedRef.current = true;
+      return;
+    }
 
     const authToken = token || localStorage.getItem('token');
-    if (!authToken) return;
+    if (!authToken) {
+      defaultLocationAppliedRef.current = true;
+      return;
+    }
 
     let cancelled = false;
     const controller = new AbortController();
@@ -534,18 +659,7 @@ const Gigs = () => {
         const locationData = res.data?.user?.locationData || {};
         const countryName = String(locationData.country || '').trim();
         if (countryName) {
-          const option = {
-            type: 'country',
-            value: countryName,
-            label: countryName,
-            display: countryName,
-            hierarchy: { country: countryName }
-          };
-          setFilters((prev) => ({
-            ...prev,
-            location: option
-          }));
-          setLocInput((prev) => (prev && prev.trim() ? prev : countryName));
+          applyDefaultCountry(countryName);
         }
       } catch (err) {
         if (err.name !== 'CanceledError') {
@@ -564,7 +678,7 @@ const Gigs = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [isAuthenticated, token, filters.location, locInput]);
+  }, [browserLocationAttempted, isAuthenticated, token, filters.location, locInput, applyDefaultCountry]);
 
 
 

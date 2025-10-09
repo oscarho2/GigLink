@@ -377,7 +377,7 @@ const Discover = () => {
   const [locLoading, setLocLoading] = useState(false);
   const locDebounceRef = useRef(null);
   const locAbortRef = useRef(null);
-  const [userLocationChecked, setUserLocationChecked] = useState(false);
+  const [browserLocationAttempted, setBrowserLocationAttempted] = useState(false);
   
   // Link-related state
   const [linkStatuses, setLinkStatuses] = useState({});
@@ -698,22 +698,22 @@ const Discover = () => {
     let cancelled = false;
 
     if (defaultLocationAppliedRef.current) {
-      setUserLocationChecked(true);
+      return undefined;
+    }
+
+    if (!browserLocationAttempted) {
       return undefined;
     }
 
     if (filters.location || locationQuery.trim()) {
       defaultLocationAppliedRef.current = true;
-      setUserLocationChecked(true);
       return undefined;
     }
 
     if (!user || !token) {
-      setUserLocationChecked(true);
+      defaultLocationAppliedRef.current = true;
       return undefined;
     }
-
-    setUserLocationChecked(false);
 
     const fetchUserLocation = async () => {
       try {
@@ -733,8 +733,8 @@ const Discover = () => {
       } catch (err) {
         // ignore profile fetch errors
       } finally {
-        if (!cancelled) {
-          setUserLocationChecked(true);
+        if (!cancelled && !defaultLocationAppliedRef.current) {
+          defaultLocationAppliedRef.current = true;
         }
       }
     };
@@ -744,7 +744,7 @@ const Discover = () => {
     return () => {
       cancelled = true;
     };
-  }, [user, token, filters.location, locationQuery, applyCountryFilter]);
+  }, [user, token, filters.location, locationQuery, applyCountryFilter, browserLocationAttempted]);
 
   useEffect(() => {
     let active = true;
@@ -874,11 +874,20 @@ const Discover = () => {
   }, [locationQuery, hasTypedLocation]);
 
   useEffect(() => {
-    if (defaultLocationAppliedRef.current) return;
-    if (filters.location || locationQuery.trim()) return;
-    if (!userLocationChecked) return;
+    if (defaultLocationAppliedRef.current || browserLocationAttempted) return;
+    if (filters.location || locationQuery.trim()) {
+      defaultLocationAppliedRef.current = true;
+      setBrowserLocationAttempted(true);
+      return;
+    }
 
     let cancelled = false;
+
+    const finalize = () => {
+      if (!cancelled) {
+        setBrowserLocationAttempted(true);
+      }
+    };
 
     const applyFromCountry = (countryName) => {
       if (cancelled) return false;
@@ -892,7 +901,9 @@ const Discover = () => {
 
     const fallbackFromLocale = () => {
       try {
-        const locale = navigator.language || (Array.isArray(navigator.languages) && navigator.languages[0]) || '';
+        const locale = typeof navigator !== 'undefined'
+          ? (navigator.language || (Array.isArray(navigator.languages) && navigator.languages[0]) || '')
+          : '';
         const localeParts = locale.split('-');
         const regionCode = (localeParts[1] || localeParts[2] || '').toUpperCase();
         if (!regionCode) return;
@@ -912,6 +923,7 @@ const Discover = () => {
       const { latitude, longitude } = position?.coords || {};
       if (typeof latitude !== 'number' || typeof longitude !== 'number') {
         fallbackFromLocale();
+        finalize();
         return;
       }
       try {
@@ -928,15 +940,19 @@ const Discover = () => {
         }
       } catch (err) {
         fallbackFromLocale();
+      } finally {
+        finalize();
       }
     };
 
     const handleGeoError = () => {
       fallbackFromLocale();
+      finalize();
     };
 
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       fallbackFromLocale();
+      finalize();
     } else {
       navigator.geolocation.getCurrentPosition(handleGeoSuccess, handleGeoError, {
         enableHighAccuracy: false,
@@ -948,7 +964,7 @@ const Discover = () => {
     return () => {
       cancelled = true;
     };
-  }, [filters.location, locationQuery, userLocationChecked, applyCountryFilter]);
+  }, [filters.location, locationQuery, applyCountryFilter, browserLocationAttempted]);
 
   // Check link status for a specific user
   const checkLinkStatus = useCallback(async (userId) => {

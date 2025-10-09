@@ -610,6 +610,7 @@ router.delete('/me', auth, async (req, res) => {
     // Import required models
     const Gig = require('../models/Gig');
     const Message = require('../models/Message');
+    const Post = require('../models/Post');
     
     // Delete all user-related data
     // 1. Delete user's profile
@@ -619,21 +620,25 @@ router.delete('/me', auth, async (req, res) => {
     // 2. Delete user's gigs
     const gigsResult = await Gig.deleteMany({ user: userId });
     console.log('Gigs deleted:', gigsResult.deletedCount);
+
+    // 3. Delete user's community posts
+    const postsResult = await Post.deleteMany({ author: userId });
+    console.log('Posts deleted:', postsResult.deletedCount);
     
-    // 3. Delete messages where user is sender or recipient
+    // 4. Delete messages where user is sender or recipient
     const messagesResult = await Message.deleteMany({
       $or: [{ sender: userId }, { recipient: userId }]
     });
     console.log('Messages deleted:', messagesResult.deletedCount);
-    
-    // 4. Remove user from gig applicants
+
+    // 5. Remove user from gig applicants
     const gigApplicantsResult = await Gig.updateMany(
       { 'applicants.user': userId },
       { $pull: { applicants: { user: userId } } }
     );
     console.log('Removed from gig applications:', gigApplicantsResult.modifiedCount);
-    
-    // 5. Finally, delete the user account
+
+    // 6. Finally, delete the user account
     const user = await User.findByIdAndDelete(userId);
     console.log('User account deleted:', user ? 'Yes' : 'No user found');
     
@@ -646,6 +651,7 @@ router.delete('/me', auth, async (req, res) => {
       deletedData: {
         profile: !!profile,
         gigs: gigsResult.deletedCount,
+        posts: postsResult.deletedCount,
         messages: messagesResult.deletedCount,
         gigApplications: gigApplicantsResult.modifiedCount,
         user: !!user
