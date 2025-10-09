@@ -32,10 +32,12 @@ const GeoNamesAutocomplete = ({
   const GEONAMES_API_URL = 'https://secure.geonames.org/searchJSON'; // Using HTTPS to avoid CORS issues
 
   useEffect(() => {
-    // Handle empty, null, undefined, or "Location not specified" values
     const cleanValue = value && value.trim() && value !== 'Location not specified' ? value : '';
     setInputValue(cleanValue);
-  }, [value]);
+    if (cleanValue) {
+      fetchSuggestions(cleanValue);
+    }
+  }, [value, fetchSuggestions]);
 
   const scrollToSelectedItem = useCallback((index) => {
     if (listRef.current && index >= 0 && index < suggestions.length) {
@@ -123,10 +125,17 @@ const GeoNamesAutocomplete = ({
         });
         
         // Remove duplicates based on displayName
-        const uniqueSuggestions = formattedSuggestions.filter((item, index, self) => 
+        let uniqueSuggestions = formattedSuggestions.filter((item, index, self) => 
           index === self.findIndex(t => t.displayName === item.displayName)
         );
-        
+
+        // Bring entries containing "United States" to the top in the order they appeared
+        const priorityMatches = uniqueSuggestions.filter(item => item.displayName.toLowerCase().includes('united states'));
+        if (priorityMatches.length > 0) {
+          const remaining = uniqueSuggestions.filter(item => !priorityMatches.includes(item));
+          uniqueSuggestions = [...priorityMatches, ...remaining];
+        }
+
         setSuggestions(uniqueSuggestions);
         setShowSuggestions(true);
         setSelectedIndex(0); // Preselect the first option

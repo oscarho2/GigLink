@@ -261,6 +261,33 @@ function EditGig() {
     setError('');
     setSuccess('');
 
+    const missingFields = [];
+
+    if (!formData.title?.trim()) missingFields.push('Gig title');
+    if (!formData.description?.trim()) missingFields.push('Gig description');
+    if (!formData.genre?.trim()) missingFields.push('Genre');
+    if (!formData.instrument?.trim()) missingFields.push('Instrument');
+    if (!formData.budget || formData.budget <= 0) missingFields.push('Budget');
+    if (!currency?.trim()) missingFields.push('Currency');
+    if (!formData.gigType?.trim()) missingFields.push('Gig type');
+    if (!formData.experienceLevel?.trim()) missingFields.push('Experience level');
+    if (!formData.applicationDeadline) missingFields.push('Application deadline');
+
+    if (schedules.some(schedule => !schedule.date || !schedule.startTime || !schedule.endTime)) {
+      missingFields.push('Schedule date and times');
+    }
+
+    if (missingFields.length) {
+      if (missingFields.length === 1) {
+        setError(`Please complete the ${missingFields[0]}.`);
+      } else {
+        const last = missingFields.pop();
+        setError(`Please complete the ${missingFields.join(', ')} and ${last}.`);
+      }
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const primaryDate = schedules[0]?.date || formData.date;
       const primaryTime = schedules[0]?.startTime || formData.time;

@@ -77,9 +77,25 @@ const Profile = () => {
           return avatarUrl;
         };
 
+        const formatAvatar = (url) => {
+          if (!url) return '';
+          if (url.startsWith('/api/media/r2/')) return url;
+
+          const match = url.match(/(?:r2\.dev\/[\w-]+\/|uploads\/)?(.+)$/);
+          if (match && match[1]) {
+            return `/api/media/r2/${encodeURIComponent(match[1])}`;
+          }
+
+          if (!url.includes('://')) {
+            return `/api/media/r2/${encodeURIComponent(url)}`;
+          }
+
+          return url;
+        };
+
         const transformedProfile = {
           name: profileData.user?.name || user?.name || 'User',
-          avatar: normalizeAvatar(profileData.user?.avatar),
+          avatar: formatAvatar(profileData.user?.avatar),
           bio: (profileData.bio && profileData.bio !== 'No bio available') ? profileData.bio : '',
           location: profileData.user?.location || '',
           locationData: profileData.user?.locationData,
@@ -87,10 +103,10 @@ const Profile = () => {
           genres: profileData.user?.genres || [],
           photos: (profileData.photos || []).map(photo => ({
             ...photo,
-            url: normalizeAvatar(photo?.url)
+            url: formatAvatar(photo?.url)
           })),
-        videos: profileData.videos || [],
-          availability: profileData.availability || '',
+          videos: profileData.videos || [],
+          availability: profileData.availability || profileData.user?.isAvailableForGigs ? 'Available' : 'Not available',
           hourlyRate: profileData.hourlyRate || null,
           userId: profileData.user?._id || user?._id || user?.id || null,
           isMusician: profileData.user?.isMusician || 'no'
