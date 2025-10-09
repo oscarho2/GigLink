@@ -535,14 +535,6 @@ router.get('/', async (req, res) => {
       const exactRegion = typeof locationRegion === 'string' ? locationRegion.trim() : '';
       const exactCountry = typeof locationCountry === 'string' ? locationCountry.trim() : '';
 
-      let locationCountryClause = null;
-      let userCountryClause = null;
-      if (exactCountry) {
-        const countryRegex = new RegExp(`^${escapeRegex(exactCountry)}$`, 'i');
-        locationCountryClause = { 'location.country': countryRegex };
-        userCountryClause = { 'locationData.country': countryRegex };
-      }
-
       let { shortCodes, generalTokens } = buildLocationSearchTokens(rawValues);
 
       const normalizeLower = (value) => String(value || '').trim().toLowerCase();
@@ -555,21 +547,54 @@ router.get('/', async (req, res) => {
       const countrySpecified = Boolean(lowerExactCountry);
 
       const countrySynonyms = new Set();
+      const countryRegexTargets = new Map();
+      const addCountrySynonym = (value) => {
+        const text = String(value || '').trim();
+        if (!text) return;
+        const lower = text.toLowerCase();
+        if (lower) countrySynonyms.add(lower);
+        if (!countryRegexTargets.has(lower)) {
+          countryRegexTargets.set(lower, text);
+        }
+      };
+
+      if (exactCountry) {
+        addCountrySynonym(exactCountry);
+      }
+
       if (countrySpecified) {
-        countrySynonyms.add(lowerExactCountry);
         const nameExpansions = COUNTRY_NAME_EXPANSIONS[lowerExactCountry];
         if (Array.isArray(nameExpansions)) {
-          nameExpansions.forEach(name => countrySynonyms.add(normalizeLower(name)));
+          nameExpansions.forEach(addCountrySynonym);
         }
         const normalizedCountryCode = normalizeCountryCode(exactCountry);
         if (normalizedCountryCode) {
-          countrySynonyms.add(normalizeLower(normalizedCountryCode));
-          const codeExpansions = COUNTRY_CODE_EXPANSIONS[normalizedCountryCode];
+          addCountrySynonym(normalizedCountryCode);
+          const lowerCode = normalizedCountryCode.toLowerCase();
+          if (lowerCode && lowerCode !== normalizedCountryCode) {
+            addCountrySynonym(lowerCode);
+          }
+          const codeExpansions = COUNTRY_CODE_EXPANSIONS[normalizedCountryCode]
+            || COUNTRY_CODE_EXPANSIONS[normalizedCountryCode.toUpperCase()]
+            || COUNTRY_CODE_EXPANSIONS[normalizedCountryCode.toLowerCase()];
           if (Array.isArray(codeExpansions)) {
-            codeExpansions.forEach(name => countrySynonyms.add(normalizeLower(name)));
+            codeExpansions.forEach(addCountrySynonym);
           }
         }
       }
+
+      const buildCountryClause = (field) => {
+        if (!countryRegexTargets.size) return null;
+        const clauses = Array.from(countryRegexTargets.values()).map((value) => ({
+          [field]: new RegExp(`^${escapeRegex(value)}$`, 'i')
+        }));
+        if (!clauses.length) return null;
+        if (clauses.length === 1) return clauses[0];
+        return { $or: clauses };
+      };
+
+      const locationCountryClause = buildCountryClause('location.country');
+      const userCountryClause = buildCountryClause('locationData.country');
 
       const tokenContains = (token, lowerTerm) => {
         if (!lowerTerm) return false;

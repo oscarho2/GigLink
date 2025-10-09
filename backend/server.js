@@ -1,4 +1,8 @@
-require('dotenv').config();
+const path = require('path');
+
+require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
 // Suppress AWS SDK v2 maintenance warning (used for Cloudflare R2 S3 compatibility)
 process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
 const express = require('express');
@@ -23,7 +27,6 @@ const venuesRoutes = require('./routes/venues');
 const contactRoutes = require('./routes/contact');
 const locationRoutes = require('./routes/locations');
 const mediaRoutes = require('./routes/media');
-const path = require('path');
 const { getStorageConfig } = require('./utils/r2Config');
 const {
   migrateLocalUploadsToR2,
