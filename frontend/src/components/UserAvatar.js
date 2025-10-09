@@ -4,19 +4,90 @@ import PersonIcon from '@mui/icons-material/Person';
 
 const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '') || '').replace(/\/$/, '');
 
+const API_HOST = (() => {
+  try {
+    return new URL(API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '')).host;
+  } catch {
+    return '';
+  }
+})();
+
+const STORAGE_KEY_PREFIXES = [
+  'images',
+  'videos',
+  'audio',
+  'misc',
+  'documents',
+  'avatars',
+  'profiles',
+  'profilePictures',
+  'media',
+  'files',
+  'uploads'
+];
+
 const encodeKey = (key) => key.split('/').map(segment => encodeURIComponent(segment)).join('/');
 
-const convertR2PublicUrlToProxy = (url) => {
-  if (!url) {
+const stripLeadingSlash = (value = '') => value.replace(/^\/+/, '');
+
+const extractStorageKey = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (value.startsWith('/api/media/r2/')) {
+    const rawKey = value.replace('/api/media/r2/', '');
+    try {
+      return decodeURIComponent(rawKey);
+    } catch {
+      return rawKey;
+    }
+  }
+
+  const fromPath = (path) => {
+    const normalized = stripLeadingSlash(path);
+    if (!normalized) {
+      return null;
+    }
+    const firstSegment = normalized.split('/')[0];
+    return STORAGE_KEY_PREFIXES.includes(firstSegment) ? normalized : null;
+  };
+
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    try {
+      const url = new URL(value);
+      if (API_HOST && url.host !== API_HOST) {
+        return null;
+      }
+      return fromPath(url.pathname);
+    } catch {
+      return null;
+    }
+  }
+
+  return fromPath(value);
+};
+
+const ensureProxyUrl = (input) => {
+  if (!input) {
     return '';
   }
 
-  const match = url.match(/(?:r2\.dev\/[\w-]+\/|uploads\/)(.+)$/);
-  if (match && match[1]) {
-    return `/api/media/r2/${encodeKey(match[1])}`;
+  if (input.startsWith('/api/media/r2/')) {
+    return input;
   }
 
-  return url;
+  const storageKey = extractStorageKey(input);
+  if (storageKey) {
+    return `/api/media/r2/${encodeKey(storageKey)}`;
+  }
+
+  const r2Match = input.match(/r2\.dev\/[\w-]+\/(.+)$/);
+  if (r2Match && r2Match[1]) {
+    return `/api/media/r2/${encodeKey(r2Match[1])}`;
+  }
+
+  return input;
 };
 
 const toAbsoluteUrl = (input) => {
@@ -24,13 +95,20 @@ const toAbsoluteUrl = (input) => {
     return '';
   }
 
-  if (input.startsWith('http://') || input.startsWith('https://')) {
-    return convertR2PublicUrlToProxy(input);
+  const proxied = ensureProxyUrl(input);
+
+  if (proxied.startsWith('/api/media/r2/')) {
+    return proxied;
   }
 
-  const normalizedPath = input.startsWith('/') ? input : `/${input}`;
+  if (proxied.startsWith('http://') || proxied.startsWith('https://')) {
+    return proxied;
+  }
+
+  const normalizedPath = proxied.startsWith('/') ? proxied : `/${proxied}`;
   const absolute = `${API_BASE_URL}${normalizedPath}`;
-  return convertR2PublicUrlToProxy(absolute);
+
+  return ensureProxyUrl(absolute);
 };
 
 const UserAvatar = ({ 
