@@ -15,6 +15,17 @@ const path = require('path');
 // Initialize Google OAuth client
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// @route   GET api/auth/google/client
+// @desc    Provide Google OAuth client ID to frontend
+// @access  Public
+router.get('/google/client', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    return res.status(503).json({ message: 'Google client ID not configured' });
+  }
+  res.json({ clientId });
+});
+
 // @route   GET api/auth
 // @desc    Get authenticated user
 // @access  Private

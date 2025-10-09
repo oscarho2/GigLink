@@ -7,6 +7,8 @@ class GoogleAuthService {
     this.isSigningIn = false;
     this.lastPromptTime = 0;
     this.promptCooldown = 2000; // 2 seconds cooldown between attempts
+    this.cachedClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || null;
+    this.clientIdPromise = null;
   }
 
   loadGisScript() {
@@ -203,7 +205,13 @@ class GoogleAuthService {
       throw new Error('Sign-in already in progress or too soon after last attempt');
     }
 
-    const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+    let clientId = null;
+    try {
+      clientId = await this.getClientId();
+    } catch (error) {
+      console.error('Failed to resolve Google client ID:', error?.message || error);
+      clientId = null;
+    }
     if (!clientId) {
       console.log('❌ Missing Google Client ID');
       throw new Error('missing_client_id');
@@ -274,6 +282,36 @@ class GoogleAuthService {
         rejectWithCleanup(error);
       }
     });
+  }
+
+  async getClientId() {
+    if (this.cachedClientId) {
+      return this.cachedClientId;
+    }
+
+    if (this.clientIdPromise) {
+      return this.clientIdPromise;
+    }
+
+    this.clientIdPromise = axios
+      .get('/api/auth/google/client')
+      .then((res) => {
+        const clientId = (res.data?.clientId || '').trim();
+        if (clientId) {
+          this.cachedClientId = clientId;
+          console.log('ℹ️ Google client ID resolved from backend configuration');
+          return clientId;
+        }
+        this.clientIdPromise = null;
+        return null;
+      })
+      .catch((error) => {
+        console.error('Failed to fetch Google client ID from backend:', error?.message || error);
+        this.clientIdPromise = null;
+        throw error;
+      });
+
+    return this.clientIdPromise;
   }
 
   triggerSignInButton(resolve, reject) {
