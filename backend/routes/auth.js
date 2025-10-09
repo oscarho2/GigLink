@@ -9,6 +9,7 @@ const User = require('../models/User');
 const Profile = require('../models/Profile');
 const { checkTurnstile } = require('../middleware/turnstile');
 const { downloadImage } = require('../utils/imageDownloader');
+const { getPublicUrl } = require('../utils/r2Config');
 const path = require('path');
 
 // Initialize Google OAuth client
@@ -24,8 +25,11 @@ router.get('/', auth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ msg: 'User not found' });
     }
+
+    const userObj = user.toObject();
+    userObj.avatar = getPublicUrl(userObj.avatar);
     
-    res.json(user);
+    res.json(userObj);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -107,7 +111,7 @@ router.post(
               id: user.id,
               name: user.name,
               email: user.email,
-              avatar: user.avatar,
+              avatar: getPublicUrl(user.avatar),
               isEmailVerified: user.isEmailVerified
             }
           });
@@ -246,7 +250,7 @@ router.post('/google', async (req, res) => {
             id: user.id,
             name: user.name,
             email: user.email,
-            avatar: user.avatar,
+            avatar: getPublicUrl(user.avatar),
             isEmailVerified: user.isEmailVerified,
             profileComplete: profileComplete
           }

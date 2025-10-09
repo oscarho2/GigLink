@@ -54,6 +54,14 @@ const EditProfile = () => {
   const [imageToCrop, setImageToCrop] = useState(null);
   const [crop, setCrop] = useState();
   const [completedCrop, setCompletedCrop] = useState(null);
+  const [pendingAvatarBlob, setPendingAvatarBlob] = useState(null);
+  const [pendingAvatarPreview, setPendingAvatarPreview] = useState(null);
+
+  useEffect(() => () => {
+    if (pendingAvatarPreview) {
+      URL.revokeObjectURL(pendingAvatarPreview);
+    }
+  }, [pendingAvatarPreview]);
   const imgRef = useRef(null);
 
 
@@ -437,6 +445,7 @@ const EditProfile = () => {
       };
       reader.readAsDataURL(file);
       setError('');
+      setSelectedAvatar(file);
     }
   };
 
@@ -523,44 +532,31 @@ const EditProfile = () => {
         return;
     }
 
-    setUploadingAvatar(true);
-      
-      try {
-        const croppedImageBlob = await getCroppedImg(imgRef.current, completedCrop);
-        console.log('croppedImageBlob in handleCropConfirm:', croppedImageBlob);
-        if (!croppedImageBlob) {
-          setError('Could not crop image. Please try again.');
-          setUploadingAvatar(false);
-          return;
-        }
-        const formDataUpload = new FormData();
-        formDataUpload.append('avatar', croppedImageBlob, 'avatar.jpg');
-        
-        // Use token from AuthContext to avoid null/invalid localStorage values
-        const response = await axios.put('/api/profiles/avatar', formDataUpload, {
-          headers: {
-            // Let the browser set the correct multipart boundary automatically
-            'x-auth-token': token
-          }
-        });
-        
-        console.log('Avatar upload response:', response);
-        if (response.data.avatar) {
-          setSuccess('Profile picture updated successfully!');
-          setShowCropModal(false);
-          setImageToCrop(null);
-          setCompletedCrop(null);
-          // Update the form/profile preview locally
-          setFormData(prev => ({ ...prev, avatar: response.data.avatar }));
-          setProfile(prev => prev ? { ...prev, user: { ...prev.user, avatar: response.data.avatar, profilePicture: response.data.avatar } } : prev);
-          updateAvatar(response.data.avatar);
-        }
-      } catch (error) {
-        console.error('Avatar upload error:', error?.response?.status, error?.response?.data || error);
-        setError('Failed to update profile picture. Please try again.');
-      } finally {
-        setUploadingAvatar(false);
+    try {
+      const croppedImageBlob = await getCroppedImg(imgRef.current, completedCrop);
+      if (!croppedImageBlob) {
+        setError('Could not crop image. Please try again.');
+        return;
       }
+
+      if (pendingAvatarPreview) {
+        URL.revokeObjectURL(pendingAvatarPreview);
+      }
+
+      const previewUrl = URL.createObjectURL(croppedImageBlob);
+      setPendingAvatarBlob(croppedImageBlob);
+      setPendingAvatarPreview(previewUrl);
+      setFormData(prev => ({ ...prev, avatar: previewUrl }));
+      setProfile(prev => prev ? { ...prev, user: { ...prev.user, avatar: previewUrl, profilePicture: previewUrl } } : prev);
+      setShowCropModal(false);
+      setImageToCrop(null);
+      setCompletedCrop(null);
+      setSelectedAvatar(null);
+      setSuccess('Profile picture ready. Don\'t forget to save your profile.');
+    } catch (error) {
+      console.error('Avatar processing error:', error);
+      setError('Failed to process profile picture. Please try again.');
+    }
   };
 
   const handleCropCancel = () => {
@@ -571,32 +567,24 @@ const EditProfile = () => {
 
   const handleAvatarUpload = async () => {
     if (!selectedAvatar) return;
-    
+
     setUploadingAvatar(true);
     setError('');
-    
+
     try {
-      const formDataUpload = new FormData();
-      formDataUpload.append('avatar', selectedAvatar);
-      
-      const response = await axios.put('/api/profiles/avatar', formDataUpload, {
-        headers: {
-          // Let the browser set the correct multipart boundary automatically
-          'x-auth-token': token
-        }
-      });
-      
-      setSelectedAvatar(null);
-      setSuccess('Profile picture updated successfully!');
-      if (response.data?.avatar) {
-        updateAvatar(response.data.avatar);
-        setProfile(prev => prev ? { ...prev, user: { ...prev.user, avatar: response.data.avatar, profilePicture: response.data.avatar } } : prev);
+      if (pendingAvatarPreview) {
+        URL.revokeObjectURL(pendingAvatarPreview);
       }
-      
-      // No page reload; the UI should reflect changes immediately via state and context updates
-      // ...
+
+      const previewUrl = URL.createObjectURL(selectedAvatar);
+      setPendingAvatarBlob(selectedAvatar);
+      setPendingAvatarPreview(previewUrl);
+      setFormData(prev => ({ ...prev, avatar: previewUrl }));
+      setProfile(prev => prev ? { ...prev, user: { ...prev.user, avatar: previewUrl, profilePicture: previewUrl } } : prev);
+      setSuccess('Profile picture ready. Don\'t forget to save your profile.');
+      setSelectedAvatar(null);
     } catch (err) {
-      setError(err.response?.data?.message || 'Error updating profile picture');
+      setError(err?.message || 'Error preparing profile picture');
     } finally {
       setUploadingAvatar(false);
     }
@@ -625,6 +613,21 @@ const EditProfile = () => {
     }
     
     try {
+      let avatarUploadUrl = null;
+      if (pendingAvatarBlob) {
+        const formDataUpload = new FormData();
+        const fileName = pendingAvatarBlob.name || 'avatar.jpg';
+        formDataUpload.append('avatar', pendingAvatarBlob, fileName);
+
+        const avatarResponse = await axios.put('/api/profiles/avatar', formDataUpload, {
+          headers: {
+            'x-auth-token': token
+          }
+        });
+
+        avatarUploadUrl = avatarResponse.data?.avatar || null;
+      }
+
       // Transform form data to match backend expectations
       const updateData = {
         name: formData.name,
@@ -659,9 +662,9 @@ const EditProfile = () => {
         console.log('📨 GOT RESPONSE from backend');
         console.log('📨 response.data.user.isMusician:', response.data.user.isMusician);
         console.log('📨 Full response.data:', response.data);
-        
+
         setSuccess('Profile updated successfully!');
-        
+
         // Update user in AuthContext
         if (updateUser) {
           updateUser({
@@ -670,9 +673,25 @@ const EditProfile = () => {
             instruments: response.data.user.instruments,
             genres: response.data.user.genres,
             bio: response.data.bio,
-            location: response.data.user.location
+            location: response.data.user.location,
+            avatar: avatarUploadUrl || response.data.user.avatar
           });
         }
+
+        if (avatarUploadUrl || response.data.user.avatar) {
+          setProfile(prev => prev ? { ...prev, user: { ...prev.user, avatar: avatarUploadUrl || response.data.user.avatar } } : prev);
+          setFormData(prev => ({ ...prev, avatar: avatarUploadUrl || response.data.user.avatar }));
+          setPendingAvatarBlob(null);
+          if (pendingAvatarPreview) {
+            URL.revokeObjectURL(pendingAvatarPreview);
+            setPendingAvatarPreview(null);
+          }
+          if (avatarUploadUrl) {
+            updateAvatar(avatarUploadUrl);
+          }
+        }
+
+        setProfile(response.data);
 
         // Set flag to prevent useEffect from re-fetching and overriding our form data
         setJustSaved(true);
@@ -758,22 +777,11 @@ const EditProfile = () => {
                         position: 'relative'
                       }}
                     >
-                      {selectedAvatar ? (
+                      {(pendingAvatarPreview || profile?.user?.avatar || profile?.user?.profilePicture) ? (
                         <Box
                           component="img"
-                          src={URL.createObjectURL(selectedAvatar)}
+                          src={pendingAvatarPreview || profile.user.avatar || profile.user.profilePicture}
                           alt="Profile preview"
-                          sx={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover'
-                          }}
-                        />
-                      ) : (profile?.user?.avatar || profile?.user?.profilePicture) ? (
-                        <Box
-                          component="img"
-                          src={profile.user.avatar || profile.user.profilePicture}
-                          alt="Current profile picture"
                           sx={{
                             width: '100%',
                             height: '100%',
@@ -787,7 +795,7 @@ const EditProfile = () => {
                       )}
                     </Box>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
-                      {selectedAvatar ? 'Preview' : 'Current'}
+                      {pendingAvatarPreview ? 'Preview (unsaved)' : 'Current'}
                     </Typography>
                   </Grid>
                   
