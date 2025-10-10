@@ -88,7 +88,6 @@ const PostDetail = () => {
   const [replyTexts, setReplyTexts] = useState({});
   const [replyingTo, setReplyingTo] = useState(null);
   const [expandedReplies, setExpandedReplies] = useState({});
-  const [visibleReplies, setVisibleReplies] = useState({});
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedComment, setSelectedComment] = useState(null);
   const [replyMenuAnchor, setReplyMenuAnchor] = useState(null);
@@ -300,16 +299,10 @@ const PostDetail = () => {
   };
 
   const toggleReplies = (commentId) => {
-    setExpandedReplies(prev => {
-        const newExpanded = { ...prev, [commentId]: !prev[commentId] };
-        if (newExpanded[commentId]) {
-            const comment = post.comments.find(c => c._id === commentId);
-            if (comment && comment.replies.length > 1) {
-                setVisibleReplies(prevVisible => ({ ...prevVisible, [commentId]: 1 }));
-            }
-        }
-        return newExpanded;
-    });
+    setExpandedReplies(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId]
+    }));
   };
 
   const handleCommentMenuClick = (event, comment) => {
@@ -1085,15 +1078,6 @@ const PostDetail = () => {
                                 >
                                   Reply
                                 </Button>
-                                {comment.replies?.length > 0 && (
-                                  <Button
-                                    size="small"
-                                    onClick={() => toggleReplies(comment._id)}
-                                    sx={{ ml: 1 }}
-                                  >
-                                    {expandedReplies[comment._id] ? 'Hide' : 'Show'} {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
-                                  </Button>
-                                )}
                               </Box>
                             </Box>
                           }
