@@ -1492,6 +1492,14 @@ const MyPosts = () => {
                 {/* Comments List */}
                 {post.comments && post.comments.length > 0 && (
                   <List>
+                    {post.comments
+                      .sort((a, b) => {
+                        const aIsPinned = a.pinned;
+                        const bIsPinned = b.pinned;
+                        if (aIsPinned && !bIsPinned) return -1;
+                        if (!aIsPinned && bIsPinned) return 1;
+                        return new Date(b.createdAt) - new Date(a.createdAt);
+                      })
                       .map((comment) => {
                         const commentUser = comment?.user || {};
                         const commentUserId = commentUser._id || commentUser.id || '';
