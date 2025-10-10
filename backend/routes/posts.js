@@ -284,19 +284,18 @@ router.post('/:postId/like', auth, async (req, res) => {
     await post.addLike(userId);
     
     // Create notification for post author (if not liking own post)
-    // Removed like notifications as per user request
-    // if (post.author.toString() !== userId) {
-    //   const liker = await User.findById(userId).select('name');
-    //   await createNotification(
-    //     post.author,
-    //     userId,
-    //     'like',
-    //     `${liker.name} liked your post`,
-    //     postId,
-    //     'Post',
-    //     req
-    //   );
-    // }
+    if (post.author.toString() !== userId) {
+      const liker = await User.findById(userId).select('name');
+      await createNotification(
+        post.author,
+        userId,
+        'like',
+        `${liker.name} liked your post`,
+        postId,
+        'Post',
+        req
+      );
+    }
     
     // Return updated post with populated data
     const postObj = await getPopulatedPostWithLikeStatus(postId, userId);
