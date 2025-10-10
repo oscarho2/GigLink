@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -100,6 +100,7 @@ const PostDetail = () => {
   const [mediaModal, setMediaModal] = useState({ open: false, mediaUrl: '', caption: '', currentIndex: 0, mediaType: 'image', postMedia: [] });
   const [imageDimensions, setImageDimensions] = useState({});
   const [commentLikes, setCommentLikes] = useState({});
+  const replyInputRef = useRef(null);
 
   const isAdmin = Boolean(user?.isAdmin);
 
@@ -364,6 +365,15 @@ const PostDetail = () => {
     setPostToDelete(selectedPost._id);
     setDeleteDialogOpen(true);
     handlePostMenuClose();
+  };
+
+  const handleReplyToComment = (commentId) => {
+    setReplyingTo(commentId);
+    setTimeout(() => {
+      if (replyInputRef.current) {
+        replyInputRef.current.focus();
+      }
+    }, 100);
   };
 
   const handleDeletePost = async () => {
@@ -821,6 +831,7 @@ const PostDetail = () => {
                 {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
               </Typography>
             </Box>
+            {isPostAuthor(post) || isAdmin ? (
             <IconButton
               onClick={(event) => handlePostMenuClick(event, post)}
               sx={{ 
@@ -833,6 +844,7 @@ const PostDetail = () => {
             >
               <MoreVertIcon />
             </IconButton>
+            ) : null}
           </Box>
 
           {/* Post Content */}
@@ -1017,11 +1029,11 @@ const PostDetail = () => {
                               )}
                               <IconButton
                                 size="small"
-                                onClick={() => handleCommentLike(post._id, comment._id)}
-                                color={commentLikes[comment._id] ? "error" : "default"}
+                                onClick={() => handleCommentLike(comment._id)}
+                                color={comment.isLikedByUser ? "error" : "default"}
                                 sx={{ p: 0.5 }}
                               >
-                                {commentLikes[comment._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                                {comment.isLikedByUser ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
                               </IconButton>
                               <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
                                 {comment.likesCount || 0}
@@ -1038,7 +1050,7 @@ const PostDetail = () => {
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <Button
                               size="small"
-                              onClick={() => setReplyingTo(replyingTo === comment._id ? null : comment._id)}
+                              onClick={() => handleReplyToComment(comment._id)}
                               sx={{
                                 textTransform: 'none',
                                 minWidth: 'auto',
@@ -1082,6 +1094,7 @@ const PostDetail = () => {
                                     handleReply(comment._id);
                                   }
                                 }}
+                                ref={replyInputRef}
                               />
                               <IconButton
                                 size="small"
