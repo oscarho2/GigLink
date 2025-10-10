@@ -36,7 +36,8 @@ import {
   PushPin as PushPinIcon,
   Close as CloseIcon,
   ArrowBackIos as ArrowBackIosIcon,
-  ArrowForwardIos as ArrowForwardIosIcon
+  ArrowForwardIos as ArrowForwardIosIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'react-toastify';
