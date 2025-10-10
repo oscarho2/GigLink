@@ -48,6 +48,33 @@ import MentionInput from '../components/MentionInput';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'; // Added
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'; // Added
 
+const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '') || '').replace(/\/$/, '');
+
+const encodeKey = (key) => key.split('/').map(segment => encodeURIComponent(segment)).join('/');
+
+const convertR2PublicUrlToProxy = (url) => {
+  if (!url) {
+    return '';
+  }
+
+  const match = url.match(/\.r2\.dev\/[\w-]+\/(.+)$/);
+  if (match && match[1]) {
+    return `/api/media/r2/${encodeKey(match[1])}`;
+  }
+
+  return url;
+};
+
+const toAbsoluteUrl = (relativePath) => {
+  if (!relativePath) {
+    return '';
+  }
+
+  const normalizedPath = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
+  const absolute = `${API_BASE_URL}${normalizedPath}`;
+  return convertR2PublicUrlToProxy(absolute);
+};
+
 const PostDetail = () => {
   const { postId } = useParams();
   const navigate = useNavigate();
@@ -64,6 +91,10 @@ const PostDetail = () => {
   const [replyMenuAnchor, setReplyMenuAnchor] = useState(null);
   const [selectedReply, setSelectedReply] = useState(null);
   const [selectedCommentForReply, setSelectedCommentForReply] = useState(null);
+  const [postMenuAnchor, setPostMenuAnchor] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [postToDelete, setPostToDelete] = useState(null);
   const [mediaModal, setMediaModal] = useState({ open: false, mediaUrl: '', caption: '', currentIndex: 0, mediaType: 'image', postMedia: [] });
   const [imageDimensions, setImageDimensions] = useState({});
   const [commentLikes, setCommentLikes] = useState({});
@@ -317,6 +348,83 @@ const PostDetail = () => {
     handleCommentMenuClose();
   };
 
+  const handlePostMenuClick = (event, post) => {
+    setPostMenuAnchor(event.currentTarget);
+    setSelectedPost(post);
+  };
+
+  const handlePostMenuClose = () => {
+    setPostMenuAnchor(null);
+    setSelectedPost(null);
+  };
+
+  const handleDeleteClick = () => {
+    setPostToDelete(selectedPost._id);
+    setDeleteDialogOpen(true);
+    handlePostMenuClose();
+  };
+
+  const handleDeletePost = async () => {
+    if (!postToDelete) return;
+
+    try {
+      const response = await fetch(`/api/posts/${postToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'x-auth-token': token
+        }
+      });
+
+      if (response.ok) {
+        toast.success('Post deleted successfully');
+        navigate('/community');
+      } else {
+        throw new Error('Failed to delete post');
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast.error('Failed to delete post');
+    } finally {
+      setDeleteDialogOpen(false);
+      setPostToDelete(null);
+    }
+  };
+
+  const normalizeMediaUrl = (url) => {
+    if (!url) return '';
+    
+    let normalizedUrl;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      normalizedUrl = convertR2PublicUrlToProxy(url);
+      if (normalizedUrl.includes('/uploads/') && !normalizedUrl.includes('/uploads/images/') && !normalizedUrl.includes('/uploads/posts/')) {
+        normalizedUrl = normalizedUrl.replace('/uploads/', '/uploads/images/');
+      }
+    } else if (url.startsWith('/')) {
+      let path = url;
+      if (path.includes('/uploads/') && !path.includes('/uploads/images/') && !path.includes('/uploads/posts/')) {
+        path = path.replace('/uploads/', '/uploads/images/');
+      }
+      normalizedUrl = toAbsoluteUrl(path);
+    } else {
+      let path = url;
+      if (path.startsWith('uploads/')) {
+        path = `/${path}`;
+      } else if (path.startsWith('images/') || path.startsWith('posts/')) {
+        path = `/uploads/${path}`;
+      } else {
+        path = `/uploads/images/${path}`;
+      }
+
+      if (path.includes('/uploads/') && !path.includes('/uploads/images/') && !path.includes('/uploads/posts/')) {
+        path = path.replace('/uploads/', '/uploads/images/');
+      }
+
+      normalizedUrl = toAbsoluteUrl(path);
+    }
+
+    return convertR2PublicUrlToProxy(normalizedUrl);
+  };
+
   const handleReplyToReply = (commentId, replyId, replyUserName) => {
     setReplyingTo(commentId);
     setReplyTexts(prev => ({
@@ -368,11 +476,7 @@ const PostDetail = () => {
     handleReplyMenuClose();
   };
 
-  const normalizeMediaUrl = (url) => {
-    if (!url) return '';
-    if (url.startsWith('http')) return url;
-    return `http://localhost:5000/${url}`.replace(/\\/g, '/');
-  };
+
 
   const handleImageLoad = (postId, index, event) => {
     const img = event.target;
@@ -715,6 +819,18 @@ const PostDetail = () => {
                 {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
               </Typography>
             </Box>
+            <IconButton
+              onClick={(event) => handlePostMenuClick(event, post)}
+              sx={{ 
+                color: '#718096',
+                '&:hover': {
+                  color: '#1a365d',
+                  bgcolor: 'rgba(26, 54, 93, 0.1)'
+                }
+              }}
+            >
+              <MoreVertIcon />
+            </IconButton>
           </Box>
 
           {/* Post Content */}
@@ -1175,6 +1291,32 @@ const PostDetail = () => {
           Delete
         </MenuItem>
       </Menu>
+
+      <Menu
+        anchorEl={postMenuAnchor}
+        open={Boolean(postMenuAnchor)}
+        onClose={handlePostMenuClose}
+      >
+        <MenuItem onClick={handleDeleteClick} sx={{ color: 'error.main' }}>
+          <DeleteIcon sx={{ mr: 1 }} />
+          Delete Post
+        </MenuItem>
+      </Menu>
+
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete Post</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this post? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleDeletePost} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Container>
   );
