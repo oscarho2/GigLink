@@ -552,13 +552,23 @@ const Gigs = () => {
           const loc = filters.location;
           const hierarchy = loc?.hierarchy || {};
           const locationLabel = loc.value || loc.label || loc.display || '';
+          const locType = String(loc?.type || loc?.granularity || '').trim().toLowerCase();
           if (locationLabel) {
             params.location = locationLabel;
             params.locationValue = locationLabel;
           }
-          if (hierarchy.city) params.locationCity = hierarchy.city;
-          if (hierarchy.region) params.locationRegion = hierarchy.region;
-          if (hierarchy.country) params.locationCountry = hierarchy.country;
+
+          if (locType === 'city') {
+            if (hierarchy.city) params.locationCity = hierarchy.city;
+            if (hierarchy.region) params.locationRegion = hierarchy.region;
+            if (hierarchy.country) params.locationCountry = hierarchy.country;
+          } else if (locType === 'region') {
+            if (hierarchy.region) params.locationRegion = hierarchy.region;
+            if (hierarchy.country) params.locationCountry = hierarchy.country;
+          } else {
+            if (hierarchy.country) params.locationCountry = hierarchy.country;
+          }
+
           const codes = Array.isArray(loc.codes) ? loc.codes.filter(Boolean) : [];
           if (codes.length) params.locationCodes = codes.join(',');
         }
