@@ -71,12 +71,23 @@ const deriveFrontendAssetUrl = (origin = '') => {
   return `${normalizedOrigin}${DEFAULT_EMAIL_LOGO_PATH}`;
 };
 
-const EMAIL_LOGO_SRC = [
+const appendLogoVersion = (url) => {
+  const clean = trimOrEmpty(url);
+  if (!clean) return '';
+  if (clean.startsWith('data:')) return clean;
+  const version = trimOrEmpty(process.env.EMAIL_LOGO_VERSION) || '20240905';
+  if (!version) return clean;
+  return clean.includes('?') ? `${clean}&v=${encodeURIComponent(version)}` : `${clean}?v=${encodeURIComponent(version)}`;
+};
+
+const selectedLogoSource = [
   trimOrEmpty(process.env.EMAIL_LOGO_URL),
   deriveFrontendAssetUrl(process.env.EMAIL_PUBLIC_ORIGIN || process.env.FRONTEND_URL),
   'https://giglinksocial.com/images/giglink-email-logo-blue.png',
   DEFAULT_EMAIL_LOGO_DATA_URI
 ].find((value) => Boolean(trimOrEmpty(value)));
+
+const EMAIL_LOGO_SRC = appendLogoVersion(selectedLogoSource);
 const emailLogoImgTag = `<img src="${EMAIL_LOGO_SRC}" alt="GigLink" style="max-width: 220px; height: auto; display: inline-block;" width="220" />`;
 
 // Email templates
