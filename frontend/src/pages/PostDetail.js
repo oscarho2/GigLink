@@ -88,6 +88,7 @@ const PostDetail = () => {
   const [replyTexts, setReplyTexts] = useState({});
   const [replyingTo, setReplyingTo] = useState(null);
   const [expandedReplies, setExpandedReplies] = useState({});
+  const [visibleReplies, setVisibleReplies] = useState({});
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedComment, setSelectedComment] = useState(null);
   const [replyMenuAnchor, setReplyMenuAnchor] = useState(null);
@@ -280,10 +281,16 @@ const PostDetail = () => {
   };
 
   const toggleReplies = (commentId) => {
-    setExpandedReplies(prev => ({
-      ...prev,
-      [commentId]: !prev[commentId]
-    }));
+    setExpandedReplies(prev => {
+        const newExpanded = { ...prev, [commentId]: !prev[commentId] };
+        if (newExpanded[commentId]) {
+            const comment = post.comments.find(c => c._id === commentId);
+            if (comment && comment.replies.length > 2) {
+                setVisibleReplies(prevVisible => ({ ...prevVisible, [commentId]: 2 }));
+            }
+        }
+        return newExpanded;
+    });
   };
 
   const handleCommentMenuClick = (event, comment) => {
@@ -1109,7 +1116,7 @@ const PostDetail = () => {
                           {/* Replies */}
                           <Collapse in={expandedReplies[comment._id]} timeout="auto" unmountOnExit>
                             <Box sx={{ ml: 4, mt: 2 }}>
-                              {comment.replies?.map((reply) => (
+                              {comment.replies?.slice(0, visibleReplies[comment._id] || comment.replies.length).map((reply) => (
                                 <Box key={reply._id} sx={{ display: 'flex', mb: 2 }}>
                                   <UserAvatar
                                     user={reply.user}
@@ -1157,6 +1164,11 @@ const PostDetail = () => {
                                   </Box>
                                 </Box>
                               ))}
+                              {comment.replies?.length > (visibleReplies[comment._id] || 0) && (
+                                <Button onClick={() => setVisibleReplies(prev => ({ ...prev, [comment._id]: undefined }))}>
+                                    Show all {comment.replies.length} replies
+                                </Button>
+                              )}
                             </Box>
                           </Collapse>
                         </Box>
