@@ -155,7 +155,7 @@ const Navbar = () => {
           >
             <Box
               component="img"
-              src="/images/GigLink Logo Full Blue.svg"
+              src="/images/GigLink Logo Full.svg"
               alt="GigLink"
               sx={{ height: 48, display: 'block' }}
             />
@@ -275,7 +275,7 @@ const Navbar = () => {
           >
             <Box
               component="img"
-              src="/images/GigLink Logo Full Blue.svg"
+              src="/images/GigLink Logo Full.svg"
               alt="GigLink"
               sx={{ height: 40, display: 'block' }}
             />
