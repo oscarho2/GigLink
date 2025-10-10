@@ -307,16 +307,20 @@ const sortGigLocationOptions = (options = []) => {
 };
 
 const COUNTRY_CODE_EXPANSIONS = {
-  uk: ['united kingdom', 'great britain', 'uk'],
-  gb: ['united kingdom', 'great britain', 'gb'],
+  uk: ['united kingdom', 'great britain', 'uk', 'england', 'scotland', 'wales', 'northern ireland'],
+  gb: ['united kingdom', 'great britain', 'gb', 'england', 'scotland', 'wales', 'northern ireland'],
   us: ['united states', 'usa', 'america', 'united states of america', 'us'],
   usa: ['united states', 'usa', 'america', 'united states of america', 'us'],
   uae: ['united arab emirates', 'uae']
 };
 
 const COUNTRY_NAME_EXPANSIONS = {
-  'united kingdom': ['great britain', 'uk'],
-  'great britain': ['united kingdom', 'uk'],
+  'united kingdom': ['great britain', 'uk', 'england', 'scotland', 'wales', 'northern ireland'],
+  'great britain': ['united kingdom', 'uk', 'england', 'scotland', 'wales', 'northern ireland'],
+  england: ['united kingdom', 'uk', 'great britain'],
+  scotland: ['united kingdom', 'uk', 'great britain'],
+  wales: ['united kingdom', 'uk', 'great britain'],
+  'northern ireland': ['united kingdom', 'uk', 'great britain'],
   'united states': ['united states of america', 'usa', 'us', 'america'],
   'united states of america': ['united states', 'usa', 'us', 'america'],
   america: ['united states', 'usa', 'us']

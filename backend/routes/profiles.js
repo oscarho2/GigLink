@@ -28,7 +28,8 @@ const formatPhoto = (photo) => {
     return plain;
   }
 
-  if (/\.r2\.dev\//.test(currentUrl) || currentUrl.includes('uploads/')) {
+  const isAbsoluteUrl = /^https?:\/\//i.test(currentUrl);
+  if (!isAbsoluteUrl) {
     return {
       ...plain,
       url: getPublicUrl(currentUrl)

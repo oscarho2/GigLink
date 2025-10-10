@@ -75,16 +75,20 @@ const normalizeCountryCode = (value = '') => {
 const escapeRegex = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const COUNTRY_CODE_EXPANSIONS = {
-  UK: ['United Kingdom', 'Great Britain'],
-  GB: ['United Kingdom', 'Great Britain'],
+  UK: ['United Kingdom', 'Great Britain', 'England', 'Scotland', 'Wales', 'Northern Ireland'],
+  GB: ['United Kingdom', 'Great Britain', 'England', 'Scotland', 'Wales', 'Northern Ireland'],
   US: ['United States', 'USA'],
   USA: ['United States', 'US'],
   UAE: ['United Arab Emirates'],
 };
 
 const COUNTRY_NAME_EXPANSIONS = {
-  'united kingdom': ['great britain', 'uk'],
-  'great britain': ['united kingdom', 'uk'],
+  'united kingdom': ['great britain', 'uk', 'england', 'scotland', 'wales', 'northern ireland'],
+  'great britain': ['united kingdom', 'uk', 'england', 'scotland', 'wales', 'northern ireland'],
+  england: ['united kingdom', 'uk', 'great britain'],
+  scotland: ['united kingdom', 'uk', 'great britain'],
+  wales: ['united kingdom', 'uk', 'great britain'],
+  'northern ireland': ['united kingdom', 'uk', 'great britain'],
   'united states': ['united states of america', 'usa', 'us', 'america'],
   'united states of america': ['united states', 'usa', 'us', 'america'],
   america: ['united states', 'usa', 'us']
