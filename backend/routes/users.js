@@ -8,6 +8,16 @@ const User = require('../models/User');
 const Profile = require('../models/Profile');
 const { sendVerificationEmail } = require('../utils/emailService');
 const { checkTurnstile } = require('../middleware/turnstile');
+const requireAdmin = require('../middleware/requireAdmin');
+const { isAdminEmail } = require('../utils/adminAuth');
+
+const sanitizeUser = (userDoc) => {
+  if (!userDoc) return null;
+  const obj = typeof userDoc.toObject === 'function' ? userDoc.toObject() : { ...userDoc };
+  delete obj.password;
+  obj.isAdmin = isAdminEmail(obj.email);
+  return obj;
+};
 
 // @route   GET api/users
 // @desc    Get all users
@@ -133,12 +143,14 @@ router.post(
       }
 
       // Return JWT with user info (including email verification status)
+      const isAdmin = isAdminEmail(user.email);
       const payload = {
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
-          isEmailVerified: user.isEmailVerified
+          isEmailVerified: user.isEmailVerified,
+          isAdmin
         }
       };
 
@@ -157,7 +169,8 @@ router.post(
               id: user.id,
               name: user.name,
               email: user.email,
-              isEmailVerified: user.isEmailVerified
+              isEmailVerified: user.isEmailVerified,
+              isAdmin
             },
             verificationEmailSent,
             message: verificationEmailSent
@@ -232,5 +245,71 @@ router.put(
     }
   }
 );
+
+// Admin-only: suspend a user account
+router.put('/:id/suspend', auth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (req.user.id === id) {
+      return res.status(400).json({ message: 'Administrators cannot suspend their own account' });
+    }
+
+    const user = await User.findById(id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.accountStatus === 'suspended') {
+      return res.json({
+        message: 'User is already suspended',
+        user: sanitizeUser(user)
+      });
+    }
+
+    user.accountStatus = 'suspended';
+    user.suspendedAt = new Date();
+    await user.save();
+
+    res.json({
+      message: 'User suspended successfully',
+      user: sanitizeUser(user)
+    });
+  } catch (err) {
+    console.error('Suspend user error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin-only: reinstate a suspended user
+router.put('/:id/unsuspend', auth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.accountStatus === 'active') {
+      return res.json({
+        message: 'User is already active',
+        user: sanitizeUser(user)
+      });
+    }
+
+    user.accountStatus = 'active';
+    user.suspendedAt = null;
+    await user.save();
+
+    res.json({
+      message: 'User reinstated successfully',
+      user: sanitizeUser(user)
+    });
+  } catch (err) {
+    console.error('Unsuspend user error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router;

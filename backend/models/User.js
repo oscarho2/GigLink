@@ -122,6 +122,14 @@ const UserSchema = new mongoose.Schema({
   passwordResetExpires: {
     type: Date
   },
+  accountStatus: {
+    type: String,
+    enum: ['active', 'suspended'],
+    default: 'active'
+  },
+  suspendedAt: {
+    type: Date
+  },
   date: {
     type: Date,
     default: Date.now

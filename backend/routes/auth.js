@@ -10,6 +10,7 @@ const Profile = require('../models/Profile');
 const { checkTurnstile } = require('../middleware/turnstile');
 const { downloadImage } = require('../utils/imageDownloader');
 const { getPublicUrl } = require('../utils/r2Config');
+const { isAdminEmail } = require('../utils/adminAuth');
 const path = require('path');
 
 // Initialize Google OAuth client
@@ -39,6 +40,7 @@ router.get('/', auth, async (req, res) => {
 
     const userObj = user.toObject();
     userObj.avatar = getPublicUrl(userObj.avatar);
+    userObj.isAdmin = isAdminEmail(user.email);
     
     res.json(userObj);
   } catch (err) {
@@ -96,13 +98,19 @@ router.post(
         return res.status(400).json({ errors: [{ msg: 'Invalid credentials' }] });
       }
 
+      if (user.accountStatus === 'suspended') {
+        return res.status(403).json({ message: 'Account suspended. Please contact support for assistance.' });
+      }
+
       // Return JWT with user info
+      const isAdmin = isAdminEmail(user.email);
       const payload = {
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
-          isEmailVerified: user.isEmailVerified
+          isEmailVerified: user.isEmailVerified,
+          isAdmin
         }
       };
 
@@ -122,7 +130,8 @@ router.post(
               name: user.name,
               email: user.email,
               avatar: getPublicUrl(user.avatar),
-              isEmailVerified: user.isEmailVerified
+              isEmailVerified: user.isEmailVerified,
+              isAdmin
             }
           });
         }
@@ -232,6 +241,12 @@ router.post('/google', async (req, res) => {
     const profileComplete = !!profile;
     console.log('📋 Profile complete:', profileComplete);
 
+    if (user.accountStatus === 'suspended') {
+      console.log('⛔ Account suspended, aborting login');
+      return res.status(403).json({ message: 'Account suspended. Please contact support for assistance.' });
+    }
+
+    const isAdmin = isAdminEmail(user.email);
     console.log('🔑 Generating JWT token...');
     // Generate JWT token
     const jwtPayload = {
@@ -239,7 +254,8 @@ router.post('/google', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        isEmailVerified: user.isEmailVerified
+        isEmailVerified: user.isEmailVerified,
+        isAdmin
       }
     };
 
@@ -262,6 +278,7 @@ router.post('/google', async (req, res) => {
             email: user.email,
             avatar: getPublicUrl(user.avatar),
             isEmailVerified: user.isEmailVerified,
+            isAdmin,
             profileComplete: profileComplete
           }
         });

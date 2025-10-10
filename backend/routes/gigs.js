@@ -1322,7 +1322,8 @@ router.delete('/:id', auth, async (req, res) => {
     }
     
     // Check if user owns this gig
-    if (gig.user.toString() !== req.user.id) {
+    const isAdmin = !!req.user.isAdmin;
+    if (!isAdmin && gig.user.toString() !== req.user.id) {
       return res.status(401).json({ msg: 'User not authorized' });
     }
     
