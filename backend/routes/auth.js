@@ -65,14 +65,13 @@ router.post(
   ],
   async (req, res) => {
     console.log('Login route hit');
+    const { email, password } = req.body;
     console.log('Login request received for:', email);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
-
-    const { email, password } = req.body;
 
     try {
       // Normalize email to lowercase
