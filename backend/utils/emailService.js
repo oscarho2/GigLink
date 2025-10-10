@@ -90,93 +90,87 @@ const selectedLogoSource = [
 const EMAIL_LOGO_SRC = appendLogoVersion(selectedLogoSource);
 const emailLogoImgTag = `<img src="${EMAIL_LOGO_SRC}" alt="GigLink" style="max-width: 220px; height: auto; display: inline-block;" width="220" />`;
 
+const FRONTEND_BASE_URL = trimOrEmpty(process.env.FRONTEND_URL) ? process.env.FRONTEND_URL.replace(/\/+$/, '') : 'http://localhost:3000';
+const NOTIFICATION_SETTINGS_URL = `${FRONTEND_BASE_URL}/settings?tab=notifications`;
+
 // Email templates
+const emailFooter = `
+  <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;" />
+  <p style="color: #666; font-size: 12px;">This email was sent by GigLink. You can update your notification preferences <a href="${NOTIFICATION_SETTINGS_URL}" style="color: #1976d2; text-decoration: none;">here</a>.</p>
+`;
+
+const notificationWrapper = (content) => `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <div style="text-align: center; margin-bottom: 24px;">
+      ${emailLogoImgTag}
+    </div>
+    ${content}
+    ${emailFooter}
+  </div>
+`;
+
 const emailTemplates = {
   like: (recipientName, likerName, postTitle) => ({
     subject: `${likerName} liked your post`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1976d2;">New Like on Your Post!</h2>
-        <p>Hi ${recipientName},</p>
-        <p><strong>${likerName}</strong> liked your post: "${postTitle}"</p>
-        <p>Check it out on GigLink to see more interactions!</p>
-        <hr style="margin: 20px 0;">
-        <p style="color: #666; font-size: 12px;">You're receiving this because you have like notifications enabled. You can change your notification preferences in your settings.</p>
-      </div>
-    `
+    html: notificationWrapper(`
+      <h2 style="color: #1976d2;">New Like on Your Post!</h2>
+      <p>Hi ${recipientName},</p>
+      <p><strong>${likerName}</strong> liked your post: "${postTitle || 'your post'}"</p>
+      <p>Check it out on GigLink to see more interactions!</p>
+    `)
   }),
   
   comment: (recipientName, commenterName, postTitle, commentText) => ({
     subject: `${commenterName} commented on your post`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1976d2;">New Comment on Your Post!</h2>
-        <p>Hi ${recipientName},</p>
-        <p><strong>${commenterName}</strong> commented on your post: "${postTitle}"</p>
-        <blockquote style="border-left: 3px solid #1976d2; padding-left: 15px; margin: 15px 0; color: #555;">
-          ${commentText}
-        </blockquote>
-        <p>Reply to keep the conversation going!</p>
-        <hr style="margin: 20px 0;">
-        <p style="color: #666; font-size: 12px;">You're receiving this because you have comment notifications enabled. You can change your notification preferences in your settings.</p>
-      </div>
-    `
+    html: notificationWrapper(`
+      <h2 style="color: #1976d2;">New Comment on Your Post!</h2>
+      <p>Hi ${recipientName},</p>
+      <p><strong>${commenterName}</strong> commented on your post: "${postTitle || 'your post'}"</p>
+      <blockquote style="border-left: 3px solid #1976d2; padding-left: 15px; margin: 15px 0; color: #555;">
+        ${commentText || 'Visit GigLink to read the comment.'}
+      </blockquote>
+      <p>Reply to keep the conversation going!</p>
+    `)
   }),
   
   message: (recipientName, senderName) => ({
     subject: `New message from ${senderName}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1976d2;">New Direct Message!</h2>
-        <p>Hi ${recipientName},</p>
-        <p>You have a new message from <strong>${senderName}</strong>.</p>
-        <p>Log in to GigLink to read and reply to your message.</p>
-        <hr style="margin: 20px 0;">
-        <p style="color: #666; font-size: 12px;">You're receiving this because you have message notifications enabled. You can change your notification preferences in your settings.</p>
-      </div>
-    `
+    html: notificationWrapper(`
+      <h2 style="color: #1976d2;">New Direct Message!</h2>
+      <p>Hi ${recipientName},</p>
+      <p>You have a new message from <strong>${senderName}</strong>.</p>
+      <p>Log in to GigLink to read and reply to your message.</p>
+    `)
   }),
   
   gigResponse: (recipientName, responderName, gigTitle) => ({
-    subject: `New response to your gig: ${gigTitle}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1976d2;">New Gig Response!</h2>
-        <p>Hi ${recipientName},</p>
-        <p><strong>${responderName}</strong> responded to your gig: "${gigTitle}"</p>
-        <p>Check out their response and consider them for your project!</p>
-        <hr style="margin: 20px 0;">
-        <p style="color: #666; font-size: 12px;">You're receiving this because you have gig response notifications enabled. You can change your notification preferences in your settings.</p>
-      </div>
-    `
+    subject: `New response to your gig: ${gigTitle || ''}`,
+    html: notificationWrapper(`
+      <h2 style="color: #1976d2;">New Gig Response!</h2>
+      <p>Hi ${recipientName},</p>
+      <p><strong>${responderName}</strong> responded to your gig${gigTitle ? `: "${gigTitle}"` : ''}.</p>
+      <p>Check out their response and consider them for your project!</p>
+    `)
   }),
   
   gigApplication: (recipientName, applicantName, gigTitle) => ({
-    subject: `New application for your gig: ${gigTitle}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1976d2;">New Gig Application!</h2>
-        <p>Hi ${recipientName},</p>
-        <p><strong>${applicantName}</strong> applied for your gig: "${gigTitle}"</p>
-        <p>Review their application and portfolio to make your decision!</p>
-        <hr style="margin: 20px 0;">
-        <p style="color: #666; font-size: 12px;">You're receiving this because you have gig application notifications enabled. You can change your notification preferences in your settings.</p>
-      </div>
-    `
+    subject: `New application for your gig: ${gigTitle || ''}`,
+    html: notificationWrapper(`
+      <h2 style="color: #1976d2;">New Gig Application!</h2>
+      <p>Hi ${recipientName},</p>
+      <p><strong>${applicantName}</strong> applied for your gig${gigTitle ? `: "${gigTitle}"` : ''}.</p>
+      <p>Review their application and portfolio to make your decision!</p>
+    `)
   }),
   
   linkRequest: (recipientName, requesterName) => ({
     subject: `${requesterName} wants to connect with you`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1976d2;">New Connection Request!</h2>
-        <p>Hi ${recipientName},</p>
-        <p><strong>${requesterName}</strong> wants to connect with you on GigLink.</p>
-        <p>Check out their profile and accept the request to start networking!</p>
-        <hr style="margin: 20px 0;">
-        <p style="color: #666; font-size: 12px;">You're receiving this because you have link request notifications enabled. You can change your notification preferences in your settings.</p>
-      </div>
-    `
+    html: notificationWrapper(`
+      <h2 style="color: #1976d2;">New Connection Request!</h2>
+      <p>Hi ${recipientName},</p>
+      <p><strong>${requesterName}</strong> wants to connect with you on GigLink.</p>
+      <p>Check out their profile and accept the request to start networking!</p>
+    `)
   }),
 
   emailVerification: (recipientName, verificationUrl) => ({
