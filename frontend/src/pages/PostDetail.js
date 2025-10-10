@@ -454,10 +454,16 @@ const PostDetail = () => {
                           </Typography>
                           {comment.pinned && (
                             <Chip
+                              icon={<PushPinIcon fontSize="small" />}
                               label="Pinned"
                               size="small"
-                              color="primary"
                               variant="outlined"
+                              sx={{ 
+                                fontWeight: 600, 
+                                color: 'grey', 
+                                borderColor: 'grey',
+                                '& .MuiChip-icon': { color: 'grey !important' } 
+                              }}
                             />
                           )}
                           <Typography variant="caption" color="text.secondary">
@@ -467,7 +473,7 @@ const PostDetail = () => {
                       }
                       secondary={
                         <Box>
-                          <Typography variant="body1" component="div" sx={{ mt: 0.5 }}>
+                          <Typography component="div" sx={{ mt: 0.5, fontSize: '1rem' }}>
                             <MentionRenderer 
                               content={comment.parsedContent || comment.content}
                               mentions={comment.mentions || []}
@@ -562,7 +568,7 @@ const PostDetail = () => {
                                         {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
                                       </Typography>
                                     </Box>
-                                    <Typography variant="body1">
+                                    <Typography sx={{ fontSize: '1rem' }}>
                                       {reply.content}
                                     </Typography>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>

@@ -1709,9 +1709,13 @@ const Community = () => {
                     icon={<PushPinIcon fontSize="small" />}
                     label="Pinned"
                     size="small"
-                    color="warning"
                     variant="outlined"
-                    sx={{ fontWeight: 600, '& .MuiChip-icon': { color: '#b7791f !important' } }}
+                    sx={{ 
+                      fontWeight: 600, 
+                      color: 'grey', 
+                      borderColor: 'grey',
+                      '& .MuiChip-icon': { color: 'grey !important' } 
+                    }}
                   />
                 </Box>
               )}
