@@ -92,6 +92,7 @@ const toAbsoluteUrl = (relativePath) => {
 
 const Community = () => {
   const { user, token } = useAuth();
+  const isAdmin = Boolean(user?.isAdmin);
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [loadedCount, setLoadedCount] = useState(20);
@@ -1612,6 +1613,7 @@ const Community = () => {
           const author = post?.author || {};
           const authorId = author._id || author.id || '';
           const currentUserId = user?._id || user?.id || '';
+          const canManagePost = (authorId && authorId === currentUserId) || isAdmin;
           const authorProfileLink = authorId ? `/profile/${authorId}` : null;
           const authorName = author.name || 'Unknown User';
           const postTimestamp = post.createdAt ? new Date(post.createdAt) : null;
@@ -1660,7 +1662,7 @@ const Community = () => {
                   </Typography>
                 }
                 action={
-                  authorId && authorId === currentUserId && (
+                  canManagePost ? (
                     <IconButton
                       onClick={(event) => handlePostMenuClick(event, post)}
                       sx={{
@@ -1673,7 +1675,7 @@ const Community = () => {
                     >
                       <MoreVertIcon />
                     </IconButton>
-                  )
+                  ) : null
                 }
                 sx={{ pb: 1 }}
               />

@@ -280,20 +280,22 @@ const GigDetail = () => {
   }
 
   // Check ownership - handle both populated and unpopulated user field
-   const currentUserId = (user?.id || user?._id) ? (user.id || user._id).toString() : null;
-   let gigOwnerId = null;
-   
-   if (typeof gig.user === 'string') {
-     // User field is just an ID string
-     gigOwnerId = gig.user;
-   } else if (gig.user && typeof gig.user === 'object') {
-     // User field is populated object with _id
-     gigOwnerId = gig.user._id;
-   }
-   
-   const isPoster = !!(currentUserId && gigOwnerId && currentUserId === gigOwnerId.toString());
-   
-   // Ownership check complete
+  const currentUserId = (user?.id || user?._id) ? (user.id || user._id).toString() : null;
+  let gigOwnerId = null;
+
+  if (typeof gig.user === 'string') {
+    // User field is just an ID string
+    gigOwnerId = gig.user;
+  } else if (gig.user && typeof gig.user === 'object') {
+    // User field is populated object with _id
+    gigOwnerId = gig.user._id;
+  }
+
+  const isPoster = !!(currentUserId && gigOwnerId && currentUserId === gigOwnerId.toString());
+  const isAdmin = Boolean(user?.isAdmin);
+  const canDeleteGig = isPoster || isAdmin;
+
+  // Ownership check complete
 
   return (
     <Container 
@@ -840,7 +842,7 @@ const GigDetail = () => {
               alignItems: 'center'
             }}
           >
-            {!isPoster && (
+            {!isPoster && !isAdmin && (
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: { xs: '100%', sm: 'auto' } }}>
                 {hasApplied && applicationStatus && (
                   <Chip
@@ -881,7 +883,7 @@ const GigDetail = () => {
                       color: '#666666'
                     }
                   }}
-                  disabled={isPoster || hasApplied || gig.isFilled}
+                  disabled={isPoster || isAdmin || hasApplied || gig.isFilled}
                 >
                    {gig.isFilled ? 'Gig Fixed' : hasApplied ? 'Already Applied' : 'Apply for this Gig'}
                 </Button>
@@ -954,6 +956,31 @@ const GigDetail = () => {
                   Delete Gig
                 </Button>
               </>
+            )}
+            {!isPoster && canDeleteGig && (
+              <Button
+                variant="contained"
+                size="large"
+                onClick={handleDeleteClick}
+                startIcon={<DeleteIcon sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }} />}
+                sx={{
+                  py: { xs: 1.25, sm: 1.5 },
+                  px: { xs: 3, sm: 4 },
+                  borderRadius: 2,
+                  fontSize: { xs: '1rem', sm: '1.1rem' },
+                  fontWeight: 'bold',
+                  bgcolor: '#e53e3e',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  width: { xs: '100%', sm: 'auto' },
+                  minHeight: { xs: 48, sm: 'auto' },
+                  '&:hover': {
+                    bgcolor: '#c53030',
+                    boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
+                  }
+                }}
+              >
+                Delete Gig (Admin)
+              </Button>
             )}
           </Box>
         </Box>

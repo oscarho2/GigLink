@@ -39,10 +39,12 @@ export const AuthProvider = ({ children }) => {
           // Normalize user object to match login response format
           setUser({
             id: res.data._id,
+            _id: res.data._id,
             name: res.data.name,
             email: res.data.email,
             avatar: res.data.avatar,
-            isEmailVerified: res.data.isEmailVerified
+            isEmailVerified: res.data.isEmailVerified,
+            isAdmin: !!res.data.isAdmin
           });
         } catch (err) {
           console.error('Token verification failed:', err);
