@@ -34,8 +34,7 @@ const Settings = () => {
     emailNotifications: true,
     pushNotifications: false,
     profileVisibility: true,
-    autoAcceptLinks: false,
-    darkMode: false
+    autoAcceptLinks: false
   });
   
   const [notificationPreferences, setNotificationPreferences] = useState({
@@ -74,12 +73,7 @@ const Settings = () => {
   const [pushPermission, setPushPermission] = useState('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
 
-  const handleSettingChange = (setting) => (event) => {
-    setSettings({
-      ...settings,
-      [setting]: event.target.checked
-    });
-  };
+
 
   const handleSaveSettings = async () => {
     try {
@@ -486,41 +480,7 @@ const Settings = () => {
 
 
 
-        {/* Appearance Settings */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Appearance
-              </Typography>
-              <Box sx={{ mt: 2 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settings.darkMode}
-                        onChange={handleSettingChange('darkMode')}
-                        color="primary"
-                      />
-                    }
-                    label="Dark Mode"
-                    sx={{ 
-                      m: 0,
-                      p: 1.5,
-                      borderRadius: 1,
-                      '&:hover': {
-                        backgroundColor: 'action.hover'
-                      }
-                    }}
-                  />
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 2, mt: -1 }}>
-                    Switch to dark theme (coming soon)
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+
 
         {/* Account Management */}
         <Grid item xs={12}>
