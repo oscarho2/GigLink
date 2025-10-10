@@ -1176,5 +1176,7 @@ const PostDetail = () => {
       </Menu>
 
     </Container>
+  );
+};
 
 export default PostDetail;
