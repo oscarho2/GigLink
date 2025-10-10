@@ -141,17 +141,23 @@ const Navbar = () => {
     <>
     <AppBar position="static" sx={{ bgcolor: '#1a365d', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
       <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ height: { xs: 56, sm: 64 } }}>
+        <Toolbar disableGutters sx={{ height: { xs: 64, md: 96 } }}>
           <Box
             component={RouterLink}
             to={isAuthenticated ? "/community" : "/"}
-            sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit', mr: 2 }}
+            sx={{
+              display: { xs: 'none', md: 'flex' },
+              alignItems: 'center',
+              textDecoration: 'none',
+              color: 'inherit',
+              mr: 2
+            }}
           >
             <Box
               component="img"
               src="/images/GigLink Logo Full.svg"
               alt="GigLink"
-              sx={{ height: { xs: 32, sm: 40 }, display: 'block' }}
+              sx={{ height: 80, display: 'block' }}
             />
           </Box>
 
@@ -258,13 +264,20 @@ const Navbar = () => {
           <Box
             component={RouterLink}
             to={isAuthenticated ? "/community" : "/"}
-            sx={{ alignItems: 'center', textDecoration: 'none', color: 'inherit', flexGrow: 1, display: { xs: 'flex', md: 'none' } }}
+            sx={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              textDecoration: 'none',
+              color: 'inherit',
+              flexGrow: 1,
+              display: { xs: 'flex', md: 'none' }
+            }}
           >
             <Box
               component="img"
               src="/images/GigLink Logo Full.svg"
               alt="GigLink"
-              sx={{ height: 30, display: 'block' }}
+              sx={{ height: 60, display: 'block' }}
             />
           </Box>
           

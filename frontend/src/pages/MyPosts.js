@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Paper,
@@ -103,11 +103,12 @@ const MyPosts = () => {
 
   // Options imported from centralized constants
 
-  useEffect(() => {
-    fetchMyPosts();
-  }, []);
+  const currentUserId = user?.id || user?._id || '';
+  const normalizedUserId = currentUserId ? String(currentUserId).trim() : '';
 
-  const fetchMyPosts = async () => {
+  const fetchMyPosts = useCallback(async () => {
+    if (!token || !normalizedUserId) return;
+
     try {
       setLoading(true);
       const response = await fetch('/api/posts', {
@@ -118,11 +119,29 @@ const MyPosts = () => {
       
       if (response.ok) {
         const data = await response.json();
-        // Filter to show only current user's posts
-        const myPosts = data.filter(post => post.author._id === user?.id);
+        const myPosts = data.filter((post) => {
+          const author = post?.author ?? null;
+          if (!author) return false;
+
+          const candidateRaw = typeof author === 'string'
+            ? author
+            : author._id || author.id || author;
+
+          if (!candidateRaw) return false;
+
+          const candidate = typeof candidateRaw === 'object' && typeof candidateRaw.toString === 'function'
+            ? candidateRaw.toString()
+            : String(candidateRaw);
+
+          return candidate.trim() === normalizedUserId;
+        });
         setPosts(myPosts);
       } else {
-        throw new Error('Failed to fetch posts');
+        if (response.status === 401 || response.status === 403) {
+          toast.error('Please sign in to view your posts');
+        } else {
+          throw new Error('Failed to fetch posts');
+        }
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
@@ -130,7 +149,11 @@ const MyPosts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [normalizedUserId, token]);
+
+  useEffect(() => {
+    fetchMyPosts();
+  }, [fetchMyPosts]);
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
