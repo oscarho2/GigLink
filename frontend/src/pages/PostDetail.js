@@ -1003,45 +1003,51 @@ const PostDetail = () => {
                       }
                       secondary={
                         <Box>
-                          <Typography component="div" sx={{ mt: 0.5, fontSize: '0.875rem' }}>
-                            <MentionRenderer 
-                              content={comment.parsedContent || comment.content}
-                              mentions={comment.mentions || []}
-                              variant="link"
-                            />
-                          </Typography>
-                          
-                          {/* Comment Actions */}
-                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1 }}>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleCommentLike(comment._id)}
-                              color={comment.isLikedByUser ? "error" : "default"}
-                            >
-                              {comment.isLikedByUser ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
-                            </IconButton>
-                            <Typography variant="caption">
-                              {comment.likesCount}
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                            <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem', mr: 2 }}>
+                              <MentionRenderer
+                                content={comment.parsedContent || comment.content}
+                                mentions={comment.mentions || []}
+                                variant="link"
+                              />
                             </Typography>
-
-                            <IconButton
-                              size="small"
-                              onClick={(e) => handleCommentMenuClick(e, comment)}
-                              sx={{ p: 0.5 }}
-                            >
-                              <MoreVertIcon fontSize="small" />
-                            </IconButton>
-                            
-                            <IconButton
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                              {comment.pinned && (
+                                <PushPinIcon fontSize="small" color="primary" />
+                              )}
+                              <IconButton
+                                size="small"
+                                onClick={() => handleCommentLike(post._id, comment._id)}
+                                color={commentLikes[comment._id] ? "error" : "default"}
+                                sx={{ p: 0.5 }}
+                              >
+                                {commentLikes[comment._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                              </IconButton>
+                              <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
+                                {comment.likesCount || 0}
+                              </Typography>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => handleCommentMenuClick(e, comment)}
+                                sx={{ p: 0.5 }}
+                              >
+                                <MoreVertIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Button
                               size="small"
                               onClick={() => setReplyingTo(replyingTo === comment._id ? null : comment._id)}
+                              sx={{
+                                textTransform: 'none',
+                                minWidth: 'auto',
+                                padding: '2px 8px',
+                                fontSize: '0.75rem'
+                              }}
                             >
-                              <ReplyIcon fontSize="small" />
-                            </IconButton>
-                            <Typography variant="caption">
                               Reply
-                            </Typography>
-                            
+                            </Button>
                             {comment.replies?.length > 0 && (
                               <Button
                                 size="small"
