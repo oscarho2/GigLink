@@ -1,3 +1,8 @@
+[phases.setup]
+cmds = [
+  "mkdir -p /root && touch /root/.profile"
+]
+
 [phases.install]
 cmds = [
   "npm ci --prefix backend",
