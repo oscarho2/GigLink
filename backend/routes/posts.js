@@ -183,7 +183,7 @@ router.get('/', auth, async (req, res) => {
       .populate('comments.replies.user', 'name avatar')
       .populate('comments.likes.user', 'name')
       .populate('likes.user', 'name')
-      .sort({ createdAt: -1 })
+      .sort({ pinned: -1, pinnedAt: -1, createdAt: -1 })
       .limit(limit)
       .skip(skip);
     
@@ -234,7 +234,7 @@ router.get('/user/:userId', auth, async (req, res) => {
       .populate('comments.replies.user', 'name avatar')
       .populate('comments.likes.user', 'name')
       .populate('likes.user', 'name')
-      .sort({ createdAt: -1 })
+      .sort({ pinned: -1, pinnedAt: -1, createdAt: -1 })
       .limit(limit)
       .skip(skip);
 
@@ -331,6 +331,36 @@ router.delete('/:postId/like', auth, async (req, res) => {
     res.json(postObj);
   } catch (error) {
     console.error('Error unliking post:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/posts/:postId/pin
+// @desc    Toggle pin status of a post
+// @access  Private
+router.put('/:postId/pin', auth, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+    const isAdmin = !!req.user.isAdmin;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const authorId = post.author ? post.author.toString() : null;
+    if (authorId !== userId && !isAdmin) {
+      return res.status(403).json({ message: 'Not authorized to pin this post' });
+    }
+
+    post.pinned = !post.pinned;
+    await post.save();
+
+    const updatedPost = await getPopulatedPostWithLikeStatus(postId, userId);
+    res.json(updatedPost);
+  } catch (error) {
+    console.error('Error toggling post pin:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -495,9 +525,9 @@ router.put('/:postId/comments/:commentId/pin', auth, async (req, res) => {
       return res.status(404).json({ message: 'Comment not found' });
     }
 
-    // Only allow post author to pin/unpin comments
-    if (post.author.toString() !== userId) {
-      return res.status(403).json({ message: 'Only post author can pin comments' });
+    // Only allow post author or admins to pin/unpin comments
+    if (post.author.toString() !== userId && !req.user.isAdmin) {
+      return res.status(403).json({ message: 'Only post author or administrators can pin comments' });
     }
 
     await post.toggleCommentPin(commentId);

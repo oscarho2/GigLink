@@ -842,7 +842,7 @@ const GigDetail = () => {
               alignItems: 'center'
             }}
           >
-            {!isPoster && !isAdmin && (
+            {!isPoster && (
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: { xs: '100%', sm: 'auto' } }}>
                 {hasApplied && applicationStatus && (
                   <Chip
@@ -883,7 +883,7 @@ const GigDetail = () => {
                       color: '#666666'
                     }
                   }}
-                  disabled={isPoster || isAdmin || hasApplied || gig.isFilled}
+                  disabled={isPoster || hasApplied || gig.isFilled}
                 >
                    {gig.isFilled ? 'Gig Fixed' : hasApplied ? 'Already Applied' : 'Apply for this Gig'}
                 </Button>
@@ -979,7 +979,7 @@ const GigDetail = () => {
                   }
                 }}
               >
-                Delete Gig (Admin)
+                Delete Gig
               </Button>
             )}
           </Box>

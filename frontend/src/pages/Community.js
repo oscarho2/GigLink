@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Container,
   Paper,
@@ -134,6 +134,39 @@ const Community = () => {
   const [imageDimensions, setImageDimensions] = useState({});
   const replyInputRef = useRef(null);
 
+  const sortPostsByPin = useCallback((list = []) => {
+    return [...list].sort((a, b) => {
+      const aPinned = Boolean(a?.pinned);
+      const bPinned = Boolean(b?.pinned);
+      if (aPinned !== bPinned) {
+        return aPinned ? -1 : 1;
+      }
+      const aDate = aPinned ? new Date(a?.pinnedAt || a?.createdAt || 0) : new Date(a?.createdAt || 0);
+      const bDate = bPinned ? new Date(b?.pinnedAt || b?.createdAt || 0) : new Date(b?.createdAt || 0);
+      return bDate - aDate;
+    });
+  }, []);
+
+  const updatePostsState = useCallback((updater) => {
+    setPosts(prevPosts => {
+      const basePosts = Array.isArray(prevPosts) ? prevPosts : [];
+      const nextRaw = typeof updater === 'function' ? updater(basePosts) : updater;
+      const normalized = Array.isArray(nextRaw) ? [...nextRaw] : [];
+      const sorted = sortPostsByPin(normalized);
+      postsRef.current = sorted;
+      return sorted;
+    });
+  }, [sortPostsByPin, postsRef]);
+
+  const isPostAuthor = (post) => {
+    const author = post?.author || {};
+    const authorId = typeof author === 'string'
+      ? author
+      : author._id || author.id || '';
+    const currentUserId = user?._id || user?.id || '';
+    return Boolean(authorId && currentUserId && authorId === currentUserId);
+  };
+
   useEffect(() => {
     fetchPosts();
   }, []);
@@ -166,12 +199,12 @@ const Community = () => {
       if (response.ok) {
         const data = await response.json();
         const serverPosts = Array.isArray(data) ? data : [];
-        const postsData = serverPosts;
-        setPosts(postsData);
-        postsRef.current = postsData;
-        setLoadedCount(Math.min(postsData.length, loadStep));
+        const sortedPosts = sortPostsByPin(serverPosts);
+        setPosts(sortedPosts);
+        postsRef.current = sortedPosts;
+        setLoadedCount(Math.min(sortedPosts.length, loadStep));
         setPage(1);
-        initCommentLikes(postsData);
+        initCommentLikes(sortedPosts);
       } else {
         if (response.status === 401) {
           toast.error('Authentication expired. Please log in again.');
@@ -303,10 +336,11 @@ const Community = () => {
       }
 
       const combined = dedupeById([...postsRef.current, ...newItems]);
-      postsRef.current = combined;
-      setPosts(combined);
+      const sortedCombined = sortPostsByPin(combined);
+      postsRef.current = sortedCombined;
+      setPosts(sortedCombined);
       setPage(nextPage);
-      setLoadedCount((prev) => Math.min(combined.length, prev + loadStep));
+      setLoadedCount((prev) => Math.min(sortedCombined.length, prev + loadStep));
     } catch (e) {
       console.error('Error loading more posts:', e);
       toast.error('Failed to load more posts');
@@ -357,7 +391,7 @@ const Community = () => {
 
       if (response.ok) {
         const newPost = await response.json();
-        setPosts(prev => [newPost, ...prev]);
+        updatePostsState(prev => [newPost, ...prev]);
         setPostContent('');
         setSelectedFiles([]);
         setSelectedInstruments([]);
@@ -388,7 +422,7 @@ const Community = () => {
 
       if (response.ok) {
         const updatedPost = await response.json();
-        setPosts(prev => prev.map(post => 
+        updatePostsState(prev => prev.map(post => 
           post._id === postId ? updatedPost : post
         ));
       }
@@ -414,7 +448,7 @@ const Community = () => {
 
       if (response.ok) {
         const updatedPost = await response.json();
-        setPosts(prev => prev.map(post => 
+        updatePostsState(prev => prev.map(post => 
           post._id === postId ? updatedPost : post
         ));
         setCommentTexts(prev => ({ ...prev, [postId]: '' }));
@@ -437,7 +471,7 @@ const Community = () => {
       });
 
       if (response.ok) {
-        setPosts(prev => prev.filter(post => post._id !== postToDelete));
+        updatePostsState(prev => prev.filter(post => post._id !== postToDelete));
         toast.success('Post deleted successfully');
       }
     } catch (error) {
@@ -462,9 +496,43 @@ const Community = () => {
   };
 
   const handleDeleteClick = () => {
+    if (!selectedPost) return;
     setPostToDelete(selectedPost._id);
     setDeleteDialogOpen(true);
     handlePostMenuClose();
+  };
+
+  const handleTogglePinPost = async () => {
+    if (!selectedPost) return;
+
+    try {
+      const response = await fetch(`/api/posts/${selectedPost._id}/pin`, {
+        method: 'PUT',
+        headers: {
+          'x-auth-token': token
+        }
+      });
+
+      if (response.ok) {
+        const updatedPost = await response.json();
+        updatePostsState(prev => prev.map(post =>
+          post._id === updatedPost._id ? updatedPost : post
+        ));
+        setSelectedPost(updatedPost);
+        toast.success(updatedPost.pinned ? 'Post pinned' : 'Post unpinned');
+      } else if (response.status === 403) {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Not authorized to pin this post');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Failed to update post pin state');
+      }
+    } catch (error) {
+      console.error('Error toggling post pin:', error);
+      toast.error('Failed to update post pin state');
+    } finally {
+      handlePostMenuClose();
+    }
   };
 
   const handleCommentLike = async (postId, commentId) => {
@@ -485,7 +553,7 @@ const Community = () => {
         }));
         
         // Update the posts state to reflect the like count change
-        setPosts(prevPosts => 
+        updatePostsState(prevPosts => 
           prevPosts.map(post => ({
             ...post,
             comments: post.comments.map(comment => 
@@ -541,7 +609,7 @@ const Community = () => {
       if (response.ok) {
         const updatedPost = await response.json();
         // Update the posts state to reflect the new reply
-        setPosts(prev => prev.map(p => 
+        updatePostsState(prev => prev.map(p => 
           p._id === updatedPost._id ? updatedPost : p
         ));
         setReplyTexts(prev => ({ ...prev, [commentId]: '' }));
@@ -598,13 +666,14 @@ const Community = () => {
 
       if (response.ok) {
         const updatedPost = await response.json();
-        setPosts(prev => prev.map(p => 
+        updatePostsState(prev => prev.map(p => 
           p._id === updatedPost._id ? updatedPost : p
         ));
         const comment = updatedPost.comments.find(c => c._id === selectedComment._id);
         toast.success(comment?.pinned ? 'Comment pinned' : 'Comment unpinned');
       } else if (response.status === 403) {
-        toast.error('Only the post author can pin comments');
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Only the post author or an admin can pin comments');
       } else {
         const errorData = await response.json().catch(() => ({}));
         toast.error(errorData.message || 'Failed to pin comment');
@@ -635,7 +704,7 @@ const Community = () => {
 
       if (response.ok) {
         const updatedPost = await response.json();
-        setPosts(prevPosts => 
+        updatePostsState(prevPosts => 
           prevPosts.map(p => 
             p._id === post._id ? updatedPost : p
           )
@@ -710,7 +779,7 @@ const Community = () => {
 
       if (response.ok) {
         const updatedPost = await response.json();
-        setPosts(prevPosts => 
+        updatePostsState(prevPosts => 
           prevPosts.map(p => 
             p._id === post._id ? updatedPost : p
           )
@@ -752,7 +821,7 @@ const Community = () => {
       if (response.ok) {
         const updatedPost = await response.json();
         // Update the posts state with the updated post
-        setPosts(prev => prev.map(p => 
+        updatePostsState(prev => prev.map(p => 
           p._id === updatedPost._id ? updatedPost : p
         ));
         toast.success('Comment deleted successfully');
@@ -1613,7 +1682,7 @@ const Community = () => {
           const author = post?.author || {};
           const authorId = author._id || author.id || '';
           const currentUserId = user?._id || user?.id || '';
-          const canManagePost = (authorId && authorId === currentUserId) || isAdmin;
+          const canManagePost = isPostAuthor(post) || isAdmin;
           const authorProfileLink = authorId ? `/profile/${authorId}` : null;
           const authorName = author.name || 'Unknown User';
           const postTimestamp = post.createdAt ? new Date(post.createdAt) : null;
@@ -1634,6 +1703,18 @@ const Community = () => {
                 }
               }}
             >
+              {post.pinned && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-start', px: 3, pt: 2 }}>
+                  <Chip
+                    icon={<PushPinIcon fontSize="small" />}
+                    label="Pinned"
+                    size="small"
+                    color="warning"
+                    variant="outlined"
+                    sx={{ fontWeight: 600, '& .MuiChip-icon': { color: '#b7791f !important' } }}
+                  />
+                </Box>
+              )}
               <CardHeader
                 avatar={
                   <UserAvatar 
@@ -2106,6 +2187,12 @@ const Community = () => {
           horizontal: 'right',
         }}
       >
+        {selectedPost && (isPostAuthor(selectedPost) || isAdmin) && (
+          <MenuItem onClick={handleTogglePinPost}>
+            <PushPinIcon sx={{ mr: 1, color: selectedPost.pinned ? '#1a365d' : '#666' }} />
+            {selectedPost.pinned ? 'Unpin Post' : 'Pin Post'}
+          </MenuItem>
+        )}
         <MenuItem onClick={handleDeleteClick}>
           <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
           Delete Post
@@ -2126,12 +2213,11 @@ const Community = () => {
           horizontal: 'right',
         }}
       >
-        {/* Only show pin option if current user is the post author */}
+        {/* Only show pin option if current user is the post author or admin */}
         {(() => {
           const post = posts.find(p => p.comments.some(c => c._id === selectedComment?._id));
-          const postAuthorId = post?.author ? (post.author._id || post.author.id) : null;
-          const currentUserId = user?._id || user?.id || null;
-          return postAuthorId && currentUserId && postAuthorId === currentUserId && (
+          const canPinComment = post && (isPostAuthor(post) || isAdmin);
+          return canPinComment && (
             <MenuItem onClick={handlePinComment}>
               <PushPinIcon sx={{ mr: 1, color: selectedComment?.pinned ? '#1976d2' : '#666' }} />
               {selectedComment?.pinned ? 'Unpin Comment' : 'Pin Comment'}

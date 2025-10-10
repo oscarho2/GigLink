@@ -54,6 +54,14 @@ const PostSchema = new mongoose.Schema({
       required: true
     }
   }],
+  pinned: {
+    type: Boolean,
+    default: false
+  },
+  pinnedAt: {
+    type: Date,
+    default: null
+  },
   likes: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -171,6 +179,9 @@ const PostSchema = new mongoose.Schema({
 // Update the updatedAt field before saving
 PostSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
+  if (this.isModified('pinned')) {
+    this.pinnedAt = this.pinned ? new Date() : null;
+  }
   next();
 });
 
@@ -179,6 +190,7 @@ PostSchema.index({ author: 1, createdAt: -1 });
 PostSchema.index({ createdAt: -1 });
 PostSchema.index({ 'likes.user': 1 });
 PostSchema.index({ 'comments.user': 1 });
+PostSchema.index({ pinned: -1, pinnedAt: -1, createdAt: -1 });
 
 // Static method to get posts with populated author and comment users
 PostSchema.statics.getPostsWithDetails = async function(limit = 20, skip = 0, filter = {}) {
@@ -186,7 +198,7 @@ PostSchema.statics.getPostsWithDetails = async function(limit = 20, skip = 0, fi
     .populate('author', 'name avatar email')
     .populate('comments.user', 'name avatar')
     .populate('likes.user', 'name')
-    .sort({ createdAt: -1 })
+    .sort({ pinned: -1, pinnedAt: -1, createdAt: -1 })
     .limit(limit)
     .skip(skip);
 };
