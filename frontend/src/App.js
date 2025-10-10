@@ -139,6 +139,7 @@ const AppContent = () => {
             <Route path="/user/:userId/links" element={<PrivateRoute><UserLinks /></PrivateRoute>} />
             <Route path="/community" element={<PrivateRoute><Community /></PrivateRoute>} />
             <Route path="/my-posts" element={<PrivateRoute><MyPosts /></PrivateRoute>} />
+            <Route path="/posts" element={<PrivateRoute><Community /></PrivateRoute>} />
             <Route path="/posts/:postId" element={<PrivateRoute><PostDetail /></PrivateRoute>} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />

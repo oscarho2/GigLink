@@ -20,7 +20,10 @@ import {
   Menu,
   MenuItem,
   CircularProgress,
-  Alert
+  Alert,
+  Dialog,
+  DialogContent,
+  Grid
 } from '@mui/material';
 import {
   Favorite as FavoriteIcon,
@@ -30,7 +33,10 @@ import {
   MoreVert as MoreVertIcon,
   Reply as ReplyIcon,
   ArrowBack as ArrowBackIcon,
-  PushPin as PushPinIcon
+  PushPin as PushPinIcon,
+  Close as CloseIcon,
+  ArrowBackIos as ArrowBackIosIcon,
+  ArrowForwardIos as ArrowForwardIosIcon
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'react-toastify';
@@ -57,6 +63,35 @@ const PostDetail = () => {
   const [replyMenuAnchor, setReplyMenuAnchor] = useState(null);
   const [selectedReply, setSelectedReply] = useState(null);
   const [selectedCommentForReply, setSelectedCommentForReply] = useState(null);
+  const [mediaModal, setMediaModal] = useState({ open: false, mediaUrl: '', caption: '', currentIndex: 0, mediaType: 'image', postMedia: [] });
+  const [imageDimensions, setImageDimensions] = useState({});
+  const [commentLikes, setCommentLikes] = useState({});
+
+  const isAdmin = Boolean(user?.isAdmin);
+
+  const isPostAuthor = (post) => {
+    const author = post?.author || {};
+    const authorId = typeof author === 'string'
+      ? author
+      : author._id || author.id || '';
+    const currentUserId = user?._id || user?.id || '';
+    return Boolean(authorId && currentUserId && authorId === currentUserId);
+  };
+
+  const initCommentLikes = (post) => {
+    const initialCommentLikes = {};
+    (post.comments || []).forEach(comment => {
+      initialCommentLikes[comment._id] = comment.isLikedByUser || false;
+      if (comment.replies) {
+        comment.replies.forEach(reply => {
+          if (reply.isLikedByUser !== undefined) {
+            initialCommentLikes[reply._id] = reply.isLikedByUser;
+          }
+        });
+      }
+    });
+    setCommentLikes(initialCommentLikes);
+  };
 
   const [expandedTags, setExpandedTags] = useState(false); // Added
 
@@ -79,6 +114,7 @@ const PostDetail = () => {
       if (response.ok) {
         const postData = await response.json();
         setPost(postData);
+        initCommentLikes(postData);
       } else if (response.status === 404) {
         setError('Post not found');
       } else {
@@ -215,6 +251,409 @@ const PostDetail = () => {
     }));
   };
 
+  const handleCommentMenuClick = (event, comment) => {
+    setMenuAnchor(event.currentTarget);
+    setSelectedComment(comment);
+  };
+
+  const handleCommentMenuClose = () => {
+    setMenuAnchor(null);
+    setSelectedComment(null);
+  };
+
+  const handleDeleteComment = async () => {
+    if (!selectedComment) return;
+
+    try {
+      const response = await fetch(`/api/posts/${postId}/comments/${selectedComment._id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-auth-token': token
+        }
+      });
+
+      if (response.ok) {
+        const updatedPost = await response.json();
+        setPost(updatedPost);
+        toast.success('Comment deleted successfully');
+      } else {
+        toast.error('Failed to delete comment');
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast.error('Failed to delete comment');
+    }
+    handleCommentMenuClose();
+  };
+
+  const handlePinComment = async () => {
+    if (!selectedComment) return;
+
+    try {
+      const response = await fetch(`/api/posts/${postId}/comments/${selectedComment._id}/pin`, {
+        method: 'PUT',
+        headers: {
+          'x-auth-token': token
+        }
+      });
+
+      if (response.ok) {
+        const updatedPost = await response.json();
+        setPost(updatedPost);
+        const comment = updatedPost.comments.find(c => c._id === selectedComment._id);
+        toast.success(comment?.pinned ? 'Comment pinned' : 'Comment unpinned');
+      } else if (response.status === 403) {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Only the post author or an admin can pin comments');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Failed to pin comment');
+      }
+    } catch (error) {
+      console.error('Error pinning comment:', error);
+      toast.error('Failed to pin comment');
+    }
+    handleCommentMenuClose();
+  };
+
+  const handleReplyToReply = (commentId, replyId, replyUserName) => {
+    setReplyingTo(commentId);
+    setReplyTexts(prev => ({
+      ...prev,
+      [commentId]: `@${replyUserName} `
+    }));
+  };
+
+  const handleReplyMenuClick = (event, commentId, replyId) => {
+    setReplyMenuAnchor(event.currentTarget);
+    setSelectedReply(replyId);
+    setSelectedCommentForReply(commentId);
+  };
+
+  const handleReplyMenuClose = () => {
+    setReplyMenuAnchor(null);
+    setSelectedReply(null);
+    setSelectedCommentForReply(null);
+  };
+
+  const handleDeleteReply = async () => {
+    if (!selectedReply || !selectedCommentForReply) return;
+
+    try {
+      const response = await fetch(`/api/posts/${postId}/comments/${selectedCommentForReply}/replies/${selectedReply}`, {
+        method: 'DELETE',
+        headers: {
+          'x-auth-token': token,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const updatedPost = await response.json();
+        setPost(updatedPost);
+        toast.success('Reply deleted successfully');
+      } else {
+        const errorData = await response.json();
+        if (response.status === 401) {
+          toast.error('Authentication expired. Please log in again.');
+        } else {
+          toast.error(errorData.message || 'Failed to delete reply');
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting reply:', error);
+      toast.error('Failed to delete reply');
+    }
+    handleReplyMenuClose();
+  };
+
+  const normalizeMediaUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `http://localhost:5000/${url}`.replace(/\\/g, '/');
+  };
+
+  const handleImageLoad = (postId, index, event) => {
+    const img = event.target;
+    const aspectRatio = img.naturalWidth / img.naturalHeight;
+    const uniqueKey = `${postId}-${index}`;
+    setImageDimensions(prev => ({
+      ...prev,
+      [uniqueKey]: { aspectRatio, isVertical: aspectRatio < 1 }
+    }));
+  };
+
+  const openMediaModal = (mediaUrl, caption = '', index, mediaType = 'image', postMedia = []) => {
+    setMediaModal({ open: true, mediaUrl, caption, currentIndex: index, mediaType, postMedia });
+  };
+
+  const closeMediaModal = () => {
+    setMediaModal({ open: false, mediaUrl: '', caption: '', currentIndex: 0, mediaType: 'image', postMedia: [] });
+  };
+
+  const navigateMedia = (direction) => {
+    const postMedia = mediaModal.postMedia;
+    if (!postMedia || postMedia.length <= 1) return;
+    
+    const newIndex = direction === 'next' 
+      ? (mediaModal.currentIndex + 1) % postMedia.length
+      : (mediaModal.currentIndex - 1 + postMedia.length) % postMedia.length;
+    
+    const newMedia = postMedia[newIndex];
+    setMediaModal({
+      ...mediaModal,
+      mediaUrl: newMedia.url,
+      caption: newMedia.caption || '',
+      currentIndex: newIndex,
+      mediaType: newMedia.type
+    });
+  };
+
+  const renderPhotoGrid = (images, post) => {
+    const imageCount = images.length;
+
+    if (imageCount === 1) {
+      const normalizedUrl = normalizeMediaUrl(images[0].url);
+      return (
+        <Box sx={{ width: '100%', maxWidth: '500px', mx: 'auto' }}>
+          <img
+            src={normalizedUrl}
+            alt="Post media"
+            onClick={() => openMediaModal(normalizedUrl, images[0].caption || '', 0, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}            onLoad={(e) => handleImageLoad(post._id, 0, e)}
+            style={{
+              width: '100%',
+              height: '500px',
+              objectFit: 'cover',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+          />
+        </Box>
+      );
+    }
+
+    if (imageCount === 2) {
+      return (
+        <Box sx={{ display: 'flex', gap: 1, maxWidth: '500px', mx: 'auto' }}>
+          {images.map((image, index) => {
+            const normalizedUrl = normalizeMediaUrl(image.url);
+            return (
+              <Box key={index} sx={{ flex: 1 }}>
+                <img
+                  src={normalizedUrl}
+                  alt="Post media"
+                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}                  onLoad={(e) => handleImageLoad(post._id, index, e)}
+                  style={{
+                    width: '100%',
+                    height: '250px',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                  }}
+                />
+              </Box>
+            );
+          })}
+        </Box>
+      );
+    }
+
+    if (imageCount === 3) {
+      return (
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: '2fr 1fr', 
+          gridTemplateRows: '1fr 1fr',
+          gap: 1, 
+          maxWidth: '500px', 
+          mx: 'auto', 
+          height: '300px' 
+        }}>
+          <Box sx={{ gridRow: '1 / 3', overflow: 'hidden', borderRadius: '8px' }}>
+            <img
+              src={normalizeMediaUrl(images[0].url)}
+              alt="Post media"
+              onClick={() => openMediaModal(normalizeMediaUrl(images[0].url), images[0].caption || '', 0, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}              onLoad={(e) => handleImageLoad(post._id, 0, e)}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                cursor: 'pointer',
+                transition: 'transform 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+              onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+            />
+          </Box>
+          {images.slice(1).map((image, index) => {
+            const normalizedUrl = normalizeMediaUrl(image.url);
+            return (
+              <Box key={index + 1} sx={{ overflow: 'hidden', borderRadius: '8px' }}>
+                <img
+                  src={normalizedUrl}
+                  alt="Post media"
+                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index + 1, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}                  onLoad={(e) => handleImageLoad(post._id, index + 1, e)}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                />
+              </Box>
+            );
+          })}
+        </Box>
+      );
+    }
+
+    if (imageCount === 4) {
+      return (
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, maxWidth: '500px', mx: 'auto', aspectRatio: '1' }}>
+          {images.map((image, index) => {
+            const normalizedUrl = normalizeMediaUrl(image.url);
+            return (
+              <Box key={index} sx={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '8px' }}>
+                <img
+                  src={normalizedUrl}
+                  alt="Post media"
+                  onClick={() => openMediaModal(normalizedUrl, image.caption || '', index, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}                  onLoad={(e) => handleImageLoad(post._id, index, e)}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                />
+              </Box>
+            );
+          })}
+        </Box>
+      );
+    }
+
+    if (imageCount >= 5) {
+      const displayImages = images.slice(0, 5);
+      const remainingCount = imageCount - 5;
+
+      return (
+        <Box sx={{ maxWidth: '500px', mx: 'auto' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 1 }}>
+            {displayImages.slice(0, 2).map((image, index) => {
+              const normalizedUrl = normalizeMediaUrl(image.url);
+              return (
+                <Box key={index} sx={{ aspectRatio: '1.5', overflow: 'hidden', borderRadius: '8px' }}>
+                  <img
+                    src={normalizedUrl}
+                    alt="Post media"
+                    onClick={() => openMediaModal(normalizedUrl, image.caption || '', index, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}                    style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                  />
+                </Box>
+              );
+            })}
+          </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1 }}>
+            {displayImages.slice(2, 5).map((image, index) => {
+              const actualIndex = index + 2;
+              const isOverlay = actualIndex === 4 && remainingCount > 0;
+              const normalizedUrl = normalizeMediaUrl(image.url);
+
+              return (
+                <Box key={actualIndex} sx={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: '8px' }}>
+                  <img
+                    src={normalizedUrl}
+                    alt="Post media"
+                    onClick={() => openMediaModal(normalizedUrl, image.caption || '', actualIndex, 'image', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      cursor: 'pointer',
+                      filter: isOverlay ? 'brightness(0.5)' : 'none',
+                    }}
+                  />
+                  {isOverlay && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '2rem',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      +{remainingCount}
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+      );
+    }
+
+    return null;
+  };
+
+  const renderMedia = (post) => {
+    if (!post.media || post.media.length === 0) return null;
+
+    const images = post.media.filter(item => item.type === 'image');
+    const otherMedia = post.media.filter(item => item.type !== 'image');
+
+    return (
+      <Box>
+        {images.length > 0 && (
+          <Box sx={{ mb: otherMedia.length > 0 ? 2 : 0 }}>
+            {renderPhotoGrid(images, post)}
+          </Box>
+        )}
+        
+        {otherMedia.length > 0 && (
+          <Grid container spacing={1} sx={{ justifyContent: 'center' }}>
+            {otherMedia.map((item, index) => {
+              const actualIndex = images.length + index;
+              const normalizedUrl = normalizeMediaUrl(item.url);
+              
+              return (
+                <Grid item xs={12} sm={8} md={6} key={actualIndex} sx={{ textAlign: 'center', position: 'relative' }}>
+                  <video
+                    controls
+                    onClick={() => openMediaModal(normalizedUrl, item.caption || '', actualIndex, 'video', post.media.map(m => ({ ...m, url: normalizeMediaUrl(m.url), caption: m.caption || '' })))}
+                    style={{
+                      width: '80%',
+                      maxWidth: '400px',
+                      height: 'auto',
+                      borderRadius: '8px',
+                      maxHeight: '300px',
+                      objectFit: 'contain',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <source src={normalizedUrl} />
+                    Your browser does not support the video tag.
+                  </video>
+                </Grid>
+              );
+            })}
+          </Grid>
+        )}
+      </Box>
+    );
+  };
+
   if (loading) {
     return (
       <Container maxWidth="md" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
@@ -291,36 +730,7 @@ const PostDetail = () => {
           {/* Post Media */}
           {post.media && post.media.length > 0 && (
             <Box sx={{ mb: 2 }}>
-              {post.media.map((mediaItem, index) => (
-                <Box key={index} sx={{ mb: 1 }}>
-                  {mediaItem.type === 'image' ? (
-                    <img
-                      src={mediaItem.url}
-                      alt="Post media"
-                      style={{
-                        width: '100%',
-                        height: 'auto',
-                        maxHeight: '450px', // Increased by 50%
-                        maxWidth: '600px', // Increased by 50%
-                        objectFit: 'contain',
-                        borderRadius: '8px',
-                        display: 'block', // Centering
-                        margin: '0 auto' // Centering
-                      }}
-                    />
-                  ) : (
-                    <video
-                      src={mediaItem.url}
-                      controls
-                      style={{
-                        width: '100%',
-                        maxHeight: '400px',
-                        borderRadius: '8px'
-                      }}
-                    />
-                  )}
-                </Box>
-              ))}
+              {renderMedia(post)}
             </Box>
           )}
 
@@ -494,6 +904,14 @@ const PostDetail = () => {
                             <Typography variant="caption">
                               {comment.likesCount}
                             </Typography>
+
+                            <IconButton
+                              size="small"
+                              onClick={(e) => handleCommentMenuClick(e, comment)}
+                              sx={{ p: 0.5 }}
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
                             
                             <IconButton
                               size="small"
@@ -583,7 +1001,21 @@ const PostDetail = () => {
                                       <Typography variant="caption">
                                         {reply.likesCount}
                                       </Typography>
+                                      <IconButton
+                                        size="small"
+                                        onClick={(e) => handleReplyMenuClick(e, comment._id, reply._id)}
+                                        sx={{ p: 0.5, ml: 1 }}
+                                      >
+                                        <MoreVertIcon fontSize="small" />
+                                      </IconButton>
                                     </Box>
+                                    <Button
+                                      size="small"
+                                      onClick={() => handleReplyToReply(comment._id, reply._id, reply.user.name)}
+                                      sx={{ textTransform: 'none', minWidth: 'auto', padding: '2px 8px', fontSize: '0.75rem' }}
+                                    >
+                                      Reply
+                                    </Button>
                                   </Box>
                                 </Box>
                               ))}
@@ -598,8 +1030,151 @@ const PostDetail = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Media Gallery Modal */}
+      <Dialog
+        open={mediaModal.open}
+        onClose={closeMediaModal}
+        maxWidth="lg"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: 'rgba(0, 0, 0, 0.9)',
+            color: 'white'
+          }
+        }}
+      >
+        <DialogContent sx={{ p: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+          <IconButton
+            onClick={closeMediaModal}
+            sx={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              color: 'white',
+              bgcolor: 'rgba(255, 255, 255, 0.1)',
+              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' },
+              zIndex: 1
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+          
+          {mediaModal.postMedia && mediaModal.postMedia.length > 1 && (
+            <>
+              <IconButton
+                onClick={() => navigateMedia('prev')}
+                sx={{
+                  position: 'absolute',
+                  left: 16,
+                  color: 'white',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' },
+                  zIndex: 1
+                }}
+              >
+                <ArrowBackIosIcon />
+              </IconButton>
+              <IconButton
+                onClick={() => navigateMedia('next')}
+                sx={{
+                  position: 'absolute',
+                  right: 16,
+                  color: 'white',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' },
+                  zIndex: 1
+                }}
+              >
+                <ArrowForwardIosIcon />
+              </IconButton>
+            </>
+          )}
+          
+          {mediaModal.mediaType === 'image' ? (
+            <Box
+              component="img"
+              src={mediaModal.mediaUrl}
+              alt={mediaModal.caption || 'Post media'}
+              sx={{
+                width: '100%',
+                maxHeight: '80vh',
+                objectFit: 'contain',
+                borderRadius: 2
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
+                width: '100%',
+                height: '80vh',
+                position: 'relative',
+                borderRadius: 2,
+                overflow: 'hidden'
+              }}
+            >
+              <video
+                controls
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain'
+                }}
+              >
+                <source src={mediaModal.mediaUrl} />
+                Your browser does not support the video tag.
+              </video>
+            </Box>
+          )}
+          
+          {mediaModal.caption && mediaModal.mediaType === 'image' && (
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                bgcolor: 'rgba(0, 0, 0, 0.7)',
+                color: 'white',
+                p: 2,
+                borderBottomLeftRadius: 8,
+                borderBottomRightRadius: 8
+              }}
+            >
+              <Typography variant="body1">
+                {mediaModal.caption}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleCommentMenuClose}
+      >
+        <MenuItem onClick={handlePinComment}>
+          <PushPinIcon sx={{ mr: 1 }} />
+          {selectedComment?.pinned ? 'Unpin' : 'Pin'}
+        </MenuItem>
+        <MenuItem onClick={handleDeleteComment} sx={{ color: 'error.main' }}>
+          <DeleteIcon sx={{ mr: 1 }} />
+          Delete
+        </MenuItem>
+      </Menu>
+
+      <Menu
+        anchorEl={replyMenuAnchor}
+        open={Boolean(replyMenuAnchor)}
+        onClose={handleReplyMenuClose}
+      >
+        <MenuItem onClick={handleDeleteReply} sx={{ color: 'error.main' }}>
+          <DeleteIcon sx={{ mr: 1 }} />
+          Delete
+        </MenuItem>
+      </Menu>
+
     </Container>
-  );
-};
 
 export default PostDetail;
