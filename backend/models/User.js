@@ -65,14 +65,6 @@ const UserSchema = new mongoose.Schema({
     spotify: String,
     soundcloud: String
   },
-  isAvailableForGigs: {
-    type: Boolean,
-    default: true
-  },
-  profileCompleted: {
-    type: Boolean,
-    default: false
-  },
   notificationPreferences: {
     emailNotifications: {
       type: Boolean,

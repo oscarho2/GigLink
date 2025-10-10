@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const Gig = require('../models/Gig');
+const Post = require('../models/Post');
 const auth = require('../middleware/auth');
 const { getVapidPublicKey, sendPushNotificationToUser, shouldSendPushNotification } = require('../utils/pushNotificationService');
 const { sendEmailNotification, shouldSendEmailNotification } = require('../utils/emailService');
@@ -100,6 +102,60 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+const buildNotificationTemplateData = async ({ type, recipient, sender, message, relatedId, relatedModel }) => {
+  if (!recipient) return null;
+
+  const safeRecipientName = recipient.name || 'there';
+  const safeSenderName = sender?.name || 'A GigLink user';
+
+  switch (type) {
+    case 'message':
+      return {
+        email: [safeRecipientName, safeSenderName],
+        push: [safeSenderName]
+      };
+    case 'link_request':
+      return {
+        email: [safeRecipientName, safeSenderName],
+        push: [safeSenderName]
+      };
+    case 'gig_application': {
+      let gigTitle = '';
+      if (relatedModel === 'Gig' && relatedId) {
+        try {
+          const gig = await Gig.findById(relatedId).select('title');
+          if (gig) gigTitle = gig.title || '';
+        } catch (err) {
+          console.error('Error loading gig for notification:', err.message);
+        }
+      }
+      return {
+        email: [safeRecipientName, safeSenderName, gigTitle],
+        push: [safeSenderName, gigTitle]
+      };
+    }
+    case 'comment': {
+      let postTitle = '';
+      if (relatedModel === 'Post' && relatedId) {
+        try {
+          const post = await Post.findById(relatedId).select('title content');
+          if (post) postTitle = post.title || '';
+        } catch (err) {
+          console.error('Error loading post for notification:', err.message);
+        }
+      }
+      const normalizedTitle = postTitle || 'your post';
+      const commentPreview = message || 'Visit GigLink to read the comment.';
+      return {
+        email: [safeRecipientName, safeSenderName, normalizedTitle, commentPreview],
+        push: [safeSenderName, normalizedTitle]
+      };
+    }
+    default:
+      return null;
+  }
+};
+
 // Helper function to create notifications
 const createNotification = async (recipientId, senderId, type, message, relatedId, relatedModel, req = null) => {
   try {
@@ -130,6 +186,31 @@ const createNotification = async (recipientId, senderId, type, message, relatedI
       console.log('Socket.io not available for notification emission');
     }
     
+    let recipient = null;
+    try {
+      recipient = await User.findById(recipientId)
+        .select('name email notificationPreferences pushSubscriptions');
+    } catch (err) {
+      console.error('Error fetching notification recipient:', err.message);
+    }
+
+    const templateData = await buildNotificationTemplateData({
+      type,
+      recipient,
+      sender: notification.sender,
+      message,
+      relatedId,
+      relatedModel
+    });
+
+    if (recipient && templateData) {
+      try {
+        await sendNotificationToUser(recipientId, type, templateData, { recipient });
+      } catch (err) {
+        console.error('Error dispatching email/push notification:', err.message);
+      }
+    }
+
     return notification;
   } catch (err) {
     console.error('Error creating notification:', err);
@@ -222,9 +303,10 @@ router.post('/unsubscribe', auth, async (req, res) => {
 });
 
 // Helper function to send notifications (can be used by other routes)
-const sendNotificationToUser = async (recipientId, notificationType, templateData) => {
+const sendNotificationToUser = async (recipientId, notificationType, templateData, options = {}) => {
   try {
-    const recipient = await User.findById(recipientId);
+    const recipient = options.recipient || await User.findById(recipientId)
+      .select('name email notificationPreferences pushSubscriptions');
     if (!recipient) {
       console.error('Recipient not found:', recipientId);
       return { success: false, error: 'Recipient not found' };
@@ -234,22 +316,33 @@ const sendNotificationToUser = async (recipientId, notificationType, templateDat
       email: null,
       push: null
     };
+
+    const resolveTemplateData = (channel) => {
+      if (Array.isArray(templateData)) return templateData;
+      if (templateData && typeof templateData === 'object') {
+        const data = templateData[channel];
+        return Array.isArray(data) ? data : [];
+      }
+      return [];
+    };
     
     // Send email notification if enabled
     if (shouldSendEmailNotification(recipient.notificationPreferences, notificationType)) {
+      const emailData = resolveTemplateData('email');
       results.email = await sendEmailNotification(
         recipient.email,
         notificationType,
-        templateData
+        emailData
       );
     }
     
     // Send push notification if enabled
     if (shouldSendPushNotification(recipient.notificationPreferences, notificationType)) {
+      const pushData = resolveTemplateData('push');
       results.push = await sendPushNotificationToUser(
         recipient.pushSubscriptions,
         notificationType,
-        templateData
+        pushData
       );
     }
     

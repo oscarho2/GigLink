@@ -21,8 +21,7 @@ const ProfileSetup = () => {
     bio: '',
     isMusician: '',
     instruments: [],
-    genres: [],
-    availability: 'Available'
+    genres: []
   });
   
   // Pre-fill form data with user information from registration
@@ -120,7 +119,6 @@ const ProfileSetup = () => {
       const updateData = {
         bio: formData.bio,
         skills: Array.isArray(formData.instruments) ? formData.instruments : [],
-        availability: formData.availability,
         location: formData.location,
         city: formData.city,
         region: formData.region,

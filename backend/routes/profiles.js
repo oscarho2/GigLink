@@ -131,7 +131,7 @@ router.get('/musician-status', auth, async (req, res) => {
 // @access  Private
 router.get('/me', auth, async (req, res) => {
   try {
-    const profile = await Profile.findOne({ user: req.user.id }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician', 'locationData']);
+    const profile = await Profile.findOne({ user: req.user.id }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isMusician', 'locationData']);
     
     if (!profile) {
       return res.status(400).json({ msg: 'Profile not found for this user' });
@@ -152,9 +152,6 @@ router.get('/me', auth, async (req, res) => {
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
-
-      hourlyRate: 60, // Default rate
-      availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
       videos: profile.videos || [],
       photos: (profile.photos || []).map(formatPhoto)
@@ -182,7 +179,6 @@ router.post('/', auth, async (req, res) => {
       genres,
       isMusician,
       bio,
-      availability,
       videos,
       ...profileFields
     } = req.body;
@@ -212,9 +208,6 @@ router.post('/', auth, async (req, res) => {
       }
       if (isMusician !== undefined) {
         user.isMusician = isMusician;
-      }
-      if (availability !== undefined) {
-        user.isAvailableForGigs = availability === 'Available';
       }
       let derivedCity;
       let derivedRegion;
@@ -275,7 +268,7 @@ router.post('/', auth, async (req, res) => {
         { user: req.user.id },
         { $set: updatedProfileFields },
         { new: true }
-      ).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
+      ).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isMusician']);
       
       // Transform profile to match frontend expectations
       const transformedProfile = {
@@ -287,12 +280,10 @@ router.post('/', auth, async (req, res) => {
           location: profile.user.location || 'Location not specified',
           instruments: profile.user.instruments || [],
           genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician
+          isMusician: profile.user.isMusician
         },
         bio: profile.user.bio || 'No bio available',
         skills: profile.skills || profile.user.instruments || [],
-        hourlyRate: 60,
-        availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
         portfolio: [],
         videos: profile.videos || [],
         photos: (profile.photos || []).map(formatPhoto)
@@ -310,7 +301,7 @@ router.post('/', auth, async (req, res) => {
     await profile.save();
     
     // Populate the user data for the new profile
-    profile = await Profile.findById(profile._id).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician']);
+    profile = await Profile.findById(profile._id).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isMusician']);
     
     // Transform profile to match frontend expectations
     const transformedProfile = {
@@ -326,8 +317,6 @@ router.post('/', auth, async (req, res) => {
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
-      hourlyRate: 60,
-      availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
       videos: profile.videos || [],
       photos: (profile.photos || []).map(formatPhoto)
@@ -346,7 +335,7 @@ router.post('/', auth, async (req, res) => {
 router.put('/me', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, bio, location, instruments, genres, isMusician, availability, skills, videos, country, region, city } = req.body;
+    const { name, bio, location, instruments, genres, isMusician, skills, videos, country, region, city } = req.body;
 
     console.log('🔄 BACKEND: Profile update request received');
     console.log('📝 BACKEND: isMusician received:', isMusician);
@@ -369,8 +358,6 @@ router.put('/me', auth, async (req, res) => {
       console.log(`🎵 BACKEND: Updating isMusician from '${userToUpdate.isMusician}' to '${isMusician}'`);
       userToUpdate.isMusician = isMusician;
     }
-    if (availability !== undefined) userToUpdate.isAvailableForGigs = availability === 'Available';
-
     if (country !== undefined || region !== undefined || city !== undefined) {
       if (!userToUpdate.locationData) {
         userToUpdate.locationData = {};
@@ -407,7 +394,7 @@ router.put('/me', auth, async (req, res) => {
     );
 
     // 3. Fetch and return updated profile
-    const profile = await Profile.findOne({ user: userId }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician', 'locationData']);
+    const profile = await Profile.findOne({ user: userId }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isMusician', 'locationData']);
 
     const transformedProfile = {
       _id: profile._id,
@@ -418,13 +405,11 @@ router.put('/me', auth, async (req, res) => {
         location: profile.user.location || 'Location not specified',
         locationData: profile.user.locationData,
         instruments: profile.user.instruments || [],
-        genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician
+      genres: profile.user.genres || [],
+      isMusician: profile.user.isMusician
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
-      hourlyRate: req.body.hourlyRate || 60,
-      availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
       videos: profile.videos || [],
       photos: (profile.photos || []).map(formatPhoto)
@@ -489,7 +474,7 @@ router.get('/', async (req, res) => {
 
     const dbProfiles = await Profile.find().populate({
       path: 'user',
-      select: ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician', 'locationData'],
+      select: ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isMusician', 'locationData'],
       match: userQuery
     });
 
@@ -499,26 +484,24 @@ router.get('/', async (req, res) => {
     // Return all users (musicians and others)
     
     // Transform database profiles to match frontend expectations
-    const transformedProfiles = filteredProfiles.map(profile => ({
-      _id: profile._id,
-      user: {
-        _id: profile.user._id,
-        name: profile.user.name,
+  const transformedProfiles = filteredProfiles.map(profile => ({
+    _id: profile._id,
+    user: {
+      _id: profile.user._id,
+      name: profile.user.name,
         avatar: getPublicUrl(profile.user.avatar),
         location: profile.user.location || 'Location not specified',
         instruments: profile.user.instruments || [],
         genres: profile.user.genres || [],
         isMusician: profile.user.isMusician,
-        locationData: profile.user.locationData || { country: '', city: '' }
-      },
-      bio: profile.user.bio || 'No bio available',
-      skills: profile.skills || profile.user.instruments || [],
-      userType: profile.user.isMusician === 'yes' ? 'Musician' : 'Other',
-      hourlyRate: 60, // Default rate
-      availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
-      portfolio: [],
-      videos: profile.videos || []
-    }));
+      locationData: profile.user.locationData || { country: '', city: '' }
+    },
+    bio: profile.user.bio || 'No bio available',
+    skills: profile.skills || profile.user.instruments || [],
+    userType: profile.user.isMusician === 'yes' ? 'Musician' : 'Other',
+    portfolio: [],
+    videos: profile.videos || []
+  }));
     
     res.json(transformedProfiles);
   } catch (err) {
@@ -532,7 +515,7 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/user/:user_id', async (req, res) => {
   try {
-    const profile = await Profile.findOne({ user: req.params.user_id }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isAvailableForGigs', 'isMusician', 'locationData']);
+    const profile = await Profile.findOne({ user: req.params.user_id }).populate('user', ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isMusician', 'locationData']);
     
     if (!profile) {
       return res.status(400).json({ msg: 'Profile not found' });
@@ -547,15 +530,12 @@ router.get('/user/:user_id', async (req, res) => {
         avatar: profile.user.avatar || '',
         location: profile.user.location || 'Location not specified',
         locationData: profile.user.locationData,
-        instruments: profile.user.instruments || [],
-        genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician
+      instruments: profile.user.instruments || [],
+      genres: profile.user.genres || [],
+      isMusician: profile.user.isMusician
       },
       bio: profile.user.bio || 'No bio available',
       skills: profile.skills || profile.user.instruments || [],
-
-      hourlyRate: 60, // Default rate
-      availability: profile.user.isAvailableForGigs ? 'Available' : 'Not available',
       portfolio: [],
       videos: profile.videos || [],
       photos: (profile.photos || []).map(formatPhoto)

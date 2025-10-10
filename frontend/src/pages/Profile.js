@@ -106,8 +106,6 @@ const Profile = () => {
             url: formatAvatar(photo?.url)
           })),
           videos: profileData.videos || [],
-          availability: profileData.availability || profileData.user?.isAvailableForGigs ? 'Available' : 'Not available',
-          hourlyRate: profileData.hourlyRate || null,
           userId: profileData.user?._id || user?._id || user?.id || null,
           isMusician: profileData.user?.isMusician || 'no'
         };
