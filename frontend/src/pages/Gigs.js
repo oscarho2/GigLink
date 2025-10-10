@@ -345,7 +345,14 @@ const filterCountryOptionsByQuery = (options = [], query = '') => {
   if (!trimmed) return options;
 
   return options.filter((option) => {
-    if (!option || option.type !== 'country') return true;
+    if (!option) return true;
+    if (option.type !== 'country') {
+      const hierarchyCountry = option?.hierarchy?.country;
+      if (hierarchyCountry && hierarchyCountry.toLowerCase().includes(trimmed)) {
+        return true;
+      }
+      return true;
+    }
 
     const tokens = new Set();
     const hierarchyCountry = option?.hierarchy?.country;
