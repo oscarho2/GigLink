@@ -42,6 +42,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 import UserAvatar from '../components/UserAvatar';
+import EmailVerificationBanner from '../components/EmailVerificationBanner';
 
 // Define pulse animation
 const pulse = keyframes`
@@ -865,6 +866,7 @@ const Gigs = () => {
         px: { xs: 1, sm: 3 }
       }}
     >
+      <EmailVerificationBanner actionType="apply-gig" />
       <Paper 
           elevation={0} 
           sx={{ 

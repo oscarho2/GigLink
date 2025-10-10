@@ -6,6 +6,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { formatPayment } from '../utils/currency';
 import UserAvatar from '../components/UserAvatar';
+import EmailVerificationBanner from '../components/EmailVerificationBanner';
 import axios from 'axios';
 
 const GigDetail = () => {
@@ -305,6 +306,7 @@ const GigDetail = () => {
         px: { xs: 1, sm: 3 }
       }}
     >
+      <EmailVerificationBanner actionType="apply-gig" />
       <Paper 
         elevation={0} 
         sx={{

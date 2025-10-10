@@ -60,6 +60,7 @@ import { useNavigate } from 'react-router-dom';
 import UserAvatar from '../components/UserAvatar';
 import MentionRenderer from '../components/MentionRenderer';
 import MentionInput from '../components/MentionInput';
+import EmailVerificationBanner from '../components/EmailVerificationBanner';
 
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 
@@ -1186,6 +1187,7 @@ const Community = () => {
           overflow: 'hidden'
         }}
       >
+        <EmailVerificationBanner actionType="create-community-post" />
         {/* Create Post Section */}
         <Box sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

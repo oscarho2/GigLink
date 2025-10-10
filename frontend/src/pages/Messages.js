@@ -65,6 +65,7 @@ import AuthenticatedImage from "../components/AuthenticatedImage";
 import UserAvatar from "../components/UserAvatar";
 import MentionRenderer from "../components/MentionRenderer";
 import MentionInput from "../components/MentionInput";
+import EmailVerificationBanner from "../components/EmailVerificationBanner";
 import Flatpickr from 'react-flatpickr';
 import 'flatpickr/dist/themes/material_blue.css';
 import '../styles/flatpickr-compact.css';
@@ -2023,6 +2024,7 @@ const Messages = () => {
         bgcolor: "#f5f5f5"
       }}
     >
+      <EmailVerificationBanner actionType="message" />
       {/* Sidebar - Conversations List */}
       <Box
         sx={{

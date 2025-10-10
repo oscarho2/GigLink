@@ -8,6 +8,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { useNavigate } from 'react-router-dom';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 import { useAuth } from '../context/AuthContext';
+import EmailVerificationBanner from '../components/EmailVerificationBanner';
 import VenueAutocomplete from '../components/VenueAutocomplete';
 import LocationAutocomplete from '../components/LocationAutocomplete';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
@@ -266,6 +267,7 @@ const CreateGig = () => {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Typography variant="h4" gutterBottom>Post a Gig</Typography>
+      <EmailVerificationBanner actionType="create-gig" />
       <Paper elevation={3} sx={{ p: 3 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
