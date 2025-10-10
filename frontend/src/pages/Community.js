@@ -1187,7 +1187,6 @@ const Community = () => {
           overflow: 'hidden'
         }}
       >
-        <EmailVerificationBanner actionType="create-community-post" />
         {/* Create Post Section */}
         <Box sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

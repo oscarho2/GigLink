@@ -2024,7 +2024,6 @@ const Messages = () => {
         bgcolor: "#f5f5f5"
       }}
     >
-      <EmailVerificationBanner actionType="message" />
       {/* Sidebar - Conversations List */}
       <Box
         sx={{

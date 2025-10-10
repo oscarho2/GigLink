@@ -17,6 +17,7 @@ import BottomNavigation from './components/layout/BottomNavigation';
 import LoadingSpinner from './components/LoadingSpinner';
 import PrivateRoute from './components/PrivateRoute';
 import ScrollToTop from './components/ScrollToTop';
+import EmailVerificationBanner from './components/EmailVerificationBanner';
 
 // Lazy load pages for better performance
 const Home = lazy(() => import('./pages/Home'));
@@ -107,6 +108,7 @@ const AppContent = () => {
   return (
     <AppContainer>
       <Navbar />
+      <EmailVerificationBanner actionType="general" />
       <MainContent>
         <Suspense fallback={
           <LoadingSpinner 

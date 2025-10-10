@@ -312,4 +312,51 @@ router.put('/:id/unsuspend', auth, requireAdmin, async (req, res) => {
   }
 });
 
+// @route   POST api/users/resend-verification
+// @desc    Resend verification email for current user
+// @access  Private
+router.post('/resend-verification', auth, async (req, res) => {
+  try {
+    // Find the logged-in user
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if user is already verified
+    if (user.isEmailVerified) {
+      return res.status(400).json({ message: 'Email is already verified' });
+    }
+
+    // Generate a new verification token and expiry
+    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Update user with new verification token
+    user.emailVerificationToken = emailVerificationToken;
+    user.emailVerificationExpires = emailVerificationExpires;
+    await user.save();
+
+    // Send verification email
+    let verificationEmailSent = true;
+    try {
+      await sendVerificationEmail(user.email, user.name, emailVerificationToken);
+    } catch (emailErr) {
+      verificationEmailSent = false;
+      console.error('Error sending verification email:', emailErr);
+    }
+
+    res.json({ 
+      success: true,
+      message: verificationEmailSent
+        ? 'Verification email has been sent successfully!'
+        : 'Verification token was updated, but we could not send the email. Please contact support if you need a new link.'
+    });
+  } catch (err) {
+    console.error('Resend verification error:', err.message);
+    res.status(500).json({ message: 'Server error during verification resend' });
+  }
+});
+
 module.exports = router;

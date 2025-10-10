@@ -866,7 +866,6 @@ const Gigs = () => {
         px: { xs: 1, sm: 3 }
       }}
     >
-      <EmailVerificationBanner actionType="apply-gig" />
       <Paper 
           elevation={0} 
           sx={{ 

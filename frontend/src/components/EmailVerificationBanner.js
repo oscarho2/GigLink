@@ -1,42 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { Alert, AlertTitle, Button, Box } from '@mui/material';
+import React, { useState } from 'react';
+import { Alert, AlertTitle, Box, Button, CircularProgress } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 const EmailVerificationBanner = ({ actionType = 'general' }) => {
-  const { user } = useAuth();
-  const [showBanner, setShowBanner] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
-
+  const { user, token } = useAuth();
+  const [isResending, setIsResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  
   // Determine if user is authenticated and email is not verified
   const isEmailNotVerified = user && !user.isEmailVerified;
 
-  // Get dismissed state from localStorage
-  useEffect(() => {
-    const dismissedActions = JSON.parse(localStorage.getItem('dismissedEmailVerificationBanners') || '{}');
-    const isActionDismissed = dismissedActions[actionType] || false;
-    setIsDismissed(isActionDismissed);
-  }, [actionType]);
-
-  // Show banner when user is not verified and action is critical
-  useEffect(() => {
-    if (isEmailNotVerified && !isDismissed) {
-      setShowBanner(true);
-    } else {
-      setShowBanner(false);
-    }
-  }, [isEmailNotVerified, isDismissed]);
-
-  const handleDismiss = () => {
-    // Store that this action's banner has been dismissed
-    const dismissedActions = JSON.parse(localStorage.getItem('dismissedEmailVerificationBanners') || '{}');
-    dismissedActions[actionType] = true;
-    localStorage.setItem('dismissedEmailVerificationBanners', JSON.stringify(dismissedActions));
-    setIsDismissed(true);
-    setShowBanner(false);
-  };
-
-  if (!showBanner) {
+  if (!isEmailNotVerified) {
     return null;
   }
 
@@ -56,52 +32,100 @@ const EmailVerificationBanner = ({ actionType = 'general' }) => {
     }
   };
 
-  return (
-    <Box sx={{ mb: 2 }}>
-      <Alert 
-        severity="warning" 
-        action={
-          <Button 
-            color="inherit" 
-            size="small" 
-            onClick={handleDismiss}
-            sx={{ 
-              fontWeight: 'bold',
-              textDecoration: 'underline',
-              textTransform: 'none'
-            }}
-          >
-            Dismiss
-          </Button>
+  const handleResendEmail = async () => {
+    setIsResending(true);
+    setResendSuccess(false);
+    
+    try {
+      const response = await axios.post('/api/users/resend-verification', {}, {
+        headers: {
+          'x-auth-token': token
         }
+      });
+      
+      if (response.data.success) {
+        setResendSuccess(true);
+        setTimeout(() => {
+          setResendSuccess(false);
+        }, 5000); // Reset success message after 5 seconds
+      }
+    } catch (error) {
+      console.error('Error resending verification email:', error);
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  // Create mailto link for user's email
+  const mailtoLink = `mailto:${user.email}`;
+
+  return (
+    <Box sx={{ 
+      mb: 2,
+      position: 'relative',
+      zIndex: 1000  // Ensure it appears above other elements but not too high
+    }}>
+      <Alert 
+        severity="warning"
         sx={{
           backgroundColor: 'rgba(255, 235, 59, 0.1)', // Light yellow background
           border: '1px solid #FFECB3', // Light border
           borderRadius: '8px',
           '& .MuiAlert-message': {
             width: '100%'
-          }
+          },
+          alignItems: 'center' // Center items vertically
         }}
       >
-        <AlertTitle sx={{ fontWeight: 'bold', color: '#FF8F00' }}>
+        <AlertTitle sx={{ fontWeight: 'bold', color: '#FF8F00', fontSize: '0.9rem', mb: 0.5 }}>
           Email Verification Required
         </AlertTitle>
-        <Box>
+        <Box sx={{ fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: 1 }}>
           <div>
             You need to verify your email to {getActionMessage()}. 
-            <br />
-            <Link 
-              to="/profile" 
+            Check your email (<a 
+              href={mailtoLink} 
               style={{ 
                 color: '#1a365d', 
                 fontWeight: 'bold', 
-                textDecoration: 'underline',
-                marginLeft: '4px'
+                textDecoration: 'underline' 
               }}
             >
-              Verify email now
-            </Link>
+              {user.email}
+            </a>) for a verification link.
           </div>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleResendEmail}
+              disabled={isResending}
+              sx={{ 
+                backgroundColor: '#1a365d',
+                color: 'white',
+                fontSize: '0.75rem',
+                padding: '4px 8px',
+                minWidth: 'auto',
+                '&:hover': {
+                  backgroundColor: '#2c5282'
+                }
+              }}
+            >
+              {isResending ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                'Resend Email'
+              )}
+            </Button>
+            {resendSuccess && (
+              <span style={{ color: '#4caf50', fontSize: '0.8rem' }}>
+                Email sent!
+              </span>
+            )}
+            <span style={{ color: '#666', fontSize: '0.8rem' }}>
+              or check your spam folder
+            </span>
+          </Box>
         </Box>
       </Alert>
     </Box>
