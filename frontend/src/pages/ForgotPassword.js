@@ -170,3 +170,5 @@ const ForgotPassword = () => {
     </Container>
   );
 };
+
+export default ForgotPassword;
