@@ -273,6 +273,25 @@ const PostDetail = () => {
       if (response.ok) {
         const updatedPost = await response.json();
         setPost(updatedPost);
+        
+        // Update commentLikes state for the reply
+        const updatedComment = updatedPost.comments.find(c => c._id === commentId);
+        if (updatedComment) {
+          const updatedReply = updatedComment.replies.find(r => r._id === replyId);
+          if (updatedReply) {
+            setCommentLikes(prev => ({
+              ...prev,
+              [replyId]: updatedReply.isLikedByUser || false
+            }));
+          }
+        }
+      } else {
+        const errorData = await response.json();
+        if (response.status === 401) {
+          toast.error('Authentication expired. Please log in again.');
+        } else {
+          toast.error(errorData.message || 'Failed to update reply like');
+        }
       }
     } catch (error) {
       console.error('Error liking reply:', error);
@@ -1114,52 +1133,143 @@ const PostDetail = () => {
                         >
                           <SendIcon fontSize="small" />
                         </IconButton>
+                        <Button
+                          size="small"
+                          onClick={() => setReplyingTo(null)}
+                        >
+                          Cancel
+                        </Button>
                       </Box>
                     </Box>
                   )}
 
-                  {/* Replies */}
+                  {/* Nested Replies */}
                   {comment.replies && comment.replies.length > 0 && (
-                    <Collapse in={expandedReplies[comment._id]} timeout="auto" unmountOnExit>
-                      <Box sx={{ ml: 6, mt: 1 }}>
-                        {comment.replies.slice(0, visibleReplies[comment._id] || comment.replies.length).map(reply => (
-                          <ListItem key={reply._id} alignItems="flex-start" sx={{ pl: 0 }}>
+                    <Box sx={{ ml: 4 }}>
+                      {/* Show only first reply or all replies if expanded */}
+                      {(expandedReplies[comment._id] ? comment.replies : comment.replies.slice(0, 1)).map((reply) => {
+                        const replyUser = reply?.user || {};
+                        const replyUserId = replyUser._id || replyUser.id || '';
+                        const replyProfileLink = replyUserId ? `/profile/${replyUserId}` : null;
+                        const replyUserName = replyUser.name || 'Unknown User';
+                        const replyTimestamp = reply.createdAt ? new Date(reply.createdAt) : null;
+
+                        return (
+                          <ListItem key={reply._id} alignItems="flex-start">
                             <ListItemAvatar>
                               <UserAvatar
-                                user={reply.user}
+                                user={replyUser}
                                 size={24}
+                                onClick={() => replyProfileLink && navigate(replyProfileLink)}
                               />
                             </ListItemAvatar>
                             <ListItemText
                               primary={
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Typography variant="caption" fontWeight="bold">
-                                    {reply.user.name}
+                                  <Typography 
+                                    variant="subtitle2"
+                                    onClick={() => replyProfileLink && navigate(replyProfileLink)}
+                                    sx={{ cursor: replyProfileLink ? 'pointer' : 'default', fontSize: '0.875rem' }}
+                                  >
+                                    {replyUserName}
                                   </Typography>
                                   <Typography variant="caption" color="text.secondary">
-                                    {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
+                                    {replyTimestamp ? formatDistanceToNow(replyTimestamp, { addSuffix: true }) : 'Just now'}
                                   </Typography>
                                 </Box>
                               }
                               secondary={
-                                <Typography sx={{ fontSize: '0.875rem' }}>
-                                  {reply.content}
-                                </Typography>
+                                <Box>
+                                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                    <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem', flex: 1 }}>
+                                      <MentionRenderer 
+                                        content={reply.parsedContent || reply.content}
+                                        mentions={reply.mentions || []}
+                                        variant="link"
+                                      />
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleReplyLike(comment._id, reply._id)}
+                                        color={commentLikes[reply._id] ? "error" : "default"}
+                                        sx={{ p: 0.5 }}
+                                      >
+                                        {commentLikes[reply._id] ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                                      </IconButton>
+                                      <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
+                                        {reply.likesCount || 0}
+                                      </Typography>
+                                      <IconButton
+                                        size="small"
+                                        onClick={(e) => handleReplyMenuClick(e, comment._id, reply._id)}
+                                        sx={{ p: 0.5 }}
+                                      >
+                                        <MoreVertIcon fontSize="small" />
+                                      </IconButton>
+                                    </Box>
+                                  </Box>
+                                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <Button
+                                      size="small"
+                                      onClick={() => handleReplyToReply(comment._id, reply._id, replyUserName)}
+                                      sx={{ 
+                                        textTransform: 'none',
+                                        minWidth: 'auto',
+                                        padding: '2px 8px',
+                                        fontSize: '0.75rem',
+                                        mt: 0.5
+                                      }}
+                                    >
+                                      Reply
+                                    </Button>
+                                  </Box>
+                                </Box>
                               }
                             />
                           </ListItem>
-                        ))}
-                        {comment.replies.length > (visibleReplies[comment._id] || 0) && (
-                            <Button onClick={() => setVisibleReplies(prev => ({ ...prev, [comment._id]: undefined }))}>
-                                Show {comment.replies.length - 1} more replies
-                            </Button>
-                        )}
-                      </Box>
-                    </Collapse>
+                        );
+                      })}
+                      
+                      {/* View more replies button */}
+                      {comment.replies.length > 1 && !expandedReplies[comment._id] && (
+                        <Box sx={{ ml: 6, mt: 1 }}>
+                          <Button
+                            size="small"
+                            onClick={() => setExpandedReplies(prev => ({ ...prev, [comment._id]: true }))}
+                            sx={{ 
+                              textTransform: 'none',
+                              fontSize: '0.75rem',
+                              color: 'text.secondary'
+                            }}
+                          >
+                            View {comment.replies.length - 1} more {comment.replies.length - 1 === 1 ? 'reply' : 'replies'}
+                          </Button>
+                        </Box>
+                      )}
+                      
+                      {/* Hide replies button */}
+                      {comment.replies.length > 1 && expandedReplies[comment._id] && (
+                        <Box sx={{ ml: 6, mt: 1 }}>
+                          <Button
+                            size="small"
+                            onClick={() => setExpandedReplies(prev => ({ ...prev, [comment._id]: false }))}
+                            sx={{ 
+                              textTransform: 'none',
+                              fontSize: '0.75rem',
+                              color: 'text.secondary'
+                            }}
+                          >
+                            Hide replies
+                          </Button>
+                        </Box>
+                      )}
+                    </Box>
                   )}
-                  </Box>
-                  )
-                })}
+                  
+                </Box>
+                );
+              })}
             </List>
           )}
         </CardContent>
