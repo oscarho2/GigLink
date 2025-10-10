@@ -474,7 +474,7 @@ const PostDetail = () => {
                       }
                       secondary={
                         <Box>
-                          <Typography component="div" sx={{ mt: 0.5, fontSize: '1rem' }}>
+                          <Typography component="div" sx={{ mt: 0.5, fontSize: '0.875rem' }}>
                             <MentionRenderer 
                               content={comment.parsedContent || comment.content}
                               mentions={comment.mentions || []}
@@ -569,7 +569,7 @@ const PostDetail = () => {
                                         {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
                                       </Typography>
                                     </Box>
-                                    <Typography sx={{ fontSize: '1rem' }}>
+                                    <Typography sx={{ fontSize: '0.875rem' }}>
                                       {reply.content}
                                     </Typography>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>

@@ -1943,7 +1943,7 @@ const Community = () => {
                                 secondary={
                                   <Box>
                                     <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                                      <Typography variant="body2" component="div" sx={{ fontSize: '1.1rem', mr: 2 }}>
+                                      <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem', mr: 2 }}>
                                         <MentionRenderer 
                                           content={comment.parsedContent || comment.content}
                                           mentions={comment.mentions || []}
