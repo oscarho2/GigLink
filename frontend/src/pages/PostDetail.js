@@ -1149,7 +1149,6 @@ const PostDetail = () => {
                     </Collapse>
                   )}
                   </Box>
-                  )
                 )}
             </List>
           )}
