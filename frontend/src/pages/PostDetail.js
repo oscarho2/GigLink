@@ -985,197 +985,172 @@ const PostDetail = () => {
                 .sort((a, b) => {
                   if (a.pinned && !b.pinned) return -1;
                   if (!a.pinned && b.pinned) return 1;
-                  return new Date(a.createdAt) - new Date(b.createdAt);
+                  return new Date(b.createdAt) - new Date(a.createdAt);
                 })
-                .map((comment) => (
-                  <ListItem key={comment._id} alignItems="flex-start" sx={{ px: 0 }}>
-                    <ListItemAvatar>
-                      <UserAvatar
-                        user={comment.user}
-                        size={32}
-                      />
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="subtitle2">
-                            {comment.user.name}
-                          </Typography>
-                          {comment.pinned && (
-                            <Chip
-                              icon={<PushPinIcon fontSize="small" />}
-                              label="Pinned"
-                              size="small"
-                              variant="outlined"
-                              sx={{ 
-                                fontWeight: 600, 
-                                color: 'grey', 
-                                borderColor: 'grey',
-                                '& .MuiChip-icon': { color: 'grey !important' } 
-                              }}
-                            />
-                          )}
-                          <Typography variant="caption" color="text.secondary">
-                            {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-                          </Typography>
-                        </Box>
-                      }
-                      secondary={
-                        <Box>
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                            <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem', mr: 2 }}>
-                              <MentionRenderer
-                                content={comment.parsedContent || comment.content}
-                                mentions={comment.mentions || []}
-                                variant="link"
-                              />
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                              {comment.pinned && (
-                                <PushPinIcon fontSize="small" color="primary" />
-                              )}
-                              <IconButton
-                                size="small"
-                                onClick={() => handleCommentLike(comment._id)}
-                                color={comment.isLikedByUser ? "error" : "default"}
-                                sx={{ p: 0.5 }}
+                .map((comment) => {
+                  const commentUser = comment?.user || {};
+                  const commentUserId = commentUser._id || commentUser.id || '';
+                  const commentProfileLink = commentUserId ? `/profile/${commentUserId}` : null;
+                  const commentUserName = commentUser.name || 'Unknown User';
+                  const commentTimestamp = comment.createdAt ? new Date(comment.createdAt) : null;
+
+                  return (
+                    <Box key={comment._id}>
+                      <ListItem alignItems="flex-start">
+                        <ListItemAvatar>
+                          <UserAvatar
+                            user={commentUser}
+                            size={32}
+                            onClick={() => commentProfileLink && navigate(commentProfileLink)}
+                          />
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography 
+                                variant="subtitle2"
+                                onClick={() => commentProfileLink && navigate(commentProfileLink)}
+                                sx={{ cursor: commentProfileLink ? 'pointer' : 'default' }}
                               >
-                                {comment.isLikedByUser ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
-                              </IconButton>
-                              <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
-                                {comment.likesCount || 0}
+                                {commentUserName}
                               </Typography>
-                              <IconButton
-                                size="small"
-                                onClick={(e) => handleCommentMenuClick(e, comment)}
-                                sx={{ p: 0.5 }}
-                              >
-                                <MoreVertIcon fontSize="small" />
-                              </IconButton>
+                              <Typography variant="caption" color="text.secondary">
+                                {commentTimestamp ? formatDistanceToNow(commentTimestamp, { addSuffix: true }) : 'Just now'}
+                              </Typography>
                             </Box>
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Button
-                              size="small"
-                              onClick={() => handleReplyToComment(comment._id)}
-                              sx={{
-                                textTransform: 'none',
-                                minWidth: 'auto',
-                                padding: '2px 8px',
-                                fontSize: '0.75rem'
-                              }}
-                            >
-                              Reply
-                            </Button>
-                            {comment.replies?.length > 0 && (
-                              <Button
-                                size="small"
-                                onClick={() => toggleReplies(comment._id)}
-                                sx={{ ml: 1 }}
-                              >
-                                {expandedReplies[comment._id] ? 'Hide' : 'Show'} {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
-                              </Button>
-                            )}
-                          </Box>
-
-                          {/* Reply Input */}
-                          <Collapse in={replyingTo === comment._id} timeout="auto" unmountOnExit>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, ml: 4 }}>
-                              <UserAvatar
-                                user={user}
-                                size={24}
-                                sx={{ mr: 1 }}
-                              />
-                              <MentionInput
-                                fullWidth
-                                size="small"
-                                placeholder="Write a reply..."
-                                value={replyTexts[comment._id] || ''}
-                                onChange={(e) => setReplyTexts(prev => ({
-                                  ...prev,
-                                  [comment._id]: e.target.value
-                                }))}
-                                onKeyPress={(e) => {
-                                  if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleReply(comment._id);
-                                  }
-                                }}
-                                ref={replyInputRef}
-                              />
-                              <IconButton
-                                size="small"
-                                onClick={() => handleReply(comment._id)}
-                                disabled={!replyTexts[comment._id]?.trim()}
-                              >
-                                <SendIcon fontSize="small" />
-                              </IconButton>
-                            </Box>
-                          </Collapse>
-
-                          {/* Replies */}
-                          <Collapse in={expandedReplies[comment._id]} timeout="auto" unmountOnExit>
-                            <Box sx={{ ml: 4, mt: 2 }}>
-                              {comment.replies?.slice(0, visibleReplies[comment._id] || comment.replies.length).map((reply) => (
-                                <Box key={reply._id} sx={{ display: 'flex', mb: 2 }}>
-                                  <UserAvatar
-                                    user={reply.user}
-                                    size={24}
-                                    sx={{ mr: 1 }}
+                          }
+                          secondary={
+                            <Box>
+                              <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                                <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem', mr: 2 }}>
+                                  <MentionRenderer 
+                                    content={comment.parsedContent || comment.content}
+                                    mentions={comment.mentions || []}
+                                    variant="link"
                                   />
-                                  <Box sx={{ flexGrow: 1 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Typography variant="caption" fontWeight="bold">
-                                        {reply.user.name}
-                                      </Typography>
-                                      <Typography variant="caption" color="text.secondary">
-                                        {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
-                                      </Typography>
-                                    </Box>
-                                    <Typography sx={{ fontSize: '0.875rem' }}>
-                                      {reply.content}
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => handleReplyLike(comment._id, reply._id)}
-                                        color={reply.isLikedByUser ? "error" : "default"}
-                                      >
-                                        {reply.isLikedByUser ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
-                                      </IconButton>
-                                      <Typography variant="caption">
-                                        {reply.likesCount}
-                                      </Typography>
-                                      <IconButton
-                                        size="small"
-                                        onClick={(e) => handleReplyMenuClick(e, comment._id, reply._id)}
-                                        sx={{ p: 0.5, ml: 1 }}
-                                      >
-                                        <MoreVertIcon fontSize="small" />
-                                      </IconButton>
-                                    </Box>
-                                    <Button
-                                      size="small"
-                                      onClick={() => handleReplyToReply(comment._id, reply._id, reply.user.name)}
-                                      sx={{ textTransform: 'none', minWidth: 'auto', padding: '2px 8px', fontSize: '0.75rem' }}
-                                    >
-                                      Reply
-                                    </Button>
-                                  </Box>
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                                  {comment.pinned && (
+                                    <PushPinIcon fontSize="small" color="primary" />
+                                  )}
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleCommentLike(comment._id)}
+                                    color={comment.isLikedByUser ? "error" : "default"}
+                                    sx={{ p: 0.5 }}
+                                  >
+                                    {comment.isLikedByUser ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                                  </IconButton>
+                                  <Typography variant="caption" sx={{ mr: 0.5, fontSize: '0.7rem' }}>
+                                    {comment.likesCount || 0}
+                                  </Typography>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => handleCommentMenuClick(e, comment)}
+                                    sx={{ p: 0.5 }}
+                                  >
+                                    <MoreVertIcon fontSize="small" />
+                                  </IconButton>
                                 </Box>
-                              ))}
-                              {comment.replies?.length > (visibleReplies[comment._id] || 0) && (
-                                <Button onClick={() => setVisibleReplies(prev => ({ ...prev, [comment._id]: undefined }))}>
-                                    Show all {comment.replies.length} replies
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <Button
+                                  size="small"
+                                  onClick={() => handleReplyToComment(comment._id)}
+                                  sx={{ 
+                                    textTransform: 'none',
+                                    minWidth: 'auto',
+                                    padding: '2px 8px',
+                                    fontSize: '0.75rem'
+                                  }}
+                                >
+                                  Reply
                                 </Button>
-                              )}
+                              </Box>
                             </Box>
-                          </Collapse>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
+                          }
+                        />
+                      </ListItem>
+                  
+                  {/* Reply Input */}
+                  {replyingTo === comment._id && (
+                    <Box sx={{ ml: 6, mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <UserAvatar
+                          user={user}
+                          size={24}
+                          sx={{ mr: 1 }}
+                        />
+                        <MentionInput
+                          fullWidth
+                          size="small"
+                          placeholder="Write a reply..."
+                          value={replyTexts[comment._id] || ''}
+                          onChange={(e) => setReplyTexts(prev => ({
+                            ...prev,
+                            [comment._id]: e.target.value
+                          }))}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleReply(comment._id);
+                            }
+                          }}
+                          ref={replyInputRef}
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={() => handleReply(comment._id)}
+                          disabled={!replyTexts[comment._id]?.trim()}
+                        >
+                          <SendIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* Replies */}
+                  {comment.replies && comment.replies.length > 0 && (
+                    <Collapse in={expandedReplies[comment._id]} timeout="auto" unmountOnExit>
+                      <Box sx={{ ml: 6, mt: 1 }}>
+                        {comment.replies.slice(0, visibleReplies[comment._id] || comment.replies.length).map(reply => (
+                          <ListItem key={reply._id} alignItems="flex-start" sx={{ pl: 0 }}>
+                            <ListItemAvatar>
+                              <UserAvatar
+                                user={reply.user}
+                                size={24}
+                              />
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography variant="caption" fontWeight="bold">
+                                    {reply.user.name}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
+                                  </Typography>
+                                </Box>
+                              }
+                              secondary={
+                                <Typography sx={{ fontSize: '0.875rem' }}>
+                                  {reply.content}
+                                </Typography>
+                              }
+                            />
+                          </ListItem>
+                        ))}
+                        {comment.replies.length > (visibleReplies[comment._id] || 0) && (
+                            <Button onClick={() => setVisibleReplies(prev => ({ ...prev, [comment._id]: undefined }))}>
+                                Show all {comment.replies.length} replies
+                            </Button>
+                        )}
+                      </Box>
+                    </Collapse>
+                  )}
+                  </Box>
+                  )
+                )}
             </List>
           )}
         </CardContent>
