@@ -139,9 +139,9 @@ const Navbar = () => {
 
   return (
     <>
-    <AppBar position="static" sx={{ bgcolor: '#1a365d', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+    <AppBar position="static" sx={{ bgcolor: '#1a365d', boxShadow: '0 2px 10px rgba(0,0,0,0.08)' }}>
       <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ height: { xs: 56, md: 64 } }}>
+        <Toolbar disableGutters sx={{ height: { xs: 50, md: 56 } }}>
           <Box
             component={RouterLink}
             to={isAuthenticated ? "/community" : "/"}
@@ -150,14 +150,14 @@ const Navbar = () => {
               alignItems: 'center',
               textDecoration: 'none',
               color: 'inherit',
-              mr: 2
+              mr: 1.5
             }}
           >
             <Box
               component="img"
               src="/images/GigLink Logo Full.svg"
               alt="GigLink"
-              sx={{ height: 48, display: 'block' }}
+              sx={{ height: 36, display: 'block' }}
             />
           </Box>
 
@@ -277,7 +277,7 @@ const Navbar = () => {
               component="img"
               src="/images/GigLink Logo Full.svg"
               alt="GigLink"
-              sx={{ height: 40, display: 'block' }}
+              sx={{ height: 30, display: 'block' }}
             />
           </Box>
           
@@ -375,13 +375,13 @@ const Navbar = () => {
             flexGrow: 1, 
             display: { xs: 'none', md: 'flex' }, 
             justifyContent: 'center',
-            gap: 2
+            gap: 1.5
           }}>
             <Button
               component={RouterLink}
               to="/community"
               sx={{ 
-                my: 2, 
+                my: 1.25, 
                 color: 'white', 
                 display: 'block',
                 bgcolor: 'transparent',
@@ -398,7 +398,7 @@ const Navbar = () => {
               component={RouterLink}
               to="/gigs"
               sx={{ 
-                my: 2, 
+                my: 1.25, 
                 color: 'white', 
                 display: 'block',
                 bgcolor: 'transparent',
@@ -415,7 +415,7 @@ const Navbar = () => {
               component={RouterLink}
               to="/discover"
               sx={{ 
-                my: 2, 
+                my: 1.25, 
                 color: 'white', 
                 display: 'block',
                 bgcolor: 'transparent',
