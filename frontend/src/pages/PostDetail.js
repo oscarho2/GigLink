@@ -285,8 +285,8 @@ const PostDetail = () => {
         const newExpanded = { ...prev, [commentId]: !prev[commentId] };
         if (newExpanded[commentId]) {
             const comment = post.comments.find(c => c._id === commentId);
-            if (comment && comment.replies.length > 2) {
-                setVisibleReplies(prevVisible => ({ ...prevVisible, [commentId]: 2 }));
+            if (comment && comment.replies.length > 1) {
+                setVisibleReplies(prevVisible => ({ ...prevVisible, [commentId]: 1 }));
             }
         }
         return newExpanded;
@@ -1066,6 +1066,15 @@ const PostDetail = () => {
                                 >
                                   Reply
                                 </Button>
+                                {comment.replies?.length > 0 && (
+                                  <Button
+                                    size="small"
+                                    onClick={() => toggleReplies(comment._id)}
+                                    sx={{ ml: 1 }}
+                                  >
+                                    {expandedReplies[comment._id] ? 'Hide' : 'Show'} {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
+                                  </Button>
+                                )}
                               </Box>
                             </Box>
                           }
@@ -1142,7 +1151,7 @@ const PostDetail = () => {
                         ))}
                         {comment.replies.length > (visibleReplies[comment._id] || 0) && (
                             <Button onClick={() => setVisibleReplies(prev => ({ ...prev, [comment._id]: undefined }))}>
-                                Show all {comment.replies.length} replies
+                                Show {comment.replies.length - 1} more replies
                             </Button>
                         )}
                       </Box>
