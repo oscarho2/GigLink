@@ -77,7 +77,7 @@ const EMAIL_LOGO_SRC = [
   'https://giglinksocial.com/images/giglink-email-logo-blue.png',
   DEFAULT_EMAIL_LOGO_DATA_URI
 ].find((value) => Boolean(trimOrEmpty(value)));
-const emailLogoImgTag = `<img src="${EMAIL_LOGO_SRC}" alt="GigLink" style="height: 48px; display: inline-block;" width="144" height="48" />`;
+const emailLogoImgTag = `<img src="${EMAIL_LOGO_SRC}" alt="GigLink" style="max-width: 220px; height: auto; display: inline-block;" width="220" />`;
 
 // Email templates
 const emailTemplates = {

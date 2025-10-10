@@ -141,7 +141,7 @@ const Navbar = () => {
     <>
     <AppBar position="static" sx={{ bgcolor: '#1a365d', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
       <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ height: { xs: 72, md: 120 } }}>
+        <Toolbar disableGutters sx={{ height: { xs: 56, md: 64 } }}>
           <Box
             component={RouterLink}
             to={isAuthenticated ? "/community" : "/"}
@@ -150,14 +150,14 @@ const Navbar = () => {
               alignItems: 'center',
               textDecoration: 'none',
               color: 'inherit',
-              mr: 3
+              mr: 2
             }}
           >
             <Box
               component="img"
-              src="/images/GigLink Logo Full.svg"
+              src="/images/GigLink Logo Full Blue.svg"
               alt="GigLink"
-              sx={{ height: 120, display: 'block' }}
+              sx={{ height: 48, display: 'block' }}
             />
           </Box>
 
@@ -275,9 +275,9 @@ const Navbar = () => {
           >
             <Box
               component="img"
-              src="/images/GigLink Logo Full.svg"
+              src="/images/GigLink Logo Full Blue.svg"
               alt="GigLink"
-              sx={{ height: 80, display: 'block' }}
+              sx={{ height: 40, display: 'block' }}
             />
           </Box>
           
