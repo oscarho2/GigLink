@@ -94,7 +94,8 @@ router.post('/', contactRateLimit, contactValidation, async (req, res) => {
       res.status(200).json({
         success: true,
         message: 'Thank you for your message! We will get back to you soon.',
-        messageId: emailResult.messageId
+        messageId: emailResult.messageId,
+        confirmationId: emailResult.confirmationId
       });
     } else {
       console.error('Contact form email failed:', emailResult.error);

@@ -43,6 +43,29 @@ const getTransporter = async () => {
   return transporterPromise;
 };
 
+const trimOrEmpty = (value) => {
+  if (value === undefined || value === null) return '';
+  return String(value).trim();
+};
+
+const getDefaultFrom = (fallbackDisplay = 'GigLink') => {
+  const configured = trimOrEmpty(process.env.EMAIL_FROM);
+  if (configured) return configured;
+  const display = String(fallbackDisplay || 'GigLink').trim() || 'GigLink';
+  return `"${display}" <noreply@giglinksocial.com>`;
+};
+
+const DEFAULT_FROM_ADDRESS = getDefaultFrom('GigLink');
+const CONTACT_FROM_ADDRESS = trimOrEmpty(process.env.CONTACT_EMAIL_FROM) || DEFAULT_FROM_ADDRESS;
+const CONTACT_REPLY_TO = trimOrEmpty(process.env.CONTACT_REPLY_TO)
+  || trimOrEmpty(process.env.SUPPORT_EMAIL)
+  || trimOrEmpty(process.env.ADMIN_EMAIL)
+  || trimOrEmpty(process.env.EMAIL_USER)
+  || '';
+const ADMIN_FALLBACK_EMAIL = trimOrEmpty(process.env.ADMIN_EMAIL)
+  || trimOrEmpty(process.env.SUPPORT_EMAIL)
+  || 'giglinksocial@gmail.com';
+
 // Email templates
 const emailTemplates = {
   like: (recipientName, likerName, postTitle) => ({
@@ -218,7 +241,7 @@ const sendEmailNotification = async (recipientEmail, notificationType, templateD
     const emailContent = template(...templateData);
     
     const mailOptions = {
-      from: process.env.EMAIL_FROM || '"GigLink" <noreply@giglink.com>',
+      from: DEFAULT_FROM_ADDRESS,
       to: recipientEmail,
       subject: emailContent.subject,
       html: emailContent.html
@@ -270,7 +293,7 @@ const sendVerificationEmail = async (recipientEmail, recipientName, verification
     const emailContent = emailTemplates.emailVerification(recipientName, verificationUrl);
     
     const mailOptions = {
-      from: process.env.EMAIL_FROM || '"GigLink" <noreply@giglink.com>',
+      from: DEFAULT_FROM_ADDRESS,
       to: recipientEmail,
       subject: emailContent.subject,
       html: emailContent.html,
@@ -297,7 +320,7 @@ const sendPasswordResetEmail = async (recipientEmail, recipientName, resetToken)
     const emailContent = emailTemplates.passwordReset(recipientName, resetUrl);
     
     const mailOptions = {
-      from: process.env.EMAIL_FROM || '"GigLink" <noreply@giglink.com>',
+      from: DEFAULT_FROM_ADDRESS,
       to: recipientEmail,
       subject: emailContent.subject,
       html: emailContent.html,
@@ -320,9 +343,10 @@ const sendContactEmail = async (contactData) => {
   try {
     const transporter = await getTransporter();
     const { name, email, subject, message, category, timestamp, userAgent, ip } = contactData;
-    
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'admin@giglink.com';
-    
+    const adminEmail = ADMIN_FALLBACK_EMAIL;
+    const safeTimestamp = timestamp ? new Date(timestamp) : new Date();
+    const submittedAt = Number.isNaN(safeTimestamp.getTime()) ? timestamp : safeTimestamp.toLocaleString();
+
     const emailContent = {
       subject: `[GigLink Contact] ${subject}`,
       html: `
@@ -338,7 +362,7 @@ const sendContactEmail = async (contactData) => {
             <p><strong>Email:</strong> ${email}</p>
             <p><strong>Category:</strong> ${category}</p>
             <p><strong>Subject:</strong> ${subject}</p>
-            <p><strong>Submitted:</strong> ${new Date(timestamp).toLocaleString()}</p>
+            <p><strong>Submitted:</strong> ${submittedAt}</p>
           </div>
           
           <div style="background-color: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px;">
@@ -361,7 +385,7 @@ const sendContactEmail = async (contactData) => {
         Email: ${email}
         Category: ${category}
         Subject: ${subject}
-        Submitted: ${new Date(timestamp).toLocaleString()}
+        Submitted: ${submittedAt}
         
         Message:
         ${message}
@@ -372,23 +396,84 @@ const sendContactEmail = async (contactData) => {
       `
     };
     
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || '"GigLink Contact" <noreply@giglink.com>',
+    const adminMailOptions = {
+      from: CONTACT_FROM_ADDRESS,
       to: adminEmail,
-      replyTo: email, // Allow direct reply to the contact person
       subject: emailContent.subject,
       html: emailContent.html,
       text: emailContent.text
     };
-    
-    const result = await transporter.sendMail(mailOptions);
-    console.log('Contact email sent successfully:', result.messageId);
-    const preview = nodemailer.getTestMessageUrl && nodemailer.getTestMessageUrl(result);
-    if (preview) console.log('Contact Email Preview URL:', preview);
-    
+    const contactReply = trimOrEmpty(email);
+    if (contactReply) {
+      adminMailOptions.replyTo = contactReply;
+    }
+
+    const adminResult = await transporter.sendMail(adminMailOptions);
+    console.log('Contact email sent successfully:', adminResult.messageId);
+    const adminPreview = nodemailer.getTestMessageUrl && nodemailer.getTestMessageUrl(adminResult);
+    if (adminPreview) console.log('Contact Email Preview URL:', adminPreview);
+
+    const confirmationSubject = '[GigLink] Thanks for contacting us';
+    const confirmationHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #1976d2; margin: 0;">GigLink</h1>
+          <h2 style="color: #333; margin: 10px 0;">We received your message</h2>
+        </div>
+        <p>Hi ${name},</p>
+        <p>Thanks for getting in touch! Our team has received your message and will reply as soon as possible.</p>
+        <div style="background-color: #f5f5f5; padding: 18px; border-radius: 8px; margin: 24px 0;">
+          <p style="margin: 0;"><strong>Subject:</strong> ${subject}</p>
+          <p style="margin: 8px 0 0 0;"><strong>Category:</strong> ${category}</p>
+          <p style="margin: 8px 0 0 0;"><strong>Sent:</strong> ${submittedAt}</p>
+        </div>
+        <div style="background-color: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 18px;">
+          <h3 style="margin-top: 0; color: #333;">Your message</h3>
+          <p style="white-space: pre-wrap; line-height: 1.6; margin: 0;">${message}</p>
+        </div>
+        <p style="margin-top: 24px;">If you need to add anything else, simply reply to this email and it will reach the team.</p>
+        <p style="color: #666; font-size: 12px; margin-top: 32px;">— The GigLink Team</p>
+      </div>
+    `;
+
+    const confirmationText = `
+      Hi ${name},
+
+      Thanks for getting in touch with GigLink. We received your message and will reply as soon as possible.
+
+      Subject: ${subject}
+      Category: ${category}
+      Sent: ${submittedAt}
+
+      Your message:
+      ${message}
+
+      If you need to add anything else, just reply to this email and it will reach the team.
+
+      — The GigLink Team
+    `;
+
+    const fallbackReplyTo = CONTACT_REPLY_TO || adminEmail;
+    const confirmationMailOptions = {
+      from: CONTACT_FROM_ADDRESS,
+      to: email,
+      subject: confirmationSubject,
+      html: confirmationHtml,
+      text: confirmationText
+    };
+    if (fallbackReplyTo) {
+      confirmationMailOptions.replyTo = fallbackReplyTo;
+    }
+
+    const confirmationResult = await transporter.sendMail(confirmationMailOptions);
+    console.log('Contact confirmation email sent successfully:', confirmationResult.messageId);
+    const confirmationPreview = nodemailer.getTestMessageUrl && nodemailer.getTestMessageUrl(confirmationResult);
+    if (confirmationPreview) console.log('Contact Confirmation Preview URL:', confirmationPreview);
+
     return {
       success: true,
-      messageId: result.messageId
+      messageId: adminResult.messageId,
+      confirmationId: confirmationResult.messageId
     };
   } catch (error) {
     console.error('Error sending contact email:', error);
