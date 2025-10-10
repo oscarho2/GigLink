@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 1080 1080" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1.37975,0,0,1.37975,-150.073,-15.1325)">
+        <g transform="matrix(6.52763,0,0,6.52763,-1644.23,-1636.42)">
+            <g transform="matrix(24,0,0,24,402.375,323.649)">
+            </g>
+            <text x="286.781px" y="323.649px" style="font-family:'Menlo-Bold', 'Menlo', monospace;font-weight:700;font-size:24px;fill:rgb(26,54,93);">GigLink</text>
+        </g>
+        <g transform="matrix(0.29355,0.0665114,-0.0665114,0.29355,116.236,185.487)">
+            <g transform="matrix(0.936636,0,0,1.02594,11.6918,-149.938)">
+                <ellipse cx="330.153" cy="930.015" rx="150.259" ry="110.325" style="fill:rgb(26,54,93);"/>
+            </g>
+            <g transform="matrix(0.907415,0.0211513,-0.0153485,0.658467,37.7653,56.3951)">
+                <rect x="441.471" y="322.922" width="251.7" height="84.001" style="fill:rgb(26,54,93);"/>
+            </g>
+            <g transform="matrix(0.998309,0.0581273,-0.0630333,1.08257,71.933,-126.607)">
+                <rect x="384.173" y="353.446" width="59.034" height="483.875" style="fill:rgb(26,54,93);"/>
+            </g>
+        </g>
+    </g>
+</svg>

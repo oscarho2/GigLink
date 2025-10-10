@@ -11,7 +11,6 @@ import Container from '@mui/material/Container';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import Avatar from '@mui/material/Avatar';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
@@ -143,24 +142,18 @@ const Navbar = () => {
     <AppBar position="static" sx={{ bgcolor: '#1a365d', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
       <Container maxWidth="lg">
         <Toolbar disableGutters sx={{ height: { xs: 56, sm: 64 } }}>
-          <MusicNoteIcon sx={{ display: { xs: 'none', md: 'flex' }, mr: 1 }} />
-          <Typography
-            variant="h6"
-            noWrap
+          <Box
             component={RouterLink}
             to={isAuthenticated ? "/community" : "/"}
-            sx={{
-              mr: 2,
-              display: { xs: 'none', md: 'flex' },
-              fontFamily: 'monospace',
-              fontWeight: 700,
-              letterSpacing: '.3rem',
-              color: 'inherit',
-              textDecoration: 'none',
-            }}
+            sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit', mr: 2 }}
           >
-            GigLink
-          </Typography>
+            <Box
+              component="img"
+              src="/images/GigLink Logo Full.svg"
+              alt="GigLink"
+              sx={{ height: { xs: 32, sm: 40 }, display: 'block' }}
+            />
+          </Box>
 
           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'none' } }}>
             <IconButton
@@ -262,38 +255,18 @@ const Navbar = () => {
             </Menu>
           </Box>
           
-          <MusicNoteIcon sx={{ 
-            display: { xs: 'flex', md: 'none' }, 
-            mr: { xs: 1.5, sm: 1 }, 
-            fontSize: { xs: 28, sm: 24 },
-            color: 'white'
-          }} />
-          <Typography
-            variant="h6"
-            noWrap
+          <Box
             component={RouterLink}
             to={isAuthenticated ? "/community" : "/"}
-            sx={{
-              mr: 2,
-              display: { xs: 'flex', md: 'none' },
-              flexGrow: 1,
-              fontFamily: 'monospace',
-              fontWeight: 700,
-              letterSpacing: { xs: '.15rem', sm: '.2rem' },
-              color: 'inherit',
-              textDecoration: 'none',
-              fontSize: { xs: '1.2rem', sm: '1.25rem' },
-              py: { xs: 1, sm: 0.5 },
-              '&:hover': {
-                color: 'rgba(255, 255, 255, 0.9)'
-              },
-              '&:active': {
-                color: 'rgba(255, 255, 255, 0.8)'
-              }
-            }}
+            sx={{ alignItems: 'center', textDecoration: 'none', color: 'inherit', flexGrow: 1, display: { xs: 'flex', md: 'none' } }}
           >
-            GigLink
-          </Typography>
+            <Box
+              component="img"
+              src="/images/GigLink Logo Full.svg"
+              alt="GigLink"
+              sx={{ height: 30, display: 'block' }}
+            />
+          </Box>
           
           {/* Mobile Guest Buttons */}
           {!isAuthenticated && (

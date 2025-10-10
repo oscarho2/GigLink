@@ -61,6 +61,10 @@ const ADMIN_FALLBACK_EMAIL = trimOrEmpty(process.env.ADMIN_EMAIL)
   || trimOrEmpty(process.env.SUPPORT_EMAIL)
   || 'giglinksocial@gmail.com';
 
+const DEFAULT_EMAIL_LOGO_DATA_URI = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+Cjxzdmcgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgdmlld0JveD0iMCAwIDEwODAgMTA4MCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB4bWw6c3BhY2U9InByZXNlcnZlIiB4bWxuczpzZXJpZj0iaHR0cDovL3d3dy5zZXJpZi5jb20vIiBzdHlsZT0iZmlsbC1ydWxlOmV2ZW5vZGQ7Y2xpcC1ydWxlOmV2ZW5vZGQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kO3N0cm9rZS1taXRlcmxpbWl0OjI7Ij4KICAgIDxnIHRyYW5zZm9ybT0ibWF0cml4KDEuMzc5NzUsMCwwLDEuMzc5NzUsLTE1MC4wNzMsLTE1LjEzMjUpIj4KICAgICAgICA8ZyB0cmFuc2Zvcm09Im1hdHJpeCg2LjUyNzYzLDAsMCw2LjUyNzYzLC0xNjQ0LjIzLC0xNjM2LjQyKSI+CiAgICAgICAgICAgIDxnIHRyYW5zZm9ybT0ibWF0cml4KDI0LDAsMCwyNCw0MDIuMzc1LDMyMy42NDkpIj4KICAgICAgICAgICAgPC9nPgogICAgICAgICAgICA8dGV4dCB4PSIyODYuNzgxcHgiIHk9IjMyMy42NDlweCIgc3R5bGU9ImZvbnQtZmFtaWx5OidNZW5sby1Cb2xkJywgJ01lbmxvJywgbW9ub3NwYWNlO2ZvbnQtd2VpZ2h0OjcwMDtmb250LXNpemU6MjRweDtmaWxsOnJnYigyNiw1NCw5Myk7Ij5HaWdMaW5rPC90ZXh0PgogICAgICAgIDwvZz4KICAgICAgICA8ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjI5MzU1LDAuMDY2NTExNCwtMC4wNjY1MTE0LDAuMjkzNTUsMTE2LjIzNiwxODUuNDg3KSI+CiAgICAgICAgICAgIDxnIHRyYW5zZm9ybT0ibWF0cml4KDAuOTM2NjM2LDAsMCwxLjAyNTk0LDExLjY5MTgsLTE0OS45MzgpIj4KICAgICAgICAgICAgICAgIDxlbGxpcHNlIGN4PSIzMzAuMTUzIiBjeT0iOTMwLjAxNSIgcng9IjE1MC4yNTkiIHJ5PSIxMTAuMzI1IiBzdHlsZT0iZmlsbDpyZ2IoMjYsNTQsOTMpOyIvPgogICAgICAgICAgICA8L2c+CiAgICAgICAgICAgIDxnIHRyYW5zZm9ybT0ibWF0cml4KDAuOTA3NDE1LDAuMDIxMTUxMywtMC4wMTUzNDg1LDAuNjU4NDY3LDM3Ljc2NTMsNTYuMzk1MSkiPgogICAgICAgICAgICAgICAgPHJlY3QgeD0iNDQxLjQ3MSIgeT0iMzIyLjkyMiIgd2lkdGg9IjI1MS43IiBoZWlnaHQ9Ijg0LjAwMSIgc3R5bGU9ImZpbGw6cmdiKDI2LDU0LDkzKTsiLz4KICAgICAgICAgICAgPC9nPgogICAgICAgICAgICA8ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjk5ODMwOSwwLjA1ODEyNzMsLTAuMDYzMDMzMywxLjA4MjU3LDcxLjkzMywtMTI2LjYwNykiPgogICAgICAgICAgICAgICAgPHJlY3QgeD0iMzg0LjE3MyIgeT0iMzUzLjQ0NiIgd2lkdGg9IjU5LjAzNCIgaGVpZ2h0PSI0ODMuODc1IiBzdHlsZT0iZmlsbDpyZ2IoMjYsNTQsOTMpOyIvPgogICAgICAgICAgICA8L2c+CiAgICAgICAgPC9nPgogICAgPC9nPgo8L3N2Zz4K';
+const EMAIL_LOGO_SRC = trimOrEmpty(process.env.EMAIL_LOGO_URL) || DEFAULT_EMAIL_LOGO_DATA_URI;
+const emailLogoImgTag = `<img src="${EMAIL_LOGO_SRC}" alt="GigLink" style="height: 48px; display: inline-block;" width="144" height="48" />`;
+
 // Email templates
 const emailTemplates = {
   like: (recipientName, likerName, postTitle) => ({
@@ -155,7 +159,7 @@ const emailTemplates = {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #1976d2; margin: 0;">GigLink</h1>
+          ${emailLogoImgTag}
         </div>
         <h2 style="color: #333; text-align: center;">Welcome to GigLink!</h2>
         <p>Hi ${recipientName},</p>
@@ -190,7 +194,7 @@ const emailTemplates = {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #1976d2; margin: 0;">GigLink</h1>
+          ${emailLogoImgTag}
         </div>
         <h2 style="color: #333; text-align: center;">Password Reset Request</h2>
         <p>Hi ${recipientName},</p>
@@ -347,7 +351,7 @@ const sendContactEmail = async (contactData) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #1976d2; margin: 0;">GigLink</h1>
+            ${emailLogoImgTag}
             <h2 style="color: #333; margin: 10px 0;">Contact Form Submission</h2>
           </div>
           
@@ -412,7 +416,7 @@ const sendContactEmail = async (contactData) => {
     const confirmationHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #1976d2; margin: 0;">GigLink</h1>
+          ${emailLogoImgTag}
           <h2 style="color: #333; margin: 10px 0;">We received your message</h2>
         </div>
         <p>Hi ${name},</p>
