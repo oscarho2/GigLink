@@ -57,11 +57,6 @@ const getDefaultFrom = (fallbackDisplay = 'GigLink') => {
 
 const DEFAULT_FROM_ADDRESS = getDefaultFrom('GigLink');
 const CONTACT_FROM_ADDRESS = trimOrEmpty(process.env.CONTACT_EMAIL_FROM) || DEFAULT_FROM_ADDRESS;
-const CONTACT_REPLY_TO = trimOrEmpty(process.env.CONTACT_REPLY_TO)
-  || trimOrEmpty(process.env.SUPPORT_EMAIL)
-  || trimOrEmpty(process.env.ADMIN_EMAIL)
-  || trimOrEmpty(process.env.EMAIL_USER)
-  || '';
 const ADMIN_FALLBACK_EMAIL = trimOrEmpty(process.env.ADMIN_EMAIL)
   || trimOrEmpty(process.env.SUPPORT_EMAIL)
   || 'giglinksocial@gmail.com';
@@ -453,7 +448,6 @@ const sendContactEmail = async (contactData) => {
       — The GigLink Team
     `;
 
-    const fallbackReplyTo = CONTACT_REPLY_TO || adminEmail;
     const confirmationMailOptions = {
       from: CONTACT_FROM_ADDRESS,
       to: email,
@@ -461,9 +455,6 @@ const sendContactEmail = async (contactData) => {
       html: confirmationHtml,
       text: confirmationText
     };
-    if (fallbackReplyTo) {
-      confirmationMailOptions.replyTo = fallbackReplyTo;
-    }
 
     const confirmationResult = await transporter.sendMail(confirmationMailOptions);
     console.log('Contact confirmation email sent successfully:', confirmationResult.messageId);
