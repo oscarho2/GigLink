@@ -67,6 +67,7 @@ const EmailVerificationBanner = ({ actionType = 'general' }) => {
     }}>
       <Alert 
         severity="warning"
+        icon={false} // Remove the default icon
         sx={{
           backgroundColor: 'rgba(255, 235, 59, 0.1)', // Light yellow background
           border: '1px solid #FFECB3', // Light border
