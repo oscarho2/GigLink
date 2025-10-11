@@ -30,30 +30,22 @@ const ExpiredVerification = () => {
             padding: 4,
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-            textAlign: 'center'
+            alignItems: 'flex-start',
+            width: '100%'
           }}
         >
-          <ErrorOutlineIcon 
-            sx={{ 
-              fontSize: 60, 
-              color: 'warning.main', 
-              mb: 3 
-            }} 
-          />
-          <Typography variant="h5" component="h1" gutterBottom color="warning.main">
+          <Typography variant="h5" component="h1" gutterBottom color="warning.main" sx={{ textAlign: 'center', width: '100%' }}>
             Verification Link Expired
           </Typography>
-          <Alert severity="warning" sx={{ width: '100%', mb: 3 }}>
+          <Alert severity="warning" sx={{ width: '100%', mb: 3, textAlign: 'center' }}>
             The email verification link you clicked has expired. Verification links are only valid for 24 hours for security purposes.
           </Alert>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3, textAlign: 'center', width: '100%' }}>
             {user 
               ? "You can request a new verification email from your profile page." 
               : "Please log in to access your profile and request a new verification email."}
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', width: '100%' }}>
             <Button
               component={RouterLink}
               to="/"

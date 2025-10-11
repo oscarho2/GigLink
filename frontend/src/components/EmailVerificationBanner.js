@@ -80,7 +80,7 @@ const EmailVerificationBanner = ({ actionType = 'general' }) => {
         }}
       >
         <AlertTitle sx={{ fontWeight: 'bold', color: '#FF8F00', fontSize: '0.9rem', mb: 0.5, textAlign: 'center' }}>
-          Email Verification Required
+          Email Verification Required!
         </AlertTitle>
         <Box sx={{ 
           fontSize: '0.9rem', 
