@@ -105,11 +105,12 @@ const MainContent = styled(Box)(({ theme }) => ({
 const AppContent = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
+  const hideVerificationBanner = location.pathname === '/profile-setup';
 
   return (
     <AppContainer>
       <Navbar />
-      <EmailVerificationBanner actionType="general" />
+      {!hideVerificationBanner && <EmailVerificationBanner actionType="general" />}
       <MainContent>
         <Suspense fallback={
           <LoadingSpinner 
