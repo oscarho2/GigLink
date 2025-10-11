@@ -20,22 +20,30 @@ const EmailVerification = () => {
   const { user, updateUser } = useAuth(); // Get the user and updateUser function from AuthContext
   const [status, setStatus] = useState('verifying'); // 'verifying', 'success', 'error'
   const [message, setMessage] = useState('');
+  const [verificationCompleted, setVerificationCompleted] = useState(false); // Add flag to track if verification is complete
 
   useEffect(() => {
+    // Prevent re-running verification if it's already completed
+    if (verificationCompleted) {
+      return;
+    }
+
+    // If user is already authenticated and verified, show success immediately and don't proceed
+    if (user && user.isEmailVerified) {
+      setStatus('success');
+      setMessage('Your email has already been verified successfully!');
+      setVerificationCompleted(true); // Mark verification as completed
+      return;
+    }
+
+    if (!token) {
+      setStatus('error');
+      setMessage('Invalid verification link. Please check your email for the correct link.');
+      setVerificationCompleted(true); // Mark as completed to prevent re-running
+      return;
+    }
+
     const verifyEmail = async () => {
-      // If user is already authenticated and verified, show success immediately
-      if (user && user.isEmailVerified) {
-        setStatus('success');
-        setMessage('Your email has already been verified successfully!');
-        return;
-      }
-
-      if (!token) {
-        setStatus('error');
-        setMessage('Invalid verification link. Please check your email for the correct link.');
-        return;
-      }
-
       try {
         const response = await axios.get(`/api/auth/verify-email/${token}`);
         
@@ -63,11 +71,10 @@ const EmailVerification = () => {
             if (updateUser) {
               updateUser({ isEmailVerified: true });
             }
-            return;
+          } else {
+            setStatus('error');
+            setMessage(response.data.message || 'Email verification failed.');
           }
-          
-          setStatus('error');
-          setMessage(response.data.message || 'Email verification failed.');
         }
       } catch (error) {
         setStatus('error');
@@ -76,11 +83,13 @@ const EmailVerification = () => {
         } else {
           setMessage('An error occurred during email verification. Please try again.');
         }
+      } finally {
+        setVerificationCompleted(true); // Mark as completed regardless of outcome
       }
     };
 
     verifyEmail();
-  }, [token, user, updateUser]);
+  }, [token, user, updateUser, verificationCompleted]);
 
 
 
