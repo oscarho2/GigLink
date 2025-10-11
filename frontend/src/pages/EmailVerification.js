@@ -23,7 +23,7 @@ const EmailVerification = () => {
 
   useEffect(() => {
     const verifyEmail = async () => {
-      // If user is already authenticated and verified, show success
+      // If user is already authenticated and verified, show success immediately
       if (user && user.isEmailVerified) {
         setStatus('success');
         setMessage('Your email has already been verified successfully!');
