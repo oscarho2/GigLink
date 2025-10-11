@@ -157,10 +157,10 @@ const EmailVerification = () => {
               <Button
                 variant="contained"
                 size="large"
-                onClick={() => navigate('/profile')}
+                onClick={() => navigate('/community')}
                 sx={{ mt: 2 }}
               >
-                Request New Verification Email
+                Go to Community
               </Button>
             </>
           )}
