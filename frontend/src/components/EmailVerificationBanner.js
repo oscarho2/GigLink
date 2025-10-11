@@ -91,7 +91,7 @@ const EmailVerificationBanner = ({ actionType = 'general' }) => {
           width: '100%'
         }}>
           <div>
-            You need to verify your email to {getActionMessage()}. 
+            You need to verify your email to {getActionMessage()}.<br />
             Check your email (<a 
               href={mailtoLink} 
               style={{ 
@@ -104,40 +104,42 @@ const EmailVerificationBanner = ({ actionType = 'general' }) => {
             </a>) for a verification link.
           </div>
           <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', // Center the button section
-            gap: 1, 
-            mt: 0.5,
-            flexWrap: 'wrap' // Allow wrapping on small screens
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.5,
+            mt: 0.5
           }}>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleResendEmail}
-              disabled={isResending}
-              sx={{ 
-                backgroundColor: '#1a365d',
-                color: 'white',
-                fontSize: '0.75rem',
-                padding: '4px 8px',
-                minWidth: 'auto',
-                '&:hover': {
-                  backgroundColor: '#2c5282'
-                }
-              }}
-            >
-              {isResending ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                'Resend Email'
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleResendEmail}
+                disabled={isResending}
+                sx={{ 
+                  backgroundColor: '#1a365d',
+                  color: 'white',
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  minWidth: 'auto',
+                  '&:hover': {
+                    backgroundColor: '#2c5282'
+                  }
+                }}
+              >
+                {isResending ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  'Resend Email'
+                )}
+              </Button>
+              {resendSuccess && (
+                <span style={{ color: '#4caf50', fontSize: '0.8rem' }}>
+                  Email sent!
+                </span>
               )}
-            </Button>
-            {resendSuccess && (
-              <span style={{ color: '#4caf50', fontSize: '0.8rem' }}>
-                Email sent!
-              </span>
-            )}
+            </Box>
             <span style={{ color: '#666', fontSize: '0.8rem' }}>
               or check your spam folder
             </span>
