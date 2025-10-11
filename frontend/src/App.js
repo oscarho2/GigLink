@@ -24,6 +24,7 @@ const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const EmailVerification = lazy(() => import('./pages/EmailVerification'));
+const ExpiredVerification = lazy(() => import('./pages/ExpiredVerification'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Profile = lazy(() => import('./pages/Profile'));
@@ -122,6 +123,7 @@ const AppContent = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/email-verification" element={<EmailVerification />} />
+            <Route path="/expired-verification" element={<ExpiredVerification />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
             <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />

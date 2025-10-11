@@ -12,10 +12,12 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const EmailVerification = () => {
   const { token } = useParams();
   const navigate = useNavigate();
+  const { updateUser } = useAuth(); // Get the updateUser function from AuthContext
   const [status, setStatus] = useState('verifying'); // 'verifying', 'success', 'error'
   const [message, setMessage] = useState('');
 
@@ -33,7 +35,19 @@ const EmailVerification = () => {
         if (response.data.success) {
           setStatus('success');
           setMessage(response.data.message || 'Your email has been successfully verified!');
+          
+          // Update user's verification status in the auth context
+          if (response.data.user && updateUser) {
+            updateUser({ isEmailVerified: true });
+          }
         } else {
+          // Check if it's an expired token
+          if (response.data.expired) {
+            // Redirect to expired verification page
+            navigate('/expired-verification');
+            return;
+          }
+          
           setStatus('error');
           setMessage(response.data.message || 'Email verification failed.');
         }
@@ -48,7 +62,7 @@ const EmailVerification = () => {
     };
 
     verifyEmail();
-  }, [token]);
+  }, [token, updateUser]);
 
   const handleLoginRedirect = () => {
     navigate('/login');

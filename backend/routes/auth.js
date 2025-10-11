@@ -321,10 +321,23 @@ router.get('/verify-email/:token', async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Invalid or expired verification token' 
+      // Check if token exists but is expired (to differentiate from invalid token)
+      const expiredUser = await User.findOne({
+        emailVerificationToken: token
       });
+      
+      if (expiredUser) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'This verification link has expired. Verification links are only valid for 24 hours for security purposes.',
+          expired: true
+        });
+      } else {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Invalid verification token' 
+        });
+      }
     }
 
     // Mark email as verified and clear verification fields

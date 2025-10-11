@@ -74,13 +74,22 @@ const EmailVerificationBanner = ({ actionType = 'general' }) => {
           '& .MuiAlert-message': {
             width: '100%'
           },
-          alignItems: 'center' // Center items vertically
+          alignItems: 'center', // Center items vertically
+          py: 2, // Add vertical padding
+          px: { xs: 1, sm: 2, md: 3 } // Add horizontal padding with more on desktop
         }}
       >
-        <AlertTitle sx={{ fontWeight: 'bold', color: '#FF8F00', fontSize: '0.9rem', mb: 0.5 }}>
+        <AlertTitle sx={{ fontWeight: 'bold', color: '#FF8F00', fontSize: '0.9rem', mb: 0.5, textAlign: 'center' }}>
           Email Verification Required
         </AlertTitle>
-        <Box sx={{ fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ 
+          fontSize: '0.9rem', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: 1,
+          textAlign: 'center',
+          width: '100%'
+        }}>
           <div>
             You need to verify your email to {getActionMessage()}. 
             Check your email (<a 
@@ -94,7 +103,14 @@ const EmailVerificationBanner = ({ actionType = 'general' }) => {
               {user.email}
             </a>) for a verification link.
           </div>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', // Center the button section
+            gap: 1, 
+            mt: 0.5,
+            flexWrap: 'wrap' // Allow wrapping on small screens
+          }}>
             <Button
               variant="contained"
               size="small"
