@@ -3,11 +3,11 @@ import { Alert, AlertTitle, Box, Button, CircularProgress } from '@mui/material'
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const EmailVerificationBanner = ({ actionType = 'general' }) => {
   const { user, token } = useAuth();
   const [isResending, setIsResending] = useState(false);
-  const [resendSuccess, setResendSuccess] = useState(false);
   
   // Determine if user is authenticated and email is not verified
   const isEmailNotVerified = user && !user.isEmailVerified;
@@ -34,7 +34,6 @@ const EmailVerificationBanner = ({ actionType = 'general' }) => {
 
   const handleResendEmail = async () => {
     setIsResending(true);
-    setResendSuccess(false);
     
     try {
       const response = await axios.post('/api/users/resend-verification', {}, {
@@ -44,13 +43,13 @@ const EmailVerificationBanner = ({ actionType = 'general' }) => {
       });
       
       if (response.data.success) {
-        setResendSuccess(true);
-        setTimeout(() => {
-          setResendSuccess(false);
-        }, 5000); // Reset success message after 5 seconds
+        toast.success(response.data.message || 'Verification email has been sent successfully!');
+      } else {
+        toast.error(response.data.message || 'Failed to send verification email. Please try again.');
       }
     } catch (error) {
       console.error('Error resending verification email:', error);
+      toast.error('An error occurred while sending the verification email. Please try again.');
     } finally {
       setIsResending(false);
     }
@@ -135,11 +134,6 @@ const EmailVerificationBanner = ({ actionType = 'general' }) => {
                   'Resend Email'
                 )}
               </Button>
-              {resendSuccess && (
-                <span style={{ color: '#4caf50', fontSize: '0.8rem' }}>
-                  Email sent!
-                </span>
-              )}
             </Box>
             <span style={{ color: '#666', fontSize: '0.8rem' }}>
               or check your spam folder
