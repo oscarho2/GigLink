@@ -10,6 +10,7 @@ const Profile = require('../models/Profile');
 const { checkTurnstile } = require('../middleware/turnstile');
 const { downloadImage } = require('../utils/imageDownloader');
 const { getPublicUrl } = require('../utils/r2Config');
+const { sendPasswordResetEmail } = require('../utils/emailService');
 const { isAdminEmail } = require('../utils/adminAuth');
 const path = require('path');
 
