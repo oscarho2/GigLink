@@ -158,7 +158,7 @@ const EmailVerification = () => {
                 onClick={() => navigate('/login')}
                 sx={{ mt: 2 }}
               >
-                Sign In Now
+                Sign In/Continue
               </Button>
             </>
           )}
