@@ -327,17 +327,43 @@ router.get('/verify-email/:token', async (req, res) => {
       });
       
       if (expiredUser) {
+        // Token exists but has expired
         return res.status(400).json({ 
           success: false,
           message: 'This verification link has expired. Verification links are only valid for 24 hours for security purposes.',
           expired: true
         });
       } else {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Invalid verification token' 
+        // Check if the user might already be verified
+        const maybeVerifiedUser = await User.findOne({
+          emailVerificationToken: null, // Token has been cleared
+          isEmailVerified: true
         });
+        
+        if (maybeVerifiedUser && maybeVerifiedUser.emailVerificationExpires && maybeVerifiedUser.emailVerificationExpires < Date.now()) {
+          // User was previously verified, but we can't directly link to the token
+          // However, if they're already verified, let's tell them that
+          return res.status(400).json({ 
+            success: false,
+            message: 'Your email may already be verified. Please try logging in.' 
+          });
+        } else {
+          // Token doesn't exist at all - invalid
+          return res.status(400).json({ 
+            success: false,
+            message: 'Invalid verification token' 
+          });
+        }
       }
+    }
+
+    // Check if user is already verified
+    if (user.isEmailVerified) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Your email is already verified. Please try logging in.', 
+        alreadyVerified: true
+      });
     }
 
     // Mark email as verified and clear verification fields

@@ -48,6 +48,13 @@ const EmailVerification = () => {
             return;
           }
           
+          // Check if user is already verified
+          if (response.data.alreadyVerified) {
+            setStatus('success');
+            setMessage(response.data.message || 'Your email has already been verified successfully!');
+            return;
+          }
+          
           setStatus('error');
           setMessage(response.data.message || 'Email verification failed.');
         }
@@ -64,9 +71,7 @@ const EmailVerification = () => {
     verifyEmail();
   }, [token, updateUser]);
 
-  const handleLoginRedirect = () => {
-    navigate('/login');
-  };
+
 
   return (
     <Container component="main" maxWidth="sm">
@@ -123,7 +128,7 @@ const EmailVerification = () => {
               <Button
                 variant="contained"
                 size="large"
-                onClick={handleLoginRedirect}
+                onClick={() => navigate('/login')}
                 sx={{ mt: 2 }}
               >
                 Sign In Now
@@ -141,32 +146,22 @@ const EmailVerification = () => {
                 }} 
               />
               <Typography variant="h5" component="h1" gutterBottom color="error.main">
-                Verification Failed
+                Verification Issue
               </Typography>
               <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
                 {message}
               </Alert>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                If you continue to have issues, please contact support or try registering again.
+                The verification link may have expired or already been used. Request a new verification email below.
               </Typography>
-              <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                <Button
-                  component={RouterLink}
-                  to="/register"
-                  variant="outlined"
-                  size="large"
-                >
-                  Register Again
-                </Button>
-                <Button
-                  component={RouterLink}
-                  to="/login"
-                  variant="contained"
-                  size="large"
-                >
-                  Back to Login
-                </Button>
-              </Box>
+              <Button
+                variant="contained"
+                size="large"
+                onClick={() => navigate('/profile')}
+                sx={{ mt: 2 }}
+              >
+                Request New Verification Email
+              </Button>
             </>
           )}
         </Paper>
