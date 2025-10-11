@@ -151,17 +151,6 @@ const EmailVerification = () => {
               <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
                 {message}
               </Alert>
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                The verification link may have expired or already been used. Request a new verification email below.
-              </Typography>
-              <Button
-                variant="contained"
-                size="large"
-                onClick={() => navigate('/community')}
-                sx={{ mt: 2 }}
-              >
-                Go to Community
-              </Button>
             </>
           )}
         </Paper>

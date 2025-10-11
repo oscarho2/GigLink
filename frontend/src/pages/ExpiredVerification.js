@@ -8,11 +8,6 @@ const ExpiredVerification = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const handleResendVerification = () => {
-    // Redirect to profile page where they can resend the email
-    navigate('/profile');
-  };
-
   return (
     <Container component="main" maxWidth="sm">
       <Box
@@ -40,11 +35,6 @@ const ExpiredVerification = () => {
           <Alert severity="warning" sx={{ width: '100%', mb: 3, textAlign: 'center' }}>
             The email verification link you clicked has expired. Verification links are only valid for 24 hours for security purposes.
           </Alert>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 3, textAlign: 'center', width: '100%' }}>
-            {user 
-              ? "You can request a new verification email from your profile page." 
-              : "Please log in to access your profile and request a new verification email."}
-          </Typography>
           <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', width: '100%' }}>
             <Button
               component={RouterLink}
@@ -54,24 +44,14 @@ const ExpiredVerification = () => {
             >
               Go to Home
             </Button>
-            {user ? (
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleResendVerification}
-              >
-                Request New Link
-              </Button>
-            ) : (
-              <Button
-                component={RouterLink}
-                to="/login"
-                variant="contained"
-                size="large"
-              >
-                Sign In
-              </Button>
-            )}
+            <Button
+              component={RouterLink}
+              to="/login"
+              variant="contained"
+              size="large"
+            >
+              Sign In
+            </Button>
           </Box>
         </Paper>
       </Box>

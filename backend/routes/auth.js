@@ -334,16 +334,19 @@ router.get('/verify-email/:token', async (req, res) => {
           expired: true
         });
       } else {
-        // Token doesn't exist at all - check if this might be from an already-verified user
-        // We can't easily identify the user without the token, so we'll just return invalid
+        // Token doesn't exist at all - could be already used/verified
+        // Before returning an error, let's see if we can identify if the user was already verified
+        // by somehow tracking that this token had been used, but we don't store that currently
         return res.status(400).json({ 
           success: false,
-          message: 'Invalid verification token' 
+          message: 'Invalid or already used verification token' 
         });
       }
     }
 
-    // Check if user is already verified
+    // If we have a user, check if they are already verified
+    // This would happen if there's some race condition where verification happens twice
+    // before the first request completes
     if (user.isEmailVerified) {
       return res.status(200).json({ 
         success: true,
