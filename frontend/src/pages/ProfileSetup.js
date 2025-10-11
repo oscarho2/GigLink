@@ -272,10 +272,10 @@ const ProfileSetup = () => {
                 <Typography variant="body1" color="textSecondary" sx={{ mb: 2 }}>
                   Your profile has been created successfully.
                 </Typography>
-                {!user?.isEmailVerified && (
-                  <Alert severity="info" sx={{ mb: 2, textAlign: 'left', display: 'inline-block', textAlign: 'left', maxWidth: '600px' }}>
+                {!user?.isEmailVerified && user?.email && (
+                  <Alert severity="info" sx={{ mb: 2, textAlign: 'left', display: 'inline-block', maxWidth: '600px' }}>
                     <Typography>
-                      <strong>Email Verification Required:</strong> Please check your email (<strong>{user?.email}</strong>) for a verification link. 
+                      <strong>Email Verification Required:</strong> Please check your email (<strong>{user.email}</strong>) for a verification link. 
                       You'll need to verify your email to access all features like posting gigs, creating community posts, messaging, and applying for gigs.
                     </Typography>
                   </Alert>
@@ -283,13 +283,6 @@ const ProfileSetup = () => {
                 <Typography variant="body1" color="textSecondary" sx={{ mb: 2 }}>
                   You can now explore GigLink and connect with other musicians.
                 </Typography>
-                <Button
-                  variant="contained"
-                  onClick={() => navigate('/dashboard')}
-                  sx={{ mt: 2 }}
-                >
-                  Go to Dashboard
-                </Button>
               </Grid>
             </Grid>
           );
@@ -357,7 +350,7 @@ const ProfileSetup = () => {
                     variant="contained"
                     onClick={() => navigate('/dashboard')}
                   >
-                    Go to Dashboard
+                    Continue
                   </Button>
                 ) : (
                   <Button
