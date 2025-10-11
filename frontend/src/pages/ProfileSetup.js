@@ -150,11 +150,6 @@ const ProfileSetup = () => {
 
       // Show setup complete message
       setSetupComplete(true);
-      
-      // Redirect to dashboard after 2 seconds
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
     } catch (err) {
       console.error('Error creating/updating profile:', err);
       setError(err.response?.data?.message || 'Failed to create profile. Please try again.');
@@ -274,9 +269,27 @@ const ProfileSetup = () => {
                 <Typography variant="h6" gutterBottom>
                   Welcome to GigLink, {user?.name}!
                 </Typography>
-                <Typography variant="body1" color="textSecondary">
-                  Your profile has been created successfully. Redirecting you to your dashboard...
+                <Typography variant="body1" color="textSecondary" sx={{ mb: 2 }}>
+                  Your profile has been created successfully.
                 </Typography>
+                {!user?.isEmailVerified && (
+                  <Alert severity="info" sx={{ mb: 2, textAlign: 'left', display: 'inline-block', textAlign: 'left', maxWidth: '600px' }}>
+                    <Typography>
+                      <strong>Email Verification Required:</strong> Please check your email (<strong>{user?.email}</strong>) for a verification link. 
+                      You'll need to verify your email to access all features like posting gigs, creating community posts, messaging, and applying for gigs.
+                    </Typography>
+                  </Alert>
+                )}
+                <Typography variant="body1" color="textSecondary" sx={{ mb: 2 }}>
+                  You can now explore GigLink and connect with other musicians.
+                </Typography>
+                <Button
+                  variant="contained"
+                  onClick={() => navigate('/dashboard')}
+                  sx={{ mt: 2 }}
+                >
+                  Go to Dashboard
+                </Button>
               </Grid>
             </Grid>
           );
@@ -339,13 +352,22 @@ const ProfileSetup = () => {
             
             <Box>
               {activeStep === steps.length - 1 ? (
-                <Button
-                  type="submit"
-                  variant="contained"
-                  disabled={loading || setupComplete}
-                >
-                  {setupComplete ? 'Redirecting...' : loading ? 'Creating Profile...' : 'Complete Setup'}
-                </Button>
+                setupComplete ? (
+                  <Button
+                    variant="contained"
+                    onClick={() => navigate('/dashboard')}
+                  >
+                    Go to Dashboard
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={loading || setupComplete}
+                  >
+                    {loading ? 'Creating Profile...' : 'Complete Setup'}
+                  </Button>
+                )
               ) : (
                 <Button
                   variant="contained"

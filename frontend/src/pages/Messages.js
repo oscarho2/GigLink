@@ -69,6 +69,7 @@ import EmailVerificationBanner from "../components/EmailVerificationBanner";
 import Flatpickr from 'react-flatpickr';
 import 'flatpickr/dist/themes/material_blue.css';
 import '../styles/flatpickr-compact.css';
+import { toast } from 'react-toastify';
 
 const Messages = () => {
   const { user, token } = useAuth();
@@ -841,6 +842,12 @@ const Messages = () => {
 
   // Send a message
   const sendMessage = async () => {
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      toast.error('Please verify your email before sending messages');
+      return;
+    }
+    
     if (!newMessage.trim() || !selectedConversation) return;
 
     setSending(true);
@@ -1632,6 +1639,12 @@ const Messages = () => {
 
   // Enhanced send message with real-time features
   const sendMessageEnhanced = async () => {
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      toast.error('Please verify your email before sending messages');
+      return;
+    }
+    
     if (
       (!newMessage.trim() && !selectedFile) ||
       !selectedConversation ||

@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -138,6 +139,12 @@ const LinksPage = () => {
 
 
   const acceptFriendRequest = async (linkId) => {
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      toast.error('Please verify your email before accepting link requests');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/links/accept/${linkId}`, {

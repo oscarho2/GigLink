@@ -181,6 +181,12 @@ const MyPosts = () => {
   const handleSubmitPost = async (e) => {
     if (e) e.preventDefault();
     
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      toast.error('Please verify your email before creating posts');
+      return;
+    }
+    
     if (!postContent.trim() && selectedFiles.length === 0) {
       toast.error('Please add some content or media to your post');
       return;

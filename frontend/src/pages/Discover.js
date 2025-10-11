@@ -1065,6 +1065,16 @@ const Discover = () => {
   const sendLinkRequest = useCallback(async (userId) => {
     if (!user || !token) return;
     
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      setSnackbar({ 
+        open: true, 
+        message: 'Please verify your email before sending link requests', 
+        severity: 'error' 
+      });
+      return;
+    }
+    
     try {
       const response = await axios.post('/api/links/request', 
         { recipientId: userId },

@@ -156,6 +156,16 @@ const Profile = () => {
 
 
   const handleSendLinkRequest = async () => {
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      setSnackbar({ 
+        open: true, 
+        message: 'Please verify your email before sending link requests', 
+        severity: 'error' 
+      });
+      return;
+    }
+    
     try {
       await axios.post('/api/links/request', 
         { recipientId: id },
@@ -170,6 +180,16 @@ const Profile = () => {
   };
 
   const handleAcceptLinkRequest = async () => {
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      setSnackbar({ 
+        open: true, 
+        message: 'Please verify your email before accepting link requests', 
+        severity: 'error' 
+      });
+      return;
+    }
+    
     try {
       if (!linkId) {
         setSnackbar({ open: true, message: 'Link ID not found', severity: 'error' });
@@ -257,6 +277,16 @@ const Profile = () => {
   };
 
   const handleStartConversation = () => {
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      setSnackbar({ 
+        open: true, 
+        message: 'Please verify your email before sending messages', 
+        severity: 'error' 
+      });
+      return;
+    }
+    
     navigate('/messages', { state: { startConversationWith: id } });
   };
 

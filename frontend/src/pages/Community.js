@@ -366,6 +366,12 @@ const Community = () => {
   const handleSubmitPost = async (e) => {
     if (e) e.preventDefault();
     
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      toast.error('Please verify your email before creating posts');
+      return;
+    }
+    
     if (!postContent.trim() && selectedFiles.length === 0) {
       toast.error('Please add some content or media to your post');
       return;
@@ -412,6 +418,12 @@ const Community = () => {
   };
 
   const handleLike = async (postId, isLiked) => {
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      toast.error('Please verify your email before liking posts');
+      return;
+    }
+    
     try {
       const method = isLiked ? 'DELETE' : 'POST';
       const response = await fetch(`/api/posts/${postId}/like`, {
@@ -434,6 +446,12 @@ const Community = () => {
   };
 
   const handleComment = async (postId) => {
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      toast.error('Please verify your email before commenting');
+      return;
+    }
+    
     const commentText = commentTexts[postId];
     if (!commentText?.trim()) return;
 
@@ -537,6 +555,12 @@ const Community = () => {
   };
 
   const handleCommentLike = async (postId, commentId) => {
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      toast.error('Please verify your email before liking comments');
+      return;
+    }
+    
     try {
       const isLiked = commentLikes[commentId];
       const method = isLiked ? 'DELETE' : 'POST';

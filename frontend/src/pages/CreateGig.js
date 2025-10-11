@@ -195,6 +195,12 @@ const CreateGig = () => {
       setError('You must be logged in to post a gig.');
       return;
     }
+    
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      setError('Please verify your email before posting a gig');
+      return;
+    }
 
     const missingFields = [];
     

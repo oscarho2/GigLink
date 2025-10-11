@@ -8,6 +8,7 @@ import { formatPayment } from '../utils/currency';
 import UserAvatar from '../components/UserAvatar';
 import EmailVerificationBanner from '../components/EmailVerificationBanner';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const GigDetail = () => {
   const { id } = useParams();
@@ -123,6 +124,13 @@ const GigDetail = () => {
   };
 
   const handleSendMessage = async () => {
+    // Check if user's email is verified
+    if (user && !user.isEmailVerified) {
+      toast.error('Please verify your email before applying for gigs');
+      setOpenApplyDialog(false);
+      return;
+    }
+    
     try {
       const config = {
         headers: {
