@@ -20,26 +20,31 @@ const EmailVerification = () => {
   const { user, updateUser } = useAuth(); // Get the user and updateUser function from AuthContext
   const [status, setStatus] = useState('verifying'); // 'verifying', 'success', 'error'
   const [message, setMessage] = useState('');
-  const [verificationCompleted, setVerificationCompleted] = useState(false); // Add flag to track if verification is complete
+  const [hasRunVerification, setHasRunVerification] = useState(false); // Track if verification has run
 
   useEffect(() => {
-    // Prevent re-running verification if it's already completed
-    if (verificationCompleted) {
+    if (hasRunVerification) {
+      // After verification has run once, just maintain the success state if user is verified
+      if (user && user.isEmailVerified && status !== 'success') {
+        setStatus('success');
+        setMessage('Your email has already been verified successfully!');
+      }
       return;
     }
 
-    // If user is already authenticated and verified, show success immediately and don't proceed
-    if (user && user.isEmailVerified) {
-      setStatus('success');
-      setMessage('Your email has already been verified successfully!');
-      setVerificationCompleted(true); // Mark verification as completed
-      return;
-    }
-
+    // Don't run if there's no token
     if (!token) {
       setStatus('error');
       setMessage('Invalid verification link. Please check your email for the correct link.');
-      setVerificationCompleted(true); // Mark as completed to prevent re-running
+      setHasRunVerification(true);
+      return;
+    }
+
+    // If user is already verified at the start, show success immediately
+    if (user && user.isEmailVerified) {
+      setStatus('success');
+      setMessage('Your email has already been verified successfully!');
+      setHasRunVerification(true);
       return;
     }
 
@@ -67,6 +72,7 @@ const EmailVerification = () => {
           if (response.data.alreadyVerified) {
             setStatus('success');
             setMessage(response.data.message || 'Your email has already been verified successfully!');
+            
             // Update user's verification status in the auth context
             if (updateUser) {
               updateUser({ isEmailVerified: true });
@@ -84,12 +90,13 @@ const EmailVerification = () => {
           setMessage('An error occurred during email verification. Please try again.');
         }
       } finally {
-        setVerificationCompleted(true); // Mark as completed regardless of outcome
+        setHasRunVerification(true); // Mark that verification attempt has been made
       }
     };
 
     verifyEmail();
-  }, [token, user, updateUser, verificationCompleted]);
+  }, [token, user, updateUser, hasRunVerification, status]); // Include hasRunVerification in dependencies
+
 
 
 
