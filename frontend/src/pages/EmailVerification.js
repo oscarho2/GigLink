@@ -17,12 +17,19 @@ import { useAuth } from '../context/AuthContext';
 const EmailVerification = () => {
   const { token } = useParams();
   const navigate = useNavigate();
-  const { updateUser } = useAuth(); // Get the updateUser function from AuthContext
+  const { user, updateUser } = useAuth(); // Get the user and updateUser function from AuthContext
   const [status, setStatus] = useState('verifying'); // 'verifying', 'success', 'error'
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     const verifyEmail = async () => {
+      // If user is already authenticated and verified, show success
+      if (user && user.isEmailVerified) {
+        setStatus('success');
+        setMessage('Your email has already been verified successfully!');
+        return;
+      }
+
       if (!token) {
         setStatus('error');
         setMessage('Invalid verification link. Please check your email for the correct link.');
@@ -52,6 +59,10 @@ const EmailVerification = () => {
           if (response.data.alreadyVerified) {
             setStatus('success');
             setMessage(response.data.message || 'Your email has already been verified successfully!');
+            // Update user's verification status in the auth context
+            if (updateUser) {
+              updateUser({ isEmailVerified: true });
+            }
             return;
           }
           
@@ -69,7 +80,7 @@ const EmailVerification = () => {
     };
 
     verifyEmail();
-  }, [token, updateUser]);
+  }, [token, user, updateUser]);
 
 
 
@@ -146,11 +157,14 @@ const EmailVerification = () => {
                 }} 
               />
               <Typography variant="h5" component="h1" gutterBottom color="error.main">
-                Verification Issue
+                Invalid verification token
               </Typography>
               <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
                 {message}
               </Alert>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                The verification link may have expired or already been used.
+              </Typography>
             </>
           )}
         </Paper>
