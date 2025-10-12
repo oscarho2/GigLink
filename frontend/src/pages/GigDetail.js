@@ -1072,7 +1072,6 @@ const GigDetail = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
           {deleteStatus === '' && (
             <Button onClick={handleConfirmDelete} variant="contained" color="error">
               Delete
