@@ -33,7 +33,7 @@ const ResetPassword = () => {
           if (res.ok) {
             const data = await res.json();
             if (data.email !== user.email) {
-              logout();
+              logout(window.location.pathname + window.location.search);
               setError(
                 'You have been logged out because you are trying to reset the password for a different account.'
               );
@@ -47,10 +47,25 @@ const ResetPassword = () => {
     checkUser();
   }, [user, location.search, logout]);
 
+  const validatePassword = (password) => {
+    const minLength = password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[@$!%*?&]/.test(password);
+    
+    return minLength && hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (!validatePassword(password)) {
+      setError('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -130,7 +145,6 @@ const ResetPassword = () => {
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            helperText="Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long."
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">

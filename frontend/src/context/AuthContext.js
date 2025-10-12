@@ -139,7 +139,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Logout user
-  const logout = () => {
+  const logout = (redirectPath = '/') => {
     localStorage.removeItem('token'); // This will remove token from localStorage and axios headers
     localStorage.removeItem('redirectPath'); // Clear any stored redirect path
     localStorage.setItem('hasLoggedOut', 'true'); // Mark that user has manually logged out
@@ -147,7 +147,7 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);
-    window.location.href = '/'; // Redirect to home page
+    window.location.href = redirectPath; // Redirect to specified path or home page
   };
 
   // Update avatar in context so UI updates immediately
