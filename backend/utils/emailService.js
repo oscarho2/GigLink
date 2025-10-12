@@ -105,6 +105,9 @@ const notificationWrapper = (content) => `
       ${emailLogoImgTag}
     </div>
     ${content}
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${FRONTEND_BASE_URL}/dashboard" style="background-color: #1976d2; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Visit GigLink</a>
+    </div>
     ${emailFooter}
   </div>
 `;
