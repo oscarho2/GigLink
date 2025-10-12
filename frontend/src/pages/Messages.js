@@ -877,6 +877,10 @@ const Messages = () => {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               scrollToBottom();
+              // Refocus the message input after sending
+              if (messageInputRef.current) {
+                messageInputRef.current.focus();
+              }
             });
           });
         });
