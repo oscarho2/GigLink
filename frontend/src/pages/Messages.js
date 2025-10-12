@@ -2354,9 +2354,6 @@ const Messages = () => {
                       )?.otherUser?.name ||
                       "Unknown User"}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Online
-                  </Typography>
                 </Box>
               </Box>
               <Box>
