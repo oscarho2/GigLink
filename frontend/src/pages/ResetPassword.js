@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
@@ -8,14 +8,44 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import Alert from '@mui/material/Alert';
+import InputAdornment from '@mui/material/InputAdornment';
+import IconButton from '@mui/material/IconButton';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import AuthContext from '../context/AuthContext';
 
 const ResetPassword = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useContext(AuthContext);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const token = new URLSearchParams(location.search).get('token');
+      if (user && token) {
+        try {
+          const res = await fetch(`/api/auth/user-from-token/${token}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.email !== user.email) {
+              logout();
+              setError(
+                'You have been logged out because you are trying to reset the password for a different account.'
+              );
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch user from token', err);
+        }
+      }
+    };
+    checkUser();
+  }, [user, location.search, logout]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,7 +76,11 @@ const ResetPassword = () => {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to reset password');
+        if (data.errors && data.errors.length > 0) {
+          throw new Error(data.errors[0].msg);
+        } else {
+          throw new Error(data.message || 'Failed to reset password');
+        }
       }
 
       setSuccess('Password has been reset successfully! Redirecting to login...');
@@ -91,11 +125,25 @@ const ResetPassword = () => {
             fullWidth
             name="password"
             label="New Password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             id="password"
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            helperText="Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long."
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle password visibility"
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
           <TextField
             margin="normal"
@@ -103,11 +151,24 @@ const ResetPassword = () => {
             fullWidth
             name="confirmPassword"
             label="Confirm New Password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             id="confirmPassword"
             autoComplete="new-password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle password visibility"
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
           <Button
             type="submit"

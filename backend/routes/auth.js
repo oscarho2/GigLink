@@ -503,4 +503,25 @@ router.post(
   }
 );
 
+// @route   GET api/auth/user-from-token/:token
+// @desc    Get user email from password reset token
+// @access  Public
+router.get('/user-from-token/:token', async (req, res) => {
+  try {
+    const user = await User.findOne({
+      passwordResetToken: req.params.token,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found or token expired' });
+    }
+
+    res.json({ email: user.email });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
 module.exports = router;
