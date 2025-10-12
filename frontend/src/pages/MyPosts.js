@@ -148,7 +148,22 @@ const MyPosts = () => {
 
           return candidate.trim() === normalizedUserId;
         });
-        setPosts(myPosts);
+        
+        // Sort posts maintaining the same logic as the backend: pinned first, then by creation date (newest first)
+        const sortedMyPosts = myPosts.sort((a, b) => {
+          // If one is pinned and the other is not, pinned one comes first
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          
+          // If both are pinned, sort by pinnedAt (newer pinned first)
+          if (a.pinned && b.pinned) {
+            return new Date(b.pinnedAt || b.createdAt) - new Date(a.pinnedAt || a.createdAt);
+          }
+          
+          // If both are not pinned, sort by createdAt (newest first)
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+        setPosts(sortedMyPosts);
         initCommentLikes(myPosts);
       } else {
         if (response.status === 401 || response.status === 403) {
