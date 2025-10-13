@@ -387,6 +387,9 @@ router.put('/me', auth, async (req, res) => {
         thumbnail: video.thumbnail
       }));
     }
+    if (photos) {
+      profileUpdateFields.photos = photos;
+    }
 
     await Profile.findOneAndUpdate(
       { user: userId },

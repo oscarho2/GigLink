@@ -24,6 +24,7 @@ const EditProfile = () => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [justSaved, setJustSaved] = useState(false); // Flag to prevent re-fetch after save
+  const [justUploaded, setJustUploaded] = useState(false); // Flag to prevent re-fetch after upload
   
   // Predefined options for instruments and genres come from centralized constants
   
@@ -85,8 +86,14 @@ const EditProfile = () => {
         return;
       }
       
-      // Don't re-fetch if we just saved - use the current form data
+      // Don't re-fetch if we just saved or uploaded - use the current form data
       if (justSaved) {
+        setLoading(false);
+        return;
+      }
+
+      if (justUploaded) {
+        setJustUploaded(false);
         setLoading(false);
         return;
       }
@@ -150,7 +157,7 @@ const EditProfile = () => {
     };
 
     fetchProfile();
-  }, [user, token, justSaved]);
+  }, [user, token, justSaved, justUploaded]);
 
   const handleChange = (e) => {
     setJustSaved(false); // Reset flag when user makes changes
@@ -276,6 +283,7 @@ const EditProfile = () => {
       
       
       setSuccess(`${selectedPhotos.length} photos uploaded successfully!`);
+      setJustUploaded(true);
     } catch (err) {
       setError(err.response?.data?.message || 'Error uploading photos');
     } finally {
@@ -318,6 +326,7 @@ const EditProfile = () => {
       
       
       setSuccess('Photo uploaded successfully!');
+      setJustUploaded(true);
     } catch (err) {
       setError(err.response?.data?.message || 'Error uploading photo');
     } finally {

@@ -38,12 +38,24 @@ const connectDB = async () => {
   }
 };
 
-const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'MongoDB connection error:'));
-db.once('open', async () => {
-  console.log('Connected to MongoDB');
-  
+// Models
+const User = require('./backend/models/User');
+const Profile = require('./backend/models/Profile');
+const Post = require('./backend/models/Post');
+const Gig = require('./backend/models/Gig');
+const Message = require('./backend/models/Message');
+const Link = require('./backend/models/Link');
+const Notification = require('./backend/models/Notification');
+
+// Main execution function
+const runAnalysis = async () => {
+  const isConnected = await connectDB();
+  if (!isConnected) {
+    process.exit(1);
+  }
+
   try {
+    // Rest of the analysis code goes here
     // Find all users
     const allUsers = await User.find({}, { _id: 1 });
     const userIds = allUsers.map(user => user._id.toString());
@@ -161,4 +173,7 @@ db.once('open', async () => {
     console.error('Error during analysis:', error);
     process.exit(1);
   }
-});
+};
+
+// Run the analysis
+runAnalysis();
