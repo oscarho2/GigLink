@@ -9,8 +9,7 @@ const ProfileSchema = new mongoose.Schema({
   videos: [
     {
       title: {
-        type: String,
-        required: true
+        type: String
       },
       description: {
         type: String

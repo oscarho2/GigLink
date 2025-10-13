@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 
 // MongoDB connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/giglink';
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGO_ATLAS_URI || 'mongodb://localhost:27017/giglink';
 
 // Models - adjust these based on your actual models
 const User = require('./backend/models/User');
@@ -10,7 +10,11 @@ const Profile = require('./backend/models/Profile');
 const Post = require('./backend/models/Post');
 const Gig = require('./backend/models/Gig');
 const Message = require('./backend/models/Message');
-const Conversation = require('./backend/models/Conversation');
+const Link = require('./backend/models/Link');
+const Notification = require('./backend/models/Notification');
+
+console.log('Connecting to MongoDB Atlas...');
+console.log('MONGO_URI:', MONGO_URI ? 'URI provided' : 'No URI provided');
 
 // Connect to MongoDB
 mongoose.connect(MONGO_URI, {
@@ -30,6 +34,12 @@ db.once('open', async () => {
     
     console.log(`Found ${userIds.length} active users`);
     
+    // If there are no users, exit to prevent accidental deletion of all data
+    if (userIds.length === 0) {
+      console.log('No users found. Exiting to prevent accidental data loss.');
+      process.exit(0);
+    }
+    
     // Clean up profiles
     console.log('Cleaning up profiles...');
     const profileResult = await Profile.deleteMany({
@@ -40,7 +50,7 @@ db.once('open', async () => {
     // Clean up posts
     console.log('Cleaning up posts...');
     const postResult = await Post.deleteMany({
-      user: { $nin: userIds }
+      author: { $nin: userIds }
     });
     console.log(`Deleted ${postResult.deletedCount} orphaned posts`);
     
@@ -62,25 +72,25 @@ db.once('open', async () => {
     });
     console.log(`Deleted ${messageResult.deletedCount} orphaned messages`);
     
-    // Clean up conversations
-    console.log('Cleaning up conversations...');
-    // For conversations, check participants
-    const conversationResult = await Conversation.deleteMany({
+    // Clean up links
+    console.log('Cleaning up links...');
+    const linkResult = await Link.deleteMany({
       $or: [
-        { participants: { $nin: userIds } }
+        { requester: { $nin: userIds } },
+        { recipient: { $nin: userIds } }
       ]
     });
-    console.log(`Deleted ${conversationResult.deletedCount} orphaned conversations`);
+    console.log(`Deleted ${linkResult.deletedCount} orphaned links`);
     
-    // Additional cleanup for other collections as needed
-    // For example, if you have a Likes collection:
-    /*
-    console.log('Cleaning up likes...');
-    const likeResult = await Like.deleteMany({
-      user: { $nin: userIds }
+    // Clean up notifications
+    console.log('Cleaning up notifications...');
+    const notificationResult = await Notification.deleteMany({
+      $or: [
+        { recipient: { $nin: userIds } },
+        { sender: { $nin: userIds } }
+      ]
     });
-    console.log(`Deleted ${likeResult.deletedCount} orphaned likes`);
-    */
+    console.log(`Deleted ${notificationResult.deletedCount} orphaned notifications`);
     
     console.log('Cleanup completed successfully!');
     process.exit(0);
