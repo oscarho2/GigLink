@@ -38,7 +38,8 @@ const app = express();
 const server = http.createServer(app);
 const defaultOrigins = [
   'http://localhost:3000',
-  'https://giglinksocial.com'
+  'https://giglinksocial.com',
+  'https://www.giglinksocial.com'
 ];
 
 const envOrigins = process.env.ALLOWED_ORIGINS

@@ -131,10 +131,10 @@ const MentionRenderer = ({
     let m;
     while ((m = rx.exec(content)) !== null) {
       if (m.index > lastIndex) {
-        // Add any preceding plain text (strip any other tags crudely)
+        // Add any preceding plain text (strip any other tags crudely) with URLs made clickable
         const text = content.substring(lastIndex, m.index).replace(/<[^>]+>/g, '');
         if (text) {
-          parts.push(<span key={`text-${parts.length}`}>{text}</span>);
+          parts.push(renderContentWithUrls(text));
         }
       }
       const userId = m[1];
@@ -177,7 +177,7 @@ const MentionRenderer = ({
     }
     if (lastIndex < content.length) {
       const tail = content.substring(lastIndex).replace(/<[^>]+>/g, '');
-      if (tail) parts.push(<span key={`text-end`}>{tail}</span>);
+      if (tail) parts.push(renderContentWithUrls(tail));
     }
     return <span>{parts}</span>;
   }
@@ -190,13 +190,10 @@ const MentionRenderer = ({
     let match;
 
     while ((match = mentionRegex.exec(content)) !== null) {
-      // Add text before mention
+      // Add text before mention, with URLs made clickable
       if (match.index > lastIndex) {
-        parts.push(
-          <span key={`text-${parts.length}`}>
-            {content.substring(lastIndex, match.index)}
-          </span>
-        );
+        const textBeforeMention = content.substring(lastIndex, match.index);
+        parts.push(renderContentWithUrls(textBeforeMention));
       }
 
       const id = match[2];
@@ -324,13 +321,10 @@ const MentionRenderer = ({
 
     let match;
     while ((match = rawMentionRegex.exec(content)) !== null) {
-      // Add text before the match
+      // Add text before the match, with URLs made clickable
       if (match.index > lastIndex) {
-        parts.push(
-          <span key={`text-${parts.length}`}>
-            {content.substring(lastIndex, match.index)}
-          </span>
-        );
+        const textBeforeMatch = content.substring(lastIndex, match.index);
+        parts.push(renderContentWithUrls(textBeforeMatch));
       }
 
       const matchedName = match[1];
@@ -396,7 +390,8 @@ const MentionRenderer = ({
   }
   
   if (!content || !mentions.length) {
-    return <span>{content}</span>;
+    // Process content to make URLs clickable even without mentions
+    return renderContentWithUrls(content);
   }
 
   // Split content by mention placeholders and render with appropriate components
@@ -420,13 +415,10 @@ const MentionRenderer = ({
       const mentionIndex = processedContent.indexOf(placeholder, lastIndex);
       
       if (mentionIndex !== -1) {
-        // Add text before mention
+        // Add text before mention, with URLs made clickable
         if (mentionIndex > lastIndex) {
-          parts.push(
-            <span key={`text-${index}`}>
-              {processedContent.substring(lastIndex, mentionIndex)}
-            </span>
-          );
+          const textBeforeMention = processedContent.substring(lastIndex, mentionIndex);
+          parts.push(renderContentWithUrls(textBeforeMention));
         }
 
         // Add mention component
@@ -471,13 +463,10 @@ const MentionRenderer = ({
       }
     });
 
-    // Add remaining text after last mention
+    // Add remaining text after last mention, with URLs made clickable
     if (lastIndex < processedContent.length) {
-      parts.push(
-        <span key="text-end">
-          {processedContent.substring(lastIndex)}
-        </span>
-      );
+      const remainingText = processedContent.substring(lastIndex);
+      parts.push(renderContentWithUrls(remainingText));
     }
 
     return parts.length > 0 ? parts : <span>{content}</span>;
@@ -492,6 +481,72 @@ const MentionRenderer = ({
  * @param {Array} mentions - Array of mention objects
  * @returns {Object} - Object with processed content and mention data
  */
+/**
+ * Function to detect URLs in text and make them clickable
+ * @param {string} text - Text that might contain URLs
+ * @returns {JSX.Element} - Element with URLs converted to links
+ */
+const renderContentWithUrls = (text) => {
+  if (!text) return <span>{text}</span>;
+  
+  // Regular expression to match URLs (http, https, www, etc.)
+  const urlRegex = /(\b(https?:\/\/|www\.)[^\s/$.?#].[^\s]*\b)/gi;
+  
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = urlRegex.exec(text)) !== null) {
+    // Add text before the URL
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+    
+    // Extract the full URL
+    const fullUrl = match[0];
+    
+    // Create a link for the URL
+    let href;
+    if (fullUrl.startsWith('http')) {
+      href = fullUrl;
+    } else {
+      href = 'https://' + fullUrl; // Add https:// if not present
+    }
+    
+    parts.push(
+      <a
+        key={`url-${match.index}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          color: '#1976d2',
+          textDecoration: 'underline',
+          fontWeight: '500'
+        }}
+      >
+        {fullUrl}
+      </a>
+    );
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text after the last URL
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+  
+  // If we have more than one part, wrap in a span, otherwise return single element
+  if (parts.length === 1) {
+    return <span>{parts[0]}</span>;
+  } else {
+    return <span>{parts.map((part, index) => 
+      typeof part === 'string' ? <span key={`text-${index}`}>{part}</span> : part
+    )}</span>;
+  }
+};
+
 export const useMentionData = (parsedContent, mentions) => {
   const [mentionData, setMentionData] = React.useState({
     content: parsedContent || '',
