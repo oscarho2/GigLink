@@ -141,7 +141,7 @@ const Register = () => {
     <Container component="main" maxWidth="xs" sx={{ px: { xs: 2, sm: 3 } }}>
       <Box
         sx={{
-          marginTop: { xs: 4, sm: 8 },
+          marginTop: { xs: 2, sm: 4 },
           marginBottom: { xs: 6, sm: 8 },
           display: 'flex',
           flexDirection: 'column',
