@@ -336,7 +336,7 @@ router.post('/', auth, async (req, res) => {
 router.put('/me', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, bio, location, instruments, genres, isMusician, skills, videos, country, region, city } = req.body;
+    const { name, bio, location, instruments, genres, isMusician, skills, videos, photos, country, region, city } = req.body;
 
     console.log('🔄 BACKEND: Profile update request received');
     console.log('📝 BACKEND: isMusician received:', isMusician);
