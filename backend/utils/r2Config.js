@@ -121,6 +121,10 @@ const upload = multer({
 
 // Helper function to delete files
 const deleteFile = async (fileKey) => {
+  if (!fileKey) {
+    console.error('Error deleting file: fileKey is missing.');
+    return false;
+  }
   if (!isR2Configured || !s3Client) {
     console.error('Error deleting file: R2 is not configured.');
     return false;
