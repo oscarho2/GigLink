@@ -120,13 +120,14 @@ const Register = () => {
       name, 
       email, 
       password,
-      'cf-turnstile-response': turnstileToken // Include turnstile token in the payload
+      // Include turnstile token in the payload
+      'cf-turnstile-response': turnstileToken
     };
     const result = await register(payload);
 
     if (result && result.success) {
       setError(null);
-      setSuccess(result.message || 'Registration successful! Let's complete your profile.');
+      setSuccess(result.message || 'Registration successful! Let us complete your profile.');
       // User is auto-signed-in by AuthContext.register; go straight to Profile Setup
       navigate('/profile-setup');
       // Reset turnstile after successful registration
