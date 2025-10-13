@@ -223,13 +223,8 @@ const EditProfile = () => {
       }));
       setPhotos(prev => [...prev, ...newPhotos]);
       
-      if (files.length === 1) {
-        setSelectedPhoto(files[0]);
-        setSelectedPhotos([]);
-      } else {
-        setSelectedPhotos(files);
-        setSelectedPhoto(null);
-      }
+      setSelectedPhotos(prev => [...prev, ...files]);
+      setSelectedPhoto(null);
       setError('');
     }
   };
@@ -278,7 +273,7 @@ const EditProfile = () => {
         !uploadedFiles.some(file => photo.file === file)
       ));
       
-      setSelectedPhotos([]);
+      
       
       setSuccess(`${selectedPhotos.length} photos uploaded successfully!`);
     } catch (err) {
@@ -320,7 +315,7 @@ const EditProfile = () => {
         URL.revokeObjectURL(localPhoto.url);
       }
       
-      setSelectedPhoto(null);
+      
       
       setSuccess('Photo uploaded successfully!');
     } catch (err) {

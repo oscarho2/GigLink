@@ -1,26 +1,42 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-// MongoDB connection
+// MongoDB connection - try local first, then Atlas
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGO_ATLAS_URI || 'mongodb://localhost:27017/giglink';
-
-// Models
-const User = require('./backend/models/User');
-const Profile = require('./backend/models/Profile');
-const Post = require('./backend/models/Post');
-const Gig = require('./backend/models/Gig');
-const Message = require('./backend/models/Message');
-const Link = require('./backend/models/Link');
-const Notification = require('./backend/models/Notification');
+const LOCAL_MONGO_URI = 'mongodb://localhost:27017/giglink';
 
 console.log('Connecting to MongoDB for dry-run analysis...');
 console.log('MONGO_URI:', MONGO_URI ? 'URI provided' : 'No URI provided');
 
-// Connect to MongoDB
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+// Try to connect to MongoDB with a shorter timeout
+const connectDB = async () => {
+  try {
+    console.log('Trying local MongoDB connection...');
+    await mongoose.connect(LOCAL_MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+    });
+    console.log('Connected to local MongoDB successfully');
+    return true;
+  } catch (localErr) {
+    console.log('Local MongoDB connection failed, trying Atlas...');
+    try {
+      await mongoose.connect(MONGO_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        serverSelectionTimeoutMS: 5000,
+      });
+      console.log('Connected to MongoDB Atlas successfully');
+      return true;
+    } catch (atlasErr) {
+      console.error('Both local and Atlas connections failed:');
+      console.error('Local error:', localErr.message);
+      console.error('Atlas error:', atlasErr.message);
+      return false;
+    }
+  }
+};
 
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'MongoDB connection error:'));
