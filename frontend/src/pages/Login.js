@@ -17,6 +17,7 @@ import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
 import AuthContext from '../context/AuthContext';
 import googleAuthService from '../utils/googleAuth';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -26,6 +27,7 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
   const { login, loginWithToken, isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
@@ -79,11 +81,27 @@ const Login = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check if Turnstile token exists
+    if (!turnstileToken) {
+      setError({
+        message: 'Please complete the security verification',
+        type: 'captcha'
+      });
+      return;
+    }
+    
     setError(null);
 
     const searchParams = new URLSearchParams(location.search);
     const redirect = searchParams.get('redirect');
-    const result = await login({ email, password }, redirect);
+    // Include turnstile token in login credentials
+    const credentials = { 
+      email, 
+      password, 
+      'cf-turnstile-response': turnstileToken 
+    };
+    const result = await login(credentials, redirect);
     console.log('Login result:', result); // Debugging login
 
     if (result && result.error) {
@@ -245,12 +263,34 @@ const Login = () => {
               ),
             }}
           />
+          {/* Cloudflare Turnstile */}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            my: 2,
+            '& .cf-turnstile': {
+              display: 'flex',
+              justifyContent: 'center'
+            }
+          }}>
+            <Turnstile
+              siteKey={process.env.REACT_APP_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} // Replace with your actual site key
+              onSuccess={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken('')}
+              onError={() => setTurnstileToken('')}
+              options={{
+                theme: 'light',
+                size: 'normal'
+              }}
+            />
+          </Box>
+          
           <Button
             type="submit"
             fullWidth
             variant="contained"
             sx={{ 
-              mt: { xs: 3, sm: 3 }, 
+              mt: { xs: 2, sm: 2 }, 
               mb: { xs: 2, sm: 2 },
               minHeight: { xs: 48, sm: 42 },
               fontSize: { xs: '1rem', sm: '0.875rem' },
@@ -258,6 +298,7 @@ const Login = () => {
               borderRadius: { xs: 2, sm: 1 },
               py: { xs: 1.5, sm: 1 }
             }}
+            disabled={!turnstileToken} // Disable submit until turnstile is completed
           >
             Sign In
           </Button>

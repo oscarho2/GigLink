@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
+const { checkTurnstile } = require('../middleware/turnstile');
 const { sendContactEmail } = require('../utils/emailService');
 const fs = require('fs/promises');
 const path = require('path');
@@ -64,7 +65,7 @@ const contactValidation = [
 // @route   POST api/contact
 // @desc    Submit contact form
 // @access  Public
-router.post('/', contactRateLimit, contactValidation, async (req, res) => {
+router.post('/', contactRateLimit, checkTurnstile, contactValidation, async (req, res) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);

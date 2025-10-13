@@ -18,8 +18,14 @@ api.interceptors.request.use(config => {
 });
 
 export const withTurnstile = async (request) => {
-  // Turnstile is temporarily disabled
-  return await request(null);
+  // Execute turnstile and pass the token to the request
+  try {
+    const token = await executeTurnstile();
+    return await request(token);
+  } catch (error) {
+    console.error('Turnstile execution failed:', error);
+    return await request(null);
+  }
 };
 
 export default api;

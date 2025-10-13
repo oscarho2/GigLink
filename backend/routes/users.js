@@ -69,6 +69,7 @@ router.get('/:id', async (req, res) => {
 router.post(
   '/',
   [
+    checkTurnstile, // Add turnstile check
     check('name', 'Name is required')
       .not().isEmpty()
       .isLength({ min: 2, max: 50 })

@@ -22,6 +22,7 @@ import Radio from '@mui/material/Radio';
 import Divider from '@mui/material/Divider';
 import AuthContext from '../context/AuthContext';
 import googleAuthService from '../utils/googleAuth';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -36,6 +37,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
   const { register, isAuthenticated, loginWithToken } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -114,14 +116,21 @@ const Register = () => {
       return;
     }
 
-    const payload = { name, email, password };
+    const payload = { 
+      name, 
+      email, 
+      password,
+      'cf-turnstile-response': turnstileToken // Include turnstile token in the payload
+    };
     const result = await register(payload);
 
     if (result && result.success) {
       setError(null);
-      setSuccess(result.message || 'Registration successful! Let’s complete your profile.');
+      setSuccess(result.message || 'Registration successful! Let's complete your profile.');
       // User is auto-signed-in by AuthContext.register; go straight to Profile Setup
       navigate('/profile-setup');
+      // Reset turnstile after successful registration
+      setTurnstileToken('');
     } else if (result?.error) {
       setError(result.error[0]?.msg || 'Registration failed');
     }
@@ -299,10 +308,33 @@ const Register = () => {
           
 
 
+          {/* Cloudflare Turnstile */}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            my: 2,
+            '& .cf-turnstile': {
+              display: 'flex',
+              justifyContent: 'center'
+            }
+          }}>
+            <Turnstile
+              siteKey={process.env.REACT_APP_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} // Replace with your actual site key
+              onSuccess={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken('')}
+              onError={() => setTurnstileToken('')}
+              options={{
+                theme: 'light',
+                size: 'normal'
+              }}
+            />
+          </Box>
+          
           <Button
             type="submit"
             fullWidth
             variant="contained"
+            disabled={!turnstileToken} // Disable submit button until turnstile is completed
             sx={{ 
               mt: { xs: 2, sm: 2 }, 
               mb: { xs: 2, sm: 2 },

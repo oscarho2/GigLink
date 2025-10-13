@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 import axios from 'axios';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -30,6 +31,7 @@ const Contact = () => {
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [errors, setErrors] = useState({});
+  const [turnstileToken, setTurnstileToken] = useState('');
 
   // Fetch categories on component mount
   useEffect(() => {
@@ -103,6 +105,16 @@ const Contact = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Check if Turnstile token exists
+    if (!turnstileToken) {
+      setSnackbar({ 
+        open: true, 
+        message: 'Please complete the security verification', 
+        severity: 'error' 
+      });
+      return;
+    }
+    
     if (!validateForm()) {
       setSnackbar({ 
         open: true, 
@@ -114,8 +126,14 @@ const Contact = () => {
 
     setLoading(true);
 
+    // Include turnstile token in the form data
+    const submitData = {
+      ...formData,
+      'cf-turnstile-response': turnstileToken
+    };
+
     try {
-      const response = await axios.post('/api/contact', formData);
+      const response = await axios.post('/api/contact', submitData);
       const { success, message: responseMessage, error: responseError, delivery } = response.data || {};
 
       if (success) {
@@ -266,6 +284,28 @@ const Contact = () => {
             </Grid>
           </Grid>
           
+          {/* Cloudflare Turnstile */}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            my: 2,
+            '& .cf-turnstile': {
+              display: 'flex',
+              justifyContent: 'center'
+            }
+          }}>
+            <Turnstile
+              siteKey={process.env.REACT_APP_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} // Replace with your actual site key
+              onSuccess={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken('')}
+              onError={() => setTurnstileToken('')}
+              options={{
+                theme: 'light',
+                size: 'normal'
+              }}
+            />
+          </Box>
+          
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
             <Button
               type="submit"
@@ -273,7 +313,7 @@ const Contact = () => {
               color="primary"
               size="large"
               startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
-              disabled={loading}
+              disabled={!turnstileToken || loading} // Disable submit until turnstile is completed
               sx={{ minWidth: 140 }}
             >
               {loading ? 'Sending...' : 'Send Message'}
