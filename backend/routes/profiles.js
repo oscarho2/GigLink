@@ -770,11 +770,21 @@ router.delete('/photos/:photoId', auth, async (req, res) => {
       if (match && match[1]) {
         key = decodeURIComponent(match[1]);
       }
-      await deleteFile(key);
+      try {
+        await deleteFile(key);
+      } catch (deleteErr) {
+        console.error('Error deleting photo from R2:', deleteErr.message);
+        // Continue with the operation even if file deletion fails
+      }
     } else {
       const filePath = path.join(__dirname, '..', photoToDelete.url || '');
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (deleteErr) {
+        console.error('Error deleting local photo file:', deleteErr.message);
+        // Continue with the operation even if file deletion fails
       }
     }
     
