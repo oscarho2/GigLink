@@ -9,8 +9,9 @@
     "start": "node cleanup_deleted_users.js"
   },
   "dependencies": {
-    "mongoose": "^7.1.0",
-    "dotenv": "^16.0.3"
+    "axios": "^1.12.2",
+    "dotenv": "^16.0.3",
+    "mongoose": "^7.1.0"
   },
   "author": "GigLink",
   "license": "ISC"
