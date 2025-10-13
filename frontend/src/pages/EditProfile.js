@@ -641,7 +641,8 @@ const EditProfile = () => {
         isMusician: formData.isMusician,
         instruments: Array.isArray(formData.instruments) ? formData.instruments : [],
         genres: Array.isArray(formData.genres) ? formData.genres : [],
-        videos: Array.isArray(videos) ? videos : []
+        videos: Array.isArray(videos) ? videos : [],
+        photos: formData.photos
       };
       
       console.log('📤 About to send to backend:', updateData);

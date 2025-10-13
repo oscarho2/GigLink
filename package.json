@@ -5,6 +5,7 @@
   "main": "cleanup_deleted_users.js",
   "scripts": {
     "cleanup": "node cleanup_deleted_users.js",
+    "dry-run": "node dry_run_analysis.js",
     "start": "node cleanup_deleted_users.js"
   },
   "dependencies": {
