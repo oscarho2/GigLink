@@ -1,6 +1,12 @@
 const axios = require('axios');
 
 const checkTurnstile = async (req, res, next) => {
+  // Check if turnstile is properly configured
+  if (!process.env.TURNSTILE_SECRET_KEY) {
+    console.warn('TURNSTILE_SECRET_KEY not found, skipping verification');
+    return next();
+  }
+
   // Skip turnstile check for development or if disabled
   if (process.env.NODE_ENV === 'development' && !process.env.TURNSTILE_FORCE_ENABLE) {
     return next();
@@ -23,10 +29,11 @@ const checkTurnstile = async (req, res, next) => {
     }, {
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: 10000 // 10 second timeout to prevent hanging
     });
 
-    const { success, challenge_ts, hostname, errorCodes } = response.data;
+    const { success, challenge_ts, hostname, 'error-codes': errorCodes } = response.data;
 
     if (!success) {
       console.error('Turnstile verification failed:', errorCodes);
@@ -36,18 +43,27 @@ const checkTurnstile = async (req, res, next) => {
       });
     }
 
-    // Optional: Additional checks
-    if (hostname && hostname !== process.env.HOSTNAME) {
-      // Verify the hostname matches (optional security check)
-      console.log(`Warning: Turnstile hostname mismatch - got ${hostname}, expected ${process.env.HOSTNAME || 'not set'}`);
-    }
-
     next();
   } catch (error) {
-    console.error('Turnstile verification error:', error);
+    console.error('Turnstile verification error:', error.message);
+    
+    // If it's a timeout error, it might be a network issue
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      return res.status(504).json({
+        success: false,
+        error: 'Captcha verification timeout. Please try again.'
+      });
+    }
+    
+    // For other errors, allow the request to continue in non-production environments to avoid complete failures
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Turnstile verification failed in development, allowing request to continue');
+      return next();
+    }
+    
     return res.status(500).json({
       success: false,
-      error: 'Captcha verification error. Please try again.'
+      error: 'Captcha verification service unavailable. Please try again.'
     });
   }
 };
