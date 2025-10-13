@@ -56,6 +56,7 @@ router.get('/', auth, async (req, res) => {
 router.post(
   '/',
   [
+    checkTurnstile, // Add turnstile check
     check('email', 'Please include a valid email')
       .isEmail()
       .normalizeEmail()
