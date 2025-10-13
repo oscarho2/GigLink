@@ -1183,66 +1183,50 @@ const EditProfile = () => {
               )}
             </Grid>
             
-              {/* Display Photos */}
-              {(() => {
-                const allPhotos = [...photos, ...(formData.photos || [])];
-                return allPhotos.length > 0 ? (
-                  <Grid container spacing={2}>
-                    {allPhotos.map((photo, index) => (
-                      <Grid item xs={12} sm={6} md={4} key={photo?.id || photo?._id || index}>
-                        <Card
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, index, 'photo')}
-                          onDragOver={handleDragOver}
-                          onDrop={(e) => handleDrop(e, index, 'photo')}
-                          onDragEnd={handleDragEnd}
+              {/* Display Photos - Only show uploaded photos, not local/unuploaded ones */}
+              {formData.photos && formData.photos.length > 0 ? (
+                <Grid container spacing={2}>
+                  {formData.photos.map((photo, index) => (
+                    <Grid item xs={12} sm={6} md={4} key={photo?._id || index}>
+                      <Card
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, index, 'photo')}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, index, 'photo')}
+                        onDragEnd={handleDragEnd}
+                        sx={{
+                          cursor: 'move',
+                          opacity: draggedIndex?.index === index && draggedIndex?.type === 'photo' ? 0.5 : 1
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={photo?.url || ''}
+                          alt={photo?.caption || 'Profile photo'}
                           sx={{
-                            cursor: 'move',
-                            opacity: draggedIndex?.index === index && draggedIndex?.type === 'photo' ? 0.5 : 1
+                            width: '100%',
+                            height: 200,
+                            objectFit: 'cover'
                           }}
-                        >
-                          <Box
-                            component="img"
-                            src={photo?.url || ''}
-                            alt={photo?.caption || 'Profile photo'}
-                            sx={{
-                              width: '100%',
-                              height: 200,
-                              objectFit: 'cover'
-                            }}
-                          />
-                          <CardContent>
-                            {photo?.isLocal ? (
-                              <Chip
-                                label="Not uploaded"
-                                size="small"
-                                color="warning"
-                                variant="outlined"
-                              />
-                            ) : (
-                              <Chip
-                                label="Uploaded"
-                                size="small"
-                                color="success"
-                                variant="outlined"
-                              />
-                            )}
-                          </CardContent>
-                          <CardActions>
-                            <IconButton
-                              aria-label="delete"
-                              color="error"
-                              onClick={() => handleRemovePhoto(photo?.id || photo?._id, index)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </CardActions>
-                        </Card>
-                      </Grid>
-                    ))}
-                  </Grid>
-                ) : null;
-               })()}
+                        />
+                        <CardActions>
+                          <IconButton
+                            aria-label="delete"
+                            color="error"
+                            onClick={() => handleRemovePhoto(photo?._id, index)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                  You haven't added any photos yet.
+                </Typography>
+              )}
               {!(photos.length > 0 || (formData.photos && formData.photos.length > 0)) && (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
                   You haven't added any photos yet.
