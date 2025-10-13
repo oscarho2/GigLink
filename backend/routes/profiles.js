@@ -758,6 +758,7 @@ router.delete('/photos/:photoId', auth, async (req, res) => {
     
     // Get the photo to delete the file
     const photoToDelete = profile.photos[photoIndex];
+    console.log('Photo to delete:', photoToDelete);
     
     // Remove photo from array
     profile.photos.splice(photoIndex, 1);
@@ -766,9 +767,11 @@ router.delete('/photos/:photoId', auth, async (req, res) => {
     const { isR2Configured } = getStorageConfig();
     if (isR2Configured) {
       let key = photoToDelete.url || '';
+      console.log('Initial key from photoToDelete.url:', key);
       const match = key.match(/api\/media\/r2\/(.+)$/);
       if (match && match[1]) {
         key = decodeURIComponent(match[1]);
+        console.log('Key after regex match and decode:', key);
       }
       try {
         await deleteFile(key);

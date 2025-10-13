@@ -1,16 +1,16 @@
 {
-  "name": "giglink",
+  "name": "giglink-cleanup",
   "version": "1.0.0",
-  "description": "A social media platform for professional musicians",
+  "description": "Script to clean up data for deleted users in MongoDB Atlas",
+  "main": "cleanup_deleted_users.js",
   "scripts": {
-    "start": "node backend/server.js",
-    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\""
+    "cleanup": "node cleanup_deleted_users.js",
+    "start": "node cleanup_deleted_users.js"
   },
   "dependencies": {
-    "axios": "^1.11.0",
-    "puppeteer": "^24.19.0"
+    "mongoose": "^7.1.0",
+    "dotenv": "^16.0.3"
   },
-  "devDependencies": {
-    "concurrently": "^7.6.0"
-  }
+  "author": "GigLink",
+  "license": "ISC"
 }
