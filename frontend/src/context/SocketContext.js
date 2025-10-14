@@ -21,10 +21,15 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     if (token && user) {
       // Initialize socket connection
-      const newSocket = io(process.env.REACT_APP_API_BASE_URL || window.location.origin, {
+      const socketUrl = process.env.REACT_APP_API_BASE_URL || 
+                       (window.location.origin.includes('localhost') ? 'http://localhost:5001' : 'https://www.giglinksocial.com');
+      
+      const newSocket = io(socketUrl, {
         auth: {
           token: token
-        }
+        },
+        transports: ['websocket', 'polling'], // Explicitly specify transports
+        withCredentials: true // Enable credentials
       });
 
       newSocket.on('connect', () => {

@@ -62,7 +62,8 @@ const isOriginAllowed = (origin) => {
 const io = socketIo(server, {
   cors: {
     origin: allowAllOrigins ? '*' : allowedOrigins,
-    methods: ['GET', 'POST']
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 const PORT = process.env.PORT || 5001;
