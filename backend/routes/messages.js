@@ -29,6 +29,10 @@ router.get('/conversations', auth, async (req, res) => {
     const conversationsMap = new Map();
     
     messages.forEach(message => {
+      if (!message.sender || !message.recipient) {
+        console.warn(`Skipping message ${message._id} due to missing sender or recipient.`);
+        return;
+      }
       const conversationId = message.conversationId;
       if (!conversationsMap.has(conversationId)) {
         const otherUser = message.sender._id.toString() === userId ? message.recipient : message.sender;
