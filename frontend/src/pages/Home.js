@@ -80,8 +80,8 @@ const Home = () => {
             GigLink - Connect with Musicians & Find Gigs
           </Typography>
           <Typography variant="h5" component="p" paragraph>
-            GigLink is the professional network for musicians to showcase their talent,
-            find performance opportunities, and connect with other professionals.
+            GigLink is the professional network for musicians to
+            find performance opportunities and connect with other professionals.
           </Typography>
           <Button
             variant="contained"
