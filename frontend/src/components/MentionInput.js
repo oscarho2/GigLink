@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, forwardRef } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import {
   TextField,
   Popper,
@@ -37,6 +37,27 @@ const MentionInput = forwardRef(({
   const textFieldRef = useRef(null);
   const inputRef = useRef(null);
   const searchTimeoutRef = useRef(null);
+
+  const getInputElement = () =>
+    inputRef.current ||
+    textFieldRef.current?.querySelector('textarea, input') ||
+    null;
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      const element = getInputElement();
+      if (element) {
+        element.focus();
+      }
+    },
+    blur: () => {
+      const element = getInputElement();
+      if (element) {
+        element.blur();
+      }
+    },
+    getNode: () => textFieldRef.current
+  }));
 
   // Search for users when typing @ mentions
   const searchUsers = async (query) => {

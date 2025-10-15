@@ -1728,6 +1728,22 @@ const Messages = () => {
       setNewMessage(messageText); // Restore message on error
     } finally {
       setSending(false);
+      // Ensure the message input regains focus after sending
+      setTimeout(() => {
+        if (!messageInputRef.current) return;
+        if (typeof messageInputRef.current.focus === "function") {
+          messageInputRef.current.focus();
+          return;
+        }
+        if (messageInputRef.current.querySelector) {
+          const inputEl = messageInputRef.current.querySelector(
+            "textarea, input"
+          );
+          if (inputEl) {
+            inputEl.focus();
+          }
+        }
+      }, 0);
     }
   };
 
