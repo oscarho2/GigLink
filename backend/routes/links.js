@@ -361,6 +361,69 @@ router.get('/search', auth, async (req, res) => {
   }
 });
 
+// Check link statuses in bulk
+router.post('/status/bulk', auth, async (req, res) => {
+  try {
+    const { userIds } = req.body;
+    const currentUserId = req.user.id?.toString();
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.json({ statuses: {}, linkIds: {} });
+    }
+
+    const filteredIds = userIds
+      .map(id => id?.toString())
+      .filter(id => id && id !== currentUserId);
+
+    if (filteredIds.length === 0) {
+      return res.json({ statuses: {}, linkIds: {} });
+    }
+
+    const uniqueIds = Array.from(new Set(filteredIds));
+    const idSet = new Set(uniqueIds);
+
+    const links = await Link.find({
+      $or: [
+        { requester: currentUserId, recipient: { $in: uniqueIds } },
+        { requester: { $in: uniqueIds }, recipient: currentUserId }
+      ]
+    });
+
+    const statuses = {};
+    const linkIds = {};
+
+    uniqueIds.forEach(targetId => {
+      statuses[targetId] = 'none';
+      linkIds[targetId] = null;
+    });
+
+    links.forEach(link => {
+      const requesterId = link.requester.toString();
+      const recipientId = link.recipient.toString();
+      const otherUserId = requesterId === currentUserId ? recipientId : requesterId;
+
+      if (!idSet.has(otherUserId)) {
+        return;
+      }
+
+      let finalStatus = 'none';
+      if (link.status === 'accepted') {
+        finalStatus = 'linked';
+      } else if (link.status === 'pending') {
+        finalStatus = requesterId === currentUserId ? 'pending' : 'received';
+      }
+
+      statuses[otherUserId] = finalStatus;
+      linkIds[otherUserId] = link._id;
+    });
+
+    res.json({ statuses, linkIds });
+  } catch (error) {
+    console.error('Error fetching bulk link statuses:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Check link status
 router.get('/status/:userId', auth, async (req, res) => {
   try {

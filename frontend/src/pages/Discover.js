@@ -490,12 +490,66 @@ const Discover = () => {
     return scored.map(item => item.option);
   }, []);
 
+  const fetchLinkStatuses = useCallback(async (profiles) => {
+    if (!user || !token || !Array.isArray(profiles) || profiles.length === 0) {
+      return { statuses: {}, linkIds: {} };
+    }
+
+    const ids = profiles
+      .map(profile => profile?.user?._id)
+      .filter(id => id && id !== user.id);
+
+    if (ids.length === 0) {
+      return { statuses: {}, linkIds: {} };
+    }
+
+    try {
+      const response = await axios.post(
+        '/api/links/status/bulk',
+        { userIds: ids },
+        { headers: { 'x-auth-token': token } }
+      );
+
+      const responseStatuses = response.data?.statuses || {};
+      const responseLinkIds = response.data?.linkIds || {};
+
+      const normalizedStatuses = {};
+      const normalizedLinkIds = {};
+
+      ids.forEach((id) => {
+        const statusValue = responseStatuses[id];
+        let finalStatus = 'none';
+        if (statusValue === 'linked') {
+          finalStatus = 'linked';
+        } else if (statusValue === 'pending') {
+          finalStatus = 'pending';
+        } else if (statusValue === 'received') {
+          finalStatus = 'received';
+        }
+        normalizedStatuses[id] = finalStatus;
+
+        const linkIdValue = responseLinkIds && responseLinkIds[id] ? responseLinkIds[id] : null;
+        normalizedLinkIds[id] = linkIdValue || null;
+      });
+
+      return { statuses: normalizedStatuses, linkIds: normalizedLinkIds };
+    } catch (err) {
+      console.error('Error fetching bulk link statuses:', err);
+      const fallbackStatuses = {};
+      const fallbackLinkIds = {};
+      ids.forEach((id) => {
+        fallbackStatuses[id] = 'none';
+        fallbackLinkIds[id] = null;
+      });
+      return { statuses: fallbackStatuses, linkIds: fallbackLinkIds };
+    }
+  }, [user, token]);
+
 
   // Fetch users (server-side filtering) with debounce
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
-    const token = localStorage.getItem('token');
 
     const t = setTimeout(async () => {
       try {
@@ -546,11 +600,18 @@ const Discover = () => {
           signal: controller.signal,
           headers: token ? { 'x-auth-token': token } : undefined
         });
-        if (active) {
-          setUsers(Array.isArray(response.data) ? response.data : []);
-          usersRef.current = Array.isArray(response.data) ? response.data : [];
-          setLoadedCount(Math.min(usersRef.current.length, loadStep));
-        }
+
+        if (!active) return;
+
+        const profiles = Array.isArray(response.data) ? response.data : [];
+        const { statuses, linkIds: fetchedLinkIds } = await fetchLinkStatuses(profiles);
+        if (!active) return;
+
+        setUsers(profiles);
+        usersRef.current = profiles;
+        setLoadedCount(Math.min(profiles.length, loadStep));
+        setLinkStatuses(statuses);
+        setLinkIds(fetchedLinkIds);
       } catch (err) {
         if (active && err.name !== 'CanceledError') {
           console.error('Error fetching users:', err);
@@ -566,7 +627,7 @@ const Discover = () => {
       clearTimeout(t);
       controller.abort();
     };
-  }, [searchTerm, filters]);
+  }, [searchTerm, filters, token, fetchLinkStatuses]);
 
   // Minimal suggestions: debounce locInput, fetch from /api/profiles/locations
   useEffect(() => {
@@ -958,52 +1019,6 @@ const Discover = () => {
   }, [locationQuery, hasTypedLocation]);
 
   // Removed browser geolocation defaulting; users can select manually or rely on profile fallback
-
-  // Check link status for a specific user
-  const checkLinkStatus = useCallback(async (userId) => {
-    if (!user || !token || !userId || userId === user.id) return;
-    
-    try {
-      const response = await axios.get(`/api/links/status/${userId}`, {
-        headers: { 'x-auth-token': token }
-      });
-      const { status, linkId: responseLink, role } = response.data;
-      
-      let finalStatus = status;
-      if (status === 'pending') {
-        finalStatus = role === 'requester' ? 'pending' : 'received';
-      } else if (status === 'accepted') {
-        finalStatus = 'linked';
-      } else {
-        finalStatus = 'none';
-      }
-      
-      setLinkStatuses(prev => ({ ...prev, [userId]: finalStatus }));
-      if (responseLink) {
-        setLinkIds(prev => ({ ...prev, [userId]: responseLink }));
-      }
-    } catch (err) {
-      console.error('Error checking link status:', err);
-      setLinkStatuses(prev => ({ ...prev, [userId]: 'none' }));
-    }
-  }, [user, token]);
-
-  // Check link statuses for all users
-  const checkAllLinkStatuses = useCallback(async () => {
-    if (!user || !token || users.length === 0) return;
-    
-    for (const musician of users) {
-      if (musician.user._id !== user.id) {
-        await checkLinkStatus(musician.user._id);
-      }
-    }
-  }, [user, token, users, checkLinkStatus]);
-
-  useEffect(() => {
-    if (users.length > 0) {
-      checkAllLinkStatuses();
-    }
-  }, [users, checkAllLinkStatuses]);
 
   // IntersectionObserver to load more
   useEffect(() => {
