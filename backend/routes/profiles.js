@@ -438,7 +438,7 @@ router.get('/', async (req, res) => {
   try {
     const { country, region, city, q, instruments, genres, userType } = req.query;
 
-    const userQuery = {};
+    const userMatch = {};
     const andConditions = [];
 
     const addLocationCondition = (field, value) => {
@@ -457,16 +457,16 @@ router.get('/', async (req, res) => {
     addLocationCondition('city', city);
 
     if (instruments) {
-      userQuery.instruments = instruments;
+      userMatch.instruments = instruments;
     }
     if (genres) {
-      userQuery.genres = genres;
+      userMatch.genres = genres;
     }
     if (userType) {
       if (userType === 'Musician') {
-        userQuery.isMusician = 'yes';
+        userMatch.isMusician = 'yes';
       } else if (userType === 'Other') {
-        userQuery.isMusician = 'no';
+        userMatch.isMusician = 'no';
       }
     }
 
@@ -487,32 +487,23 @@ router.get('/', async (req, res) => {
     }
 
     if (andConditions.length > 0) {
-      userQuery.$and = andConditions;
+      userMatch.$and = andConditions;
     }
 
-    // Only show active users
-    userQuery.accountStatus = { $ne: 'suspended' };
+    userMatch.accountStatus = { $ne: 'suspended' };
 
-    const users = await User.find(userQuery)
-      .select(['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isMusician', 'locationData', 'accountStatus'])
+    const dbProfiles = await Profile.find()
+      .populate({
+        path: 'user',
+        select: ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isMusician', 'locationData', 'accountStatus'],
+        match: userMatch
+      })
       .lean();
 
-    const userIds = users.map(user => user._id);
+    const filteredProfiles = dbProfiles.filter(profile => profile.user);
 
-    let profiles = [];
-    if (userIds.length > 0) {
-      profiles = await Profile.find({ user: { $in: userIds } })
-        .select(['user', 'skills', 'videos'])
-        .lean();
-    }
-
-    const profileMap = new Map();
-    profiles.forEach(profile => {
-      profileMap.set(profile.user.toString(), profile);
-    });
-
-    const transformedProfiles = users.map(user => {
-      const profile = profileMap.get(user._id.toString());
+    const transformedProfiles = filteredProfiles.map(profile => {
+      const user = profile.user;
       const locationData = user.locationData || {};
       const normalizedLocationData = {
         country: locationData.country || '',
@@ -522,7 +513,7 @@ router.get('/', async (req, res) => {
       const bioText = (user.bio || '').trim();
 
       return {
-        _id: profile?._id || user._id,
+        _id: profile._id,
         user: {
           _id: user._id,
           name: user.name,
@@ -534,12 +525,12 @@ router.get('/', async (req, res) => {
           locationData: normalizedLocationData
         },
         bio: bioText || 'No bio available',
-        skills: (profile && Array.isArray(profile.skills) && profile.skills.length > 0)
+        skills: Array.isArray(profile.skills) && profile.skills.length > 0
           ? profile.skills
           : (user.instruments || []),
         userType: user.isMusician === 'yes' ? 'Musician' : 'Other',
         portfolio: [],
-        videos: (profile && Array.isArray(profile.videos)) ? profile.videos : []
+        videos: Array.isArray(profile.videos) ? profile.videos : []
       };
     });
 

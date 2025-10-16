@@ -237,11 +237,23 @@ router.post('/google', async (req, res) => {
       console.log('✅ New user created:', user._id);
     }
 
-    console.log('🔍 Checking for user profile...');
-    // Check if user has a profile
+    console.log('🔍 Ensuring user profile exists...');
+    // Check if user has a profile, create default if missing
     let profile = await Profile.findOne({ user: user._id });
+    if (!profile) {
+      try {
+        profile = await Profile.create({
+          user: user._id,
+          skills: [],
+          videos: []
+        });
+        console.log('🆕 Default profile created for user:', user._id);
+      } catch (profileErr) {
+        console.error('❌ Failed to create default profile:', profileErr);
+      }
+    }
     const profileComplete = !!profile;
-    console.log('📋 Profile complete:', profileComplete);
+    console.log('📋 Profile present:', profileComplete);
 
     if (user.accountStatus === 'suspended') {
       console.log('⛔ Account suspended, aborting login');
