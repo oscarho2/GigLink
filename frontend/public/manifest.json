@@ -4,17 +4,27 @@
   "icons": [
     {
       "src": "favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.png",
       "sizes": "512x512",
       "type": "image/png"
     },
     {
       "src": "favicon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "portrait",
+  "theme_color": "#0b1726",
+  "background_color": "#0b1726",
+  "description": "GigLink - Connect with musicians and find gig opportunities even when you are offline."
 }

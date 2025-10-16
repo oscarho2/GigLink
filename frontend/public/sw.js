@@ -1,13 +1,43 @@
-// Service Worker for Push Notifications
+// Service Worker for PWA capabilities: offline caching + push notifications
+const STATIC_CACHE = 'giglink-static-v1';
+const RUNTIME_CACHE = 'giglink-runtime-v1';
+const STATIC_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/offline.html',
+  '/favicon.png',
+  '/favicon.svg',
+  '/images/notification-icon.png',
+  '/images/badge-icon.png',
+  '/images/view-icon.png',
+  '/images/dismiss-icon.png'
+];
 
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing');
+  console.log('[Service Worker] Installing');
+  event.waitUntil(
+    caches
+      .open(STATIC_CACHE)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .catch((error) => {
+        console.error('[Service Worker] Failed to pre-cache static assets', error);
+      })
+  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker activating');
-  event.waitUntil(self.clients.claim());
+  console.log('[Service Worker] Activating');
+  event.waitUntil(
+    caches.keys().then((cacheNames) =>
+      Promise.all(
+        cacheNames
+          .filter((cacheName) => cacheName !== STATIC_CACHE && cacheName !== RUNTIME_CACHE)
+          .map((cacheName) => caches.delete(cacheName))
+      )
+    ).then(() => self.clients.claim())
+  );
 });
 
 // Handle push notifications
@@ -114,8 +144,82 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-// Handle fetch events (optional, for caching)
 self.addEventListener('fetch', (event) => {
-  // You can implement caching strategies here if needed
-  // For now, we'll just let the browser handle all fetch requests normally
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  const requestUrl = new URL(event.request.url);
+
+  if (requestUrl.origin !== self.location.origin) {
+    if (requestUrl.hostname === 'fonts.googleapis.com' || requestUrl.hostname === 'fonts.gstatic.com') {
+      event.respondWith(
+        caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          return fetch(event.request)
+            .then((response) => {
+              const responseClone = response.clone();
+              caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, responseClone));
+              return response;
+            })
+            .catch(() => cachedResponse);
+        })
+      );
+    }
+    return;
+  }
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const responseClone = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, responseClone));
+          return response;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(event.request);
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          return caches.match('/offline.html');
+        })
+    );
+    return;
+  }
+
+  if (STATIC_ASSETS.includes(requestUrl.pathname)) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then((response) => {
+          const responseClone = response.clone();
+          caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, responseClone));
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request)
+        .then((response) => {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+          const responseClone = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, responseClone));
+          return response;
+        })
+        .catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
+    })
+  );
 });
