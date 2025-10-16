@@ -437,17 +437,25 @@ router.put('/me', auth, async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { country, region, city, q, instruments, genres, userType } = req.query;
-    const userQuery = {};
 
-    if (country) {
-      userQuery['locationData.country'] = new RegExp(country, 'i');
-    }
-    if (region) {
-      userQuery['locationData.region'] = new RegExp(region, 'i');
-    }
-    if (city) {
-      userQuery['locationData.city'] = new RegExp(city, 'i');
-    }
+    const userQuery = {};
+    const andConditions = [];
+
+    const addLocationCondition = (field, value) => {
+      if (!value) return;
+      const regex = new RegExp(value, 'i');
+      andConditions.push({
+        $or: [
+          { [`locationData.${field}`]: regex },
+          { location: regex }
+        ]
+      });
+    };
+
+    addLocationCondition('country', country);
+    addLocationCondition('region', region);
+    addLocationCondition('city', city);
+
     if (instruments) {
       userQuery.instruments = instruments;
     }
@@ -464,49 +472,77 @@ router.get('/', async (req, res) => {
 
     if (q) {
       const searchRegex = new RegExp(q, 'i');
-      userQuery.$or = [
-        { name: searchRegex },
-        { location: searchRegex },
-        { instruments: searchRegex },
-        { genres: searchRegex },
-        { bio: searchRegex },
-        { 'locationData.city': searchRegex },
-        { 'locationData.region': searchRegex },
-        { 'locationData.country': searchRegex },
-      ];
+      andConditions.push({
+        $or: [
+          { name: searchRegex },
+          { location: searchRegex },
+          { instruments: searchRegex },
+          { genres: searchRegex },
+          { bio: searchRegex },
+          { 'locationData.city': searchRegex },
+          { 'locationData.region': searchRegex },
+          { 'locationData.country': searchRegex }
+        ]
+      });
     }
 
-    const dbProfiles = await Profile.find().populate({
-      path: 'user',
-      select: ['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isMusician', 'locationData'],
-      match: userQuery
+    if (andConditions.length > 0) {
+      userQuery.$and = andConditions;
+    }
+
+    // Only show active users
+    userQuery.accountStatus = { $ne: 'suspended' };
+
+    const users = await User.find(userQuery)
+      .select(['name', 'avatar', 'location', 'instruments', 'genres', 'bio', 'isMusician', 'locationData', 'accountStatus'])
+      .lean();
+
+    const userIds = users.map(user => user._id);
+
+    let profiles = [];
+    if (userIds.length > 0) {
+      profiles = await Profile.find({ user: { $in: userIds } })
+        .select(['user', 'skills', 'videos'])
+        .lean();
+    }
+
+    const profileMap = new Map();
+    profiles.forEach(profile => {
+      profileMap.set(profile.user.toString(), profile);
     });
 
-    // Filter out profiles where the user didn't match the location criteria
-    const filteredProfiles = dbProfiles.filter(profile => profile.user !== null);
-    
-    // Return all users (musicians and others)
-    
-    // Transform database profiles to match frontend expectations
-  const transformedProfiles = filteredProfiles.map(profile => ({
-    _id: profile._id,
-    user: {
-      _id: profile.user._id,
-      name: profile.user.name,
-        avatar: getPublicUrl(profile.user.avatar),
-        location: profile.user.location || 'Location not specified',
-        instruments: profile.user.instruments || [],
-        genres: profile.user.genres || [],
-        isMusician: profile.user.isMusician,
-      locationData: profile.user.locationData || { country: '', city: '' }
-    },
-    bio: profile.user.bio || 'No bio available',
-    skills: profile.skills || profile.user.instruments || [],
-    userType: profile.user.isMusician === 'yes' ? 'Musician' : 'Other',
-    portfolio: [],
-    videos: profile.videos || []
-  }));
-    
+    const transformedProfiles = users.map(user => {
+      const profile = profileMap.get(user._id.toString());
+      const locationData = user.locationData || {};
+      const normalizedLocationData = {
+        country: locationData.country || '',
+        region: locationData.region || '',
+        city: locationData.city || ''
+      };
+      const bioText = (user.bio || '').trim();
+
+      return {
+        _id: profile?._id || user._id,
+        user: {
+          _id: user._id,
+          name: user.name,
+          avatar: getPublicUrl(user.avatar),
+          location: user.location || 'Location not specified',
+          instruments: user.instruments || [],
+          genres: user.genres || [],
+          isMusician: user.isMusician,
+          locationData: normalizedLocationData
+        },
+        bio: bioText || 'No bio available',
+        skills: (profile && Array.isArray(profile.skills) && profile.skills.length > 0)
+          ? profile.skills
+          : (user.instruments || []),
+        userType: user.isMusician === 'yes' ? 'Musician' : 'Other',
+        portfolio: [],
+        videos: (profile && Array.isArray(profile.videos)) ? profile.videos : []
+      };
+    });
+
     res.json(transformedProfiles);
   } catch (err) {
     console.error(err.message);
