@@ -141,18 +141,7 @@ const CreateGig = () => {
     if (code && allowedCurrencyCodes.includes(code)) setCurrency(code);
   };
 
-  useEffect(() => {
-    // Initial guess from browser locale
-    if (userSetCurrency) return;
-    try {
-      const lang = (navigator.languages && navigator.languages[0]) || navigator.language || '';
-      const region = (lang.split('-')[1] || '').toUpperCase();
-      if (region) {
-        const code = countryToCurrency(region);
-        if (code && allowedCurrencyCodes.includes(code)) setCurrency(code);
-      }
-    } catch {}
-  }, [userSetCurrency]);
+
   const [schedules, setSchedules] = useState([{ date: '', startTime: '', endTime: '' }]);
   const [error, setError] = useState('');
   const [submissionMessage, setSubmissionMessage] = useState('');

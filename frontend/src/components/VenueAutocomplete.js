@@ -35,7 +35,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
   const [options, setOptions] = useState([]);
   const sessionRef = useRef('');
   const [open, setOpen] = useState(false);
-  const [ll, setLl] = useState('');
+  
   const focusedRef = useRef(false);
   const suppressNextOpenRef = useRef(false);
   const [resolvingPlace, setResolvingPlace] = useState(false);
@@ -120,21 +120,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
 
   useEffect(() => { setInput(value || ''); }, [value]);
 
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    const opts = { enableHighAccuracy: true, timeout: 5000, maximumAge: 300000 };
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos?.coords?.latitude;
-        const lng = pos?.coords?.longitude;
-        if (typeof lat === 'number' && typeof lng === 'number') {
-          setLl(`${lat},${lng}`);
-        }
-      },
-      () => {},
-      opts
-    );
-  }, []);
+
 
   useEffect(() => {
     let active = true;
@@ -166,8 +152,6 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
         if (effectiveNear) {
           params.set('near', effectiveNear);
           params.set('radius', '50000');
-        } else if (!endedWithSpace && ll) {
-          params.set('ll', ll);
         }
         abortTimer = setTimeout(() => controller.abort(), 4000);
         const res = await fetch(`/api/venues/suggest?${params.toString()}`, { signal: controller.signal });
@@ -190,7 +174,7 @@ export default function VenueAutocomplete({ value, onChange, near, onLocationCha
       }
     }, 250);
     return () => { active = false; clearTimeout(t); controller.abort(); };
-  }, [input, near, global, ll]);
+  }, [input, near, global]);
 
   const selected = useMemo(() => {
     if (!input) return null;
