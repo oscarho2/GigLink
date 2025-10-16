@@ -18,6 +18,9 @@ import Divider from '@mui/material/Divider';
 import AuthContext from '../context/AuthContext';
 import googleAuthService from '../utils/googleAuth';
 import { Turnstile } from '@marsidev/react-turnstile';
+import { isTurnstileDisabled, TURNSTILE_DEV_BYPASS_TOKEN } from '../utils/turnstileFlags';
+
+const TURNSTILE_DISABLED = isTurnstileDisabled();
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -27,7 +30,7 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState(TURNSTILE_DISABLED ? TURNSTILE_DEV_BYPASS_TOKEN : '');
   const { login, loginWithToken, isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,7 +86,7 @@ const Login = () => {
     e.preventDefault();
     
     // Check if Turnstile token exists
-    if (!turnstileToken) {
+    if (!TURNSTILE_DISABLED && !turnstileToken) {
       setError({
         message: 'Please complete the security verification',
         type: 'captcha'
@@ -96,10 +99,10 @@ const Login = () => {
     const searchParams = new URLSearchParams(location.search);
     const redirect = searchParams.get('redirect');
     // Include turnstile token in login credentials
-    const credentials = { 
-      email, 
-      password, 
-      'cf-turnstile-response': turnstileToken 
+    const credentials = {
+      email,
+      password,
+      'cf-turnstile-response': TURNSTILE_DISABLED ? TURNSTILE_DEV_BYPASS_TOKEN : turnstileToken 
     };
     const result = await login(credentials, redirect);
     console.log('Login result:', result); // Debugging login
@@ -264,26 +267,28 @@ const Login = () => {
             }}
           />
           {/* Cloudflare Turnstile */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            my: 2,
-            '& .cf-turnstile': {
-              display: 'flex',
-              justifyContent: 'center'
-            }
-          }}>
-            <Turnstile
-              siteKey={process.env.REACT_APP_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} // Replace with your actual site key
-              onSuccess={(token) => setTurnstileToken(token)}
-              onExpire={() => setTurnstileToken('')}
-              onError={() => setTurnstileToken('')}
-              options={{
-                theme: 'light',
-                size: 'normal'
-              }}
-            />
-          </Box>
+          {!TURNSTILE_DISABLED && (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              my: 2,
+              '& .cf-turnstile': {
+                display: 'flex',
+                justifyContent: 'center'
+              }
+            }}>
+              <Turnstile
+                siteKey={process.env.REACT_APP_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} // Replace with your actual site key
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken('')}
+                onError={() => setTurnstileToken('')}
+                options={{
+                  theme: 'light',
+                  size: 'normal'
+                }}
+              />
+            </Box>
+          )}
           
           <Button
             type="submit"
@@ -298,7 +303,7 @@ const Login = () => {
               borderRadius: { xs: 2, sm: 1 },
               py: { xs: 1.5, sm: 1 }
             }}
-            disabled={!turnstileToken} // Disable submit until turnstile is completed
+            disabled={!TURNSTILE_DISABLED && !turnstileToken} // Disable submit until turnstile is completed
           >
             Sign In
           </Button>

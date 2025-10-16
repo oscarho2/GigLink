@@ -1,7 +1,8 @@
 import axios from 'axios';
-import { executeTurnstile, resetTurnstile } from './turnstile';
+import { executeTurnstile } from './turnstile';
+import { isTurnstileDisabled, TURNSTILE_DEV_BYPASS_TOKEN } from './turnstileFlags';
 
-const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY;
+const TURNSTILE_DISABLED = isTurnstileDisabled();
 
 const api = axios.create({
   baseURL: '/api',
@@ -18,6 +19,10 @@ api.interceptors.request.use(config => {
 });
 
 export const withTurnstile = async (request) => {
+  if (TURNSTILE_DISABLED) {
+    return request(TURNSTILE_DEV_BYPASS_TOKEN);
+  }
+
   // Execute turnstile and pass the token to the request
   try {
     const token = await executeTurnstile();

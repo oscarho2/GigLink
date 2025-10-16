@@ -23,6 +23,9 @@ import Divider from '@mui/material/Divider';
 import AuthContext from '../context/AuthContext';
 import googleAuthService from '../utils/googleAuth';
 import { Turnstile } from '@marsidev/react-turnstile';
+import { isTurnstileDisabled, TURNSTILE_DEV_BYPASS_TOKEN } from '../utils/turnstileFlags';
+
+const TURNSTILE_DISABLED = isTurnstileDisabled();
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -37,7 +40,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState(TURNSTILE_DISABLED ? TURNSTILE_DEV_BYPASS_TOKEN : '');
   const { register, isAuthenticated, loginWithToken } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -116,12 +119,17 @@ const Register = () => {
       return;
     }
 
+    if (!TURNSTILE_DISABLED && !turnstileToken) {
+      setError('Please complete the security verification.');
+      return;
+    }
+
     const payload = { 
       name, 
       email, 
       password,
       // Include turnstile token in the payload
-      'cf-turnstile-response': turnstileToken
+      'cf-turnstile-response': TURNSTILE_DISABLED ? TURNSTILE_DEV_BYPASS_TOKEN : turnstileToken
     };
     const result = await register(payload);
 
@@ -131,7 +139,7 @@ const Register = () => {
       // User is auto-signed-in by AuthContext.register; go straight to Profile Setup
       navigate('/profile-setup');
       // Reset turnstile after successful registration
-      setTurnstileToken('');
+      setTurnstileToken(TURNSTILE_DISABLED ? TURNSTILE_DEV_BYPASS_TOKEN : '');
     } else if (result?.error) {
       setError(result.error[0]?.msg || 'Registration failed');
     }
@@ -307,35 +315,35 @@ const Register = () => {
             </Grid>
           </Grid>
           
-
-
           {/* Cloudflare Turnstile */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            my: 2,
-            '& .cf-turnstile': {
-              display: 'flex',
-              justifyContent: 'center'
-            }
-          }}>
-            <Turnstile
-              siteKey={process.env.REACT_APP_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} // Replace with your actual site key
-              onSuccess={(token) => setTurnstileToken(token)}
-              onExpire={() => setTurnstileToken('')}
-              onError={() => setTurnstileToken('')}
-              options={{
-                theme: 'light',
-                size: 'normal'
-              }}
-            />
-          </Box>
+          {!TURNSTILE_DISABLED && (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              my: 2,
+              '& .cf-turnstile': {
+                display: 'flex',
+                justifyContent: 'center'
+              }
+            }}>
+              <Turnstile
+                siteKey={process.env.REACT_APP_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} // Replace with your actual site key
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken('')}
+                onError={() => setTurnstileToken('')}
+                options={{
+                  theme: 'light',
+                  size: 'normal'
+                }}
+              />
+            </Box>
+          )}
           
           <Button
             type="submit"
             fullWidth
             variant="contained"
-            disabled={!turnstileToken} // Disable submit button until turnstile is completed
+            disabled={!TURNSTILE_DISABLED && !turnstileToken} // Disable submit button until turnstile is completed
             sx={{ 
               mt: { xs: 2, sm: 2 }, 
               mb: { xs: 2, sm: 2 },

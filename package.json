@@ -1,19 +1,19 @@
 {
-  "name": "giglink-cleanup",
+  "name": "giglink",
+  "private": true,
   "version": "1.0.0",
-  "description": "Script to clean up data for deleted users in MongoDB Atlas",
-  "main": "cleanup_deleted_users.js",
+  "description": "GigLink full-stack application",
   "scripts": {
-    "cleanup": "node cleanup_deleted_users.js",
-    "dry-run": "node dry_run_analysis.js",
-    "start": "node cleanup_deleted_users.js"
+    "setup": "npm install --prefix backend && npm install --prefix frontend",
+    "dev": "concurrently \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm start --prefix frontend",
+    "start": "npm run dev",
+    "build": "npm run build --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend",
+    "start:backend": "npm run start --prefix backend"
   },
-  "dependencies": {
-    "axios": "^1.12.2",
-    "dotenv": "^16.0.3",
-    "mongoose": "^7.1.0",
-    "puppeteer": "^24.24.0"
-  },
-  "author": "GigLink",
-  "license": "ISC"
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
 }

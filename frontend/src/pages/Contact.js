@@ -18,6 +18,9 @@ import {
 import { Send as SendIcon } from '@mui/icons-material';
 import axios from 'axios';
 import { Turnstile } from '@marsidev/react-turnstile';
+import { isTurnstileDisabled, TURNSTILE_DEV_BYPASS_TOKEN } from '../utils/turnstileFlags';
+
+const TURNSTILE_DISABLED = isTurnstileDisabled();
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -31,7 +34,7 @@ const Contact = () => {
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [errors, setErrors] = useState({});
-  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState(TURNSTILE_DISABLED ? TURNSTILE_DEV_BYPASS_TOKEN : '');
 
   // Fetch categories on component mount
   useEffect(() => {
@@ -106,7 +109,7 @@ const Contact = () => {
     e.preventDefault();
     
     // Check if Turnstile token exists
-    if (!turnstileToken) {
+    if (!TURNSTILE_DISABLED && !turnstileToken) {
       setSnackbar({ 
         open: true, 
         message: 'Please complete the security verification', 
@@ -129,7 +132,7 @@ const Contact = () => {
     // Include turnstile token in the form data
     const submitData = {
       ...formData,
-      'cf-turnstile-response': turnstileToken
+      'cf-turnstile-response': TURNSTILE_DISABLED ? TURNSTILE_DEV_BYPASS_TOKEN : turnstileToken
     };
 
     try {
@@ -285,26 +288,28 @@ const Contact = () => {
           </Grid>
           
           {/* Cloudflare Turnstile */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            my: 2,
-            '& .cf-turnstile': {
-              display: 'flex',
-              justifyContent: 'center'
-            }
-          }}>
-            <Turnstile
-              siteKey={process.env.REACT_APP_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} // Replace with your actual site key
-              onSuccess={(token) => setTurnstileToken(token)}
-              onExpire={() => setTurnstileToken('')}
-              onError={() => setTurnstileToken('')}
-              options={{
-                theme: 'light',
-                size: 'normal'
-              }}
-            />
-          </Box>
+          {!TURNSTILE_DISABLED && (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              my: 2,
+              '& .cf-turnstile': {
+                display: 'flex',
+                justifyContent: 'center'
+              }
+            }}>
+              <Turnstile
+                siteKey={process.env.REACT_APP_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} // Replace with your actual site key
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken('')}
+                onError={() => setTurnstileToken('')}
+                options={{
+                  theme: 'light',
+                  size: 'normal'
+                }}
+              />
+            </Box>
+          )}
           
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
             <Button
@@ -313,7 +318,7 @@ const Contact = () => {
               color="primary"
               size="large"
               startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
-              disabled={!turnstileToken || loading} // Disable submit until turnstile is completed
+              disabled={!TURNSTILE_DISABLED && (!turnstileToken || loading)} // Disable submit until turnstile is completed
               sx={{ minWidth: 140 }}
             >
               {loading ? 'Sending...' : 'Send Message'}

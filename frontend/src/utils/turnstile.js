@@ -1,8 +1,13 @@
 // Cloudflare Turnstile helpers: lazy-load, render (invisible), execute, reset
 
+import { isTurnstileDisabled } from './turnstileFlags';
+
+const TURNSTILE_DISABLED = isTurnstileDisabled();
+
 let scriptLoading = null;
 
 const loadScript = () => {
+  if (TURNSTILE_DISABLED) return Promise.resolve();
   if (typeof window === 'undefined') return Promise.resolve();
   if (window.turnstile) return Promise.resolve();
   if (scriptLoading) return scriptLoading;
@@ -52,6 +57,7 @@ export const ensureInvisibleTurnstile = async ({ containerId, siteKey }) => {
 };
 
 export const executeTurnstile = async () => {
+  if (TURNSTILE_DISABLED) return null;
   if (!window.turnstile || widgetId === null) return null;
   return new Promise((resolve) => {
     lastResolve = resolve;
@@ -64,8 +70,8 @@ export const executeTurnstile = async () => {
 };
 
 export const resetTurnstile = () => {
+  if (TURNSTILE_DISABLED) return;
   if (window.turnstile && widgetId !== null) {
     try { window.turnstile.reset(widgetId); } catch (_) {}
   }
 };
-
