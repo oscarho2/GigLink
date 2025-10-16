@@ -94,9 +94,11 @@ const AppContainer = styled(Box)(({ theme }) => ({
   minHeight: '100vh'
 }));
 
-const MainContent = styled(Box)(({ theme }) => ({
+const MainContent = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'hasBottomNav'
+})(({ theme, hasBottomNav }) => ({
   flex: 1,
-  paddingBottom: '70px', // Add padding for bottom navigation on mobile
+  paddingBottom: hasBottomNav ? '70px' : 0, // Add padding for bottom navigation on mobile
   [theme.breakpoints.up('md')]: {
     paddingBottom: 0 // No padding on desktop
   }
@@ -107,12 +109,14 @@ const AppContent = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
   const hideVerificationBanner = location.pathname === '/profile-setup';
+  const isMessagesDetail = location.pathname.startsWith('/messages/');
+  const showBottomNav = !isMessagesDetail;
 
   return (
     <AppContainer>
       <Navbar />
       {!hideVerificationBanner && <EmailVerificationBanner actionType="general" />}
-      <MainContent>
+      <MainContent hasBottomNav={showBottomNav}>
         <Suspense fallback={
           <LoadingSpinner 
             type="spinner" 
@@ -159,7 +163,7 @@ const AppContent = () => {
         </Suspense>
       </MainContent>
       {isHomePage && <Footer />}
-      <BottomNavigation />
+      {showBottomNav && <BottomNavigation />}
     </AppContainer>
   );
 };

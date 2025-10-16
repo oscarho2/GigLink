@@ -90,7 +90,7 @@ const Messages = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { userId } = useParams();
-  const navigationHandledRef = useRef(false);
+  const lastRouteUserIdRef = useRef(null);
 
   console.log("=== MESSAGES COMPONENT RENDER ===");
   console.log(
@@ -249,7 +249,6 @@ const Messages = () => {
   }, [selectedConversation]);
   const [showMobileConversation, setShowMobileConversation] = useState(false);
   const [replyToMessage, setReplyToMessage] = useState(null);
-  const [navigationProcessed, setNavigationProcessed] = useState(false);
   const [hoveredMessage, setHoveredMessage] = useState(null);
   const [longPressTimer, setLongPressTimer] = useState(null);
   const [showReactionPicker, setShowReactionPicker] = useState(null);
@@ -921,124 +920,51 @@ const Messages = () => {
     console.log("=== Messages useEffect END ===");
   }, [token, user]);
 
-  // Handle navigation state for starting new conversations
+  // Redirect to specific conversation when navigation state requests it
   useEffect(() => {
-    console.log('=== NAVIGATION STATE EFFECT ===');
-    console.log('location.state:', location.state);
-    console.log('startConversationWith:', location.state?.startConversationWith);
-    console.log('conversations.length:', conversations.length);
-    console.log('loadingConversations:', loadingConversations);
-    console.log('navigationProcessed:', navigationProcessed);
-    
-    if (location.state?.startConversationWith && !navigationProcessed && !loadingConversations && !navigationHandledRef.current) {
-      const userId = location.state.startConversationWith;
-      console.log('Found startConversationWith userId:', userId);
-      
-      // Mark as processed immediately to prevent multiple triggers
-      setNavigationProcessed(true);
-      navigationHandledRef.current = true;
-      
-      // Clear the state immediately to prevent re-triggering (prefer navigate replace)
-      try {
-        navigate(location.pathname, { replace: true, state: null });
-      } catch (e) {
-        console.warn('navigate replace failed, falling back to history.replaceState');
-        window.history.replaceState({}, document.title);
-      }
-      
-      // Check if conversations are loaded
-      if (conversations.length > 0) {
-        console.log('Conversations loaded, starting conversation');
-        startConversation(userId);
-      } else {
-        console.log('Conversations not loaded, fetching first');
-        // If conversations aren't loaded yet, fetch them first
-        fetchConversations().then((fetchedConversations) => {
-          try {
-            const convs = Array.isArray(fetchedConversations) ? fetchedConversations : [];
-            const existingConversation = convs.find((conv) => {
-              const otherUserId = conv.otherUser?._id || conv.otherUser?.id;
-              return otherUserId === userId;
-            });
-            if (existingConversation) {
-              console.log('Found existing conversation after fetching, selecting it');
-              setSelectedConversation(existingConversation);
-              fetchMessages(userId, 1, false);
-              if (isMobile) {
-                setShowMobileConversation(true);
-              }
-            } else {
-              console.log('No existing conversation after fetching, starting new one');
-              startConversation(userId);
-            }
-          } catch (e) {
-            console.error('Error handling fetched conversations, falling back to startConversation:', e);
-            startConversation(userId);
-          }
-        }).catch(error => {
-          console.error('Error fetching conversations for navigation:', error);
-          setNavigationProcessed(false); // Reset on error
-        });
-      }
-    }
-  }, [location.state, conversations, loadingConversations, navigationProcessed]);
+    const startConversationWith = location.state?.startConversationWith;
+    if (!startConversationWith) return;
 
-  // Handle delayed conversation loading for navigation
-  useEffect(() => {
-    if (navigationHandledRef.current) return;
-    if (location.state?.startConversationWith && navigationProcessed && conversations.length > 0) {
-      const userId = location.state.startConversationWith;
-      console.log('Delayed conversation loading for navigation with userId:', userId);
-      
-      // Check if we need to start the conversation now that conversations are loaded
-      const existingConversation = conversations.find(
-        (conv) => {
-          const otherUserId = conv.otherUser?._id || conv.otherUser?.id;
-          return otherUserId === userId;
-        }
-      );
-      
-      if (existingConversation && !selectedConversation) {
-        console.log('Found existing conversation after loading, selecting it');
-        setSelectedConversation(existingConversation);
-        fetchMessages(userId, 1, false);
-        if (isMobile) {
-          setShowMobileConversation(true);
-        }
-        navigationHandledRef.current = true;
-      }
-    }
-  }, [conversations, location.state, navigationProcessed, selectedConversation, isMobile]);
+    navigate(`/messages/${startConversationWith}`, { replace: true, state: {} });
+  }, [location.state?.startConversationWith, navigate]);
 
-  // Handle URL parameters for direct conversation access
+  // Keep selected conversation in sync with the URL parameter
   useEffect(() => {
-    if (userId && conversations.length > 0 && !navigationHandledRef.current) {
-      console.log('URL parameter userId detected:', userId);
-      
-      // Find existing conversation with this user
-      const existingConversation = conversations.find(
-        (conv) => {
-          const otherUserId = conv.otherUser?._id || conv.otherUser?.id;
-          return otherUserId === userId;
-        }
-      );
-      
-      if (existingConversation) {
-        console.log('Found existing conversation for URL userId, selecting it');
-        setSelectedConversation(existingConversation);
-        fetchMessages(userId, 1, false);
-        if (isMobile) {
-          setShowMobileConversation(true);
-        }
-        navigationHandledRef.current = true;
-      } else {
-        // Start new conversation with this user
-        console.log('No existing conversation found, starting new one');
-        startConversation(userId);
-        navigationHandledRef.current = true;
+    if (!userId) {
+      lastRouteUserIdRef.current = null;
+      if (isMobile && showMobileConversation) {
+        setShowMobileConversation(false);
       }
+      return;
     }
-  }, [userId, conversations, isMobile]);
+
+    const selectedId =
+      selectedConversation?.otherUser?._id ||
+      selectedConversation?.otherUser?.id ||
+      selectedConversation?._id ||
+      selectedConversation?.id;
+
+    if (selectedId === userId) {
+      if (isMobile && !showMobileConversation) {
+        setShowMobileConversation(true);
+      }
+      lastRouteUserIdRef.current = userId;
+      return;
+    }
+
+    if (lastRouteUserIdRef.current === userId) {
+      if (isMobile && !showMobileConversation) {
+        setShowMobileConversation(true);
+      }
+      return;
+    }
+
+    startConversation(userId);
+    if (isMobile && !showMobileConversation) {
+      setShowMobileConversation(true);
+    }
+    lastRouteUserIdRef.current = userId;
+  }, [userId, isMobile, showMobileConversation, selectedConversation, startConversation]);
 
   // Socket event listeners
   useEffect(() => {
@@ -2036,13 +1962,23 @@ const Messages = () => {
     };
   }, [filteredConversations, convLoadedCount, convLoadingMore]);
 
+  const mobileBottomNavHeight = 70;
+  const topBarHeight = isMobile ? 56 : 64;
+  const isMobileConversationView =
+    isMobile && (Boolean(userId) || showMobileConversation);
+  const containerHeight = isMobile
+    ? `calc(100vh - ${topBarHeight}px - ${
+        isMobileConversationView ? 0 : mobileBottomNavHeight
+      }px)`
+    : `calc(100vh - ${topBarHeight}px)`;
+
   if (loading && !token) {
     return (
       <Box
         display="flex"
         justifyContent="center"
         alignItems="center"
-        height={isMobile ? "calc(100vh - 56px - 70px)" : "calc(100vh - 64px)"}
+        height={containerHeight}
       >
         <CircularProgress />
       </Box>
@@ -2052,9 +1988,12 @@ const Messages = () => {
   return (
     <Box
       sx={{
-        height: isMobile ? "calc(100vh - 56px - 70px)" : "calc(100vh - 64px)",
+        height: containerHeight,
         display: "flex",
-        bgcolor: "#f5f5f5"
+        bgcolor: "#f5f5f5",
+        minHeight: 0,
+        width: "100%",
+        overflow: "hidden",
       }}
     >
       {/* Sidebar - Conversations List */}
@@ -2065,6 +2004,8 @@ const Messages = () => {
           borderRight: "1px solid #e0e0e0",
           display: isMobile && showMobileConversation ? "none" : "flex",
           flexDirection: "column",
+          minHeight: 0,
+          overflow: "hidden",
         }}
       >
         {/* Header */}
@@ -2110,7 +2051,7 @@ const Messages = () => {
         </Box>
 
         {/* Conversations List */}
-        <Box sx={{ flex: 1, overflow: "auto" }} ref={convContainerRef}>
+        <Box sx={{ flex: 1, overflow: "auto", minHeight: 0 }} ref={convContainerRef}>
           <List sx={{ p: 0 }}>
             {filteredConversations &&
               Array.isArray(filteredConversations) &&
@@ -2126,9 +2067,16 @@ const Messages = () => {
                       "About to call fetchMessages with ID:",
                       conversation.otherUser?._id
                     );
-                    if (conversation.otherUser?._id) {
+                    const otherUserId =
+                      conversation.otherUser?._id || conversation.otherUser?.id;
+                    if (otherUserId) {
                       // Check if this is already the selected conversation
-                      const isAlreadySelected = selectedConversation?.otherUser?._id === conversation.otherUser._id;
+                      const selectedId =
+                        selectedConversation?.otherUser?._id ||
+                        selectedConversation?.otherUser?.id ||
+                        selectedConversation?._id ||
+                        selectedConversation?.id;
+                      const isAlreadySelected = selectedId === otherUserId;
                       
                       if (!isAlreadySelected) {
                         // Abort any ongoing fetch requests
@@ -2162,7 +2110,13 @@ const Messages = () => {
                           // No unread messages, set to current time
                           setLastReadTimestamp(moment());
                         }
-                        fetchMessages(conversation.otherUser._id, 1, false, controller.signal);
+                        fetchMessages(otherUserId, 1, false, controller.signal);
+                      }
+
+                      if (userId !== otherUserId) {
+                        navigate(`/messages/${otherUserId}`, {
+                          state: { fromMessagesList: true },
+                        });
                       }
                       
                       // Show conversation view on mobile
@@ -2177,9 +2131,11 @@ const Messages = () => {
                     }
                   }}
                   selected={
-                    selectedConversation?.otherUser?._id ===
-                      conversation.otherUser?._id ||
-                    selectedConversation?._id === conversation.otherUser?._id
+                    (selectedConversation?.otherUser?._id ||
+                      selectedConversation?.otherUser?.id ||
+                      selectedConversation?._id ||
+                      selectedConversation?.id) ===
+                    (conversation.otherUser?._id || conversation.otherUser?.id)
                   }
                   sx={{
                     "&:hover": { bgcolor: "#f5f5f5" },
@@ -2322,6 +2278,8 @@ const Messages = () => {
           display: isMobile && !showMobileConversation ? "none" : "flex",
           flexDirection: "column",
           width: isMobile ? "100%" : "auto",
+          minHeight: 0,
+          overflow: "hidden",
         }}
       >
         {selectedConversation ? (
@@ -2341,7 +2299,16 @@ const Messages = () => {
                 {isMobile && (
                   <IconButton
                     onClick={() => {
-                      // Only hide the conversation panel on mobile; keep selection and messages to avoid flicker
+                      // Hide the conversation panel and navigate back to the chats list
+                      const cameFromMessagesList =
+                        location.state && location.state.fromMessagesList;
+                      if (userId) {
+                        if (cameFromMessagesList) {
+                          navigate(-1);
+                        } else {
+                          navigate("/messages", { replace: true });
+                        }
+                      }
                       setShowMobileConversation(false);
                     }}
                     sx={{ mr: 1 }}
@@ -2568,13 +2535,15 @@ const Messages = () => {
               sx={{
                 flex: 1,
                 p: 2,
-                overflow: "auto",
+                overflowY: "auto",
+                overflowX: "hidden",
                 bgcolor: "#f5f5f5",
                 // backgroundImage: 'url("data:image/svg+xml,%3Csvg width="100" height="100" xmlns="http://www.w3.org/2000/svg"%3E%3Cdefs%3E%3Cpattern id="a" patternUnits="userSpaceOnUse" width="100" height="100"%3E%3Cpath d="M0 0h100v100H0z" fill="%23e5ddd5"/%3E%3Cpath d="M20 20h60v60H20z" fill="none" stroke="%23d1c7b7" stroke-width="0.5" opacity="0.1"/%3E%3C/pattern%3E%3C/defs%3E%3Crect width="100%25" height="100%25" fill="url(%23a)"/%3E%3C/svg%3E")',
                 display: "flex",
                 flexDirection: "column",
                 gap: 1,
                 position: "relative",
+                minHeight: 0,
               }}
             >
               <Fade in={showLoadingMessages} unmountOnExit>
@@ -3845,6 +3814,7 @@ const Messages = () => {
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
+                flexShrink: 0,
               }}
             >
               <IconButton

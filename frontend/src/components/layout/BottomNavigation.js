@@ -4,7 +4,6 @@ import {
   BottomNavigation,
   BottomNavigationAction,
   Paper,
-  Badge,
   useTheme,
   useMediaQuery
 } from '@mui/material';
@@ -18,29 +17,27 @@ import {
   Groups as CommunityIcon
 } from '@mui/icons-material';
 import AuthContext from '../../context/AuthContext';
-import { useNotifications } from '../../context/NotificationContext';
 
 const MobileBottomNavigation = () => {
-  const { isAuthenticated, user } = useContext(AuthContext);
-  const { totalUnreadCount } = useNotifications();
+  const { isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const path = location.pathname;
+  const isMessagesDetail = /^\/messages\/[^/]+/.test(path);
 
   // Don't show on desktop or if user is not authenticated
-  if (!isMobile || !isAuthenticated) {
+  if (!isMobile || !isAuthenticated || isMessagesDetail) {
     return null;
   }
 
   // Get current tab value based on pathname
   const getCurrentValue = () => {
-    const path = location.pathname;
-    
     if (path === '/' || path === '/community') return 0;
     if (path === '/discover') return 1;
     if (path === '/gigs' || path === '/my-gigs') return 2;
-    if (path === '/messages') return 3;
+    if (path === '/messages' || path.startsWith('/messages/')) return 3;
     if (path === '/dashboard' || path === '/settings' || path.includes('/profile')) return 4;
     
     return 0; // Default to home
