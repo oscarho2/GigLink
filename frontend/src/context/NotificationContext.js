@@ -322,7 +322,7 @@ export const NotificationProvider = ({ children }) => {
           comment: 'New comment on your post',
           message: 'New message received',
           gig_application: 'New application for your gig',
-          link_request: 'New connection request'
+          link_request: 'New link request'
         };
         
         showNotification(

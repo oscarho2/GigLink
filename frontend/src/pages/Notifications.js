@@ -318,13 +318,18 @@ const Notifications = () => {
             variant="outlined"
             startIcon={<DoneAllIcon />}
             onClick={handleMarkAllAsRead}
+            size="small"
             sx={{
               borderColor: '#1976d2',
               color: '#1976d2',
               '&:hover': {
                 borderColor: '#1565c0',
                 backgroundColor: 'rgba(25, 118, 210, 0.04)'
-              }
+              },
+              // Make the button smaller on mobile devices
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              padding: { xs: '4px 8px', sm: '6px 12px' },
+              minHeight: { xs: '32px', sm: '36px' },
             }}
           >
             Mark All as Read
