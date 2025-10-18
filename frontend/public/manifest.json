@@ -22,7 +22,11 @@
   ],
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "display": "fullscreen",
   "orientation": "portrait",
   "theme_color": "#0b1726",
   "background_color": "#0b1726",
