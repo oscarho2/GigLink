@@ -155,6 +155,15 @@ const Dashboard = () => {
     }
   }, [token, user]);
 
+  useEffect(() => {
+    const handleGigDataChanged = () => {
+      fetchUserGigs();
+    };
+
+    window.addEventListener('gig-data-changed', handleGigDataChanged);
+    return () => window.removeEventListener('gig-data-changed', handleGigDataChanged);
+  }, [fetchUserGigs]);
+
   const handleDeleteAccount = () => {
     setDeleteDialogStep(1);
   };
@@ -354,7 +363,7 @@ const Dashboard = () => {
         return gigId !== targetId;
       }));
       handleCloseGigDeleteDialog();
-      await fetchUserGigs();
+      window.dispatchEvent(new Event('gig-data-changed'));
     } catch (err) {
       console.error('Error deleting gig:', err);
       alert(`Failed to delete gig: ${err.response?.data?.msg || err.message}`);
@@ -400,6 +409,8 @@ const Dashboard = () => {
       
       // Refresh applications data to show updated status
       await fetchApplicationsData();
+
+      window.dispatchEvent(new Event('gig-data-changed'));
     } catch (err) {
       console.error('Error accepting/undoing applicant:', err);
       alert(`Failed to process applicant: ${err.response?.data?.msg || err.message}`);

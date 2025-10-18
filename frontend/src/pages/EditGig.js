@@ -332,6 +332,7 @@ function EditGig() {
 
       if (response.ok) {
         setSuccess('Gig updated successfully!');
+        window.dispatchEvent(new Event('gig-data-changed'));
         setTimeout(() => {
           navigate(`/gigs/${id}`);
         }, 2000);

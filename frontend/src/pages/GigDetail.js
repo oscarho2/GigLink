@@ -375,7 +375,8 @@ const GigDetail = () => {
                   paragraph 
                   sx={{ 
                     lineHeight: 1.7,
-                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                    fontSize: { xs: '0.875rem', sm: '1rem' },
+                    whiteSpace: 'pre-line'
                   }}
                 >
                   {gig.description}

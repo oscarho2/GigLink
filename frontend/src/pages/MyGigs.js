@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   Container,
@@ -112,7 +112,7 @@ const MyGigs = () => {
   };
 
   // Fetch user's gigs
-  const fetchGigs = async () => {
+  const fetchGigs = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/gigs', {
@@ -129,10 +129,10 @@ const MyGigs = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   // Fetch user's applications
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     try {
       setApplicationsLoading(true);
       const response = await axios.get('/api/gigs/user/applications', {
@@ -145,7 +145,7 @@ const MyGigs = () => {
     } finally {
       setApplicationsLoading(false);
     }
-  };
+  }, []);
 
   // Handle opening applicant modal
   const handleOpenApplicantModal = (gig) => {
@@ -169,7 +169,8 @@ const MyGigs = () => {
         { userId },
         { headers: { 'x-auth-token': localStorage.getItem('token') } }
       );
-      fetchGigs(); // Refresh gigs
+      await fetchGigs();
+      window.dispatchEvent(new Event('gig-data-changed'));
     } catch (error) {
       console.error('Error accepting applicant:', error);
     }
@@ -183,7 +184,16 @@ const MyGigs = () => {
   useEffect(() => {
     fetchGigs();
     fetchApplications();
-  }, []);
+  }, [fetchGigs, fetchApplications]);
+
+  useEffect(() => {
+    const handleGigDataChanged = () => {
+      fetchGigs();
+    };
+
+    window.addEventListener('gig-data-changed', handleGigDataChanged);
+    return () => window.removeEventListener('gig-data-changed', handleGigDataChanged);
+  }, [fetchGigs]);
 
   // Filter functions
   const filteredGigs = gigs.filter(gig => {
