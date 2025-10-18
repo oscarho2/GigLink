@@ -27,7 +27,7 @@ const GigSchema = new mongoose.Schema({
   },
   time: {
     type: String,
-    required: true
+    default: ''
   },
   payment: {
     type: String,

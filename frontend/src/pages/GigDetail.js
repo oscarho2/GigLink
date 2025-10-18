@@ -303,6 +303,7 @@ const GigDetail = () => {
   const isPoster = !!(currentUserId && gigOwnerId && currentUserId === gigOwnerId.toString());
   const isAdmin = Boolean(user?.isAdmin);
   const canDeleteGig = isPoster || isAdmin;
+  const fallbackTime = typeof gig.time === 'string' ? gig.time.trim() : '';
 
   // Ownership check complete
 
@@ -614,22 +615,35 @@ const GigDetail = () => {
                            <Typography variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                              {(gig.schedules[0].date ? new Date(gig.schedules[0].date).toLocaleDateString() : 'Date TBD')}
                            </Typography>
-                           {gig.schedules[0].startTime && (
-                             <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, mt: 0.5 }}>
-                               {gig.schedules[0].startTime}{gig.schedules[0].endTime ? ` - ${gig.schedules[0].endTime}` : ''}
-                             </Typography>
-                           )}
+                           <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, mt: 0.5 }}>
+                             {(() => {
+                               const schedule = gig.schedules[0] || {};
+                               const start = (schedule.startTime || '').trim();
+                               const end = (schedule.endTime || '').trim();
+                               const primary = start || fallbackTime || 'Time TBD';
+                               return `${primary}${end ? ` - ${end}` : ''}`;
+                             })()}
+                           </Typography>
                          </Box>
                        ) : (
                          // Multiple schedules: show each date with time
                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                           {gig.schedules.map((s, idx) => (
-                             <Typography key={idx} variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                               {(s.date ? new Date(s.date).toLocaleDateString() : 'Date TBD')}
-                               {s.startTime ? ` • ${s.startTime}` : ''}
-                               {s.endTime ? ` - ${s.endTime}` : ''}
-                             </Typography>
-                           ))}
+                           {gig.schedules.map((s, idx) => {
+                             const dateLabel = s?.date
+                               ? new Date(s.date).toLocaleDateString()
+                               : (idx === 0 ? 'Date TBD' : '');
+                             const start = (s?.startTime || '').trim();
+                             const end = (s?.endTime || '').trim();
+                             const primary = start || fallbackTime || 'Time TBD';
+                             const parts = [];
+                             if (dateLabel) parts.push(dateLabel);
+                             parts.push(`• ${primary}${end ? ` - ${end}` : ''}`);
+                             return (
+                               <Typography key={idx} variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                                 {parts.join(' ')}
+                               </Typography>
+                             );
+                           })}
                          </Box>
                        )
                      ) : (
@@ -641,11 +655,9 @@ const GigDetail = () => {
                          >
                            {new Date(gig.date).toLocaleDateString()}
                          </Typography>
-                         {gig.time && (
-                           <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, mt: 0.5 }}>
-                             {gig.time}
-                           </Typography>
-                         )}
+                         <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, mt: 0.5 }}>
+                           {fallbackTime || 'Time TBD'}
+                         </Typography>
                        </Box>
                      )}
                    </Box>
@@ -653,7 +665,7 @@ const GigDetail = () => {
                 )}
                   
                   {/* Only render the single Time section if there are multiple schedules and no times in schedules */}
-                  {Array.isArray(gig.schedules) && gig.schedules.length > 1 && !gig.schedules.some(s => s.startTime) && Boolean(gig.time) && (
+                  {Array.isArray(gig.schedules) && gig.schedules.length > 1 && !gig.schedules.some(s => s.startTime) && Boolean(fallbackTime) && (
                   <Box sx={{ mb: { xs: 2.5, sm: 3 } }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, sm: 2 } }}>
                       <AccessTimeIcon 
@@ -680,7 +692,7 @@ const GigDetail = () => {
                         fontSize: { xs: '0.875rem', sm: '1rem' }
                       }}
                     >
-                      {gig.time}
+                      {fallbackTime}
                     </Typography>
                   </Box>
                   )}

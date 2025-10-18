@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
 import { Link as RouterLink, useNavigate, Navigate } from 'react-router-dom';
 import Container from '@mui/material/Container';
 import Grid from '@mui/material/Grid';
@@ -124,6 +124,36 @@ const Dashboard = () => {
   // Gig applications state
   const [applications, setApplications] = useState([]);
   const [applicationsLoading, setApplicationsLoading] = useState(true);
+
+  const fetchUserGigs = useCallback(async () => {
+    if (!user || (!user.id && !user._id)) {
+      setGigs([]);
+      return [];
+    }
+
+    try {
+      const res = await axios.get('/api/gigs', {
+        headers: { 'x-auth-token': token }
+      });
+
+      const currentUserId = (user.id || user._id)?.toString();
+      const userGigs = Array.isArray(res.data) ? res.data.filter(gig => {
+        if (!gig?.user || !currentUserId) return false;
+
+        const gigUserId = typeof gig.user === 'object' && gig.user !== null 
+          ? (gig.user._id || gig.user.id || gig.user)
+          : gig.user;
+
+        return gigUserId?.toString() === currentUserId;
+      }) : [];
+
+      setGigs(userGigs);
+      return userGigs;
+    } catch (err) {
+      console.error('Error fetching gigs:', err);
+      return [];
+    }
+  }, [token, user]);
 
   const handleDeleteAccount = () => {
     setDeleteDialogStep(1);
@@ -300,14 +330,31 @@ const Dashboard = () => {
   };
 
   const handleConfirmGigDelete = async () => {
+    if (!gigToDelete) {
+      console.warn('No gig selected for deletion');
+      handleCloseGigDeleteDialog();
+      return;
+    }
+
+    const targetId = gigToDelete._id || gigToDelete.id;
+    if (!targetId) {
+      console.warn('Gig missing identifier, cannot delete', gigToDelete);
+      handleCloseGigDeleteDialog();
+      return;
+    }
+
     try {
-      await axios.delete(`/api/gigs/${gigToDelete._id}`, {
+      await axios.delete(`/api/gigs/${targetId}`, {
         headers: { 'x-auth-token': token }
       });
       
-      // Remove the deleted gig from the local state
-      setGigs(gigs.filter(gig => gig._id !== gigToDelete._id));
+      // Remove the deleted gig from the local state immediately
+      setGigs(prevGigs => prevGigs.filter(gig => {
+        const gigId = gig?._id || gig?.id;
+        return gigId !== targetId;
+      }));
       handleCloseGigDeleteDialog();
+      await fetchUserGigs();
     } catch (err) {
       console.error('Error deleting gig:', err);
       alert(`Failed to delete gig: ${err.response?.data?.msg || err.message}`);
@@ -349,7 +396,7 @@ const Dashboard = () => {
 
       // Refresh the gig from server to ensure we have up-to-date applicants and isFilled
       const res = await axios.get(`/api/gigs/${gigId}`, { headers });
-      setGigs(gigs.map(g => g._id === gigId ? res.data : g));
+      setGigs(prevGigs => prevGigs.map(g => g._id === gigId ? res.data : g));
       
       // Refresh applications data to show updated status
       await fetchApplicationsData();
@@ -375,22 +422,7 @@ const Dashboard = () => {
         setProfile(profileRes.data);
         
         // Fetch user's gigs
-        const gigsRes = await axios.get('/api/gigs', {
-          headers: { 'x-auth-token': token }
-        });
-        
-        const currentUserId = (user.id || user._id)?.toString();
-        const userGigs = gigsRes.data.filter(gig => {
-          if (!gig.user || !currentUserId) return false;
-          
-          // Handle both populated user object and string ID
-          const gigUserId = typeof gig.user === 'object' && gig.user !== null 
-            ? (gig.user._id || gig.user.id || gig.user)
-            : gig.user;
-          
-          return gigUserId?.toString() === currentUserId;
-        });
-        setGigs(userGigs);
+        await fetchUserGigs();
         
         // Fetch links data
         await fetchLinksData();
@@ -405,7 +437,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [user, token]);
+  }, [user, token, fetchUserGigs]);
 
   if (authLoading || loading) {
     return (

@@ -197,7 +197,6 @@ const CreateGig = () => {
     if (!formData.venue?.trim()) missingFields.push('venue/location');
     if (!formData.location?.city || !formData.location?.country) missingFields.push('location (city and country)');
     if (!schedules[0]?.date) missingFields.push('date');
-    if (!schedules[0]?.startTime) missingFields.push('start time');
     if (!formData.payment?.trim()) missingFields.push('payment');
     if (!Array.isArray(formData.instruments) || formData.instruments.length === 0) missingFields.push('instruments');
     if (!Array.isArray(formData.genres) || formData.genres.length === 0) missingFields.push('genres');
@@ -215,7 +214,7 @@ const CreateGig = () => {
 
     try {
       const primaryDate = schedules[0]?.date || formData.date;
-      const primaryTime = schedules[0]?.startTime || formData.time;
+      const primaryTime = (schedules[0]?.startTime && schedules[0].startTime.trim()) || (formData.time && formData.time.trim()) || '';
 
       const {
         location,
@@ -396,10 +395,9 @@ const CreateGig = () => {
                         }}
                         fullWidth
                         size="small"
-                        label="Start Time"
+                        label="Start Time (Optional)"
                         InputLabelProps={{ shrink: true }}
                         variant="outlined"
-                        required={index === 0}
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">

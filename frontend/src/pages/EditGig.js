@@ -284,14 +284,13 @@ function EditGig() {
     if (!formData.venue?.trim()) missingFields.push('venue/location');
     if (!formData.location) missingFields.push('location');
     if (!schedules[0]?.date) missingFields.push('date');
-    if (!schedules[0]?.startTime) missingFields.push('start time');
     if (!formData.payment?.trim()) missingFields.push('payment');
     if (!Array.isArray(formData.instruments) || formData.instruments.length === 0) missingFields.push('instruments');
     if (!Array.isArray(formData.genres) || formData.genres.length === 0) missingFields.push('genres');
     if (!formData.description?.trim()) missingFields.push('description');
 
-    if (schedules.some(schedule => !schedule.date || !schedule.startTime)) {
-      missingFields.push('schedule date and start time');
+    if (schedules.some(schedule => !schedule.date)) {
+      missingFields.push('schedule date');
     }
 
     if (missingFields.length) {
@@ -307,7 +306,7 @@ function EditGig() {
 
     try {
       const primaryDate = displayToIsoDate(schedules[0]?.date || '');
-      const primaryTime = schedules[0]?.startTime || '';
+      const primaryTime = (schedules[0]?.startTime && schedules[0].startTime.trim()) || '';
 
       const { locationString, location, date: _unusedDate, time: _unusedTime, ...restForm } = formData;
       const payload = {
@@ -517,10 +516,9 @@ function EditGig() {
                         onChange={(e) => handleScheduleChange(index, 'startTime', e.target.value)}
                         fullWidth
                         size="small"
-                        label="Start Time"
+                        label="Start Time (Optional)"
                         InputLabelProps={{ shrink: true }}
                         variant="outlined"
-                        required={index === 0}
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">

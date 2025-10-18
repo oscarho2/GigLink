@@ -1677,11 +1677,12 @@ const Gigs = () => {
                   alignItems: (
                     () => {
                       const sch = gig.schedules;
-                      // Center when multiple dates, or when a single date has a time, or fallback has time
+                      // Center whenever we have schedules or a fallback time so date/time stack nicely
                       if (Array.isArray(sch)) {
                         if (sch.length > 1) return 'center';
-                        if (sch.length === 1 && (sch[0]?.startTime)) return 'center';
-                      } else if (gig.time) {
+                        if (sch.length === 1) return 'center';
+                      }
+                      if (typeof gig.time === 'string') {
                         return 'center';
                       }
                       return 'flex-start';
@@ -1703,20 +1704,36 @@ const Gigs = () => {
                         (() => {
                           const count = gig.schedules.length;
                           const first = gig.schedules[0];
-                          const last = gig.schedules[count - 1];
-                          const firstDateStr = first.date ? new Date(first.date).toLocaleDateString('en-GB') : 'Date TBD';
-                          const lastDateStr = last.date ? new Date(last.date).toLocaleDateString('en-GB') : 'Date TBD';
+                          const firstWithDate = gig.schedules.find(s => s?.date);
+                          const lastWithDate = [...gig.schedules].reverse().find(s => s?.date);
+                          const firstDateStr = firstWithDate?.date
+                            ? new Date(firstWithDate.date).toLocaleDateString('en-GB')
+                            : 'Date TBD';
+                          const shouldShowLast = Boolean(
+                            lastWithDate?.date &&
+                            firstWithDate?.date &&
+                            new Date(lastWithDate.date).toDateString() !== new Date(firstWithDate.date).toDateString()
+                          );
+                          const lastDateStr = shouldShowLast && lastWithDate?.date
+                            ? new Date(lastWithDate.date).toLocaleDateString('en-GB')
+                            : '';
                           if (count === 1) {
+                            const start = (first?.startTime || '').trim();
+                            const end = (first?.endTime || '').trim();
+                            const fallbackTime = typeof gig.time === 'string' ? gig.time.trim() : '';
+                            const hasTimeData = Boolean(start || end || fallbackTime);
+                            const primaryTime = start || fallbackTime || 'Time TBD';
+                            const timeText = hasTimeData
+                              ? `${primaryTime}${end ? ` - ${end}` : ''}`
+                              : 'Time TBD';
                             return (
                               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                                 <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
                                   {firstDateStr}
                                 </Typography>
-                                {first.startTime && (
-                                  <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, lineHeight: 1.2 }}>
-                                    {first.startTime}{first.endTime ? ` - ${first.endTime}` : ''}
-                                  </Typography>
-                                )}
+                                <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, lineHeight: 1.2 }}>
+                                  {timeText}
+                                </Typography>
                               </Box>
                             );
                           } else {
@@ -1725,12 +1742,16 @@ const Gigs = () => {
                                 <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.05 }}>
                                   {firstDateStr}
                                 </Typography>
-                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, opacity: 0.7, lineHeight: 1.05, alignSelf: 'center' }}>
-                                  —
-                                </Typography>
-                                <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.05 }}>
-                                  {lastDateStr}
-                                </Typography>
+                                {shouldShowLast && (
+                                  <>
+                                    <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, opacity: 0.7, lineHeight: 1.05, alignSelf: 'center' }}>
+                                      —
+                                    </Typography>
+                                    <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.05 }}>
+                                      {lastDateStr}
+                                    </Typography>
+                                  </>
+                                )}
                               </Box>
                             );
                           }
@@ -1740,11 +1761,9 @@ const Gigs = () => {
                           <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.2 }}>
                             {new Date(gig.date).toLocaleDateString('en-GB')}
                           </Typography>
-                          {gig.time && (
-                            <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, lineHeight: 1.2 }}>
-                              {gig.time}
-                            </Typography>
-                          )}
+                          <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, opacity: 0.8, lineHeight: 1.2 }}>
+                            {(gig.time && gig.time.trim()) || 'Time TBD'}
+                          </Typography>
                         </Box>
                       )}
                     </Box>

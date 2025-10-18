@@ -402,7 +402,8 @@ const normalizeLocationInput = (input) => {
 router.post('/', auth, async (req, res) => {
   try {
     const payload = { ...req.body };
-    const { title, description, location, date, time, payment, instruments, genres } = payload;
+    const { title, description, location, date, payment, instruments, genres } = payload;
+    const time = payload.time;
 
     if (!title || typeof title !== 'string') {
       return res.status(400).json({ msg: 'Title is required and must be a string.' });
@@ -416,8 +417,8 @@ router.post('/', auth, async (req, res) => {
     if (!date || typeof date !== 'string') {
       return res.status(400).json({ msg: 'Date is required and must be a string.' });
     }
-    if (!time || typeof time !== 'string') {
-      return res.status(400).json({ msg: 'Time is required and must be a string.' });
+    if (time !== undefined && time !== null && typeof time !== 'string') {
+      return res.status(400).json({ msg: 'Time must be a string when provided.' });
     }
     if (!payment || typeof payment !== 'string') {
       return res.status(400).json({ msg: 'Payment is required and must be a string.' });
@@ -445,6 +446,7 @@ router.post('/', auth, async (req, res) => {
 
     const newGig = new Gig({
       ...payload,
+      time: typeof time === 'string' ? time : '',
       user: req.user.id
     });
     
