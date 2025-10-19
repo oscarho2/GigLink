@@ -70,7 +70,9 @@ const GeoNamesAutocomplete = ({
   }, [selectedIndex, showSuggestions, suggestions.length, scrollToSelectedItem]);
 
   const fetchSuggestions = useCallback(async (query) => {
-    if (query.length < 2) {
+    const cleanedQuery = query.trim();
+
+    if (cleanedQuery.length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
       setSelectedIndex(0); // Preselect first option when resetting
@@ -80,7 +82,7 @@ const GeoNamesAutocomplete = ({
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        name_startsWith: query,
+        name_startsWith: cleanedQuery,
         featureClass: 'P', // Populated places (cities, towns, villages)
         maxRows: 10,
         username: GEONAMES_USERNAME,
@@ -112,20 +114,49 @@ const GeoNamesAutocomplete = ({
             name: city,
             adminName1: region,
             countryName: country,
-            displayName
+            displayName,
+            population: Number(item.population) || 0
           };
         });
-        
-        // Remove duplicates based on displayName
-        let uniqueSuggestions = formattedSuggestions.filter((item, index, self) => 
-          index === self.findIndex(t => t.displayName === item.displayName)
-        );
 
-        // Bring entries containing "United States" to the top in the order they appeared
-        const priorityMatches = uniqueSuggestions.filter(item => item.displayName.toLowerCase().includes('united states'));
+        // Filter out known erroneous entries like "London, Osh" returned by GeoNames
+        const filteredSuggestions = formattedSuggestions.filter(item => {
+          const city = (item.name || '').toLowerCase();
+          const region = (item.adminName1 || '').toLowerCase();
+          const country = (item.countryName || '').toLowerCase();
+          const display = (item.displayName || '').toLowerCase();
+
+          const matchesLondonOsh =
+            /london[\s,/-]+osh/.test(display) ||
+            (/london/.test(city) && /osh/.test(city)) ||
+            (city === 'london' && /osh/.test(region)) ||
+            (city === 'london' && country === 'kyrgyzstan');
+
+          return !matchesLondonOsh;
+        });
+        
+        // Remove duplicates based on displayName, keeping the highest population entry
+        const uniqueMap = new Map();
+        for (const suggestion of filteredSuggestions) {
+          const key = suggestion.displayName.toLowerCase();
+          const existing = uniqueMap.get(key);
+          if (!existing || suggestion.population > existing.population) {
+            uniqueMap.set(key, suggestion);
+          }
+        }
+        let uniqueSuggestions = Array.from(uniqueMap.values());
+
+        // Bring entries containing "United States" to the top (previous behavior)
+        const priorityMatches = uniqueSuggestions
+          .filter(item => item.displayName.toLowerCase().includes('united states'))
+          .sort((a, b) => b.population - a.population);
         if (priorityMatches.length > 0) {
-          const remaining = uniqueSuggestions.filter(item => !priorityMatches.includes(item));
+          const remaining = uniqueSuggestions
+            .filter(item => !priorityMatches.includes(item))
+            .sort((a, b) => b.population - a.population);
           uniqueSuggestions = [...priorityMatches, ...remaining];
+        } else {
+          uniqueSuggestions.sort((a, b) => b.population - a.population);
         }
 
         setSuggestions(uniqueSuggestions);
