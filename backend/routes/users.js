@@ -158,7 +158,6 @@ router.post(
       jwt.sign(
         payload,
         process.env.JWT_SECRET,
-        { expiresIn: '24h' },
         (err, token) => {
           if (err) {
             console.error('JWT signing error:', err);

@@ -119,7 +119,6 @@ router.post(
       jwt.sign(
         payload,
         process.env.JWT_SECRET,
-        { expiresIn: '24h' },
         (err, token) => {
           if (err) {
             console.error('JWT signing error:', err);
@@ -276,7 +275,6 @@ router.post('/google', async (req, res) => {
     jwt.sign(
       jwtPayload,
       process.env.JWT_SECRET,
-      { expiresIn: '7d' },
       (err, token) => {
         if (err) {
           console.error('❌ JWT signing error:', err);
