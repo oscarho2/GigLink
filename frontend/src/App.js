@@ -50,6 +50,7 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
 const About = lazy(() => import('./pages/About'));
 const Contact = lazy(() => import('./pages/Contact'));
+const AccountDeletion = lazy(() => import('./pages/AccountDeletion'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Route protection
@@ -158,6 +159,7 @@ const AppContent = () => {
             <Route path="/cookie-policy" element={<CookiePolicy />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/account-deletion" element={<AccountDeletion />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
