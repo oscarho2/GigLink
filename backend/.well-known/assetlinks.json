@@ -1,9 +1,12 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.giglinksocial.twa",
-        "sha256_cert_fingerprints": ["B6:00:FD:EC:31:2F:E8:E3:66:9E:52:1A:01:45:B8:77:EA:B8:FB:6E:BE:A1:7B:A9:99:19:5E:4A:D9:05:FD:43"]
-      }
-    }]
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.giglinksocial.twa",
+      "sha256_cert_fingerprints":
+        ["9D:3E:69:7D:83:1D:A0:46:0E:56:99:4E:B3:F3:9B:EB:01:7C:81:4B:54:B2:53:DD:44:A4:CF:06:DB:AD:CB:79"]
+    }
+  }
+]
 
