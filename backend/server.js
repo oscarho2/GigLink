@@ -75,6 +75,12 @@ const { isR2Configured } = getStorageConfig();
 console.log('[Startup] R2 configured:', isR2Configured, 'public URL:', process.env.R2_PUBLIC_URL || 'not set');
 
 // Middleware
+const wellKnownDir = path.join(__dirname, '.well-known');
+if (fs.existsSync(wellKnownDir)) {
+  app.use('/.well-known', express.static(wellKnownDir, { dotfiles: 'allow' }));
+} else {
+  console.warn('Digital Asset Links directory not found at backend/.well-known; TWA verification may fail.');
+}
 app.use(cors({
   origin(origin, callback) {
     if (isOriginAllowed(origin)) {

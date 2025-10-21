@@ -76,3 +76,7 @@ giglink/
 │       └── context/   # React context
 └── README.md          # Project documentation
 ```
+
+### Android Trusted Web Activity
+
+If you distribute the PWA through the Google Play Store, follow the steps in `docs/trusted-web-activity.md` to configure Digital Asset Links so the Trusted Web Activity launches without the browser address bar.
