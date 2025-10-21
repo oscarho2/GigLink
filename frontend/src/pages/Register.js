@@ -24,6 +24,7 @@ import AuthContext from '../context/AuthContext';
 import googleAuthService from '../utils/googleAuth';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { isTurnstileDisabled, TURNSTILE_DEV_BYPASS_TOKEN } from '../utils/turnstileFlags';
+import useViewportHeight from '../hooks/useViewportHeight';
 
 const TURNSTILE_DISABLED = isTurnstileDisabled();
 
@@ -43,6 +44,11 @@ const Register = () => {
   const [turnstileToken, setTurnstileToken] = useState(TURNSTILE_DISABLED ? TURNSTILE_DEV_BYPASS_TOKEN : '');
   const { register, isAuthenticated, loginWithToken } = useContext(AuthContext);
   const navigate = useNavigate();
+  const viewportHeight = useViewportHeight();
+  const compactViewport = viewportHeight !== null && viewportHeight < 600;
+  const mobileMinHeight = viewportHeight
+    ? `${Math.max(viewportHeight - 120, 320)}px`
+    : 'calc(100vh - 120px)';
 
   const handleGoogleSignIn = async () => {
     try {
@@ -149,13 +155,13 @@ const Register = () => {
     <Container component="main" maxWidth="xs" sx={{ px: { xs: 2, sm: 3 } }}>
       <Box
         sx={{
-          marginTop: { xs: 2, sm: 4 },
-          marginBottom: { xs: 6, sm: 8 },
+          marginTop: { xs: compactViewport ? 1 : 2, sm: 4 },
+          marginBottom: { xs: compactViewport ? 4 : 6, sm: 8 },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          minHeight: { xs: 'calc(100vh - 120px)', sm: 'auto' },
-          justifyContent: { xs: 'center', sm: 'flex-start' }
+          minHeight: { xs: mobileMinHeight, sm: 'auto' },
+          justifyContent: { xs: compactViewport ? 'flex-start' : 'center', sm: 'flex-start' }
         }}
       >
         <Avatar sx={{ 
@@ -187,7 +193,12 @@ const Register = () => {
             {success}
           </Alert>
         )}
-        <Box component="form" onSubmit={onSubmit} noValidate sx={{ mt: { xs: 2, sm: 3 }, width: '100%' }}>
+        <Box
+          component="form"
+          onSubmit={onSubmit}
+          noValidate
+          sx={{ mt: { xs: compactViewport ? 1 : 2, sm: 3 }, width: '100%' }}
+        >
           <Grid container spacing={{ xs: 2, sm: 2 }}>
             <Grid item xs={12}>
               <TextField

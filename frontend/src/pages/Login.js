@@ -19,6 +19,7 @@ import AuthContext from '../context/AuthContext';
 import googleAuthService from '../utils/googleAuth';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { isTurnstileDisabled, TURNSTILE_DEV_BYPASS_TOKEN } from '../utils/turnstileFlags';
+import useViewportHeight from '../hooks/useViewportHeight';
 
 const TURNSTILE_DISABLED = isTurnstileDisabled();
 
@@ -34,6 +35,11 @@ const Login = () => {
   const { login, loginWithToken, isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
+  const viewportHeight = useViewportHeight();
+  const compactViewport = viewportHeight !== null && viewportHeight < 600;
+  const mobileMinHeight = viewportHeight
+    ? `${Math.max(viewportHeight - 120, 320)}px`
+    : 'calc(100vh - 120px)';
 
   const handleGoogleSignIn = async () => {
     try {
@@ -125,13 +131,13 @@ const Login = () => {
     <Container component="main" maxWidth="xs" sx={{ px: { xs: 2, sm: 3 } }}>
       <Box
         sx={{
-          marginTop: { xs: 2, sm: 4 },
-          marginBottom: { xs: 6, sm: 8 },
+          marginTop: { xs: compactViewport ? 1 : 2, sm: 4 },
+          marginBottom: { xs: compactViewport ? 4 : 6, sm: 8 },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          minHeight: { xs: 'calc(100vh - 120px)', sm: 'auto' },
-          justifyContent: { xs: 'center', sm: 'flex-start' }
+          minHeight: { xs: mobileMinHeight, sm: 'auto' },
+          justifyContent: { xs: compactViewport ? 'flex-start' : 'center', sm: 'flex-start' }
         }}
       >
         <Avatar sx={{ 
