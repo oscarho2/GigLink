@@ -93,14 +93,17 @@ const theme = createTheme({
 const AppContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  minHeight: '100vh'
+  minHeight: '100vh',
+  '@supports (min-height: 100dvh)': {
+    minHeight: '100dvh'
+  }
 }));
 
 const MainContent = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'hasBottomNav'
 })(({ theme, hasBottomNav }) => ({
   flex: 1,
-  paddingBottom: hasBottomNav ? '70px' : 0, // Add padding for bottom navigation on mobile
+  paddingBottom: hasBottomNav ? 'calc(70px + env(safe-area-inset-bottom))' : 'env(safe-area-inset-bottom)',
   [theme.breakpoints.up('md')]: {
     paddingBottom: 0 // No padding on desktop
   }

@@ -1,6 +1,7 @@
 {
   "short_name": "GigLink",
   "name": "GigLink - Musicians Social Network",
+  "id": "./",
   "icons": [
     {
       "src": "favicon.png",
@@ -20,8 +21,8 @@
       "purpose": "any"
     }
   ],
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display_override": [
     "fullscreen",
     "standalone"
