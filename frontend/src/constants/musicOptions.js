@@ -14,7 +14,7 @@ export const instrumentOptions = [
   // Brass
   'Trumpet','Cornet','Flugelhorn','French Horn','Trombone','Bass Trombone','Euphonium','Tuba',
   // Keyboards
-  'Piano','Upright Piano','Grand Piano','Keyboard','Synthesizer','Organ (Hammond)','Pipe Organ','Harpsichord','Celesta','Rhodes','Clavinet',
+  'Piano','Keyboard','Synthesizer','Organ (Hammond)','Pipe Organ','Harpsichord','Celesta','Rhodes','Clavinet',
   // Percussion (tuned/untuned)
   'Percussion','Drum Kit','Timpani','Snare Drum','Bass Drum','Cymbals','Tambourine','Triangle','Marimba','Xylophone','Vibraphone','Glockenspiel','Cajon','Congas','Bongos','Djembe',
   // Others / Folk / Misc
