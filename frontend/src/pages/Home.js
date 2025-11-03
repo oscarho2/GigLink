@@ -30,6 +30,11 @@ const Home = () => {
     }
   }, [isAuthenticated, loading, navigate]);
 
+  // Don't render the home page if we're still loading auth or if user is authenticated
+  if (loading || isAuthenticated) {
+    return null; // or a loading spinner if preferred
+  }
+
   // Handle Google OAuth sign-in
   const handleGoogleSignIn = async () => {
     try {
