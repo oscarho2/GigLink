@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
@@ -8,14 +8,11 @@ import Link from '@mui/material/Link';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import CardMedia from '@mui/material/CardMedia';
-import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import WorkIcon from '@mui/icons-material/Work';
 import GroupIcon from '@mui/icons-material/Group';
-import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import googleAuthService from '../utils/googleAuth';
 import { useAuth } from '../context/AuthContext';
 
@@ -24,7 +21,14 @@ const Home = () => {
   const [error, setError] = useState('');
   const [showError, setShowError] = useState(false);
   const navigate = useNavigate();
-  const { loginWithToken } = useAuth();
+  const { loginWithToken, isAuthenticated, loading } = useAuth();
+
+  // Redirect to community page if user is already logged in
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate('/community');
+    }
+  }, [isAuthenticated, loading, navigate]);
 
   // Handle Google OAuth sign-in
   const handleGoogleSignIn = async () => {
