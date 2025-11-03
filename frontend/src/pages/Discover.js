@@ -106,6 +106,10 @@ const getPrimaryLocationText = (option) => {
 
 // Memoized MusicianCard component for better performance
 const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
+  const computedLinkStatus = linkStatus ?? 'loading';
+  const isLoadingStatus = computedLinkStatus === 'loading';
+  const isLinkedStatus = computedLinkStatus === 'linked';
+
   const handleCardClick = () => {
     if (user) {
       window.location.href = `/profile/${musician.user._id}`;
@@ -285,38 +289,50 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
       <CardActions sx={{ p: 2, pt: 0 }}>
         {user && user.id !== musician.user._id && (
           <Button
-            variant={linkStatus === 'linked' ? 'outlined' : 'contained'}
+            variant={isLinkedStatus ? 'outlined' : 'contained'}
             fullWidth
             startIcon={
-              linkStatus === 'pending' ? <HourglassEmptyIcon /> :
-              linkStatus === 'linked' ? <PersonRemoveIcon /> :
-              linkStatus === 'received' ? <PersonAddIcon /> :
+              isLoadingStatus ? <CircularProgress size={18} color="inherit" /> :
+              computedLinkStatus === 'pending' ? <HourglassEmptyIcon /> :
+              computedLinkStatus === 'linked' ? <PersonRemoveIcon /> :
+              computedLinkStatus === 'received' ? <PersonAddIcon /> :
               <PersonAddIcon />
             }
             sx={{
-              bgcolor: linkStatus === 'linked' ? 'transparent' : '#1a365d',
+              bgcolor: isLinkedStatus ? 'transparent' : '#1a365d',
               borderColor: '#1a365d',
-              color: linkStatus === 'linked' ? '#1a365d' : 'white',
+              color: isLinkedStatus ? '#1a365d' : 'white',
               '&:hover': {
-                bgcolor: linkStatus === 'linked' ? 'rgba(26, 54, 93, 0.04)' : '#2c5282',
+                bgcolor: isLinkedStatus ? 'rgba(26, 54, 93, 0.04)' : '#2c5282',
+                borderColor: '#1a365d'
+              },
+              '&.Mui-disabled': {
+                bgcolor: 'rgba(26, 54, 93, 0.08)',
+                color: '#1a365d',
                 borderColor: '#1a365d'
               }
             }}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              if (linkStatus === 'pending') {
+              if (isLoadingStatus) {
+                return;
+              }
+
+              if (computedLinkStatus === 'pending') {
                 onLinkAction('cancel', musician.user._id, musician.user.name);
-              } else if (linkStatus === 'linked') {
+              } else if (computedLinkStatus === 'linked') {
                 onLinkAction('remove', musician.user._id, musician.user.name);
               } else {
                 onLinkAction('request', musician.user._id, musician.user.name);
               }
             }}
+            disabled={isLoadingStatus}
           >
-            {linkStatus === 'pending' ? 'Cancel Request' :
-             linkStatus === 'linked' ? 'Linked' :
-             linkStatus === 'received' ? 'Accept Request' :
+            {isLoadingStatus ? 'Checking...' :
+             computedLinkStatus === 'pending' ? 'Cancel Request' :
+             computedLinkStatus === 'linked' ? 'Linked' :
+             computedLinkStatus === 'received' ? 'Accept Request' :
              'Add Link'}
           </Button>
         )}
@@ -1602,7 +1618,11 @@ const Discover = () => {
                 <MusicianCard 
                   musician={musician} 
                   user={user} 
-                  linkStatus={linkStatuses[musician.user._id] || 'none'}
+                  linkStatus={
+                    Object.prototype.hasOwnProperty.call(linkStatuses, musician.user._id)
+                      ? linkStatuses[musician.user._id]
+                      : 'loading'
+                  }
                   onLinkAction={handleLinkAction}
                 />
               </Grid>

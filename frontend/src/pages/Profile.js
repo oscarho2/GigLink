@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton } from '@mui/material';
+import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, CircularProgress } from '@mui/material';
 import { Link as RouterLink, useParams, useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
 import ChatIcon from '@mui/icons-material/Chat';
@@ -25,7 +25,7 @@ const Profile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
-  const [linkStatus, setLinkStatus] = useState(null); // 'none', 'pending', 'links', 'received'
+  const [linkStatus, setLinkStatus] = useState('loading'); // 'loading', 'none', 'pending', 'links', 'received'
   const [linkId, setLinkId] = useState(null);
   const [userRole, setUserRole] = useState(null); // 'requester' or 'recipient'
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -125,25 +125,29 @@ const Profile = () => {
   // Check link status when viewing another user's profile
   useEffect(() => {
     const checkLinkStatus = async () => {
-      if (!user || !id || isOwnProfile) return;
+      if (!user || !id || isOwnProfile) {
+        setLinkStatus('none');
+        return;
+      }
+
+      setLinkStatus('loading');
       
       try {
         const response = await axios.get(`/api/links/status/${id}`, {
           headers: { 'x-auth-token': token }
         });
         const { status, linkId: responseLink, role } = response.data;
-        setLinkStatus(status);
         setLinkId(responseLink);
         setUserRole(role);
-        
-        // Map backend status to frontend status
+
+        let mappedStatus = 'none';
         if (status === 'pending') {
-          setLinkStatus(role === 'requester' ? 'pending' : 'received');
+          mappedStatus = role === 'requester' ? 'pending' : 'received';
         } else if (status === 'accepted') {
-          setLinkStatus('links');
-        } else {
-          setLinkStatus('none');
+          mappedStatus = 'links';
         }
+
+        setLinkStatus(mappedStatus);
       } catch (err) {
         console.error('Error checking link status:', err);
         setLinkStatus('none');
@@ -331,6 +335,28 @@ const Profile = () => {
     if (!user || !id) return null;
 
     switch (linkStatus) {
+      case 'loading':
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1, justifyContent: 'center' }}>
+            <Button
+              variant="outlined"
+              startIcon={<CircularProgress size={18} color="inherit" />}
+              disabled
+              sx={{
+                minHeight: { xs: 40, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                px: { xs: 2, sm: 1.5 },
+                '&.Mui-disabled': {
+                  bgcolor: 'rgba(26, 54, 93, 0.08)',
+                  color: '#1a365d',
+                  borderColor: '#1a365d'
+                }
+              }}
+            >
+              Checking...
+            </Button>
+          </Box>
+        );
       case 'links':
         return (
           <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1, justifyContent: 'center' }}>
