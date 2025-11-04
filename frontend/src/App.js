@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import { ThemeProvider, createTheme, styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
+import GlobalStyles from '@mui/material/GlobalStyles';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { SocketProvider } from './context/SocketContext';
@@ -182,11 +183,27 @@ function App() {
         <SocketProvider>
           <NotificationProvider>
             <ThemeProvider theme={theme}>
-            <CssBaseline />
-            <Router>
-              <ScrollToTop />
-              <AppContent />
-            </Router>
+              <CssBaseline />
+              <GlobalStyles 
+                styles={(theme) => ({
+                  '*': {
+                    WebkitTapHighlightColor: 'transparent'
+                  },
+                  body: {
+                    WebkitTapHighlightColor: 'transparent'
+                  },
+                  '.MuiCard-root': {
+                    transition: 'background-color 0s ease'
+                  },
+                  '.MuiCard-root:active, .MuiCard-root:focus, .MuiCard-root.Mui-focusVisible': {
+                    backgroundColor: theme.palette.background.paper
+                  }
+                })}
+              />
+              <Router>
+                <ScrollToTop />
+                <AppContent />
+              </Router>
             </ThemeProvider>
           </NotificationProvider>
         </SocketProvider>

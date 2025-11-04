@@ -69,7 +69,7 @@ linkSchema.statics.getLinks = function(userId) {
       { requester: userId, status: 'accepted' },
       { recipient: userId, status: 'accepted' }
     ]
-  }).populate('requester recipient', 'name email avatar');
+  }).populate('requester recipient', 'name email avatar bio instruments profilePicture');
 };
 
 linkSchema.statics.getPendingRequests = function(userId) {

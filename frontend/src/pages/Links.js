@@ -10,7 +10,6 @@ import {
   ListItemAvatar,
   ListItemText,
   ListItemSecondaryAction,
-  Avatar,
   IconButton,
   Divider,
   Alert,
@@ -32,6 +31,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import UserAvatar from '../components/UserAvatar';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -66,6 +66,23 @@ const LinksPage = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuForLinkId, setMenuForLinkId] = useState(null);
+
+  const getEntityId = (entity) => {
+    if (!entity) {
+      return null;
+    }
+    if (typeof entity === 'string') {
+      return entity;
+    }
+    return entity._id || entity.id || null;
+  };
+
+  const navigateToProfile = (target) => {
+    const profileId = getEntityId(target);
+    if (profileId) {
+      navigate(`/profile/${profileId}`);
+    }
+  };
 
   const openMenu = (event, linkId) => {
     setMenuAnchor(event.currentTarget);
@@ -359,21 +376,19 @@ const LinksPage = () => {
               ) : (
                 <List sx={{ bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                   {searchResults.map((user) => {
-                    // Check if user is already linked or has pending request
-                    const isLinked = links.some(link => link.link.id === user._id);
-                    const hasPendingRequest = sentRequests.some(req => req.recipient._id === user._id || req.recipient.id === user._id);
-                    const hasIncomingRequest = pendingRequests.some(req => req.requester._id === user._id || req.requester.id === user._id);
+                    const searchUserId = getEntityId(user);
+                    const isLinked = links.some(link => getEntityId(link.link) === searchUserId);
+                    const hasPendingRequest = sentRequests.some(req => getEntityId(req.recipient) === searchUserId);
+                    const hasIncomingRequest = pendingRequests.some(req => getEntityId(req.requester) === searchUserId);
                     
                     return (
-                      <ListItem key={user._id}>
+                      <ListItem key={searchUserId || user._id || user.id || user.email || user.name}>
                         <ListItemAvatar>
-                          <Avatar 
-                            src={user.avatar}
-                            sx={{ cursor: 'pointer' }}
-                            onClick={() => navigate(`/profile/${user._id}`)}
-                          >
-                            {user.name.charAt(0).toUpperCase()}
-                          </Avatar>
+                          <UserAvatar
+                            user={user}
+                            size={48}
+                            onClick={() => navigateToProfile(user)}
+                          />
                         </ListItemAvatar>
                         <ListItemText
                           primary={
@@ -386,7 +401,7 @@ const LinksPage = () => {
                                   color: 'primary.dark'
                                 }
                               }}
-                              onClick={() => navigate(`/profile/${user._id}`)}
+                              onClick={() => navigateToProfile(user)}
                             >
                               {user.name}
                             </Typography>
@@ -421,7 +436,11 @@ const LinksPage = () => {
                             </Button>
                           ) : (
                             <Button
-                              onClick={() => sendLinkRequest(user._id)}
+                              onClick={() => {
+                                if (searchUserId) {
+                                  sendLinkRequest(searchUserId);
+                                }
+                              }}
                               color="primary"
                               size="small"
                               startIcon={<PersonAddIcon />}
@@ -447,39 +466,40 @@ const LinksPage = () => {
             </Typography>
           ) : (
             <List>
-              {links.map((linkData) => (
-                <ListItem key={linkData.linkId}>
-                  <ListItemAvatar>
-                    <Avatar 
-                       src={linkData.link.avatar}
-                       sx={{ cursor: 'pointer' }}
-                       onClick={() => navigate(`/profile/${linkData.link._id}`)}
-                     >
-                      {linkData.link.name.charAt(0).toUpperCase()}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Typography
-                        component="span"
-                        sx={{
-                          cursor: 'pointer',
-                          color: 'primary.main',
-                        }}
-                        onClick={() => navigate(`/profile/${linkData.link.id}`)}
-                      >
-                        {linkData.link.name}
-                      </Typography>
-                    }
-                    secondary={`Connected ${new Date(linkData.connectedAt).toLocaleDateString()}`}
-                  />
-                  <ListItemSecondaryAction>
-                    <IconButton edge="end" onClick={(e) => openMenu(e, linkData.linkId)}>
-                      <MoreVertIcon />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              ))}
+              {links.map((linkData) => {
+                const linkedUser = linkData.link;
+                const linkedUserId = getEntityId(linkedUser);
+                return (
+                  <ListItem key={linkData.linkId || linkedUserId || linkedUser?.email || linkedUser?.name}>
+                    <ListItemAvatar>
+                      <UserAvatar
+                        user={linkedUser}
+                        size={48}
+                        onClick={() => navigateToProfile(linkedUser)}
+                      />
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography
+                          component="span"
+                          sx={{
+                            cursor: 'pointer',
+                            color: 'primary.main',
+                          }}
+                          onClick={() => navigateToProfile(linkedUser)}
+                        >
+                          {linkedUser?.name}
+                        </Typography>
+                      }
+                    />
+                    <ListItemSecondaryAction>
+                      <IconButton edge="end" onClick={(e) => openMenu(e, linkData.linkId)}>
+                        <MoreVertIcon />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                );
+              })}
             </List>
           )}
         </TabPanel>
@@ -492,63 +512,65 @@ const LinksPage = () => {
             </Typography>
           ) : (
             <List>
-              {pendingRequests.map((request) => (
-                <ListItem key={request.linkId}>
-                  <ListItemAvatar>
-                    <Avatar 
-                       src={request.requester.avatar}
-                       sx={{ cursor: 'pointer' }}
-                       onClick={() => navigate(`/profile/${request.requester._id}`)}
-                     >
-                      {request.requester.name.charAt(0).toUpperCase()}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Typography
-                        component="span"
-                        sx={{
-                          cursor: 'pointer',
-                          color: 'primary.main',
-                          '&:hover': {
-                            color: 'primary.dark'
-                          }
-                        }}
-                        onClick={() => navigate(`/profile/${request.requester._id || request.requester.id}`)}
-                      >
-                        {request.requester.name}
-                      </Typography>
-                    }
-                    secondary={
-                      <>
-                        {request.note && (
-                          <Typography variant="body2" color="text.secondary">
-                            "{request.note}"
-                          </Typography>
-                        )}
-                        <Typography variant="caption" color="text.secondary">
-                          {new Date(request.requestedAt).toLocaleDateString()}
+              {pendingRequests.map((request) => {
+                const requester = request.requester;
+                const requesterId = getEntityId(requester);
+                return (
+                  <ListItem key={request.linkId || requesterId || requester?.email || requester?.name}>
+                    <ListItemAvatar>
+                      <UserAvatar
+                        user={requester}
+                        size={48}
+                        onClick={() => navigateToProfile(requester)}
+                      />
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography
+                          component="span"
+                          sx={{
+                            cursor: 'pointer',
+                            color: 'primary.main',
+                            '&:hover': {
+                              color: 'primary.dark'
+                            }
+                          }}
+                          onClick={() => navigateToProfile(requester)}
+                        >
+                          {requester?.name}
                         </Typography>
-                      </>
-                    }
-                  />
-                  <ListItemSecondaryAction>
-                    <IconButton
-                      onClick={() => acceptFriendRequest(request.linkId)}
-                      color="success"
-                      sx={{ mr: 1 }}
-                    >
-                      <CheckIcon />
-                    </IconButton>
-                    <IconButton
-                      onClick={() => declineLinkRequest(request.linkId)}
-                      color="error"
-                    >
-                      <CloseIcon />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              ))}
+                      }
+                      secondary={
+                        <>
+                          {request.note && (
+                            <Typography variant="body2" color="text.secondary">
+                              "{request.note}"
+                            </Typography>
+                          )}
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(request.requestedAt).toLocaleDateString()}
+                          </Typography>
+                        </>
+                      }
+                    />
+                    <ListItemSecondaryAction>
+                      <IconButton
+                        onClick={() => acceptFriendRequest(request.linkId)}
+                        color="success"
+                        sx={{ mr: 1 }}
+                      >
+                        <CheckIcon />
+                      </IconButton>
+                      <IconButton
+                        onClick={() => declineLinkRequest(request.linkId)}
+                        color="error"
+                      >
+                        <CloseIcon />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                );
+              })}
             </List>
           )}
         </TabPanel>
@@ -561,57 +583,59 @@ const LinksPage = () => {
             </Typography>
           ) : (
             <List>
-              {sentRequests.map((request) => (
-                <ListItem key={request.linkId}>
-                  <ListItemAvatar>
-                    <Avatar 
-                       src={request.recipient.avatar}
-                       sx={{ cursor: 'pointer' }}
-                       onClick={() => navigate(`/profile/${request.recipient._id}`)}
-                     >
-                      {request.recipient.name.charAt(0).toUpperCase()}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Typography
-                        component="span"
-                        sx={{
-                          cursor: 'pointer',
-                          color: 'primary.main',
-                          '&:hover': {
-                            color: 'primary.dark'
-                          }
-                        }}
-                        onClick={() => navigate(`/profile/${request.recipient._id || request.recipient.id}`)}
-                      >
-                        {request.recipient.name}
-                      </Typography>
-                    }
-                    secondary={
-                      <>
-                        {request.note && (
-                          <Typography variant="body2" color="text.secondary">
-                            "{request.note}"
-                          </Typography>
-                        )}
-                        <Typography variant="caption" color="text.secondary">
-                          Sent {new Date(request.requestedAt).toLocaleDateString()}
+              {sentRequests.map((request) => {
+                const recipient = request.recipient;
+                const recipientId = getEntityId(recipient);
+                return (
+                  <ListItem key={request.linkId || recipientId || recipient?.email || recipient?.name}>
+                    <ListItemAvatar>
+                      <UserAvatar
+                        user={recipient}
+                        size={48}
+                        onClick={() => navigateToProfile(recipient)}
+                      />
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography
+                          component="span"
+                          sx={{
+                            cursor: 'pointer',
+                            color: 'primary.main',
+                            '&:hover': {
+                              color: 'primary.dark'
+                            }
+                          }}
+                          onClick={() => navigateToProfile(recipient)}
+                        >
+                          {recipient?.name}
                         </Typography>
-                      </>
-                    }
-                  />
-                  <ListItemSecondaryAction>
-                    <Button
-                      onClick={() => cancelRequest(request.linkId)}
-                      color="error"
-                      size="small"
-                    >
-                      Cancel
-                    </Button>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              ))}
+                      }
+                      secondary={
+                        <>
+                          {request.note && (
+                            <Typography variant="body2" color="text.secondary">
+                              "{request.note}"
+                            </Typography>
+                          )}
+                          <Typography variant="caption" color="text.secondary">
+                            Sent {new Date(request.requestedAt).toLocaleDateString()}
+                          </Typography>
+                        </>
+                      }
+                    />
+                    <ListItemSecondaryAction>
+                      <Button
+                        onClick={() => cancelRequest(request.linkId)}
+                        color="error"
+                        size="small"
+                      >
+                        Cancel
+                      </Button>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                );
+              })}
             </List>
           )}
         </TabPanel>

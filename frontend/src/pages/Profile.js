@@ -602,7 +602,7 @@ const Profile = () => {
                 </Button>
                 <Button
                   component={RouterLink}
-                  to={`/user/${id || user._id || user.id}/links`}
+                  to={isOwnProfile ? '/links' : `/user/${id || user._id || user.id}/links`}
                   variant="outlined"
                   startIcon={<PeopleIcon />}
                   sx={{
@@ -619,7 +619,7 @@ const Profile = () => {
                 {renderLinkButton()}
                 <Button
                   component={RouterLink}
-                  to={`/user/${id || user._id || user.id}/links`}
+                  to={isOwnProfile ? '/links' : `/user/${id || user._id || user.id}/links`}
                   variant="outlined"
                   startIcon={<PeopleIcon />}
                   sx={{

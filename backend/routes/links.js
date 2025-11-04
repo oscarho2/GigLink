@@ -487,26 +487,32 @@ router.get('/user/:userId', auth, async (req, res) => {
     const links = await Link.getLinks(userId);
 
     // Format the response to include both users in each link
+    const formatLinkUser = (userDoc) => {
+      if (!userDoc) {
+        return null;
+      }
+
+      const avatar = userDoc.avatar || userDoc.profilePicture || '';
+
+      return {
+        _id: userDoc._id,
+        name: userDoc.name,
+        email: userDoc.email,
+        avatar,
+        profilePicture: userDoc.profilePicture || avatar || '',
+        bio: userDoc.bio,
+        instruments: userDoc.instruments
+      };
+    };
+
     const formattedLinks = links.map(link => ({
       _id: link._id,
-      requester: {
-        _id: link.requester._id,
-        name: link.requester.name,
-        profilePicture: link.requester.profilePicture,
-        bio: link.requester.bio,
-        instruments: link.requester.instruments
-      },
-      recipient: {
-        _id: link.recipient._id,
-        name: link.recipient.name,
-        profilePicture: link.recipient.profilePicture,
-        bio: link.recipient.bio,
-        instruments: link.recipient.instruments
-      },
+      requester: formatLinkUser(link.requester),
+      recipient: formatLinkUser(link.recipient),
       status: link.status,
       createdAt: link.createdAt,
       respondedAt: link.respondedAt
-    }));
+    })).filter(link => link.requester && link.recipient);
 
     res.json(formattedLinks);
   } catch (error) {

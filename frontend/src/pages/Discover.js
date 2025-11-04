@@ -121,6 +121,7 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
   return (
     <Card 
       sx={{ 
+        backgroundColor: (theme) => theme.palette.background.paper,
         height: '100%',
         display: 'flex', 
         flexDirection: 'column',
@@ -128,6 +129,18 @@ const MusicianCard = memo(({ musician, user, linkStatus, onLinkAction }) => {
         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
         transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
         cursor: 'pointer',
+        WebkitTapHighlightColor: 'rgba(0,0,0,0)',
+        touchAction: 'manipulation',
+        '& *': {
+          WebkitTapHighlightColor: 'rgba(0,0,0,0)'
+        },
+        '&:focus, &:focus-visible': {
+          outline: 'none',
+          backgroundColor: (theme) => theme.palette.background.paper
+        },
+        '&:active': {
+          backgroundColor: (theme) => theme.palette.background.paper
+        },
         '&:hover': {
           transform: { xs: 'none', sm: 'translateY(-4px)' },
           boxShadow: { xs: '0 4px 12px rgba(0,0,0,0.1)', sm: '0 12px 20px rgba(0,0,0,0.15)' }

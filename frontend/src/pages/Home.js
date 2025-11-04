@@ -13,6 +13,7 @@ import Snackbar from '@mui/material/Snackbar';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import WorkIcon from '@mui/icons-material/Work';
 import GroupIcon from '@mui/icons-material/Group';
+import LoadingSpinner from '../components/LoadingSpinner';
 import googleAuthService from '../utils/googleAuth';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,13 +27,26 @@ const Home = () => {
   // Redirect to community page if user is already logged in
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      navigate('/community');
+      // Use replace instead of navigate to avoid adding to history
+      navigate('/community', { replace: true });
     }
   }, [isAuthenticated, loading, navigate]);
 
-  // Don't render the home page if we're still loading auth or if user is authenticated
-  if (loading || isAuthenticated) {
-    return null; // or a loading spinner if preferred
+  // Show loading spinner while checking authentication
+  if (loading) {
+    return (
+      <LoadingSpinner 
+        type="spinner" 
+        size="large" 
+        text="Loading..." 
+        fullScreen={false}
+      />
+    );
+  }
+
+  // Don't render anything if user is authenticated (redirect is happening)
+  if (isAuthenticated) {
+    return null;
   }
 
   // Handle Google OAuth sign-in
