@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Post = require('../models/Post');
+const PostReport = require('../models/PostReport');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { createNotification } = require('./notifications');
@@ -745,6 +746,70 @@ router.delete('/:postId/comments/:commentId/replies/:replyId', auth, async (req,
   } catch (error) {
     console.error('Error deleting reply:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/posts/:postId/report
+// @desc    Report a post for review
+// @access  Private
+router.post('/:postId/report', auth, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+    const allowedReasons = PostReport.REPORT_REASONS || [];
+
+    const rawReason = typeof req.body.reason === 'string' ? req.body.reason : '';
+    const normalizedReason = rawReason
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '_');
+
+    if (!normalizedReason || !allowedReasons.includes(normalizedReason)) {
+      return res.status(400).json({ message: 'Invalid report reason' });
+    }
+
+    const details = typeof req.body.details === 'string'
+      ? req.body.details.trim().slice(0, 1000)
+      : '';
+
+    const post = await Post.findById(postId).select('author');
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    if (post.author && post.author.toString() === userId) {
+      return res.status(400).json({ message: 'You cannot report your own post' });
+    }
+
+    const now = new Date();
+
+    const report = await PostReport.findOneAndUpdate(
+      { post: postId, reporter: userId },
+      {
+        $set: {
+          reason: normalizedReason,
+          details,
+          status: 'pending',
+          updatedAt: now
+        },
+        $setOnInsert: {
+          post: postId,
+          reporter: userId,
+          createdAt: now
+        }
+      },
+      { new: true, upsert: true, runValidators: true }
+    )
+      .populate('post', 'content author')
+      .populate('reporter', 'name email');
+
+    res.status(200).json({
+      message: 'Thanks for letting us know. Our team will review this post shortly.',
+      report
+    });
+  } catch (error) {
+    console.error('Error reporting post:', error);
+    res.status(500).json({ message: 'Failed to submit report' });
   }
 });
 

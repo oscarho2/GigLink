@@ -47,6 +47,7 @@ import {
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
   MoreVert as MoreVertIcon,
+  ReportProblemOutlined as ReportProblemOutlinedIcon,
   Reply as ReplyIcon,
   PushPin as PushPinIcon,
   Close as CloseIcon,
@@ -91,6 +92,16 @@ const toAbsoluteUrl = (relativePath) => {
   return convertR2PublicUrlToProxy(absolute);
 };
 
+const REPORT_REASON_OPTIONS = [
+  { value: 'spam', label: 'Spam or misleading' },
+  { value: 'harassment', label: 'Harassment or bullying' },
+  { value: 'hate_speech', label: 'Hate speech or symbols' },
+  { value: 'inappropriate', label: 'Sexual or inappropriate content' },
+  { value: 'misinformation', label: 'Misinformation or fake news' },
+  { value: 'self_harm', label: 'Self harm or suicide content' },
+  { value: 'other', label: 'Other' }
+];
+
 const Community = () => {
   const { user, token } = useAuth();
   const isAdmin = Boolean(user?.isAdmin);
@@ -121,6 +132,11 @@ const Community = () => {
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [postMenuAnchor, setPostMenuAnchor] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [postToReport, setPostToReport] = useState(null);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportReason, setReportReason] = useState(REPORT_REASON_OPTIONS[0].value);
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
   const [commentLikes, setCommentLikes] = useState({});
   const [replyTexts, setReplyTexts] = useState({});
   const [commentMenuAnchor, setCommentMenuAnchor] = useState(null);
@@ -519,6 +535,61 @@ const Community = () => {
     setPostToDelete(selectedPost._id);
     setDeleteDialogOpen(true);
     handlePostMenuClose();
+  };
+
+  const handleReportClick = () => {
+    if (!selectedPost) return;
+    setPostToReport(selectedPost);
+    setReportReason(prev => prev || REPORT_REASON_OPTIONS[0].value);
+    setReportDetails('');
+    setReportDialogOpen(true);
+    handlePostMenuClose();
+  };
+
+  const handleReportDialogClose = () => {
+    setReportDialogOpen(false);
+    setReportSubmitting(false);
+    setPostToReport(null);
+    setReportDetails('');
+    setReportReason(REPORT_REASON_OPTIONS[0].value);
+  };
+
+  const handleReportSubmit = async () => {
+    if (!postToReport?._id || !reportReason) {
+      return;
+    }
+
+    setReportSubmitting(true);
+
+    try {
+      const response = await fetch(`/api/posts/${postToReport._id}/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-auth-token': token
+        },
+        body: JSON.stringify({
+          reason: reportReason,
+          details: reportDetails
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok) {
+        toast.success(data.message || 'Report submitted');
+        handleReportDialogClose();
+      } else if (response.status === 400) {
+        toast.error(data.message || 'Unable to submit report');
+      } else {
+        toast.error(data.message || 'Failed to submit report');
+      }
+    } catch (error) {
+      console.error('Error reporting post:', error);
+      toast.error('Failed to submit report');
+    } finally {
+      setReportSubmitting(false);
+    }
   };
 
   const handleTogglePinPost = async () => {
@@ -1772,7 +1843,7 @@ const Community = () => {
                   </Typography>
                 }
                 action={
-                  canManagePost ? (
+                  user ? (
                     <IconButton
                       onClick={(event) => handlePostMenuClick(event, post)}
                       sx={{
@@ -2222,10 +2293,21 @@ const Community = () => {
             {selectedPost.pinned ? 'Unpin Post' : 'Pin Post'}
           </MenuItem>
         )}
-        <MenuItem onClick={handleDeleteClick}>
-          <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
-          Delete Post
-        </MenuItem>
+        {selectedPost && (isPostAuthor(selectedPost) || isAdmin) && (
+          <MenuItem onClick={handleDeleteClick}>
+            <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
+            Delete Post
+          </MenuItem>
+        )}
+        {selectedPost && (isPostAuthor(selectedPost) || isAdmin) && !isPostAuthor(selectedPost) && (
+          <Divider sx={{ my: 0.5 }} />
+        )}
+        {selectedPost && !isPostAuthor(selectedPost) && (
+          <MenuItem onClick={handleReportClick}>
+            <ReportProblemOutlinedIcon sx={{ mr: 1, color: '#dd6b20' }} />
+            Report Post
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Comment Menu */}
@@ -2409,6 +2491,66 @@ const Community = () => {
             </Box>
           )}
         </DialogContent>
+      </Dialog>
+
+      {/* Report Post Dialog */}
+      <Dialog
+        open={reportDialogOpen}
+        onClose={(_, reason) => {
+          if (reportSubmitting && (reason === 'backdropClick' || reason === 'escapeKeyDown')) {
+            return;
+          }
+          handleReportDialogClose();
+        }}
+        fullWidth
+        maxWidth="sm"
+        disableEscapeKeyDown={reportSubmitting}
+      >
+        <DialogTitle>Report Post</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Let us know why this post is inappropriate. Reports are anonymous, and our moderation team reviews them as quickly as possible.
+          </Typography>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="report-reason-label">Reason</InputLabel>
+            <Select
+              labelId="report-reason-label"
+              value={reportReason}
+              label="Reason"
+              onChange={(event) => setReportReason(event.target.value)}
+              disabled={reportSubmitting}
+            >
+              {REPORT_REASON_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            label="Additional details (optional)"
+            fullWidth
+            multiline
+            minRows={3}
+            value={reportDetails}
+            onChange={(event) => setReportDetails(event.target.value.slice(0, 1000))}
+            placeholder="Provide any context that will help our team review this content."
+            disabled={reportSubmitting}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleReportDialogClose} disabled={reportSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleReportSubmit}
+            variant="contained"
+            color="error"
+            disabled={reportSubmitting || !reportReason}
+          >
+            {reportSubmitting ? 'Submitting...' : 'Submit Report'}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
