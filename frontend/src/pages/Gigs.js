@@ -13,6 +13,7 @@ import {
   Chip,
   TextField,
   MenuItem,
+  Menu,
   Select,
   FormControl,
   InputLabel,
@@ -20,7 +21,11 @@ import {
   CardActions,
   Avatar,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { CircularProgress } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -43,6 +48,10 @@ import SearchIcon from '@mui/icons-material/Search';
 import { instrumentOptions, genreOptions } from '../constants/musicOptions';
 import UserAvatar from '../components/UserAvatar';
 import EmailVerificationBanner from '../components/EmailVerificationBanner';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { toast } from 'react-toastify';
 
 // Define pulse animation
 const pulse = keyframes`
@@ -409,6 +418,16 @@ const filterCountryOptionsByQuery = (options = [], query = '') => {
   });
 };
 
+const REPORT_REASON_OPTIONS = [
+  { value: 'spam', label: 'Spam or misleading' },
+  { value: 'harassment', label: 'Harassment or bullying' },
+  { value: 'hate_speech', label: 'Hate speech or symbols' },
+  { value: 'inappropriate', label: 'Sexual or inappropriate content' },
+  { value: 'misinformation', label: 'Misinformation or fake news' },
+  { value: 'self_harm', label: 'Self harm or suicide content' },
+  { value: 'other', label: 'Other' }
+];
+
 const Gigs = () => {
   const { isAuthenticated, user, token } = useAuth();
   const navigate = useNavigate();
@@ -443,17 +462,39 @@ const Gigs = () => {
   const locAbortRef = useRef(null);
   const defaultLocationAppliedRef = useRef(false);
   const prevUserIdRef = useRef(null);
+  const [gigMenuAnchor, setGigMenuAnchor] = useState(null);
+  const [selectedGig, setSelectedGig] = useState(null);
+  const gigMenuCloseTimerRef = useRef(null);
+  const [gigToReport, setGigToReport] = useState(null);
+  const [gigReportDialogOpen, setGigReportDialogOpen] = useState(false);
+  const [gigReportReason, setGigReportReason] = useState(REPORT_REASON_OPTIONS[0]?.value ?? '');
+  const [gigReportDetails, setGigReportDetails] = useState('');
+  const [gigReportSubmitting, setGigReportSubmitting] = useState(false);
+  const [gigToDelete, setGigToDelete] = useState(null);
+  const [gigDeleteDialogOpen, setGigDeleteDialogOpen] = useState(false);
+  const [gigDeleteSubmitting, setGigDeleteSubmitting] = useState(false);
+  const clearGigMenuCloseTimer = useCallback(() => {
+    if (gigMenuCloseTimerRef.current) {
+      clearTimeout(gigMenuCloseTimerRef.current);
+      gigMenuCloseTimerRef.current = null;
+    }
+  }, []);
 
-
+  useEffect(() => {
+    return () => {
+      clearGigMenuCloseTimer();
+    };
+  }, [clearGigMenuCloseTimer]);
 
   // Helpers
+  const isAdmin = Boolean(user?.isAdmin);
   const getApplicantCount = (gig) => (gig?.applicantCount ?? (Array.isArray(gig?.applicants) ? gig.applicants.length : 0));
   const isGigOwner = (gig) => {
     const currentUserId = (user?.id || user?._id)?.toString();
     const gigUserId = (typeof gig?.user === 'object' && gig?.user !== null)
       ? ((gig.user._id || gig.user.id || gig.user)?.toString())
       : gig?.user?.toString();
-    return !!(currentUserId && gigUserId && currentUserId === gigUserId);
+    return !!(currentUserId && gigUserId && (currentUserId === gigUserId || isAdmin));
   };
 
   const applyDefaultCountry = useCallback((countryName) => {
@@ -856,6 +897,132 @@ const Gigs = () => {
     });
     setLocInput('');
     setLocOptions([]);
+  };
+
+  const handleGigMenuClick = (event, gig) => {
+    if (event && typeof event.preventDefault === 'function') {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    clearGigMenuCloseTimer();
+    setGigMenuAnchor(event.currentTarget);
+    setSelectedGig(gig);
+  };
+
+  const handleGigMenuClose = () => {
+    setGigMenuAnchor(null);
+    clearGigMenuCloseTimer();
+    gigMenuCloseTimerRef.current = setTimeout(() => {
+      setSelectedGig(null);
+      gigMenuCloseTimerRef.current = null;
+    }, 150);
+  };
+
+  const handleGigReportClick = () => {
+    if (!selectedGig) return;
+    setGigToReport(selectedGig);
+    setGigReportReason(REPORT_REASON_OPTIONS[0]?.value ?? '');
+    setGigReportDetails('');
+    setGigReportDialogOpen(true);
+    handleGigMenuClose();
+  };
+
+  const handleGigDeleteClick = () => {
+    if (!selectedGig) return;
+    setGigToDelete(selectedGig);
+    setGigDeleteDialogOpen(true);
+    handleGigMenuClose();
+  };
+
+  const handleGigReportDialogClose = () => {
+    setGigReportDialogOpen(false);
+    setGigReportSubmitting(false);
+    setGigToReport(null);
+    setGigReportDetails('');
+    setGigReportReason(REPORT_REASON_OPTIONS[0]?.value ?? '');
+  };
+
+  const handleGigReportSubmit = async () => {
+    if (!gigToReport?._id || !gigReportReason) {
+      return;
+    }
+
+    if (!token) {
+      toast.error('Please log in to report gigs');
+      return;
+    }
+
+    setGigReportSubmitting(true);
+
+    try {
+      const response = await fetch(`/api/gigs/${gigToReport._id}/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-auth-token': token
+        },
+        body: JSON.stringify({
+          reason: gigReportReason,
+          details: gigReportDetails
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok) {
+        toast.success(data.message || 'Report submitted');
+        handleGigReportDialogClose();
+      } else if (response.status === 400) {
+        toast.error(data.message || 'Unable to submit report');
+      } else {
+        toast.error(data.message || 'Failed to submit report');
+      }
+    } catch (error) {
+      console.error('Error reporting gig:', error);
+      toast.error('Failed to submit report');
+    } finally {
+      setGigReportSubmitting(false);
+    }
+  };
+
+  const handleGigDeleteDialogClose = () => {
+    setGigDeleteDialogOpen(false);
+    setGigDeleteSubmitting(false);
+    setGigToDelete(null);
+  };
+
+  const handleGigDeleteSubmit = async () => {
+    if (!gigToDelete?._id) {
+      return;
+    }
+
+    setGigDeleteSubmitting(true);
+
+    try {
+      const response = await fetch(`/api/gigs/${gigToDelete._id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-auth-token': token
+        }
+      });
+
+      if (response.ok) {
+        toast.success('Gig deleted successfully');
+        setGigs(prev => prev.filter(gig => gig._id !== gigToDelete._id));
+        handleGigDeleteDialogClose();
+      } else if (response.status === 401 || response.status === 403) {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.message || 'Not authorized to delete this gig');
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.message || 'Failed to delete gig');
+      }
+    } catch (error) {
+      console.error('Error deleting gig:', error);
+      toast.error('Failed to delete gig');
+    } finally {
+      setGigDeleteSubmitting(false);
+    }
   };
 
   return (
@@ -1661,9 +1828,26 @@ const Gigs = () => {
                 >
                   {gig.title}
                 </Typography>
-                {gig.isFilled && (
-                  <Chip size="small" label="FIXED" color="default" sx={{ bgcolor: 'grey.200' }} />
-                )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {gig.isFilled && (
+                    <Chip size="small" label="FIXED" color="default" sx={{ bgcolor: 'grey.200' }} />
+                  )}
+                  {isAuthenticated && (
+                    <IconButton
+                      size="small"
+                      aria-label="Gig actions"
+                      onClick={(event) => handleGigMenuClick(event, gig)}
+                      sx={{
+                        color: 'white',
+                        '&:hover': {
+                          bgcolor: 'rgba(255, 255, 255, 0.12)'
+                        }
+                      }}
+                    >
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
               </Box>
               <CardContent sx={{ 
                 flexGrow: 1, 
@@ -1794,7 +1978,7 @@ const Gigs = () => {
 
                 {/* Instruments (left) and Genres (right) */}
                 <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 0.75, sm: 1 } }}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={6} sm={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, columnGap: 1, rowGap: 0.5 }}>
                       <Typography variant="subtitle1" fontWeight="medium" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, mb: 0, mr: 1 }}>
                         Instruments:
@@ -1804,7 +1988,7 @@ const Gigs = () => {
                       ))}
                     </Box>
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={6} sm={6}>
                     <Typography variant="subtitle1" fontWeight="medium" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, mb: { xs: 0.75, sm: 1 } }}>
                       Genres:
                     </Typography>
@@ -1894,6 +2078,135 @@ const Gigs = () => {
           </Grid>
         )}
         </Grid>
+        {/* Gig Menu */}
+        <Menu
+          anchorEl={gigMenuAnchor}
+          open={Boolean(gigMenuAnchor)}
+          onClose={handleGigMenuClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+        >
+          {selectedGig ? (
+            <>
+              {isGigOwner(selectedGig) && (
+                <MenuItem onClick={handleGigDeleteClick}>
+                  <DeleteIcon sx={{ mr: 1, color: '#e53e3e' }} />
+                  Delete Gig
+                </MenuItem>
+              )}
+              {!isGigOwner(selectedGig) && (
+                <MenuItem onClick={handleGigReportClick}>
+                  <ReportProblemOutlinedIcon sx={{ mr: 1, color: '#dd6b20' }} />
+                  Report Gig
+                </MenuItem>
+              )}
+            </>
+          ) : (
+            <MenuItem disabled>
+              No actions available
+            </MenuItem>
+          )}
+        </Menu>
+
+        {/* Report Gig Dialog */}
+        <Dialog
+          open={gigReportDialogOpen}
+          onClose={(_, reason) => {
+            if (gigReportSubmitting && (reason === 'backdropClick' || reason === 'escapeKeyDown')) {
+              return;
+            }
+            handleGigReportDialogClose();
+          }}
+          fullWidth
+          maxWidth="sm"
+          disableEscapeKeyDown={gigReportSubmitting}
+        >
+          <DialogTitle>Report Gig</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Let us know why this gig is inappropriate. Reports are anonymous, and our moderation team reviews them as quickly as possible.
+            </Typography>
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel id="gig-report-reason-label">Reason</InputLabel>
+              <Select
+                labelId="gig-report-reason-label"
+                value={gigReportReason}
+                label="Reason"
+                onChange={(event) => setGigReportReason(event.target.value)}
+                disabled={gigReportSubmitting}
+              >
+                {REPORT_REASON_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Additional details (optional)"
+              fullWidth
+              multiline
+              minRows={3}
+              value={gigReportDetails}
+              onChange={(event) => setGigReportDetails(event.target.value.slice(0, 1000))}
+              placeholder="Share any context that will help our team review this gig."
+              disabled={gigReportSubmitting}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleGigReportDialogClose} disabled={gigReportSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleGigReportSubmit}
+              variant="contained"
+              color="error"
+              disabled={gigReportSubmitting || !gigReportReason}
+            >
+              {gigReportSubmitting ? 'Submitting...' : 'Submit Report'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={gigDeleteDialogOpen}
+          onClose={(_, reason) => {
+            if (gigDeleteSubmitting && (reason === 'backdropClick' || reason === 'escapeKeyDown')) {
+              return;
+            }
+            handleGigDeleteDialogClose();
+          }}
+          fullWidth
+          maxWidth="xs"
+          disableEscapeKeyDown={gigDeleteSubmitting}
+        >
+          <DialogTitle>Delete Gig</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary">
+              This will remove the gig for everyone. You can’t undo this action.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleGigDeleteDialogClose} disabled={gigDeleteSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleGigDeleteSubmit}
+              variant="contained"
+              color="error"
+              disabled={gigDeleteSubmitting}
+            >
+              {gigDeleteSubmitting ? 'Deleting...' : 'Delete Gig'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
         {/* Infinite scroll sentinel + spinner */}
         <Box ref={sentinelRef} sx={{ height: 1 }} />
         {loadingMore && (

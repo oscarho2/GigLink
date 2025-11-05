@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Gig = require('../models/Gig');
+const GigReport = require('../models/GigReport');
 const User = require('../models/User');
 const Message = require('../models/Message');
 const { createNotification } = require('./notifications');
@@ -1567,6 +1568,70 @@ router.post('/:id/undo/:applicantId', auth, async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/gigs/:gigId/report
+// @desc    Report a gig for review
+// @access  Private
+router.post('/:gigId/report', auth, async (req, res) => {
+  try {
+    const { gigId } = req.params;
+    const userId = req.user.id;
+
+    const allowedReasons = GigReport.REPORT_REASONS || [];
+    const rawReason = typeof req.body.reason === 'string' ? req.body.reason : '';
+    const normalizedReason = rawReason
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '_');
+
+    if (!normalizedReason || !allowedReasons.includes(normalizedReason)) {
+      return res.status(400).json({ message: 'Invalid report reason' });
+    }
+
+    const details = typeof req.body.details === 'string'
+      ? req.body.details.trim().slice(0, 1000)
+      : '';
+
+    const gig = await Gig.findById(gigId).select('user title');
+    if (!gig) {
+      return res.status(404).json({ message: 'Gig not found' });
+    }
+
+    if (gig.user && gig.user.toString() === userId) {
+      return res.status(400).json({ message: 'You cannot report your own gig' });
+    }
+
+    const now = new Date();
+
+    const report = await GigReport.findOneAndUpdate(
+      { gig: gigId, reporter: userId },
+      {
+        $set: {
+          reason: normalizedReason,
+          details,
+          status: 'pending',
+          updatedAt: now
+        },
+        $setOnInsert: {
+          gig: gigId,
+          reporter: userId,
+          createdAt: now
+        }
+      },
+      { new: true, upsert: true, runValidators: true }
+    )
+      .populate('gig', 'title user')
+      .populate('reporter', 'name email');
+
+    res.status(200).json({
+      message: 'Thanks for letting us know. Our team will review this gig shortly.',
+      report
+    });
+  } catch (error) {
+    console.error('Error reporting gig:', error);
+    res.status(500).json({ message: 'Failed to submit report' });
   }
 });
 

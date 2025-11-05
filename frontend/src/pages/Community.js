@@ -150,6 +150,20 @@ const Community = () => {
   const [mediaModal, setMediaModal] = useState({ open: false, mediaUrl: '', caption: '', currentIndex: 0, mediaType: 'image', postMedia: [] });
   const [imageDimensions, setImageDimensions] = useState({});
   const replyInputRef = useRef(null);
+  const postMenuCloseTimerRef = useRef(null);
+
+  const clearPostMenuCloseTimer = useCallback(() => {
+    if (postMenuCloseTimerRef.current) {
+      clearTimeout(postMenuCloseTimerRef.current);
+      postMenuCloseTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearPostMenuCloseTimer();
+    };
+  }, [clearPostMenuCloseTimer]);
 
   const sortPostsByPin = useCallback((list = []) => {
     return [...list].sort((a, b) => {
@@ -521,13 +535,18 @@ const Community = () => {
   };
 
   const handlePostMenuClick = (event, post) => {
+    clearPostMenuCloseTimer();
     setPostMenuAnchor(event.currentTarget);
     setSelectedPost(post);
   };
 
   const handlePostMenuClose = () => {
     setPostMenuAnchor(null);
-    setSelectedPost(null);
+    clearPostMenuCloseTimer();
+    postMenuCloseTimerRef.current = setTimeout(() => {
+      setSelectedPost(null);
+      postMenuCloseTimerRef.current = null;
+    }, 150);
   };
 
   const handleDeleteClick = () => {

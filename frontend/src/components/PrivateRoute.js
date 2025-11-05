@@ -9,7 +9,7 @@ const PrivateRoute = ({ children }) => {
   
   if (loading) {
     console.log('PrivateRoute - Still loading authentication...');
-    return <div>Loading...</div>;
+    return null;
   }
   
   if (!isAuthenticated) {

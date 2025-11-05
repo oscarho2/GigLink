@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, Paper, Grid, Avatar, Chip, Button, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, CircularProgress } from '@mui/material';
+import { Container, Typography, Box, Paper, Grid, Chip, Button, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, CircularProgress, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
 import { Link as RouterLink, useParams, useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
 import ChatIcon from '@mui/icons-material/Chat';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
@@ -12,6 +11,8 @@ import PeopleIcon from '@mui/icons-material/People';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import BlockIcon from '@mui/icons-material/Block';
 
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from '../components/UserAvatar';
@@ -31,6 +32,8 @@ const Profile = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, action: null, message: '' });
   const [mediaModal, setMediaModal] = useState({ open: false, mediaUrl: '', caption: '', currentIndex: 0, mediaType: 'photo', videoId: '' });
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+  const isMenuOpen = Boolean(menuAnchorEl);
 
   // Helper function to extract YouTube video ID from URL
   const getYouTubeVideoId = (url) => {
@@ -145,6 +148,8 @@ const Profile = () => {
           mappedStatus = role === 'requester' ? 'pending' : 'received';
         } else if (status === 'accepted') {
           mappedStatus = 'links';
+        } else if (status === 'blocked') {
+          mappedStatus = 'blocked';
         }
 
         setLinkStatus(mappedStatus);
@@ -331,6 +336,96 @@ const Profile = () => {
     });
   };
 
+  const promptBlockUser = () => {
+    if (!user || !token) {
+      setSnackbar({
+        open: true,
+        message: 'Please log in to block users',
+        severity: 'error'
+      });
+      return;
+    }
+
+    setConfirmDialog({
+      open: true,
+      action: 'blockUser',
+      message: `Block ${profile?.name || 'this user'}? They will not be able to contact you.`
+    });
+  };
+
+  const promptUnblockUser = () => {
+    setConfirmDialog({
+      open: true,
+      action: 'unblockUser',
+      message: `Unblock ${profile?.name || 'this user'}? They will be able to interact with you again.`
+    });
+  };
+
+  const handleMenuOpen = (event) => {
+    setMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+  };
+
+  const handleBlockUserClick = () => {
+    handleMenuClose();
+    promptBlockUser();
+  };
+
+  const handleUnblockUserClick = () => {
+    handleMenuClose();
+    promptUnblockUser();
+  };
+
+  const executeBlockUser = async () => {
+    if (!id) {
+      setSnackbar({ open: true, message: 'User ID not found', severity: 'error' });
+      return;
+    }
+
+    try {
+      const response = await axios.put(
+        `/api/links/block/user/${id}`,
+        {},
+        {
+          headers: { 'x-auth-token': token }
+        }
+      );
+      const newLinkId = response?.data?.linkId || response?.data?.link?._id || null;
+      if (newLinkId) {
+        setLinkId(newLinkId);
+      }
+      setLinkStatus('blocked');
+      setSnackbar({ open: true, message: `${profile?.name || 'User'} blocked`, severity: 'success' });
+    } catch (err) {
+      console.error('Error blocking user:', err);
+      const errorMessage = err?.response?.data?.message || 'Failed to block user';
+      setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+    }
+  };
+
+  const executeUnblockUser = async () => {
+    if (!id) {
+      setSnackbar({ open: true, message: 'User ID not found', severity: 'error' });
+      return;
+    }
+
+    try {
+      await axios.delete(`/api/links/block/user/${id}`, {
+        headers: { 'x-auth-token': token }
+      });
+      setLinkId(null);
+      setLinkStatus('none');
+      setSnackbar({ open: true, message: `${profile?.name || 'User'} unblocked`, severity: 'success' });
+    } catch (err) {
+      console.error('Error unblocking user:', err);
+      const errorMessage = err?.response?.data?.message || 'Failed to unblock user';
+      setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+    }
+  };
+
   const renderLinkButton = () => {
     if (!user || !id) return null;
 
@@ -459,6 +554,24 @@ const Profile = () => {
             </Button>
           </Box>
         );
+      case 'blocked':
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'center' }}>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<BlockIcon />}
+              onClick={promptUnblockUser}
+              sx={{
+                minHeight: { xs: 40, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '0.8125rem' },
+                px: { xs: 2, sm: 1.5 }
+              }}
+            >
+              Unblock
+            </Button>
+          </Box>
+        );
       case 'none':
       default:
         return (
@@ -512,6 +625,12 @@ const Profile = () => {
     );
   }
 
+  const isBlocked = linkStatus === 'blocked';
+  const menuActionDisabled = !user || isOwnProfile || linkStatus === 'loading';
+  const menuActionHandler = isBlocked ? handleUnblockUserClick : handleBlockUserClick;
+  const menuActionLabel = isBlocked ? 'Unblock user' : 'Block user';
+  const menuIconColor = menuActionDisabled ? 'disabled' : (isBlocked ? 'primary' : 'error');
+
   return (
     <Container 
       maxWidth="md" 
@@ -526,9 +645,41 @@ const Profile = () => {
           p: { xs: 1.5, sm: 2, md: 3 }, 
           mb: { xs: 3, sm: 4 },
           overflow: 'visible',
+          position: 'relative',
           pb: { xs: 1, sm: 1.25, md: 1.5 }
         }}
       >
+        {!isOwnProfile && user && profile && (
+          <IconButton
+            aria-label="Profile actions"
+            onClick={handleMenuOpen}
+            sx={{
+              position: 'absolute',
+              top: { xs: 6, sm: 10 },
+              right: { xs: 6, sm: 10 }
+            }}
+          >
+            <MoreVertIcon />
+          </IconButton>
+        )}
+        <Menu
+          anchorEl={menuAnchorEl}
+          open={isMenuOpen}
+          onClose={handleMenuClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <MenuItem
+            onClick={menuActionHandler}
+            disabled={menuActionDisabled}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              <BlockIcon color={menuIconColor} fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary={menuActionLabel} />
+          </MenuItem>
+        </Menu>
+
         <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
           <Grid 
             item 
@@ -946,6 +1097,10 @@ const Profile = () => {
                 executeRemoveLink();
               } else if (confirmDialog.action === 'cancelRequest') {
                 executeCancelRequest();
+              } else if (confirmDialog.action === 'blockUser') {
+                executeBlockUser();
+              } else if (confirmDialog.action === 'unblockUser') {
+                executeUnblockUser();
               }
               setConfirmDialog({ open: false, action: null, message: '' });
             }} 

@@ -161,7 +161,88 @@ router.delete('/:linkId', auth, async (req, res) => {
   }
 });
 
-// Block user
+// Block user by user ID (auto-create or update link)
+router.put('/block/user/:targetUserId', auth, async (req, res) => {
+  try {
+    const { targetUserId } = req.params;
+    const userId = req.user.id;
+
+    if (userId === targetUserId) {
+      return res.status(400).json({ message: 'Cannot block yourself' });
+    }
+
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    let link = await Link.findLink(userId, targetUserId);
+
+    if (!link) {
+      link = new Link({
+        requester: userId,
+        recipient: targetUserId,
+        status: 'blocked',
+        respondedAt: new Date()
+      });
+      await link.save();
+    } else {
+      // Update existing link to blocked regardless of the initiator
+      link.status = 'blocked';
+      link.respondedAt = new Date();
+      await link.save();
+    }
+
+    await link.populate('requester recipient', 'name email avatar');
+
+    res.json({
+      message: 'User blocked successfully',
+      linkId: link._id,
+      link
+    });
+  } catch (error) {
+    console.error('Error blocking user by ID:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Unblock user by user ID (remove block link)
+router.delete('/block/user/:targetUserId', auth, async (req, res) => {
+  try {
+    const { targetUserId } = req.params;
+    const userId = req.user.id;
+
+    if (userId === targetUserId) {
+      return res.status(400).json({ message: 'Cannot unblock yourself' });
+    }
+
+    const link = await Link.findLink(userId, targetUserId);
+
+    if (!link) {
+      return res.json({ message: 'User already unblocked', linkId: null });
+    }
+
+    if (link.requester.toString() !== userId && link.recipient.toString() !== userId) {
+      return res.status(403).json({ message: 'Not authorized to unblock this user' });
+    }
+
+    if (link.status !== 'blocked') {
+      return res.json({ message: 'User already unblocked', linkId: link._id });
+    }
+
+    await Link.findByIdAndDelete(link._id);
+
+    res.json({
+      message: 'User unblocked successfully',
+      linkId: null
+    });
+  } catch (error) {
+    console.error('Error unblocking user by ID:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Block user by existing link ID
 router.put('/block/:linkId', auth, async (req, res) => {
   try {
     const { linkId } = req.params;
@@ -182,10 +263,41 @@ router.put('/block/:linkId', auth, async (req, res) => {
 
     res.json({
       message: 'User blocked successfully',
-      link: link
+      link
     });
   } catch (error) {
     console.error('Error blocking user:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Unblock user by existing link ID
+router.delete('/block/:linkId', auth, async (req, res) => {
+  try {
+    const { linkId } = req.params;
+    const userId = req.user.id;
+
+    const link = await Link.findById(linkId);
+    if (!link) {
+      return res.json({ message: 'User already unblocked', linkId: null });
+    }
+
+    if (link.requester.toString() !== userId && link.recipient.toString() !== userId) {
+      return res.status(403).json({ message: 'Not authorized to unblock this user' });
+    }
+
+    if (link.status !== 'blocked') {
+      return res.json({ message: 'User already unblocked', linkId });
+    }
+
+    await Link.findByIdAndDelete(linkId);
+
+    res.json({
+      message: 'User unblocked successfully',
+      linkId: null
+    });
+  } catch (error) {
+    console.error('Error unblocking user:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
