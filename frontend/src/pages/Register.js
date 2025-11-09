@@ -20,8 +20,10 @@ import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Radio from '@mui/material/Radio';
 import Divider from '@mui/material/Divider';
+import AppleIcon from '@mui/icons-material/Apple';
 import AuthContext from '../context/AuthContext';
 import googleAuthService from '../utils/googleAuth';
+import appleAuthService from '../utils/appleAuth';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { isTurnstileDisabled, TURNSTILE_DEV_BYPASS_TOKEN } from '../utils/turnstileFlags';
 import useViewportHeight from '../hooks/useViewportHeight';
@@ -41,6 +43,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState(TURNSTILE_DISABLED ? TURNSTILE_DEV_BYPASS_TOKEN : '');
   const { register, isAuthenticated, loginWithToken } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -76,6 +79,38 @@ const Register = () => {
       setError('An error occurred during Google sign-in');
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    try {
+      setIsAppleLoading(true);
+      setError(null);
+
+      const result = await appleAuthService.signInWithApple();
+      if (result.cancelled) {
+        return;
+      }
+
+      if (result.success && result.token) {
+        const loginOk = loginWithToken(result.token, result.user);
+        if (!loginOk) {
+          setError('Failed to establish session from Apple token');
+          return;
+        }
+        if (result.user.profileComplete) {
+          navigate('/dashboard');
+        } else {
+          navigate('/profile-setup');
+        }
+      } else {
+        setError(result.error || 'Apple sign-in failed');
+      }
+    } catch (error) {
+      console.error('Apple sign-in error:', error);
+      setError(error.message || 'An error occurred during Apple sign-in');
+    } finally {
+      setIsAppleLoading(false);
     }
   };
 
@@ -398,6 +433,31 @@ const Register = () => {
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
                 {'Continue with Google'}
+              </Box>
+            </Button>
+
+          <Button
+             fullWidth
+             variant="contained"
+             onClick={handleAppleSignIn}
+             disabled={isAppleLoading}
+             sx={{ 
+               mb: { xs: 1, sm: 1 },
+               minHeight: { xs: 48, sm: 42 },
+               fontSize: { xs: '1rem', sm: '0.875rem' },
+               fontWeight: 600,
+               borderRadius: { xs: 2, sm: 1 },
+               py: { xs: 1.5, sm: 1 },
+               bgcolor: '#000',
+               color: '#fff',
+               '&:hover': {
+                 bgcolor: '#111'
+               }
+             }}
+           >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <AppleIcon sx={{ fontSize: 22, mr: 1 }} />
+                {'Continue with Apple'}
               </Box>
             </Button>
            

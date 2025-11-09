@@ -20,6 +20,11 @@ const UserSchema = new mongoose.Schema({
     unique: true,
     sparse: true // Allows multiple null values
   },
+  appleId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
   avatar: {
     type: String
   },

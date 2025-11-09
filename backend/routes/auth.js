@@ -13,6 +13,10 @@ const { getPublicUrl } = require('../utils/r2Config');
 const { sendPasswordResetEmail } = require('../utils/emailService');
 const { isAdminEmail } = require('../utils/adminAuth');
 const path = require('path');
+const {
+  verifyIdToken: verifyAppleIdToken,
+  exchangeAuthorizationCode: exchangeAppleAuthorizationCode
+} = require('../utils/appleAuth');
 
 // Initialize Google OAuth client
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -307,6 +311,184 @@ router.post('/google', async (req, res) => {
     
     res.status(500).json({ 
       message: 'Server error during Google authentication',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
+    });
+  }
+});
+
+// @route   POST api/auth/apple
+// @desc    Authenticate user with Apple Sign-In
+// @access  Public
+router.post('/apple', async (req, res) => {
+  try {
+    const requestBody = req.body || {};
+    const {
+      authorizationCode,
+      idToken,
+      email: providedEmail,
+      fullName
+    } = requestBody;
+    const rawUserInfo = requestBody.user || {};
+
+    if (!authorizationCode && !idToken) {
+      return res.status(400).json({ message: 'Apple authorization code or identity token is required' });
+    }
+
+    let tokenExchangeResponse = null;
+    if (authorizationCode) {
+      try {
+        tokenExchangeResponse = await exchangeAppleAuthorizationCode(authorizationCode);
+      } catch (exchangeError) {
+        console.error('Apple authorization code exchange failed:', exchangeError?.response?.data || exchangeError.message);
+        return res.status(400).json({ message: 'Invalid or expired Apple authorization code' });
+      }
+    }
+
+    const identityToken = idToken || tokenExchangeResponse?.id_token;
+    if (!identityToken) {
+      return res.status(400).json({ message: 'Unable to verify Apple identity token' });
+    }
+
+    let applePayload;
+    try {
+      applePayload = await verifyAppleIdToken(identityToken);
+    } catch (verificationError) {
+      console.error('Apple identity token verification failed:', verificationError.message);
+      return res.status(400).json({ message: 'Apple identity token verification failed' });
+    }
+
+    const appleId = applePayload?.sub;
+    if (!appleId) {
+      return res.status(400).json({ message: 'Apple identity token is missing subject identifier' });
+    }
+
+    const normalizedEmail = (applePayload.email || providedEmail || '').toLowerCase().trim();
+    const emailVerificationFieldPresent = Object.prototype.hasOwnProperty.call(applePayload, 'email_verified');
+    const isAppleEmailVerified = applePayload.email_verified === 'true' || applePayload.email_verified === true;
+    const shouldMarkEmailVerified = isAppleEmailVerified || !emailVerificationFieldPresent;
+
+    const nameFromApplePayload = (() => {
+      if (typeof fullName === 'string' && fullName.trim()) {
+        return fullName.trim();
+      }
+      const userName = rawUserInfo.name || {};
+      const firstName = userName.firstName || userName.givenName || '';
+      const lastName = userName.lastName || userName.familyName || '';
+      const combined = `${firstName} ${lastName}`.trim();
+      return combined || (normalizedEmail ? normalizedEmail.split('@')[0] : 'Apple User');
+    })();
+
+    const userLookupConditions = [{ appleId }];
+    if (normalizedEmail) {
+      userLookupConditions.push({ email: normalizedEmail });
+    }
+
+    let user = await User.findOne({ $or: userLookupConditions });
+    const generatedPassword = crypto.randomBytes(32).toString('hex');
+
+    if (user) {
+      let updated = false;
+
+      if (!user.appleId) {
+        user.appleId = appleId;
+        updated = true;
+      }
+
+      if (normalizedEmail && user.email !== normalizedEmail) {
+        // If the account was created with a different email (e.g. Google), do not overwrite unless empty
+        if (!user.email) {
+          user.email = normalizedEmail;
+          updated = true;
+        }
+      }
+
+      if (!user.isEmailVerified && shouldMarkEmailVerified) {
+        user.isEmailVerified = true;
+        updated = true;
+      }
+
+      if (!user.name && nameFromApplePayload) {
+        user.name = nameFromApplePayload;
+        updated = true;
+      }
+
+      if (updated) {
+        await user.save();
+      }
+    } else {
+      if (!normalizedEmail) {
+        return res.status(400).json({
+          message: 'Apple did not return an email address for this account. Please allow email sharing or use another sign-in method.'
+        });
+      }
+
+      user = new User({
+        name: nameFromApplePayload,
+        email: normalizedEmail,
+        appleId,
+        password: generatedPassword,
+        isEmailVerified: shouldMarkEmailVerified
+      });
+
+      await user.save();
+    }
+
+    if (user.accountStatus === 'suspended') {
+      return res.status(403).json({ message: 'Account suspended. Please contact support for assistance.' });
+    }
+
+    let profile = await Profile.findOne({ user: user._id });
+    if (!profile) {
+      try {
+        profile = await Profile.create({
+          user: user._id,
+          skills: [],
+          videos: []
+        });
+      } catch (profileError) {
+        console.error('Failed to create default profile for Apple user:', profileError);
+      }
+    }
+    const profileComplete = !!profile;
+
+    const isAdmin = isAdminEmail(user.email);
+    const tokenPayload = {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isEmailVerified: user.isEmailVerified,
+        isAdmin
+      }
+    };
+
+    jwt.sign(
+      tokenPayload,
+      process.env.JWT_SECRET,
+      (err, token) => {
+        if (err) {
+          console.error('Error generating JWT for Apple sign-in:', err);
+          return res.status(500).json({ message: 'Error generating token' });
+        }
+
+        res.json({
+          token,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            avatar: getPublicUrl(user.avatar),
+            isEmailVerified: user.isEmailVerified,
+            isAdmin,
+            profileComplete
+          }
+        });
+      }
+    );
+  } catch (error) {
+    console.error('Apple sign-in error:', error);
+    res.status(500).json({
+      message: 'Server error during Apple authentication',
       ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }
