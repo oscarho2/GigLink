@@ -24,9 +24,11 @@
   "start_url": "./",
   "scope": "./",
   "display_override": [
-    "standalone"
+    "fullscreen",
+    "standalone",
+    "minimal-ui"
   ],
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "portrait",
   "theme_color": "#0b1726",
   "background_color": "#0b1726",

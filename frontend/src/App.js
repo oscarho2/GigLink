@@ -95,6 +95,8 @@ const AppContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   minHeight: '100vh',
+  backgroundColor: theme.palette.background.default,
+  paddingTop: 'env(safe-area-inset-top, 0px)',
   '@supports (min-height: 100dvh)': {
     minHeight: '100dvh'
   }
@@ -190,7 +192,15 @@ function App() {
                     WebkitTapHighlightColor: 'transparent'
                   },
                   body: {
-                    WebkitTapHighlightColor: 'transparent'
+                    WebkitTapHighlightColor: 'transparent',
+                    margin: 0,
+                    minHeight: '100vh',
+                    backgroundColor: theme.palette.background.default,
+                    color: theme.palette.text.primary
+                  },
+                  '#root': {
+                    minHeight: '100vh',
+                    backgroundColor: theme.palette.background.default
                   },
                   '.MuiCard-root': {
                     transition: 'background-color 0s ease'
