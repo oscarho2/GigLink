@@ -6,6 +6,7 @@ const auth = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const { parseMentions, getMentionedUserIds } = require('../utils/mentionUtils');
 const { upload, getPublicUrl } = require('../utils/r2Config');
+const { assertCleanContent } = require('../utils/moderation');
 
 // R2 upload configuration is handled in r2Config.js
 
@@ -216,10 +217,14 @@ router.post('/send', auth, async (req, res) => {
     
     const conversationId = Message.generateConversationId(senderId, recipientId);
     
+    const moderatedContent = content
+      ? assertCleanContent(content, { context: 'direct_message', userId: senderId })
+      : '';
+
     // Parse mentions from message content
     let mentionData = { content: '', parsedContent: '', mentions: [] };
-    if (content && content.trim()) {
-      mentionData = await parseMentions(content.trim());
+    if (moderatedContent && moderatedContent.trim()) {
+      mentionData = await parseMentions(moderatedContent.trim());
     }
     
     const message = new Message({

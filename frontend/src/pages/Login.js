@@ -74,11 +74,17 @@ const Login = () => {
   };
 
   const handleAppleSignIn = async () => {
+    let shouldResetLoading = true;
     try {
       setIsAppleLoading(true);
       setError(null);
 
       const result = await appleAuthService.signInWithApple();
+      if (result.redirecting) {
+        shouldResetLoading = false;
+        return;
+      }
+
       if (result.cancelled) {
         return;
       }
@@ -101,7 +107,9 @@ const Login = () => {
       console.error('Apple sign-in error:', error);
       setError(error.message || 'An error occurred during Apple sign-in');
     } finally {
-      setIsAppleLoading(false);
+      if (shouldResetLoading) {
+        setIsAppleLoading(false);
+      }
     }
   };
 

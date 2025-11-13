@@ -173,6 +173,19 @@ const PostSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  moderationStatus: {
+    type: String,
+    enum: ['visible', 'needs_review', 'blocked'],
+    default: 'visible'
+  },
+  moderationReason: {
+    type: String,
+    default: ''
+  },
+  flaggedAt: {
+    type: Date,
+    default: null
   }
 });
 
@@ -191,6 +204,7 @@ PostSchema.index({ createdAt: -1 });
 PostSchema.index({ 'likes.user': 1 });
 PostSchema.index({ 'comments.user': 1 });
 PostSchema.index({ pinned: -1, pinnedAt: -1, createdAt: -1 });
+PostSchema.index({ moderationStatus: 1, createdAt: -1 });
 
 // Static method to get posts with populated author and comment users
 PostSchema.statics.getPostsWithDetails = async function(limit = 20, skip = 0, filter = {}) {

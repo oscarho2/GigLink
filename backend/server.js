@@ -27,6 +27,7 @@ const venuesRoutes = require('./routes/venues');
 const contactRoutes = require('./routes/contact');
 const locationRoutes = require('./routes/locations');
 const mediaRoutes = require('./routes/media');
+const moderationRoutes = require('./routes/moderation');
 const { getStorageConfig } = require('./utils/r2Config');
 const {
   migrateLocalUploadsToR2,
@@ -109,6 +110,7 @@ app.use('/api/venues', venuesRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/moderation', moderationRoutes);
 
 // DB Health endpoint
 app.get('/api/health/db', async (req, res) => {

@@ -28,6 +28,7 @@ const EmailVerification = lazy(() => import('./pages/EmailVerification'));
 const ExpiredVerification = lazy(() => import('./pages/ExpiredVerification'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const AppleCallback = lazy(() => import('./pages/AppleCallback'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Profile = lazy(() => import('./pages/Profile'));
 const LinksPage = lazy(() => import('./pages/Links'));
@@ -136,6 +137,7 @@ const AppContent = () => {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/apple/callback" element={<AppleCallback />} />
             <Route path="/verify-email/:token" element={<EmailVerification />} />
             <Route path="/email-verification" element={<EmailVerification />} />
             <Route path="/expired-verification" element={<ExpiredVerification />} />

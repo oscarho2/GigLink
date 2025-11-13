@@ -20,6 +20,26 @@ const getApplePrivateKey = () => {
   return rawKey.replace(/\\n/g, '\n');
 };
 
+const getAppleClientIds = () => {
+  const clientIds = [getRequiredEnv('APPLE_CLIENT_ID')];
+
+  const iosBundleId = process.env.APPLE_IOS_BUNDLE_ID || process.env.APPLE_IOS_CLIENT_ID;
+  if (iosBundleId && typeof iosBundleId === 'string') {
+    clientIds.push(iosBundleId.trim());
+  }
+
+  const additionalIdsEnv = process.env.APPLE_ADDITIONAL_CLIENT_IDS;
+  if (additionalIdsEnv && typeof additionalIdsEnv === 'string') {
+    additionalIdsEnv
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .forEach((id) => clientIds.push(id));
+  }
+
+  return Array.from(new Set(clientIds.filter(Boolean)));
+};
+
 const generateClientSecret = () => {
   const teamId = getRequiredEnv('APPLE_TEAM_ID');
   const clientId = getRequiredEnv('APPLE_CLIENT_ID');
@@ -78,11 +98,11 @@ const verifyIdToken = async (idToken) => {
   }
 
   const pemKey = buildPemFromJwk(jwk);
-  const clientId = getRequiredEnv('APPLE_CLIENT_ID');
+  const allowedAudiences = getAppleClientIds();
 
   return jwt.verify(idToken, pemKey, {
     algorithms: ['RS256'],
-    audience: clientId,
+    audience: allowedAudiences,
     issuer: 'https://appleid.apple.com'
   });
 };

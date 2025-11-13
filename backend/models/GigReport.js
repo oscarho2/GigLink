@@ -37,6 +37,29 @@ const GigReportSchema = new mongoose.Schema({
     enum: ['pending', 'reviewed'],
     default: 'pending'
   },
+  contentSnapshot: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  },
+  dueAt: {
+    type: Date,
+    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000)
+  },
+  actionTaken: {
+    type: String,
+    enum: ['none', 'hidden', 'removed', 'user_suspended'],
+    default: 'none'
+  },
+  adminNotes: {
+    type: String,
+    trim: true,
+    maxlength: 1000,
+    default: ''
+  },
+  resolvedAt: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -49,10 +72,14 @@ const GigReportSchema = new mongoose.Schema({
 
 GigReportSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
+  if (!this.dueAt) {
+    this.dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  }
   next();
 });
 
 GigReportSchema.index({ gig: 1, reporter: 1 }, { unique: true });
+GigReportSchema.index({ status: 1, dueAt: 1 });
 
 GigReportSchema.statics.REPORT_REASONS = REPORT_REASONS;
 

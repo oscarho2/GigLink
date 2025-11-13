@@ -89,7 +89,22 @@ const GigSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  moderationStatus: {
+    type: String,
+    enum: ['visible', 'needs_review', 'blocked'],
+    default: 'visible'
+  },
+  moderationReason: {
+    type: String,
+    default: ''
+  },
+  flaggedAt: {
+    type: Date,
+    default: null
   }
 });
+
+GigSchema.index({ moderationStatus: 1, date: 1 });
 
 module.exports = mongoose.model('Gig', GigSchema);

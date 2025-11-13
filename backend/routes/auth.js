@@ -325,6 +325,7 @@ router.post('/apple', async (req, res) => {
     const {
       authorizationCode,
       idToken,
+      identityToken: identityTokenFromBody,
       email: providedEmail,
       fullName
     } = requestBody;
@@ -344,14 +345,14 @@ router.post('/apple', async (req, res) => {
       }
     }
 
-    const identityToken = idToken || tokenExchangeResponse?.id_token;
-    if (!identityToken) {
+    const resolvedIdentityToken = idToken || identityTokenFromBody || tokenExchangeResponse?.id_token;
+    if (!resolvedIdentityToken) {
       return res.status(400).json({ message: 'Unable to verify Apple identity token' });
     }
 
     let applePayload;
     try {
-      applePayload = await verifyAppleIdToken(identityToken);
+      applePayload = await verifyAppleIdToken(resolvedIdentityToken);
     } catch (verificationError) {
       console.error('Apple identity token verification failed:', verificationError.message);
       return res.status(400).json({ message: 'Apple identity token verification failed' });

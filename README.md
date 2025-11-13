@@ -47,6 +47,17 @@ npm install
 3. Set up environment variables
 Create `.env` files in both frontend and backend directories with the necessary environment variables.
 
+#### Apple Sign-In configuration
+
+If you support Sign in with Apple on web and native builds, be sure to configure the backend `.env` with:
+
+- `APPLE_CLIENT_ID`: Your Services ID (required for the JavaScript flow and token exchange).
+- `APPLE_IOS_BUNDLE_ID` (or `APPLE_IOS_CLIENT_ID`): The native app bundle identifier so Apple identity tokens issued to the app are accepted.
+- `APPLE_ADDITIONAL_CLIENT_IDS`: Optional comma-separated list for any other allowed audiences/domains.
+- `APPLE_PRIVATE_KEY`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`: Credentials used to mint the client secret Apple requires.
+
+The React app (`frontend/.env`) should keep `REACT_APP_APPLE_CLIENT_ID` aligned with the Services ID.
+
 4. Start the development servers
 ```
 # Start backend server
@@ -80,3 +91,11 @@ giglink/
 ### Android Trusted Web Activity
 
 If you distribute the PWA through the Google Play Store, follow the steps in `docs/trusted-web-activity.md` to configure Digital Asset Links so the Trusted Web Activity launches without the browser address bar.
+
+## Safety & Moderation
+
+- All user-generated text (posts, comments, replies, gigs, gig applications, direct messages) is validated by the backend profanity/CSAE/hate-speech filter before it is accepted.
+- Every gig and community post exposes a built-in “Report” action that feeds `GigReport`/`PostReport`, hides high-severity content immediately, and emails the safety inbox so the team can respond within 24 hours.
+- Administrators can review and action reports through `/api/moderation` endpoints, which support marking content safe, removing it, or suspending an offending account. Critical reports also trigger automatic suspensions.
+
+See `docs/CONTENT_MODERATION.md` for the full workflow and guidance to include in App Review responses.

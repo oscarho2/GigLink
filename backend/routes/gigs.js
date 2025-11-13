@@ -7,6 +7,13 @@ const User = require('../models/User');
 const Message = require('../models/Message');
 const { createNotification } = require('./notifications');
 const { parseLocation } = require('../utils/locationParser');
+const { assertCleanContent, queueModerationAlert } = require('../utils/moderation');
+const {
+  normalizeReason,
+  mapReasonToSeverity,
+  shouldAutoHideContent,
+  shouldAutoSuspendUser
+} = require('../utils/reporting');
 
 const UK_REGION_NAMES = new Set(['england', 'scotland', 'wales', 'northern ireland', 'greater london']);
 const REGION_KEYWORD_REGEX = /( county| state| province| region| territory| prefecture)$/i;
@@ -429,6 +436,13 @@ router.post('/', auth, async (req, res) => {
     }
     if (genres && !Array.isArray(genres)) {
       return res.status(400).json({ msg: 'Genres must be an array.' });
+    }
+
+    payload.title = assertCleanContent(title, { context: 'gig_title', userId: req.user.id });
+    payload.description = assertCleanContent(description, { context: 'gig_description', userId: req.user.id });
+    payload.payment = assertCleanContent(payment, { context: 'gig_payment', userId: req.user.id });
+    if (payload.requirements) {
+      payload.requirements = assertCleanContent(payload.requirements, { context: 'gig_requirements', userId: req.user.id });
     }
 
     payload.location = normalizeLocationInput(payload.location);
@@ -860,6 +874,8 @@ router.get('/', async (req, res) => {
       and.push({ date: dateFilter });
     }
 
+    and.push({ moderationStatus: { $nin: ['blocked', 'needs_review'] } });
+
     const filter = and.length ? { $and: and } : {};
 
     const numericLimit = Math.min(parseInt(limit) || 50, 100);
@@ -1218,10 +1234,12 @@ router.get('/:id', async (req, res) => {
     // Securely provide applicants only to the gig owner
     const token = req.header('x-auth-token');
     let isOwner = false;
+    let requesterIsAdmin = false;
     if (token) {
       try {
         const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        requesterIsAdmin = !!decoded?.user?.isAdmin;
         const ownerId = (gig.user && typeof gig.user === 'object' && gig.user._id)
           ? gig.user._id.toString()
           : (gig.user && typeof gig.user.toString === 'function')
@@ -1233,6 +1251,10 @@ router.get('/:id', async (req, res) => {
       } catch (err) {
         // Invalid token or comparison failure; treat as non-owner
       }
+    }
+
+    if (['blocked', 'needs_review'].includes(gig.moderationStatus) && !isOwner && !requesterIsAdmin) {
+      return res.status(404).json({ msg: 'Gig not found' });
     }
 
     // For non-owners, include only the current user's application status (if any)
@@ -1295,6 +1317,19 @@ router.put('/:id', auth, async (req, res) => {
     // Update gig
     const update = { ...req.body };
 
+    if (update.title) {
+      update.title = assertCleanContent(update.title, { context: 'gig_title', userId: req.user.id });
+    }
+    if (update.description) {
+      update.description = assertCleanContent(update.description, { context: 'gig_description', userId: req.user.id });
+    }
+    if (update.payment) {
+      update.payment = assertCleanContent(update.payment, { context: 'gig_payment', userId: req.user.id });
+    }
+    if (update.requirements) {
+      update.requirements = assertCleanContent(update.requirements, { context: 'gig_requirements', userId: req.user.id });
+    }
+
     if (update.location) {
       update.location = normalizeLocationInput(update.location);
     }
@@ -1322,6 +1357,10 @@ router.delete('/:id', auth, async (req, res) => {
     
     if (!gig) {
       return res.status(404).json({ msg: 'Gig not found' });
+    }
+
+    if (['blocked', 'needs_review'].includes(gig.moderationStatus)) {
+      return res.status(403).json({ msg: 'This gig is temporarily unavailable while it is under safety review.' });
     }
     
     // Check if user owns this gig
@@ -1355,9 +1394,13 @@ router.post('/:id/apply', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Already applied to this gig' });
     }
     
+    const applicationMessage = req.body.message
+      ? assertCleanContent(req.body.message, { context: 'gig_application_message', userId: req.user.id })
+      : '';
+
     gig.applicants.unshift({
       user: req.user.id,
-      message: req.body.message,
+      message: applicationMessage,
       status: 'pending'
     });
     
@@ -1395,7 +1438,7 @@ router.post('/:id/apply', auth, async (req, res) => {
       const appMessage = new Message({
         sender: senderId,
         recipient: recipientId,
-        content: req.body.message || 'Applied for your gig',
+        content: applicationMessage || 'Applied for your gig',
         conversationId,
         messageType: 'gig_application',
         gigApplication: gigApplicationPayload
@@ -1580,11 +1623,7 @@ router.post('/:gigId/report', auth, async (req, res) => {
     const userId = req.user.id;
 
     const allowedReasons = GigReport.REPORT_REASONS || [];
-    const rawReason = typeof req.body.reason === 'string' ? req.body.reason : '';
-    const normalizedReason = rawReason
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '_');
+    const normalizedReason = normalizeReason(req.body.reason);
 
     if (!normalizedReason || !allowedReasons.includes(normalizedReason)) {
       return res.status(400).json({ message: 'Invalid report reason' });
@@ -1594,7 +1633,7 @@ router.post('/:gigId/report', auth, async (req, res) => {
       ? req.body.details.trim().slice(0, 1000)
       : '';
 
-    const gig = await Gig.findById(gigId).select('user title');
+    const gig = await Gig.findById(gigId).select('user title description location payment moderationStatus moderationReason flaggedAt');
     if (!gig) {
       return res.status(404).json({ message: 'Gig not found' });
     }
@@ -1604,6 +1643,13 @@ router.post('/:gigId/report', auth, async (req, res) => {
     }
 
     const now = new Date();
+    const contentSnapshot = {
+      title: gig.title,
+      description: gig.description,
+      location: gig.location,
+      payment: gig.payment,
+      owner: gig.user
+    };
 
     const report = await GigReport.findOneAndUpdate(
       { gig: gigId, reporter: userId },
@@ -1612,7 +1658,8 @@ router.post('/:gigId/report', auth, async (req, res) => {
           reason: normalizedReason,
           details,
           status: 'pending',
-          updatedAt: now
+          updatedAt: now,
+          contentSnapshot
         },
         $setOnInsert: {
           gig: gigId,
@@ -1624,6 +1671,36 @@ router.post('/:gigId/report', auth, async (req, res) => {
     )
       .populate('gig', 'title user')
       .populate('reporter', 'name email');
+
+    const pendingCount = await GigReport.countDocuments({ gig: gigId, status: 'pending' });
+    const shouldHide = shouldAutoHideContent(normalizedReason, pendingCount);
+
+    if (shouldHide && gig.moderationStatus !== 'blocked') {
+      gig.moderationStatus = normalizedReason === 'self_harm' ? 'blocked' : 'needs_review';
+      gig.moderationReason = normalizedReason;
+      gig.flaggedAt = now;
+      await gig.save();
+    }
+
+    if (shouldAutoSuspendUser(normalizedReason, pendingCount)) {
+      await User.findByIdAndUpdate(gig.user, {
+        accountStatus: 'suspended',
+        suspendedAt: now
+      });
+    }
+
+    await queueModerationAlert({
+      severity: mapReasonToSeverity(normalizedReason),
+      reportId: report._id,
+      contentType: 'gig',
+      contentId: gigId,
+      reporter: report.reporter?.name || userId,
+      reporterEmail: report.reporter?.email || req.user.email,
+      reason: normalizedReason,
+      details,
+      snapshot: contentSnapshot,
+      flaggedAt: now.toISOString()
+    });
 
     res.status(200).json({
       message: 'Thanks for letting us know. Our team will review this gig shortly.',

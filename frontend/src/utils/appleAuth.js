@@ -1,5 +1,8 @@
 import axios from 'axios';
 
+const APPLE_STATE_KEY = 'appleAuthState';
+const APPLE_RETURN_PATH_KEY = 'appleAuthReturnPath';
+
 class AppleAuthService {
   constructor() {
     this.scriptPromise = null;
@@ -47,6 +50,121 @@ class AppleAuthService {
     return Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 
+  isIosDevice() {
+    if (typeof navigator === 'undefined') {
+      return false;
+    }
+    const platform = navigator.platform || '';
+    const userAgent = navigator.userAgent || '';
+    const isTouchMac = platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    return /iPad|iPhone|iPod/.test(platform) || /iPad|iPhone|iPod/.test(userAgent) || isTouchMac;
+  }
+
+  isStandalonePWA() {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const matchMediaStandalone = window.matchMedia?.('(display-mode: standalone)')?.matches;
+    const navigatorStandalone = window.navigator?.standalone === true;
+    return Boolean(matchMediaStandalone || navigatorStandalone);
+  }
+
+  shouldUseRedirectFlow() {
+    return this.isIosDevice() && this.isStandalonePWA();
+  }
+
+  getRedirectURI() {
+    if (process.env.REACT_APP_APPLE_REDIRECT_URI) {
+      return process.env.REACT_APP_APPLE_REDIRECT_URI;
+    }
+
+    if (typeof window === 'undefined') {
+      return '';
+    }
+
+    return `${window.location.origin}/apple/callback`;
+  }
+
+  storeRedirectState(state) {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      sessionStorage.setItem(APPLE_STATE_KEY, state);
+      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      sessionStorage.setItem(APPLE_RETURN_PATH_KEY, returnPath);
+    } catch (err) {
+      console.warn('Unable to persist Apple Sign-In state', err);
+    }
+  }
+
+  getStoredState() {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      return sessionStorage.getItem(APPLE_STATE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  getStoredReturnPath() {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      return sessionStorage.getItem(APPLE_RETURN_PATH_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  clearRedirectState() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      sessionStorage.removeItem(APPLE_STATE_KEY);
+      sessionStorage.removeItem(APPLE_RETURN_PATH_KEY);
+    } catch {
+      // Ignore storage cleanup errors
+    }
+  }
+
+  extractFullName(user) {
+    if (!user?.name) {
+      return null;
+    }
+
+    const { firstName, lastName, middleName } = user.name;
+    return [firstName, middleName, lastName].filter(Boolean).join(' ').trim() || null;
+  }
+
+  async sendAuthorizationToBackend({ authorizationCode, idToken, email, fullName, user }) {
+    if (!authorizationCode && !idToken) {
+      throw new Error('Missing Apple authorization data.');
+    }
+
+    const backendResponse = await axios.post('/api/auth/apple', {
+      authorizationCode,
+      idToken,
+      email,
+      fullName,
+      user
+    });
+
+    return {
+      success: true,
+      token: backendResponse.data?.token,
+      user: backendResponse.data?.user
+    };
+  }
+
   async signInWithApple() {
     try {
       const clientId = process.env.REACT_APP_APPLE_CLIENT_ID;
@@ -60,15 +178,23 @@ class AppleAuthService {
         throw new Error('Apple Sign-In could not be initialized');
       }
 
-      const redirectURI = process.env.REACT_APP_APPLE_REDIRECT_URI || window.location.origin;
+      const redirectURI = this.getRedirectURI();
+      const state = this.generateState();
+      const useRedirectFlow = this.shouldUseRedirectFlow();
 
       window.AppleID.auth.init({
         clientId,
         scope: 'name email',
         redirectURI,
-        state: this.generateState(),
-        usePopup: true
+        state,
+        usePopup: !useRedirectFlow
       });
+
+      if (useRedirectFlow) {
+        this.storeRedirectState(state);
+        window.AppleID.auth.signIn();
+        return { success: false, redirecting: true };
+      }
 
       const response = await window.AppleID.auth.signIn();
       const authorization = response?.authorization || {};
@@ -79,25 +205,15 @@ class AppleAuthService {
       }
 
       const email = user.email || null;
-      let fullName = null;
-      if (user.name) {
-        const { firstName, lastName, middleName } = user.name;
-        fullName = [firstName, middleName, lastName].filter(Boolean).join(' ').trim() || null;
-      }
+      const fullName = this.extractFullName(user);
 
-      const backendResponse = await axios.post('/api/auth/apple', {
+      return await this.sendAuthorizationToBackend({
         authorizationCode: authorization.code,
         idToken: authorization.id_token,
         email,
         fullName,
         user
       });
-
-      return {
-        success: true,
-        token: backendResponse.data?.token,
-        user: backendResponse.data?.user
-      };
     } catch (error) {
       if (error?.error === 'popup_closed_by_user') {
         return { success: false, cancelled: true };
@@ -108,6 +224,97 @@ class AppleAuthService {
       }
 
       return { success: false, error: error.message || 'Apple sign-in failed' };
+    }
+  }
+
+  async handleRedirectCallback(searchString = '') {
+    if (typeof window === 'undefined') {
+      return { success: false, error: 'Apple Sign-In is not available.' };
+    }
+
+    const queryString = searchString || window.location.search || '';
+    const params = new URLSearchParams(queryString);
+    const storedReturnPath = this.getStoredReturnPath();
+
+    try {
+      const errorParam = params.get('error');
+      if (errorParam) {
+        const description = params.get('error_description');
+        const isCancelled = errorParam === 'access_denied' || errorParam === 'user_cancelled_authorize';
+        this.clearRedirectState();
+        return {
+          success: false,
+          cancelled: isCancelled,
+          error: description || errorParam,
+          returnPath: storedReturnPath
+        };
+      }
+
+      const code = params.get('code');
+      const idToken = params.get('id_token');
+
+      if (!code && !idToken) {
+        this.clearRedirectState();
+        return {
+          success: false,
+          error: 'Missing Apple authorization response.',
+          returnPath: storedReturnPath
+        };
+      }
+
+      const returnedState = params.get('state');
+      const storedState = this.getStoredState();
+      if (storedState && returnedState && storedState !== returnedState) {
+        this.clearRedirectState();
+        return {
+          success: false,
+          error: 'Apple sign-in validation failed. Please try again.',
+          returnPath: storedReturnPath
+        };
+      }
+
+      let parsedUser = null;
+      const userParam = params.get('user');
+      if (userParam) {
+        try {
+          parsedUser = JSON.parse(userParam);
+        } catch (err) {
+          console.warn('Unable to parse Apple user payload', err);
+        }
+      }
+
+      const email = parsedUser?.email || null;
+      const fullName = this.extractFullName(parsedUser);
+
+      const result = await this.sendAuthorizationToBackend({
+        authorizationCode: code,
+        idToken,
+        email,
+        fullName,
+        user: parsedUser || undefined
+      });
+
+      this.clearRedirectState();
+      return {
+        ...result,
+        returnPath: storedReturnPath
+      };
+    } catch (error) {
+      this.clearRedirectState();
+
+      if (error?.response?.data?.message) {
+        return {
+          success: false,
+          error: error.response.data.message,
+          returnPath: storedReturnPath
+        };
+      }
+
+      return {
+        success: false,
+        error: error.message || 'Apple sign-in failed',
+        returnPath: storedReturnPath
+      };
     }
   }
 }

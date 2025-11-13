@@ -501,11 +501,120 @@ const sendContactEmail = async (contactData) => {
   }
 };
 
+const escapeHtml = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;');
+
+const parseEmailList = (value = '') => {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map(entry => entry.trim())
+    .filter(Boolean);
+};
+
+const buildModerationRecipients = () => {
+  const fromEnv = parseEmailList(process.env.MODERATION_ALERT_EMAILS);
+  if (fromEnv.length > 0) return fromEnv;
+
+  const safety = parseEmailList(process.env.SAFETY_EMAIL);
+  if (safety.length > 0) return safety;
+
+  const adminEmails = parseEmailList(process.env.ADMIN_EMAIL);
+  if (adminEmails.length > 0) return adminEmails;
+
+  return [ADMIN_FALLBACK_EMAIL].filter(Boolean);
+};
+
+const sendModerationAlertEmail = async (payload = {}) => {
+  const recipients = buildModerationRecipients();
+  if (!recipients.length) {
+    return { success: false, skipped: 'no_recipients_configured' };
+  }
+
+  const transporter = await getTransporter();
+  const subject = `Moderation alert: ${payload.contentType || 'content'} ${payload.contentId || ''}`.trim();
+  const snapshot = payload.snapshot
+    ? escapeHtml(typeof payload.snapshot === 'string'
+        ? payload.snapshot
+        : JSON.stringify(payload.snapshot, null, 2))
+    : null;
+
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+      ${emailLogoImgTag}
+      <h2 style="color: #d32f2f;">New Moderation Alert</h2>
+      <p>A user-submitted report requires review within 24 hours.</p>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tbody>
+          <tr>
+            <td style="padding: 6px; font-weight: bold;">Severity</td>
+            <td style="padding: 6px;">${escapeHtml(payload.severity || 'medium')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px; font-weight: bold;">Content</td>
+            <td style="padding: 6px;">${escapeHtml(`${payload.contentType || 'unknown'} #${payload.contentId || 'n/a'}`)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px; font-weight: bold;">Reason</td>
+            <td style="padding: 6px;">${escapeHtml(payload.reason || 'unspecified')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px; font-weight: bold;">Reporter</td>
+            <td style="padding: 6px;">${escapeHtml(payload.reporter || 'internal process')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px; font-weight: bold;">Email</td>
+            <td style="padding: 6px;">${escapeHtml(payload.reporterEmail || 'n/a')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px; font-weight: bold;">Flagged</td>
+            <td style="padding: 6px;">${escapeHtml(new Date(payload.flaggedAt || Date.now()).toISOString())}</td>
+          </tr>
+        </tbody>
+      </table>
+      ${payload.details ? `<p style="margin-top: 20px;"><strong>Reporter details:</strong><br/>${escapeHtml(payload.details)}</p>` : ''}
+      ${snapshot ? `<p style="margin-top: 20px;"><strong>Content snapshot:</strong></p><pre style="background:#f6f8fa;padding:12px;border-radius:6px;white-space:pre-wrap;">${snapshot}</pre>` : ''}
+      <p style="margin-top: 20px; font-size: 12px; color: #666;">Resolve this ticket in the safety console or via the admin API.</p>
+    </div>
+  `;
+
+  const textBody = [
+    'New moderation alert',
+    `Severity: ${payload.severity || 'medium'}`,
+    `Content: ${payload.contentType || 'unknown'} ${payload.contentId || ''}`,
+    `Reason: ${payload.reason || 'unspecified'}`,
+    `Reporter: ${payload.reporter || 'internal'}`,
+    `Reporter email: ${payload.reporterEmail || 'n/a'}`,
+    `Flagged: ${payload.flaggedAt || new Date().toISOString()}`,
+    payload.details ? `Details: ${payload.details}` : '',
+    payload.snapshot ? `Snapshot: ${typeof payload.snapshot === 'string' ? payload.snapshot : JSON.stringify(payload.snapshot)}` : ''
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const info = await transporter.sendMail({
+    from: DEFAULT_FROM_ADDRESS,
+    to: recipients,
+    subject,
+    html: htmlBody,
+    text: textBody
+  });
+
+  return {
+    success: true,
+    messageId: info.messageId,
+    recipients
+  };
+};
+
 module.exports = {
   sendEmailNotification,
   shouldSendEmailNotification,
   emailTemplates,
   sendVerificationEmail,
   sendPasswordResetEmail,
-  sendContactEmail
+  sendContactEmail,
+  sendModerationAlertEmail
 };

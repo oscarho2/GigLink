@@ -85,12 +85,18 @@ const Home = () => {
   };
 
   const handleAppleSignIn = async () => {
+    let shouldResetLoading = true;
     try {
       setIsLoading(true);
       setError('');
       setShowError(false);
 
       const result = await appleAuthService.signInWithApple();
+      if (result.redirecting) {
+        shouldResetLoading = false;
+        return;
+      }
+
       if (result.cancelled) {
         return;
       }
@@ -115,7 +121,9 @@ const Home = () => {
       setError(error.message || 'Failed to sign in with Apple. Please try again.');
       setShowError(true);
     } finally {
-      setIsLoading(false);
+      if (shouldResetLoading) {
+        setIsLoading(false);
+      }
     }
   };
 

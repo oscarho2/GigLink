@@ -6,6 +6,13 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const { parseMentions, getMentionedUserIds } = require('../utils/mentionUtils');
+const { assertCleanContent, queueModerationAlert } = require('../utils/moderation');
+const {
+  normalizeReason,
+  mapReasonToSeverity,
+  shouldAutoHideContent,
+  shouldAutoSuspendUser
+} = require('../utils/reporting');
 const {
   upload,
   getPublicUrl,
@@ -87,9 +94,16 @@ router.post('/', auth, upload.array('media', 5), async (req, res) => {
     const { content, instruments, genres } = req.body;
     const userId = req.user.id;
 
-    if ((!content || content.trim().length === 0) && (!req.files || req.files.length === 0)) {
+    const rawContent = typeof content === 'string' ? content : '';
+    const hasContent = rawContent.trim().length > 0;
+
+    if (!hasContent && (!req.files || req.files.length === 0)) {
       return res.status(400).json({ message: 'Post content or media is required' });
     }
+
+    const moderatedContent = hasContent
+      ? assertCleanContent(rawContent, { context: 'post_body', userId })
+      : '';
 
     // Process uploaded files
     const media = [];
@@ -130,7 +144,7 @@ router.post('/', auth, upload.array('media', 5), async (req, res) => {
     const genreArray = genres ? (Array.isArray(genres) ? genres : JSON.parse(genres || '[]')) : [];
 
     // Parse mentions from content
-    const mentionData = await parseMentions(content.trim());
+    const mentionData = await parseMentions(moderatedContent.trim());
 
     const newPost = new Post({
       author: userId,
@@ -177,6 +191,11 @@ router.get('/', auth, async (req, res) => {
       const genreArray = Array.isArray(genres) ? genres : [genres];
       filter.genres = { $in: genreArray };
     }
+    if (req.user?.isAdmin && req.query.moderationStatus) {
+      filter.moderationStatus = req.query.moderationStatus;
+    } else if (!req.user?.isAdmin) {
+      filter.moderationStatus = { $nin: ['blocked', 'needs_review'] };
+    }
 
     const posts = await Post.find(filter)
       .populate('author', 'name avatar email')
@@ -212,6 +231,12 @@ router.get('/:postId', auth, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
+    const authorId = post.author?._id?.toString() || post.author?._id || '';
+    const isOwner = authorId === userId;
+    if (!isOwner && !req.user.isAdmin && post.moderationStatus && post.moderationStatus !== 'visible') {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
     res.json(post);
   } catch (error) {
     console.error('Error fetching post:', error);
@@ -229,7 +254,12 @@ router.get('/user/:userId', auth, async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const posts = await Post.find({ author: userId })
+    const filter = { author: userId };
+    if (!req.user.isAdmin && req.user.id !== userId) {
+      filter.moderationStatus = { $nin: ['blocked', 'needs_review'] };
+    }
+
+    const posts = await Post.find(filter)
       .populate('author', 'name avatar email')
       .populate('comments.user', 'name avatar')
       .populate('comments.replies.user', 'name avatar')
@@ -378,13 +408,19 @@ router.post('/:postId/comments', auth, async (req, res) => {
       return res.status(400).json({ message: 'Comment content is required' });
     }
 
+    const cleanContent = assertCleanContent(content, { context: 'post_comment', userId });
+
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
+    const isOwner = post.author.toString() === userId;
+    if (!isOwner && !req.user.isAdmin && ['blocked', 'needs_review'].includes(post.moderationStatus)) {
+      return res.status(403).json({ message: 'Comments are disabled while this post is under review.' });
+    }
 
     // Parse mentions from comment content
-    const mentionData = await parseMentions(content.trim());
+    const mentionData = await parseMentions(cleanContent.trim());
 
     await post.addComment(userId, mentionData.content, mentionData.parsedContent, mentionData.mentions);
     
@@ -572,13 +608,19 @@ router.post('/:postId/comments/:commentId/replies', auth, async (req, res) => {
       return res.status(400).json({ message: 'Reply content is required' });
     }
 
+    const cleanContent = assertCleanContent(content, { context: 'post_reply', userId });
+
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
+    const isOwner = post.author.toString() === userId;
+    if (!isOwner && !req.user.isAdmin && ['blocked', 'needs_review'].includes(post.moderationStatus)) {
+      return res.status(403).json({ message: 'Replies are disabled while this post is under review.' });
+    }
 
     // Parse mentions from reply content
-    const mentionData = await parseMentions(content.trim());
+    const mentionData = await parseMentions(cleanContent.trim());
 
     await post.addReply(commentId, userId, mentionData.content, mentionData.parsedContent, mentionData.mentions);
     
@@ -758,11 +800,7 @@ router.post('/:postId/report', auth, async (req, res) => {
     const userId = req.user.id;
     const allowedReasons = PostReport.REPORT_REASONS || [];
 
-    const rawReason = typeof req.body.reason === 'string' ? req.body.reason : '';
-    const normalizedReason = rawReason
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '_');
+    const normalizedReason = normalizeReason(req.body.reason);
 
     if (!normalizedReason || !allowedReasons.includes(normalizedReason)) {
       return res.status(400).json({ message: 'Invalid report reason' });
@@ -772,7 +810,7 @@ router.post('/:postId/report', auth, async (req, res) => {
       ? req.body.details.trim().slice(0, 1000)
       : '';
 
-    const post = await Post.findById(postId).select('author');
+    const post = await Post.findById(postId).select('author content parsedContent media moderationStatus moderationReason flaggedAt');
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
@@ -782,6 +820,17 @@ router.post('/:postId/report', auth, async (req, res) => {
     }
 
     const now = new Date();
+    const contentSnapshot = {
+      author: post.author,
+      content: post.content,
+      parsedContent: post.parsedContent,
+      mediaPreview: Array.isArray(post.media)
+        ? post.media.slice(0, 3).map(media => ({
+            type: media.type,
+            url: media.url
+          }))
+        : []
+    };
 
     const report = await PostReport.findOneAndUpdate(
       { post: postId, reporter: userId },
@@ -790,7 +839,8 @@ router.post('/:postId/report', auth, async (req, res) => {
           reason: normalizedReason,
           details,
           status: 'pending',
-          updatedAt: now
+          updatedAt: now,
+          contentSnapshot
         },
         $setOnInsert: {
           post: postId,
@@ -802,6 +852,36 @@ router.post('/:postId/report', auth, async (req, res) => {
     )
       .populate('post', 'content author')
       .populate('reporter', 'name email');
+
+    const pendingCount = await PostReport.countDocuments({ post: postId, status: 'pending' });
+    const shouldHide = shouldAutoHideContent(normalizedReason, pendingCount);
+
+    if (shouldHide && post.moderationStatus !== 'blocked') {
+      post.moderationStatus = normalizedReason === 'self_harm' ? 'blocked' : 'needs_review';
+      post.moderationReason = normalizedReason;
+      post.flaggedAt = now;
+      await post.save();
+    }
+
+    if (shouldAutoSuspendUser(normalizedReason, pendingCount)) {
+      await User.findByIdAndUpdate(post.author, {
+        accountStatus: 'suspended',
+        suspendedAt: now
+      });
+    }
+
+    await queueModerationAlert({
+      severity: mapReasonToSeverity(normalizedReason),
+      reportId: report._id,
+      contentType: 'post',
+      contentId: postId,
+      reporter: report.reporter?.name || userId,
+      reporterEmail: report.reporter?.email || req.user.email,
+      reason: normalizedReason,
+      details,
+      snapshot: contentSnapshot,
+      flaggedAt: now.toISOString()
+    });
 
     res.status(200).json({
       message: 'Thanks for letting us know. Our team will review this post shortly.',
