@@ -69,8 +69,35 @@ class AppleAuthService {
     return Boolean(matchMediaStandalone || navigatorStandalone);
   }
 
+  isIosInAppBrowser() {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+
+    const platform = navigator.platform || '';
+    const userAgent = navigator.userAgent || '';
+    const isIosDevice = /iPad|iPhone|iPod/.test(platform) || /iPad|iPhone|iPod/.test(userAgent);
+
+    if (!isIosDevice) {
+      return false;
+    }
+
+    const isSafari = /Safari/i.test(userAgent) && !/CriOS|FxiOS|OPiOS|EdgiOS|DuckDuckGo|GSA|YaBrowser/i.test(userAgent);
+    const lacksSafariToken = /AppleWebKit/i.test(userAgent) && !/Safari/i.test(userAgent);
+    const hasCapacitorBridge = typeof window.Capacitor !== 'undefined';
+    const mentionsAppWrapper = /GigLink/i.test(userAgent) && /Mobile/i.test(userAgent);
+
+    return Boolean(!isSafari || lacksSafariToken || hasCapacitorBridge || mentionsAppWrapper);
+  }
+
   shouldUseRedirectFlow() {
-    return this.isIosDevice() && this.isStandalonePWA();
+    if (!this.isIosDevice()) {
+      return false;
+    }
+
+    // Installed PWAs and iOS webviews (App Store wrapper, in-app browsers, etc.)
+    // cannot open the Apple popup reliably, so force the redirect-based flow.
+    return this.isStandalonePWA() || this.isIosInAppBrowser();
   }
 
   getRedirectURI() {
