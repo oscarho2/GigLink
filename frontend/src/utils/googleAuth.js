@@ -1,4 +1,9 @@
 import axios from 'axios';
+import { isIosInAppBrowser } from './environment';
+
+const GOOGLE_STATE_KEY = 'googleAuthState';
+const GOOGLE_NONCE_KEY = 'googleAuthNonce';
+const GOOGLE_RETURN_PATH_KEY = 'googleAuthReturnPath';
 
 class GoogleAuthService {
   constructor() {
@@ -9,6 +14,102 @@ class GoogleAuthService {
     this.promptCooldown = 2000; // 2 seconds cooldown between attempts
     this.cachedClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || null;
     this.clientIdPromise = null;
+  }
+
+  generateRandomString(size = 32) {
+    if (typeof window === 'undefined' || !window.crypto?.getRandomValues) {
+      return [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    }
+    const randomBytes = new Uint8Array(size);
+    window.crypto.getRandomValues(randomBytes);
+    return Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  getRedirectURI() {
+    if (process.env.REACT_APP_GOOGLE_REDIRECT_URI) {
+      return process.env.REACT_APP_GOOGLE_REDIRECT_URI;
+    }
+    if (typeof window === 'undefined') {
+      return '';
+    }
+    return `${window.location.origin}/google/callback`;
+  }
+
+  storeRedirectState(state, nonce) {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      sessionStorage.setItem(GOOGLE_STATE_KEY, state);
+      sessionStorage.setItem(GOOGLE_NONCE_KEY, nonce);
+      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      sessionStorage.setItem(GOOGLE_RETURN_PATH_KEY, returnPath);
+    } catch (error) {
+      console.warn('Unable to persist Google redirect state', error);
+    }
+  }
+
+  getStoredState() {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    try {
+      return sessionStorage.getItem(GOOGLE_STATE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  getStoredNonce() {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    try {
+      return sessionStorage.getItem(GOOGLE_NONCE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  getStoredReturnPath() {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    try {
+      return sessionStorage.getItem(GOOGLE_RETURN_PATH_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  clearRedirectState() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      sessionStorage.removeItem(GOOGLE_STATE_KEY);
+      sessionStorage.removeItem(GOOGLE_NONCE_KEY);
+      sessionStorage.removeItem(GOOGLE_RETURN_PATH_KEY);
+    } catch {
+      // Ignore errors
+    }
+  }
+
+  shouldUseRedirectFallback() {
+    return isIosInAppBrowser();
+  }
+
+  buildAuthorizeUrl({ clientId, redirectURI, state, nonce }) {
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectURI,
+      response_type: 'id_token',
+      scope: 'openid email profile',
+      prompt: 'select_account',
+      state,
+      nonce
+    });
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
   loadGisScript() {
@@ -366,6 +467,21 @@ class GoogleAuthService {
   async signInWithGoogle() {
     try {
       console.log('🚀 Starting Google sign-in process...');
+
+      if (this.shouldUseRedirectFallback()) {
+        console.log('📲 Using redirect-based Google flow for iOS webview');
+        const clientId = await this.getClientId();
+        if (!clientId) {
+          throw new Error('missing_client_id');
+        }
+        const redirectURI = this.getRedirectURI();
+        const state = this.generateRandomString(16);
+        const nonce = this.generateRandomString(16);
+        this.storeRedirectState(state, nonce);
+        const authorizeUrl = this.buildAuthorizeUrl({ clientId, redirectURI, state, nonce });
+        window.location.assign(authorizeUrl);
+        return { success: false, redirecting: true };
+      }
       
       // Clear any previous One Tap state to avoid cooldown issues
       this.clearGoogleOneTapState();
@@ -414,6 +530,87 @@ class GoogleAuthService {
         success: false,
         error: errorMessage,
         captchaRequired: isCaptchaError
+      };
+    }
+  }
+
+  async handleRedirectCallback(fragmentString = '', searchString = '') {
+    if (typeof window === 'undefined') {
+      return { success: false, error: 'Google sign-in is not available in this environment.' };
+    }
+
+    const storedReturnPath = this.getStoredReturnPath();
+    const rawFragment = fragmentString || window.location.hash || '';
+    const rawSearch = searchString || window.location.search || '';
+    const fragmentParams = new URLSearchParams(rawFragment.startsWith('#') ? rawFragment.slice(1) : rawFragment);
+    const searchParams = new URLSearchParams(rawSearch);
+    const params = fragmentParams.has('id_token') || fragmentParams.has('error') ? fragmentParams : searchParams;
+
+    try {
+      const errorParam = params.get('error');
+      if (errorParam) {
+        const description = params.get('error_description');
+        this.clearRedirectState();
+        return {
+          success: false,
+          error: description || errorParam,
+          returnPath: storedReturnPath
+        };
+      }
+
+      const idToken = params.get('id_token');
+      if (!idToken) {
+        this.clearRedirectState();
+        return {
+          success: false,
+          error: 'Missing Google authorization response.',
+          returnPath: storedReturnPath
+        };
+      }
+
+      const returnedState = params.get('state');
+      const storedState = this.getStoredState();
+      if (storedState && returnedState && returnedState !== storedState) {
+        this.clearRedirectState();
+        return {
+          success: false,
+          error: 'Google sign-in validation failed. Please try again.',
+          returnPath: storedReturnPath
+        };
+      }
+
+      const decoded = this.decodeIdToken(idToken) || {};
+      const storedNonce = this.getStoredNonce();
+      if (storedNonce && decoded.nonce && decoded.nonce !== storedNonce) {
+        this.clearRedirectState();
+        return {
+          success: false,
+          error: 'Google sign-in validation failed. Please try again.',
+          returnPath: storedReturnPath
+        };
+      }
+
+      const payload = {
+        idToken,
+        email: decoded.email,
+        name: decoded.name,
+        imageUrl: decoded.picture
+      };
+
+      const res = await axios.post('/api/auth/google', payload);
+      this.clearRedirectState();
+      return {
+        success: true,
+        token: res.data?.token,
+        user: res.data?.user,
+        returnPath: storedReturnPath
+      };
+    } catch (error) {
+      this.clearRedirectState();
+      return {
+        success: false,
+        error: this.getErrorMessage(error),
+        returnPath: storedReturnPath
       };
     }
   }

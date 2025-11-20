@@ -53,12 +53,18 @@ const Home = () => {
 
   // Handle Google OAuth sign-in
   const handleGoogleSignIn = async () => {
+    let shouldResetLoading = true;
     try {
       setIsLoading(true);
       setError('');
       setShowError(false); // Clear any previous error display
       
       const result = await googleAuthService.signInWithGoogle();
+
+      if (result?.redirecting) {
+        shouldResetLoading = false;
+        return;
+      }
       
       if (result.success && result.token) {
         const loginOk = loginWithToken(result.token, result.user);
@@ -80,7 +86,9 @@ const Home = () => {
       setError(error.message || 'Failed to sign in with Google. Please try again.');
       setShowError(true);
     } finally {
-      setIsLoading(false);
+      if (shouldResetLoading) {
+        setIsLoading(false);
+      }
     }
   };
 

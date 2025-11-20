@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isIosDevice, isStandalonePWA, isIosInAppBrowser } from './environment';
 
 const APPLE_STATE_KEY = 'appleAuthState';
 const APPLE_RETURN_PATH_KEY = 'appleAuthReturnPath';
@@ -50,54 +51,26 @@ class AppleAuthService {
     return Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 
-  isIosDevice() {
-    if (typeof navigator === 'undefined') {
-      return false;
-    }
-    const platform = navigator.platform || '';
-    const userAgent = navigator.userAgent || '';
-    const isTouchMac = platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-    return /iPad|iPhone|iPod/.test(platform) || /iPad|iPhone|iPod/.test(userAgent) || isTouchMac;
-  }
-
-  isStandalonePWA() {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-    const matchMediaStandalone = window.matchMedia?.('(display-mode: standalone)')?.matches;
-    const navigatorStandalone = window.navigator?.standalone === true;
-    return Boolean(matchMediaStandalone || navigatorStandalone);
-  }
-
-  isIosInAppBrowser() {
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-      return false;
-    }
-
-    const platform = navigator.platform || '';
-    const userAgent = navigator.userAgent || '';
-    const isIosDevice = /iPad|iPhone|iPod/.test(platform) || /iPad|iPhone|iPod/.test(userAgent);
-
-    if (!isIosDevice) {
-      return false;
-    }
-
-    const isSafari = /Safari/i.test(userAgent) && !/CriOS|FxiOS|OPiOS|EdgiOS|DuckDuckGo|GSA|YaBrowser/i.test(userAgent);
-    const lacksSafariToken = /AppleWebKit/i.test(userAgent) && !/Safari/i.test(userAgent);
-    const hasCapacitorBridge = typeof window.Capacitor !== 'undefined';
-    const mentionsAppWrapper = /GigLink/i.test(userAgent) && /Mobile/i.test(userAgent);
-
-    return Boolean(!isSafari || lacksSafariToken || hasCapacitorBridge || mentionsAppWrapper);
-  }
-
   shouldUseRedirectFlow() {
-    if (!this.isIosDevice()) {
+    if (!isIosDevice()) {
       return false;
     }
 
     // Installed PWAs and iOS webviews (App Store wrapper, in-app browsers, etc.)
     // cannot open the Apple popup reliably, so force the redirect-based flow.
-    return this.isStandalonePWA() || this.isIosInAppBrowser();
+    return isStandalonePWA() || isIosInAppBrowser();
+  }
+
+  buildAppleAuthorizeUrl({ clientId, redirectURI, state }) {
+    const params = new URLSearchParams({
+      response_type: 'code id_token',
+      response_mode: 'query',
+      client_id: clientId,
+      redirect_uri: redirectURI,
+      scope: 'name email',
+      state
+    });
+    return `https://appleid.apple.com/auth/authorize?${params.toString()}`;
   }
 
   getRedirectURI() {
@@ -199,15 +172,23 @@ class AppleAuthService {
         throw new Error('Apple Sign-In is not configured. Missing REACT_APP_APPLE_CLIENT_ID.');
       }
 
+      const redirectURI = this.getRedirectURI();
+      const state = this.generateState();
+      const useRedirectFlow = this.shouldUseRedirectFlow();
+      const requiresManualRedirect = useRedirectFlow && isIosInAppBrowser();
+
+      if (requiresManualRedirect) {
+        this.storeRedirectState(state);
+        const authorizeUrl = this.buildAppleAuthorizeUrl({ clientId, redirectURI, state });
+        window.location.assign(authorizeUrl);
+        return { success: false, redirecting: true };
+      }
+
       await this.loadScript();
 
       if (!window.AppleID || !window.AppleID.auth) {
         throw new Error('Apple Sign-In could not be initialized');
       }
-
-      const redirectURI = this.getRedirectURI();
-      const state = this.generateState();
-      const useRedirectFlow = this.shouldUseRedirectFlow();
 
       window.AppleID.auth.init({
         clientId,

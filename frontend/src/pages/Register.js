@@ -54,11 +54,17 @@ const Register = () => {
     : 'calc(100vh - 120px)';
 
   const handleGoogleSignIn = async () => {
+    let shouldResetLoading = true;
     try {
       setIsGoogleLoading(true);
       setError(null);
 
       const result = await googleAuthService.signInWithGoogle();
+
+      if (result?.redirecting) {
+        shouldResetLoading = false;
+        return;
+      }
       
       if (result.success && result.token) {
         const loginOk = loginWithToken(result.token, result.user);
@@ -78,7 +84,9 @@ const Register = () => {
       console.error('Google sign-in error:', error);
       setError('An error occurred during Google sign-in');
     } finally {
-      setIsGoogleLoading(false);
+      if (shouldResetLoading) {
+        setIsGoogleLoading(false);
+      }
     }
   };
 
