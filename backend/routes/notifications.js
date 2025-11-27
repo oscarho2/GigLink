@@ -6,6 +6,7 @@ const Gig = require('../models/Gig');
 const Post = require('../models/Post');
 const auth = require('../middleware/auth');
 const { getVapidPublicKey, sendPushNotificationToUser, shouldSendPushNotification } = require('../utils/pushNotificationService');
+const { sendApnsNotificationToDevices, isApnsConfigured } = require('../utils/apnsService');
 const { sendEmailNotification, shouldSendEmailNotification } = require('../utils/emailService');
 
 // @route   GET api/notifications
@@ -189,7 +190,7 @@ const createNotification = async (recipientId, senderId, type, message, relatedI
     let recipient = null;
     try {
       recipient = await User.findById(recipientId)
-        .select('name email notificationPreferences pushSubscriptions');
+        .select('name email notificationPreferences pushSubscriptions apnsDevices');
     } catch (err) {
       console.error('Error fetching notification recipient:', err.message);
     }
@@ -272,6 +273,94 @@ router.post('/subscribe', auth, async (req, res) => {
   }
 });
 
+// @route   POST api/notifications/apns/register
+// @desc    Register an iOS device token for native push (App Store wrapper)
+// @access  Private
+router.post('/apns/register', auth, async (req, res) => {
+  try {
+    const {
+      deviceToken,
+      environment = 'production',
+      bundleId = '',
+      appVersion = '',
+      deviceModel = '',
+      osVersion = ''
+    } = req.body || {};
+
+    if (!deviceToken || typeof deviceToken !== 'string') {
+      return res.status(400).json({ msg: 'deviceToken is required' });
+    }
+
+    const normalizedToken = deviceToken.replace(/\s+/g, '');
+    const normalizedEnv = environment === 'sandbox' ? 'sandbox' : 'production';
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    const existing = user.apnsDevices.find((d) => d.deviceToken === normalizedToken);
+    if (existing) {
+      existing.environment = normalizedEnv;
+      existing.bundleId = bundleId || existing.bundleId;
+      existing.appVersion = appVersion || existing.appVersion;
+      existing.deviceModel = deviceModel || existing.deviceModel;
+      existing.osVersion = osVersion || existing.osVersion;
+      existing.lastActiveAt = new Date();
+    } else {
+      user.apnsDevices.push({
+        deviceToken: normalizedToken,
+        environment: normalizedEnv,
+        bundleId,
+        appVersion,
+        deviceModel,
+        osVersion,
+        lastActiveAt: new Date()
+      });
+    }
+
+    await user.save();
+
+    res.json({
+      msg: 'APNs device registered',
+      devices: user.apnsDevices.map(({ deviceToken: token, environment: env }) => ({ token, env }))
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/notifications/apns/unregister
+// @desc    Unregister an iOS device token for native push
+// @access  Private
+router.post('/apns/unregister', auth, async (req, res) => {
+  try {
+    const { deviceToken } = req.body || {};
+    if (!deviceToken || typeof deviceToken !== 'string') {
+      return res.status(400).json({ msg: 'deviceToken is required' });
+    }
+
+    const normalizedToken = deviceToken.replace(/\s+/g, '');
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    const before = user.apnsDevices.length;
+    user.apnsDevices = user.apnsDevices.filter((d) => d.deviceToken !== normalizedToken);
+    const removed = before - user.apnsDevices.length;
+
+    await user.save();
+
+    res.json({ msg: 'APNs device unregistered', removed });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
 // @route   POST api/notifications/unsubscribe
 // @desc    Unsubscribe from push notifications
 // @access  Private
@@ -306,7 +395,7 @@ router.post('/unsubscribe', auth, async (req, res) => {
 const sendNotificationToUser = async (recipientId, notificationType, templateData, options = {}) => {
   try {
     const recipient = options.recipient || await User.findById(recipientId)
-      .select('name email notificationPreferences pushSubscriptions');
+      .select('name email notificationPreferences pushSubscriptions apnsDevices');
     if (!recipient) {
       console.error('Recipient not found:', recipientId);
       return { success: false, error: 'Recipient not found' };
@@ -314,7 +403,8 @@ const sendNotificationToUser = async (recipientId, notificationType, templateDat
     
     const results = {
       email: null,
-      push: null
+      push: null,
+      apns: null
     };
 
     const resolveTemplateData = (channel) => {
@@ -337,13 +427,21 @@ const sendNotificationToUser = async (recipientId, notificationType, templateDat
     }
     
     // Send push notification if enabled
-    if (shouldSendPushNotification(recipient.notificationPreferences, notificationType)) {
+    const wantsPush = shouldSendPushNotification(recipient.notificationPreferences, notificationType);
+    if (wantsPush) {
       const pushData = resolveTemplateData('push');
       results.push = await sendPushNotificationToUser(
         recipient.pushSubscriptions,
         notificationType,
         pushData
       );
+      if (recipient.apnsDevices && recipient.apnsDevices.length && isApnsConfigured()) {
+        results.apns = await sendApnsNotificationToDevices(
+          recipient.apnsDevices,
+          notificationType,
+          pushData
+        );
+      }
     }
     
     return {

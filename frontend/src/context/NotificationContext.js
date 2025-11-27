@@ -23,7 +23,7 @@ export const NotificationProvider = ({ children }) => {
     total: 0
   });
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
 
   // Fetch unread notification counts
   const fetchUnreadCounts = async () => {
@@ -32,7 +32,6 @@ export const NotificationProvider = ({ children }) => {
       return;
     }
 
-    setLoading(true);
     try {
       const token = localStorage.getItem('token');
       
@@ -90,8 +89,6 @@ export const NotificationProvider = ({ children }) => {
     } catch (error) {
       console.error('Error fetching unread counts:', error);
       setUnreadCounts({ messages: 0, linkRequests: 0, notifications: 0, total: 0 });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -99,9 +96,11 @@ export const NotificationProvider = ({ children }) => {
   const fetchNotifications = async () => {
     if (!isAuthenticated || !user) {
       setNotifications([]);
+      setNotificationsLoading(false);
       return;
     }
 
+    setNotificationsLoading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/notifications', {
@@ -117,6 +116,8 @@ export const NotificationProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+    } finally {
+      setNotificationsLoading(false);
     }
   };
 
@@ -242,6 +243,7 @@ export const NotificationProvider = ({ children }) => {
       // Clear state when not authenticated
       setNotifications([]);
       setUnreadCounts({ messages: 0, linkRequests: 0, notifications: 0, total: 0 });
+      setNotificationsLoading(false);
     }
   }, [isAuthenticated, user?.id]); // Only depend on user ID to prevent unnecessary re-renders
 
@@ -366,7 +368,7 @@ export const NotificationProvider = ({ children }) => {
     unreadCounts,
     totalUnreadCount: unreadCounts.total,
     notifications,
-    loading,
+    loading: notificationsLoading,
     fetchUnreadCounts,
     fetchNotifications,
     updateCount,

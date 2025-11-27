@@ -111,6 +111,29 @@ const UserSchema = new mongoose.Schema({
       auth: String
     }
   }],
+  apnsDevices: [{
+    deviceToken: {
+      type: String,
+      required: true
+    },
+    environment: {
+      type: String,
+      enum: ['sandbox', 'production'],
+      default: 'production'
+    },
+    bundleId: String,
+    appVersion: String,
+    deviceModel: String,
+    osVersion: String,
+    createdAt: {
+      type: Date,
+      default: Date.now
+    },
+    lastActiveAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   isEmailVerified: {
     type: Boolean,
     default: false
