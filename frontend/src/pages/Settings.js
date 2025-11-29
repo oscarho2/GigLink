@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -72,6 +72,28 @@ const Settings = () => {
   const [pushNotificationSupported, setPushNotificationSupported] = useState(false);
   const [pushPermission, setPushPermission] = useState('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const normalizePushPermission = useCallback((value) => {
+    if (!value) return 'default';
+    const lower = value.toLowerCase();
+    if (lower === 'authorized' || lower === 'granted') return 'granted';
+    if (lower === 'denied') return 'denied';
+    return 'default';
+  }, []);
+
+  useEffect(() => {
+    const handlePermissionEvent = (event) => {
+      setPushPermission(normalizePushPermission(event?.detail));
+    };
+    const handleSupported = () => setPushNotificationSupported(true);
+
+    window.addEventListener('push-permission-state', handlePermissionEvent);
+    window.addEventListener('push-supported', handleSupported);
+
+    return () => {
+      window.removeEventListener('push-permission-state', handlePermissionEvent);
+      window.removeEventListener('push-supported', handleSupported);
+    };
+  }, [normalizePushPermission]);
 
 
 
@@ -174,7 +196,7 @@ const Settings = () => {
         
         if (isInitialized) {
           // Check current permission status
-          const permission = Notification.permission;
+          const permission = normalizePushPermission(Notification.permission);
           setPushPermission(permission);
           
           // Check if user is already subscribed
@@ -188,7 +210,7 @@ const Settings = () => {
     };
     
     initializePushNotifications();
-  }, []);
+  }, [normalizePushPermission]);
 
   // Password change handlers
   const handlePasswordChange = () => {
@@ -344,6 +366,11 @@ const Settings = () => {
                         {pushNotificationSupported && pushPermission === 'granted' && isSubscribed && (
                           <Box component="div" sx={{ fontSize: '0.75rem', color: 'success.main', mt: 0.5 }}>
                             Active
+                          </Box>
+                        )}
+                        {pushNotificationSupported && pushNotificationService.isNativeMode() && (
+                          <Box component="div" sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>
+                            Uses the iOS app's notification settings
                           </Box>
                         )}
                       </Box>
