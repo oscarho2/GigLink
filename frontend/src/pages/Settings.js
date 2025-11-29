@@ -72,7 +72,7 @@ const Settings = () => {
   const [pushNotificationSupported, setPushNotificationSupported] = useState(false);
   const [pushPermission, setPushPermission] = useState('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const isNativePush = pushNotificationService.isNativeMode();
+  const [isNativePush, setIsNativePush] = useState(pushNotificationService.isNativeMode());
   const normalizePushPermission = useCallback((value) => {
     if (!value) return 'default';
     const lower = value.toLowerCase();
@@ -119,55 +119,100 @@ const Settings = () => {
     const prevSubscribed = isSubscribed;
 
     // Handle push notifications specially
-    let updatedPreferences = {
+    if (setting === 'pushNotifications') {
+      const updatedPreferences = {
+        ...notificationPreferences,
+        [setting]: isChecked
+      };
+      setNotificationPreferences(updatedPreferences);
+
+      if (isNativePush) {
+        if (isChecked) {
+          try {
+            const permission = await pushNotificationService.requestPermission();
+            setPushPermission(permission);
+            if (permission !== 'granted') {
+              setNotificationPreferences(prevPreferences);
+              setIsSubscribed(false);
+              return;
+            }
+            setIsSubscribed(true); // reflect intent immediately
+            pushNotificationService.subscribe(token).catch((error) => {
+              console.error('Error enabling native push notifications:', error);
+            });
+          } catch (error) {
+            console.error('Error enabling push notifications:', error);
+            setNotificationPreferences(prevPreferences);
+            setIsSubscribed(prevSubscribed);
+            return;
+          }
+        } else {
+          setIsSubscribed(false);
+          pushNotificationService.unsubscribe(token).catch((error) => {
+            console.error('Error disabling native push notifications:', error);
+          });
+        }
+      } else {
+        if (isChecked) {
+          try {
+            // Request permission first
+            const permission = await pushNotificationService.requestPermission();
+            setPushPermission(permission);
+            
+            if (permission !== 'granted') {
+              setNotificationPreferences(prevPreferences);
+              return;
+            }
+
+            setIsSubscribed(true); // optimistic while registration completes
+            await pushNotificationService.subscribe(token);
+            setIsSubscribed(true);
+          } catch (error) {
+            console.error('Error enabling push notifications:', error);
+            setNotificationPreferences(prevPreferences);
+            setIsSubscribed(prevSubscribed);
+            return;
+          }
+        } else {
+          try {
+            // Unsubscribe from push notifications
+            setIsSubscribed(false); // optimistic
+            await pushNotificationService.unsubscribe(token);
+          } catch (error) {
+            console.error('Error disabling push notifications:', error);
+            setNotificationPreferences(prevPreferences);
+            setIsSubscribed(prevSubscribed);
+            return;
+          }
+        }
+      }
+
+      try {
+        await axios.put('/api/settings/notifications', updatedPreferences, {
+          headers: { 'x-auth-token': token }
+        });
+        
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      } catch (err) {
+        console.error('Error saving notification preferences:', err);
+        if (!isNativePush) {
+          setNotificationPreferences(prevPreferences);
+          setIsSubscribed(prevSubscribed);
+        }
+      }
+      return;
+    }
+
+    const updatedPreferences = {
       ...notificationPreferences,
       [setting]: isChecked
     };
-
-    if (setting === 'pushNotifications') {
-      setNotificationPreferences(updatedPreferences);
-
-      if (isChecked) {
-        try {
-          // Request permission first
-          const permission = await pushNotificationService.requestPermission();
-          setPushPermission(permission);
-          
-          if (permission !== 'granted') {
-            setNotificationPreferences(prevPreferences);
-            return;
-          }
-
-          setIsSubscribed(true); // optimistic while registration completes
-          await pushNotificationService.subscribe(token);
-          setIsSubscribed(true);
-        } catch (error) {
-          console.error('Error enabling push notifications:', error);
-          setNotificationPreferences(prevPreferences);
-          setIsSubscribed(prevSubscribed);
-          return;
-        }
-      } else {
-        try {
-          // Unsubscribe from push notifications
-          setIsSubscribed(false); // optimistic
-          await pushNotificationService.unsubscribe(token);
-        } catch (error) {
-          console.error('Error disabling push notifications:', error);
-          setNotificationPreferences(prevPreferences);
-          setIsSubscribed(prevSubscribed);
-          return;
-        }
-      }
-    } else {
-      setNotificationPreferences(updatedPreferences);
-    }
-    
-    const newPreferences = updatedPreferences;
+    setNotificationPreferences(updatedPreferences);
     
     // Auto-save settings when changed
     try {
-      await axios.put('/api/settings/notifications', newPreferences, {
+      await axios.put('/api/settings/notifications', updatedPreferences, {
         headers: { 'x-auth-token': token }
       });
       
@@ -175,7 +220,7 @@ const Settings = () => {
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
       console.error('Error saving notification preferences:', err);
-      // Keep the local toggle state; surface the error for debugging
+      setNotificationPreferences(prevPreferences);
     }
   };
   
@@ -203,6 +248,7 @@ const Settings = () => {
       try {
         const isInitialized = await pushNotificationService.init();
         setPushNotificationSupported(isInitialized);
+        setIsNativePush(pushNotificationService.isNativeMode());
         
         if (isInitialized) {
           // Check current permission status
@@ -352,7 +398,9 @@ const Settings = () => {
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={notificationPreferences.pushNotifications && isSubscribed}
+                        checked={isNativePush
+                          ? notificationPreferences.pushNotifications
+                          : notificationPreferences.pushNotifications && isSubscribed}
                         onChange={handleNotificationChange('pushNotifications')}
                         disabled={!pushNotificationSupported || pushPermission === 'denied'}
                         color="primary"
