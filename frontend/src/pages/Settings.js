@@ -191,9 +191,6 @@ const Settings = () => {
         await axios.put('/api/settings/notifications', updatedPreferences, {
           headers: { 'x-auth-token': token }
         });
-        
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
       } catch (err) {
         console.error('Error saving notification preferences:', err);
         if (!isNativePush) {
@@ -215,9 +212,6 @@ const Settings = () => {
       await axios.put('/api/settings/notifications', updatedPreferences, {
         headers: { 'x-auth-token': token }
       });
-      
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
       console.error('Error saving notification preferences:', err);
       setNotificationPreferences(prevPreferences);
@@ -355,12 +349,6 @@ const Settings = () => {
         Settings
       </Typography>
       
-      {showSuccess && (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          Settings updated successfully!
-        </Alert>
-      )}
-
       <Grid container spacing={3}>
         {/* Notification Settings */}
         <Grid item xs={12}>
