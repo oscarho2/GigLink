@@ -126,9 +126,8 @@ const Settings = () => {
           
           if (permission === 'granted') {
             // Subscribe to push notifications
-            // Optimistically flip the UI for native mode so the toggle reflects the user's intent
             if (isNativePush) {
-              setIsSubscribed(true);
+              setIsSubscribed(true); // mirror intent while native bridge registers
             }
             await pushNotificationService.subscribe(token);
             setIsSubscribed(true);
@@ -348,7 +347,7 @@ const Settings = () => {
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={notificationPreferences.pushNotifications && (isNativePush ? true : isSubscribed)}
+                        checked={notificationPreferences.pushNotifications && isSubscribed}
                         onChange={handleNotificationChange('pushNotifications')}
                         disabled={!pushNotificationSupported || pushPermission === 'denied'}
                         color="primary"
@@ -369,7 +368,7 @@ const Settings = () => {
                             Permission denied - please enable in browser settings
                           </Box>
                         )}
-                        {pushNotificationSupported && pushPermission === 'granted' && (isSubscribed || isNativePush) && (
+                        {pushNotificationSupported && pushPermission === 'granted' && isSubscribed && (
                           <Box component="div" sx={{ fontSize: '0.75rem', color: 'success.main', mt: 0.5 }}>
                             Active
                           </Box>
