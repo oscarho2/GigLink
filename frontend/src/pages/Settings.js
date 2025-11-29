@@ -115,49 +115,55 @@ const Settings = () => {
   
   const handleNotificationChange = (setting) => async (event) => {
     const isChecked = event.target.checked;
-    
+    const prevPreferences = notificationPreferences;
+    const prevSubscribed = isSubscribed;
+
     // Handle push notifications specially
+    let updatedPreferences = {
+      ...notificationPreferences,
+      [setting]: isChecked
+    };
+
     if (setting === 'pushNotifications') {
+      setNotificationPreferences(updatedPreferences);
+
       if (isChecked) {
         try {
           // Request permission first
           const permission = await pushNotificationService.requestPermission();
           setPushPermission(permission);
           
-          if (permission === 'granted') {
-            // Subscribe to push notifications
-            if (isNativePush) {
-              setIsSubscribed(true); // mirror intent while native bridge registers
-            }
-            await pushNotificationService.subscribe(token);
-            setIsSubscribed(true);
-          } else {
-            // Permission denied, don't update the setting
+          if (permission !== 'granted') {
+            setNotificationPreferences(prevPreferences);
             return;
           }
+
+          setIsSubscribed(true); // optimistic while registration completes
+          await pushNotificationService.subscribe(token);
+          setIsSubscribed(true);
         } catch (error) {
           console.error('Error enabling push notifications:', error);
-          setIsSubscribed(false);
+          setNotificationPreferences(prevPreferences);
+          setIsSubscribed(prevSubscribed);
           return;
         }
       } else {
         try {
           // Unsubscribe from push notifications
+          setIsSubscribed(false); // optimistic
           await pushNotificationService.unsubscribe(token);
-          setIsSubscribed(false);
         } catch (error) {
           console.error('Error disabling push notifications:', error);
+          setNotificationPreferences(prevPreferences);
+          setIsSubscribed(prevSubscribed);
           return;
         }
       }
+    } else {
+      setNotificationPreferences(updatedPreferences);
     }
     
-    const newPreferences = {
-      ...notificationPreferences,
-      [setting]: isChecked
-    };
-    
-    setNotificationPreferences(newPreferences);
+    const newPreferences = updatedPreferences;
     
     // Auto-save settings when changed
     try {
@@ -169,8 +175,7 @@ const Settings = () => {
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
       console.error('Error saving notification preferences:', err);
-      // Revert the change if save failed
-      setNotificationPreferences(notificationPreferences);
+      // Keep the local toggle state; surface the error for debugging
     }
   };
   
