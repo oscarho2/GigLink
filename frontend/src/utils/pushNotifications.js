@@ -217,30 +217,47 @@ class PushNotificationService {
       return this.subscribeNative(token);
     }
 
+    if (!this.registration && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      try {
+        this.registration = await navigator.serviceWorker.ready;
+      } catch (err) {
+        console.warn('Service worker not ready for push subscription', err);
+      }
+    }
+
     if (!this.registration || !this.vapidPublicKey) {
       throw new Error('Push notification service not initialized');
     }
 
     try {
-      const subscription = await this.registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
-      });
+      const applicationServerKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
 
-      // Send subscription to server
-      const response = await fetch('/api/notifications/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-auth-token': token
-        },
-        body: JSON.stringify({ subscription })
-      });
+      // If a subscription already exists, reuse it when keys match; otherwise reset it
+      const existing = await this.registration.pushManager.getSubscription();
+      if (existing) {
+        const existingKey = this.getSubscriptionKey(existing);
+        const desiredKey = this.normalizeVapidKey(this.vapidPublicKey);
 
-      if (!response.ok) {
-        throw new Error('Failed to subscribe to push notifications');
+        if (existingKey && existingKey === desiredKey) {
+          await this.sendSubscriptionToServer(existing, token);
+          console.log('Reusing existing push subscription');
+          return existing;
+        }
+
+        try {
+          await existing.unsubscribe();
+          console.log('Removed stale push subscription with outdated VAPID key');
+        } catch (unsubscribeError) {
+          console.warn('Unable to remove existing push subscription before re-subscribing', unsubscribeError);
+        }
       }
 
+      const subscription = await this.registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey
+      });
+
+      await this.sendSubscriptionToServer(subscription, token);
       console.log('Successfully subscribed to push notifications');
       return subscription;
     } catch (error) {
@@ -284,8 +301,17 @@ class PushNotificationService {
       return this.unsubscribeNative(token);
     }
 
-    if (!this.registration) {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
       return;
+    }
+
+    if (!this.registration) {
+      try {
+        this.registration = await navigator.serviceWorker.ready;
+      } catch (err) {
+        console.warn('Service worker not ready for push unsubscribe', err);
+        return;
+      }
     }
 
     try {
@@ -342,12 +368,29 @@ class PushNotificationService {
       return Boolean(this.getPersistedNativeToken());
     }
 
-    if (!this.registration) {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
       return false;
+    }
+
+    if (!this.registration) {
+      try {
+        this.registration = await navigator.serviceWorker.ready;
+      } catch (err) {
+        console.warn('Service worker not ready for push subscription check', err);
+        return false;
+      }
     }
 
     try {
       const subscription = await this.registration.pushManager.getSubscription();
+      if (subscription && this.vapidPublicKey) {
+        const existingKey = this.getSubscriptionKey(subscription);
+        const desiredKey = this.normalizeVapidKey(this.vapidPublicKey);
+        if (existingKey && desiredKey && existingKey !== desiredKey) {
+          await subscription.unsubscribe().catch(() => {});
+          return false;
+        }
+      }
       return !!subscription;
     } catch (error) {
       console.error('Error checking subscription status:', error);
@@ -388,6 +431,42 @@ class PushNotificationService {
       outputArray[i] = rawData.charCodeAt(i);
     }
     return outputArray;
+  }
+
+  normalizeVapidKey(key) {
+    return (key || '').replace(/=+$/, '');
+  }
+
+  getSubscriptionKey(subscription) {
+    try {
+      const keyArrayBuffer = subscription?.options?.applicationServerKey;
+      if (!keyArrayBuffer) return '';
+      const keyArray = new Uint8Array(keyArrayBuffer);
+      let binary = '';
+      keyArray.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      const base64 = btoa(binary);
+      return this.normalizeVapidKey(base64.replace(/\+/g, '-').replace(/\//g, '_'));
+    } catch (err) {
+      console.warn('Failed to read subscription key', err);
+      return '';
+    }
+  }
+
+  async sendSubscriptionToServer(subscription, token) {
+    const response = await fetch('/api/notifications/subscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-auth-token': token
+      },
+      body: JSON.stringify({ subscription })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to subscribe to push notifications');
+    }
   }
 }
 
