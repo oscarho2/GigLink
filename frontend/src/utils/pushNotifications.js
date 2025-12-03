@@ -179,20 +179,50 @@ class PushNotificationService {
       return true;
     }
 
+    const ready = await this.ensureWebInitialized();
+    return ready;
+  }
+
+  async ensureWebInitialized() {
+    if (!this.isWebMode() || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+      return false;
+    }
+
     try {
       // Register service worker
-      this.registration = await navigator.serviceWorker.register('/sw.js');
-      this.setMode('web');
-      console.log('Service Worker registered successfully');
+      if (!this.registration) {
+        // Reuse existing registration if present
+        this.registration = await navigator.serviceWorker.getRegistration();
+      }
+
+      if (!this.registration) {
+        this.registration = await navigator.serviceWorker.register('/sw.js');
+        console.log('Service Worker registered successfully');
+      }
+
+      if (this.registration) {
+        this.setMode('web');
+      }
 
       // Get VAPID public key from server
-      const response = await fetch('/api/notifications/vapid-public-key');
-      const data = await response.json();
-      this.vapidPublicKey = data.publicKey;
+      if (!this.vapidPublicKey) {
+        const response = await fetch('/api/notifications/vapid-public-key');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch VAPID key: ${response.status}`);
+        }
+        const data = await response.json();
+        this.vapidPublicKey = data.publicKey;
+      }
 
       return true;
     } catch (error) {
       console.error('Error initializing push notifications:', error);
+      try {
+        // As a fallback, wait for any existing ready registration
+        this.registration = await navigator.serviceWorker.ready;
+      } catch (e) {
+        // ignore
+      }
       return false;
     }
   }
@@ -217,6 +247,8 @@ class PushNotificationService {
       return this.subscribeNative(token);
     }
 
+    await this.ensureWebInitialized();
+
     if (!this.registration && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       try {
         this.registration = await navigator.serviceWorker.ready;
@@ -226,7 +258,10 @@ class PushNotificationService {
     }
 
     if (!this.registration || !this.vapidPublicKey) {
-      throw new Error('Push notification service not initialized');
+      if (!this.registration) {
+        throw new Error('Push notification service worker is not ready');
+      }
+      throw new Error('VAPID public key missing; cannot subscribe to push notifications');
     }
 
     try {
@@ -301,6 +336,8 @@ class PushNotificationService {
       return this.unsubscribeNative(token);
     }
 
+    await this.ensureWebInitialized().catch(() => {});
+
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
       return;
     }
@@ -367,6 +404,8 @@ class PushNotificationService {
     if (this.isNativeMode()) {
       return Boolean(this.getPersistedNativeToken());
     }
+
+    await this.ensureWebInitialized().catch(() => {});
 
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
       return false;

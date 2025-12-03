@@ -237,23 +237,26 @@ const Settings = () => {
   // Initialize push notifications on component mount
   React.useEffect(() => {
     const initializePushNotifications = async () => {
+      const supported = pushNotificationService.isSupported;
+      setPushNotificationSupported(supported);
+
       try {
         const isInitialized = await pushNotificationService.init();
-        setPushNotificationSupported(isInitialized);
         setIsNativePush(pushNotificationService.isNativeMode());
+
+        // Check current permission status even if initialization failed so we can show denied state
+        const permission = normalizePushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default');
+        setPushPermission(permission);
         
-        if (isInitialized) {
-          // Check current permission status
-          const permission = normalizePushPermission(Notification.permission);
-          setPushPermission(permission);
-          
+        if (supported && isInitialized) {
           // Check if user is already subscribed
           const subscribed = await pushNotificationService.isSubscribed();
           setIsSubscribed(subscribed);
         }
       } catch (error) {
         console.error('Error initializing push notifications:', error);
-        setPushNotificationSupported(false);
+        const permission = normalizePushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default');
+        setPushPermission(permission);
       }
     };
     
