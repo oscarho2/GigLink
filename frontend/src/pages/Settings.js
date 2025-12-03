@@ -47,8 +47,6 @@ const Settings = () => {
     linkRequestNotifications: true,
     likeNotifications: true
   });
-  const [showSuccess, setShowSuccess] = useState(false);
-  
   // Password change state
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({
@@ -386,9 +384,7 @@ const Settings = () => {
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={isNativePush
-                          ? notificationPreferences.pushNotifications
-                          : notificationPreferences.pushNotifications && isSubscribed}
+                        checked={notificationPreferences.pushNotifications && isSubscribed}
                         onChange={handleNotificationChange('pushNotifications')}
                         disabled={!pushNotificationSupported || pushPermission === 'denied'}
                         color="primary"
