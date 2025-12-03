@@ -299,8 +299,6 @@ const Settings = () => {
       setPasswordSuccess('Password changed successfully!');
       setTimeout(() => {
         handleCloseChangePassword();
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
       }, 2000);
     } catch (err) {
       console.error('Error changing password:', err);
