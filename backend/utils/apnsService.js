@@ -207,22 +207,24 @@ const sendApnsNotificationToDevices = async (devices, notificationType, template
 
   for (const device of validDevices) {
     try {
+      const environment = device.environment || apnsConfig.defaultEnvironment;
       const result = await sendApnsNotification({
         deviceToken: device.deviceToken,
-        environment: device.environment || apnsConfig.defaultEnvironment,
+        environment,
         notificationType,
         templateData
       });
-      results.push(result);
+      results.push({ ...result, environment });
     } catch (err) {
-      results.push({ success: false, error: err.message, deviceToken: device?.deviceToken });
+      results.push({ success: false, error: err.message, deviceToken: device?.deviceToken, environment: device?.environment });
     }
   }
 
   try {
     console.log('[APNs] delivery results', JSON.stringify({
       results,
-      skippedInvalid
+      skippedInvalid,
+      defaultEnvironment: apnsConfig.defaultEnvironment
     }, null, 2));
   } catch (_) {
     // ignore logging issues
