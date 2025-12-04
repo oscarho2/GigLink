@@ -211,7 +211,7 @@ class PushNotificationService {
           throw new Error(`Failed to fetch VAPID key: ${response.status}`);
         }
         const data = await response.json();
-        this.vapidPublicKey = data.publicKey;
+        this.vapidPublicKey = this.sanitizeVapidKey(data.publicKey);
       }
 
       return true;
@@ -265,39 +265,58 @@ class PushNotificationService {
     }
 
     try {
-      const applicationServerKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
+      const subscribeOnce = async () => {
+        const applicationServerKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
 
-      // If a subscription already exists, reuse it when keys match; otherwise reset it
-      const existing = await this.registration.pushManager.getSubscription();
-      if (existing) {
-        const existingKey = this.getSubscriptionKey(existing);
-        const desiredKey = this.normalizeVapidKey(this.vapidPublicKey);
+        // If a subscription already exists, reuse it when keys match; otherwise reset it
+        const existing = await this.registration.pushManager.getSubscription();
+        if (existing) {
+          const existingKey = this.getSubscriptionKey(existing);
+          const desiredKey = this.normalizeVapidKey(this.vapidPublicKey);
 
-        if (existingKey && existingKey === desiredKey) {
-          await this.sendSubscriptionToServer(existing, token);
-          console.log('Reusing existing push subscription');
-          return existing;
+          if (existingKey && existingKey === desiredKey) {
+            await this.sendSubscriptionToServer(existing, token);
+            console.log('Reusing existing push subscription');
+            return existing;
+          }
+
+          try {
+            await existing.unsubscribe();
+            console.log('Removed stale push subscription with outdated VAPID key');
+          } catch (unsubscribeError) {
+            console.warn('Unable to remove existing push subscription before re-subscribing', unsubscribeError);
+          }
         }
 
+        const subscription = await this.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey
+        });
+
+        await this.sendSubscriptionToServer(subscription, token);
+        console.log('Successfully subscribed to push notifications');
+        return subscription;
+      };
+
+      try {
+        return await subscribeOnce();
+      } catch (firstError) {
+        console.warn('First attempt to subscribe failed, retrying after re-registering service worker', firstError);
         try {
-          await existing.unsubscribe();
-          console.log('Removed stale push subscription with outdated VAPID key');
-        } catch (unsubscribeError) {
-          console.warn('Unable to remove existing push subscription before re-subscribing', unsubscribeError);
+          if (this.registration) {
+            await this.registration.unregister().catch(() => {});
+          }
+          this.registration = null;
+          await this.ensureWebInitialized();
+        } catch (reinitError) {
+          console.warn('Failed to reinitialize service worker before retrying subscribe', reinitError);
         }
+        return await subscribeOnce();
       }
-
-      const subscription = await this.registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey
-      });
-
-      await this.sendSubscriptionToServer(subscription, token);
-      console.log('Successfully subscribed to push notifications');
-      return subscription;
     } catch (error) {
-      console.error('Error subscribing to push notifications:', error);
-      throw error;
+      const enriched = this.createPushError(error);
+      console.error('Error subscribing to push notifications:', enriched);
+      throw enriched;
     }
   }
 
@@ -458,6 +477,7 @@ class PushNotificationService {
 
   // Helper function to convert VAPID key
   urlBase64ToUint8Array(base64String) {
+    base64String = this.sanitizeVapidKey(base64String);
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
       .replace(/-/g, '+')
@@ -505,6 +525,31 @@ class PushNotificationService {
 
     if (!response.ok) {
       throw new Error('Failed to subscribe to push notifications');
+    }
+  }
+
+  sanitizeVapidKey(key) {
+    if (!key || typeof key !== 'string') return '';
+    return key.trim().replace(/\s+/g, '');
+  }
+
+  createPushError(error) {
+    try {
+      const detail = [
+        `name=${error?.name || 'unknown'}`,
+        `code=${error?.code || 'n/a'}`,
+        `secureContext=${typeof window !== 'undefined' ? window.isSecureContext : 'n/a'}`,
+        `protocol=${typeof window !== 'undefined' ? window.location?.protocol : 'n/a'}`,
+        `vapidKeyLength=${(this.vapidPublicKey || '').length}`,
+        `keyBytes=${this.vapidPublicKey ? this.urlBase64ToUint8Array(this.vapidPublicKey).length : 0}`
+      ].join(', ');
+      const enhanced = new Error(`${error?.message || 'Push subscription failed'} (${detail})`);
+      enhanced.name = error?.name || 'PushSubscriptionError';
+      enhanced.cause = error;
+      return enhanced;
+    } catch (fallbackError) {
+      console.warn('Failed to enrich push error', fallbackError);
+      return error || new Error('Push subscription failed');
     }
   }
 }

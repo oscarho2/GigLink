@@ -71,6 +71,7 @@ const Settings = () => {
   const [pushPermission, setPushPermission] = useState('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isNativePush, setIsNativePush] = useState(pushNotificationService.isNativeMode());
+  const [pushError, setPushError] = useState('');
   const normalizePushPermission = useCallback((value) => {
     if (!value) return 'default';
     const lower = value.toLowerCase();
@@ -118,6 +119,7 @@ const Settings = () => {
 
     // Handle push notifications specially
     if (setting === 'pushNotifications') {
+      setPushError('');
       const updatedPreferences = {
         ...notificationPreferences,
         [setting]: isChecked
@@ -137,9 +139,11 @@ const Settings = () => {
             setIsSubscribed(true); // reflect intent immediately
             pushNotificationService.subscribe(token).catch((error) => {
               console.error('Error enabling native push notifications:', error);
+              setPushError(error?.message ? `${error.name || 'Error'}: ${error.message}` : 'Failed to enable push notifications');
             });
           } catch (error) {
             console.error('Error enabling push notifications:', error);
+            setPushError(error?.message ? `${error.name || 'Error'}: ${error.message}` : 'Failed to enable push notifications');
             setNotificationPreferences(prevPreferences);
             setIsSubscribed(prevSubscribed);
             return;
@@ -158,6 +162,7 @@ const Settings = () => {
             setPushPermission(permission);
             
             if (permission !== 'granted') {
+              setPushError('Notification permission was not granted in the browser.');
               setNotificationPreferences(prevPreferences);
               return;
             }
@@ -167,6 +172,7 @@ const Settings = () => {
             setIsSubscribed(true);
           } catch (error) {
             console.error('Error enabling push notifications:', error);
+            setPushError(error?.message ? `${error.name || 'Error'}: ${error.message}` : 'Failed to enable push notifications');
             setNotificationPreferences(prevPreferences);
             setIsSubscribed(prevSubscribed);
             return;
@@ -191,10 +197,7 @@ const Settings = () => {
         });
       } catch (err) {
         console.error('Error saving notification preferences:', err);
-        if (!isNativePush) {
-          setNotificationPreferences(prevPreferences);
-          setIsSubscribed(prevSubscribed);
-        }
+        setPushError('Saved locally but failed to persist preferences to the server.');
       }
       return;
     }
@@ -428,6 +431,11 @@ const Settings = () => {
                       }
                     }}
                   />
+                  {pushError && (
+                    <Alert severity="error" sx={{ mt: 1, mb: 0 }}>
+                      {pushError}
+                    </Alert>
+                  )}
                 </Box>
                 
                 <Typography variant="subtitle2" sx={{ mt: 2, mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
