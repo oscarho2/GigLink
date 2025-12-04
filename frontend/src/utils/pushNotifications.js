@@ -535,15 +535,35 @@ class PushNotificationService {
 
   createPushError(error) {
     try {
+      const protocol = typeof window !== 'undefined' ? (window.location?.protocol || '') : '';
+      const hostname = typeof window !== 'undefined' ? (window.location?.hostname || '') : '';
+      const secureContext = typeof window !== 'undefined' ? window.isSecureContext : null;
+      const isAbort = error?.name === 'AbortError' || /push service error/i.test(error?.message || '');
+      const insecureOriginBlocked = protocol !== 'https:' && !['localhost', '127.0.0.1', '[::1]'].includes(hostname);
+      const isBrave = typeof navigator !== 'undefined' && !!navigator.brave;
+
+      let humanMessage = error?.message || 'Push subscription failed';
+      if (isAbort) {
+        const hints = [];
+        hints.push('Allow notifications for this site in your browser settings');
+        if (isBrave) {
+          hints.push('In Brave, enable "Use Google services for push messaging"');
+        }
+        if (insecureOriginBlocked) {
+          hints.push('Use HTTPS or localhost; web push will not work on this origin');
+        }
+        humanMessage = `Browser refused to create a push subscription. ${hints.join('; ')}.`;
+      }
+
       const detail = [
         `name=${error?.name || 'unknown'}`,
         `code=${error?.code || 'n/a'}`,
-        `secureContext=${typeof window !== 'undefined' ? window.isSecureContext : 'n/a'}`,
-        `protocol=${typeof window !== 'undefined' ? window.location?.protocol : 'n/a'}`,
+        `secureContext=${secureContext ?? 'n/a'}`,
+        `protocol=${protocol || 'n/a'}`,
         `vapidKeyLength=${(this.vapidPublicKey || '').length}`,
         `keyBytes=${this.vapidPublicKey ? this.urlBase64ToUint8Array(this.vapidPublicKey).length : 0}`
       ].join(', ');
-      const enhanced = new Error(`${error?.message || 'Push subscription failed'} (${detail})`);
+      const enhanced = new Error(`${humanMessage} (${detail})`);
       enhanced.name = error?.name || 'PushSubscriptionError';
       enhanced.cause = error;
       return enhanced;
