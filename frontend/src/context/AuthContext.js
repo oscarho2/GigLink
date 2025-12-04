@@ -58,6 +58,15 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
+  // Send auth token to native iOS app when available
+  useEffect(() => {
+    if (token && isAuthenticated && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers['register-push-token']) {
+      // TODO: Ensure authToken is the correct variable holding the JWT
+      window.webkit.messageHandlers['register-push-token'].postMessage({ authToken: token });
+      console.log('Sent auth token to native iOS app.');
+    }
+  }, [token, isAuthenticated]);
+
   // Register user
   const register = async (formData) => {
     return withTurnstile(async (turnstileToken) => {
