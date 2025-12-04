@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { isAndroid, isPWA } from '../utils/platform';
 
 // Loading action types
 const LOADING_ACTIONS = {
@@ -146,13 +145,11 @@ export const LoadingProvider = ({ children }) => {
     withLoading
   };
 
-  const isAndroidPWA = isAndroid() && isPWA();
-
   return (
     <LoadingContext.Provider value={value}>
       {children}
       {/* Global loading overlay */}
-      {!isAndroidPWA && state.globalLoading && (
+      {state.globalLoading && (
         <LoadingSpinner
           type="spinner"
           size="large"

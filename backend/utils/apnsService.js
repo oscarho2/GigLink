@@ -215,6 +215,12 @@ const sendApnsNotificationToDevices = async (devices, notificationType, template
     }
   }
 
+  try {
+    console.log('[APNs] delivery results', JSON.stringify(results, null, 2));
+  } catch (_) {
+    // ignore logging issues
+  }
+
   return {
     success: true,
     results,
