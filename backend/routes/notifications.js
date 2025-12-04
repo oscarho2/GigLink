@@ -297,8 +297,12 @@ router.post('/apns/register', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Invalid APNs device token format' });
     }
 
-    // Trust server config for environment to avoid mismatches
-    const normalizedEnv = process.env.APNS_ENV === 'sandbox' ? 'sandbox' : 'production';
+    // Allow the client to specify sandbox/production; fallback to server default
+    const normalizedEnv = environment === 'sandbox'
+      ? 'sandbox'
+      : (environment === 'production'
+        ? 'production'
+        : (process.env.APNS_ENV === 'sandbox' ? 'sandbox' : 'production'));
 
     const user = await User.findById(req.user.id);
     if (!user) {
