@@ -280,7 +280,7 @@ router.post('/apns/register', auth, async (req, res) => {
   try {
     const {
       deviceToken,
-      environment = 'production',
+      environment = '',
       bundleId = '',
       appVersion = '',
       deviceModel = '',
@@ -292,12 +292,23 @@ router.post('/apns/register', auth, async (req, res) => {
     }
 
     const normalizedToken = deviceToken.replace(/\s+/g, '');
-    const normalizedEnv = environment === 'sandbox' ? 'sandbox' : 'production';
+    const isLikelyApnsToken = /^[A-Fa-f0-9]{64,128}$/;
+    if (!isLikelyApnsToken.test(normalizedToken)) {
+      return res.status(400).json({ msg: 'Invalid APNs device token format' });
+    }
+
+    // Trust server config for environment to avoid mismatches
+    const normalizedEnv = process.env.APNS_ENV === 'sandbox' ? 'sandbox' : 'production';
 
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ msg: 'User not found' });
     }
+
+    // Drop any malformed tokens already stored
+    user.apnsDevices = Array.isArray(user.apnsDevices)
+      ? user.apnsDevices.filter((d) => isLikelyApnsToken.test(d.deviceToken))
+      : [];
 
     const existing = user.apnsDevices.find((d) => d.deviceToken === normalizedToken);
     if (existing) {
@@ -342,6 +353,10 @@ router.post('/apns/unregister', auth, async (req, res) => {
     }
 
     const normalizedToken = deviceToken.replace(/\s+/g, '');
+    const isLikelyApnsToken = /^[A-Fa-f0-9]{64,128}$/;
+    if (!isLikelyApnsToken.test(normalizedToken)) {
+      return res.status(400).json({ msg: 'Invalid APNs device token format' });
+    }
 
     const user = await User.findById(req.user.id);
     if (!user) {

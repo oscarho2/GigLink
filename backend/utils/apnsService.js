@@ -199,9 +199,13 @@ const sendApnsNotificationToDevices = async (devices, notificationType, template
     return { success: true, results: [], totalSent: 0, totalFailed: 0 };
   }
 
+  const isLikelyApnsToken = (token) => /^[A-Fa-f0-9]{64,128}$/.test(token || '');
+  const validDevices = devices.filter((d) => isLikelyApnsToken(d.deviceToken));
+  const skippedInvalid = devices.length - validDevices.length;
+
   const results = [];
 
-  for (const device of devices) {
+  for (const device of validDevices) {
     try {
       const result = await sendApnsNotification({
         deviceToken: device.deviceToken,
@@ -216,7 +220,10 @@ const sendApnsNotificationToDevices = async (devices, notificationType, template
   }
 
   try {
-    console.log('[APNs] delivery results', JSON.stringify(results, null, 2));
+    console.log('[APNs] delivery results', JSON.stringify({
+      results,
+      skippedInvalid
+    }, null, 2));
   } catch (_) {
     // ignore logging issues
   }

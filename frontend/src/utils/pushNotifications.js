@@ -340,7 +340,7 @@ class PushNotificationService {
   async subscribeNative(token) {
     try {
       const deviceToken = await this.waitForNativeToken();
-      const environment = process.env.REACT_APP_APNS_ENV === 'sandbox' ? 'sandbox' : 'production';
+      // Let the backend decide environment based on its APNS_ENV to avoid mismatches
       const response = await fetch('/api/notifications/apns/register', {
         method: 'POST',
         headers: {
@@ -348,8 +348,7 @@ class PushNotificationService {
           'x-auth-token': token
         },
         body: JSON.stringify({
-          deviceToken,
-          environment
+          deviceToken
         })
       });
 
