@@ -48,11 +48,12 @@ class PushNotificationService {
 
     const tokenHandler = (event) => {
       const token = this.normalizeToken(event?.detail);
-      if (token) {
-        this.nativeDeviceToken = token;
-        if (!this.getPersistedNativeToken()) {
-          this.persistNativeToken(token);
-        }
+      if (!token || !this.isLikelyApnsToken(token)) {
+        return;
+      }
+      this.nativeDeviceToken = token;
+      if (!this.getPersistedNativeToken()) {
+        this.persistNativeToken(token);
       }
     };
 
@@ -101,9 +102,17 @@ class PushNotificationService {
     return null;
   }
 
+  isLikelyApnsToken(token) {
+    if (typeof token !== 'string') return false;
+    // APNs tokens are hex without separators; reject FCM-style tokens that contain ':' or non-hex chars.
+    const trimmed = token.trim();
+    if (trimmed.includes(':') || trimmed.includes('_') || trimmed.includes('-')) return false;
+    return /^[A-Fa-f0-9]{64,128}$/.test(trimmed);
+  }
+
   persistNativeToken(token) {
     try {
-      if (token) {
+      if (token && this.isLikelyApnsToken(token)) {
         localStorage.setItem(this.nativeSubscriptionKey, token);
       } else {
         localStorage.removeItem(this.nativeSubscriptionKey);
@@ -115,14 +124,21 @@ class PushNotificationService {
 
   getPersistedNativeToken() {
     try {
-      return localStorage.getItem(this.nativeSubscriptionKey);
+      const token = localStorage.getItem(this.nativeSubscriptionKey);
+      if (token && this.isLikelyApnsToken(token)) {
+        return token;
+      }
+      if (token) {
+        localStorage.removeItem(this.nativeSubscriptionKey);
+      }
+      return null;
     } catch (err) {
       return null;
     }
   }
 
   waitForNativeToken(timeoutMs = 8000) {
-    const existing = this.nativeDeviceToken || this.getPersistedNativeToken();
+    const existing = this.getPersistedNativeToken() || (this.isLikelyApnsToken(this.nativeDeviceToken) ? this.nativeDeviceToken : null);
     if (existing) {
       return Promise.resolve(existing);
     }
@@ -144,11 +160,12 @@ class PushNotificationService {
 
       const onToken = (event) => {
         const token = this.normalizeToken(event?.detail);
-        if (token) {
-          this.nativeDeviceToken = token;
-          this.persistNativeToken(token);
-          complete(token);
+        if (!token || !this.isLikelyApnsToken(token)) {
+          return;
         }
+        this.nativeDeviceToken = token;
+        this.persistNativeToken(token);
+        complete(token);
       };
 
       const timer = setTimeout(() => {
@@ -396,7 +413,8 @@ class PushNotificationService {
 
   async unsubscribeNative(token) {
     try {
-      const deviceToken = this.getPersistedNativeToken() || this.nativeDeviceToken || await this.waitForNativeToken(4000).catch(() => null);
+      const candidateToken = this.getPersistedNativeToken() || this.nativeDeviceToken;
+      const deviceToken = this.isLikelyApnsToken(candidateToken) ? candidateToken : await this.waitForNativeToken(4000).catch(() => null);
       if (!deviceToken) {
         return;
       }
