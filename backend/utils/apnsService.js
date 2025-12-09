@@ -4,43 +4,75 @@ const fs = require('fs');
 const path = require('path');
 const { pushTemplates } = require('./pushNotificationService');
 
-const loadPrivateKey = () => {
-  if (process.env.APNS_KEY) {
-    return process.env.APNS_KEY.replace(/\\n/g, '\n');
+const loadPrivateKey = (prefix = '') => {
+  const keyEnv = `APNS_${prefix}KEY`;
+  const keyB64Env = `APNS_${prefix}KEY_B64`;
+  const keyPathEnv = `APNS_${prefix}KEY_PATH`;
+
+  if (process.env[keyEnv]) {
+    return process.env[keyEnv].replace(/\\n/g, '\n');
   }
 
-  if (process.env.APNS_KEY_B64) {
+  if (process.env[keyB64Env]) {
     try {
-      return Buffer.from(process.env.APNS_KEY_B64, 'base64').toString('utf8');
+      return Buffer.from(process.env[keyB64Env], 'base64').toString('utf8');
     } catch (err) {
-      console.error('[APNs] Failed to decode APNS_KEY_B64:', err.message);
+      console.error(`[APNs] Failed to decode ${keyB64Env}:`, err.message);
     }
   }
 
-  if (process.env.APNS_KEY_PATH) {
+  if (process.env[keyPathEnv]) {
     try {
-      const keyPath = path.isAbsolute(process.env.APNS_KEY_PATH)
-        ? process.env.APNS_KEY_PATH
-        : path.join(process.cwd(), process.env.APNS_KEY_PATH);
+      const configuredPath = process.env[keyPathEnv];
+      const keyPath = path.isAbsolute(configuredPath)
+        ? configuredPath
+        : path.join(process.cwd(), configuredPath);
       return fs.readFileSync(keyPath, 'utf8');
     } catch (err) {
-      console.error('[APNs] Failed to read APNS_KEY_PATH:', err.message);
+      console.error(`[APNs] Failed to read ${keyPathEnv}:`, err.message);
     }
   }
 
   return null;
 };
 
+const topic = process.env.APNS_TOPIC || process.env.APNS_BUNDLE_ID || '';
+
 const apnsConfig = {
-  key: loadPrivateKey(),
-  keyId: process.env.APNS_KEY_ID || '',
-  teamId: process.env.APNS_TEAM_ID || '',
-  topic: process.env.APNS_TOPIC || process.env.APNS_BUNDLE_ID || '',
+  shared: {
+    key: loadPrivateKey(),
+    keyId: process.env.APNS_KEY_ID || '',
+    teamId: process.env.APNS_TEAM_ID || '',
+    topic
+  },
+  sandboxOverrides: {
+    key: loadPrivateKey('SANDBOX_'),
+    keyId: process.env.APNS_SANDBOX_KEY_ID || '',
+    teamId: process.env.APNS_SANDBOX_TEAM_ID || ''
+  },
   defaultEnvironment: process.env.APNS_ENV === 'sandbox' ? 'sandbox' : 'production'
 };
 
-const isApnsConfigured = () => {
-  return Boolean(apnsConfig.key && apnsConfig.keyId && apnsConfig.teamId && apnsConfig.topic);
+const getApnsEnvironmentConfig = (environment = apnsConfig.defaultEnvironment) => {
+  const normalizedEnv = environment === 'sandbox' ? 'sandbox' : 'production';
+  const overrides = normalizedEnv === 'sandbox' ? apnsConfig.sandboxOverrides : {};
+
+  return {
+    key: overrides.key || apnsConfig.shared.key,
+    keyId: overrides.keyId || apnsConfig.shared.keyId,
+    teamId: overrides.teamId || apnsConfig.shared.teamId,
+    topic: apnsConfig.shared.topic,
+    environment: normalizedEnv
+  };
+};
+
+const isApnsConfigured = (environment = null) => {
+  const environments = environment ? [environment] : ['production', 'sandbox'];
+
+  return environments.some((env) => {
+    const config = getApnsEnvironmentConfig(env);
+    return Boolean(config.key && config.keyId && config.teamId && config.topic);
+  });
 };
 
 const base64UrlEncode = (input) => {
@@ -48,21 +80,21 @@ const base64UrlEncode = (input) => {
   return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
-const buildJwt = () => {
-  if (!isApnsConfigured()) {
+const buildJwt = (config) => {
+  if (!config || !config.key || !config.keyId || !config.teamId) {
     throw new Error('APNs is not configured');
   }
 
-  const header = base64UrlEncode(JSON.stringify({ alg: 'ES256', kid: apnsConfig.keyId }));
+  const header = base64UrlEncode(JSON.stringify({ alg: 'ES256', kid: config.keyId }));
   const iat = Math.floor(Date.now() / 1000);
-  const body = base64UrlEncode(JSON.stringify({ iss: apnsConfig.teamId, iat }));
+  const body = base64UrlEncode(JSON.stringify({ iss: config.teamId, iat }));
   const unsignedToken = `${header}.${body}`;
 
   const signer = crypto.createSign('SHA256');
   signer.update(unsignedToken);
   signer.end();
 
-  const signature = signer.sign({ key: apnsConfig.key, format: 'pem', type: 'pkcs8' });
+  const signature = signer.sign({ key: config.key, format: 'pem', type: 'pkcs8' });
   return `${unsignedToken}.${base64UrlEncode(signature)}`;
 };
 
@@ -109,20 +141,22 @@ const buildPayload = (notificationType, templateData) => {
 };
 
 const sendApnsNotification = async ({ deviceToken, environment = apnsConfig.defaultEnvironment, notificationType, templateData }) => {
-  if (!isApnsConfigured()) {
-    return { success: false, error: 'APNs not configured' };
+  const envConfig = getApnsEnvironmentConfig(environment);
+
+  if (!isApnsConfigured(envConfig.environment)) {
+    return { success: false, error: 'APNs not configured', environment: envConfig.environment };
   }
 
   if (!deviceToken) {
-    return { success: false, error: 'Missing device token' };
+    return { success: false, error: 'Missing device token', environment: envConfig.environment };
   }
 
-  const host = environment === 'sandbox'
+  const host = envConfig.environment === 'sandbox'
     ? 'https://api.sandbox.push.apple.com'
     : 'https://api.push.apple.com';
 
   const payload = buildPayload(notificationType, templateData);
-  const jwt = buildJwt();
+  const jwt = buildJwt(envConfig);
 
   return new Promise((resolve) => {
     const client = http2.connect(host);
@@ -133,14 +167,14 @@ const sendApnsNotification = async ({ deviceToken, environment = apnsConfig.defa
     client.on('error', (err) => {
       if (resolved) return;
       resolved = true;
-      resolve({ success: false, error: err.message, deviceToken });
+      resolve({ success: false, error: err.message, deviceToken, environment: envConfig.environment });
     });
 
     const request = client.request({
       ':method': 'POST',
       ':path': `/3/device/${deviceToken}`,
       'content-type': 'application/json',
-      'apns-topic': apnsConfig.topic,
+      'apns-topic': envConfig.topic,
       'apns-push-type': 'alert',
       'apns-priority': '10',
       authorization: `bearer ${jwt}`
@@ -174,7 +208,8 @@ const sendApnsNotification = async ({ deviceToken, environment = apnsConfig.defa
         success,
         status: statusCode,
         body: parsedBody,
-        deviceToken
+        deviceToken,
+        environment: envConfig.environment
       });
     });
 
@@ -182,7 +217,13 @@ const sendApnsNotification = async ({ deviceToken, environment = apnsConfig.defa
       if (resolved) return;
       client.close();
       resolved = true;
-      resolve({ success: false, error: err.message, status: statusCode, deviceToken });
+      resolve({
+        success: false,
+        error: err.message,
+        status: statusCode,
+        deviceToken,
+        environment: envConfig.environment
+      });
     });
 
     request.write(JSON.stringify(payload));
