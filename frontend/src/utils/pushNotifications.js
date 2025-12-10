@@ -339,35 +339,21 @@ class PushNotificationService {
 
   async subscribeNative(token) {
     try {
-      const deviceToken = await this.waitForNativeToken();
-      const environment = process.env.REACT_APP_APNS_ENV === 'sandbox' ? 'sandbox' : 'production';
-      const response = await fetch('/api/notifications/apns/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-auth-token': token
-        },
-        body: JSON.stringify({
-          deviceToken,
-          environment
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to register device for native push notifications');
+      // Ask native bridge to (re)register tokens with the backend using the auth token.
+      try {
+        window.webkit?.messageHandlers?.['register-push-token']?.postMessage({ authToken: token });
+      } catch (err) {
+        console.warn('Could not request native push registration', err);
       }
 
-      this.persistNativeToken(deviceToken);
-      console.log('Successfully registered native push token');
+      // Also request the current FCM token from native to ensure it is sent.
+      try {
+        window.webkit?.messageHandlers?.['push-token']?.postMessage({ authToken: token });
+      } catch (err) {
+        console.warn('Could not request FCM token refresh from native bridge', err);
+      }
 
-       // Ask native bridge to refresh FCM token registration after a user toggles push on.
-       try {
-         window.webkit?.messageHandlers?.['push-token']?.postMessage(null);
-       } catch (err) {
-         console.warn('Could not request FCM token refresh from native bridge', err);
-       }
-
-      return { deviceToken };
+      return { deviceToken: this.getPersistedNativeToken() || this.nativeDeviceToken || null };
     } catch (error) {
       console.error('Error subscribing to native push notifications:', error);
       throw error;
