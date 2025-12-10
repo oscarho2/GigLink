@@ -404,38 +404,47 @@ router.post('/fcm/register', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Invalid FCM device token format' });
     }
 
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
+    const now = new Date();
+
+    // Try update existing token atomically
+    const updateExisting = await User.updateOne(
+      { _id: req.user.id, 'fcmTokens.token': normalizedToken },
+      {
+        $set: {
+          'fcmTokens.$.deviceModel': deviceModel,
+          'fcmTokens.$.osVersion': osVersion,
+          'fcmTokens.$.appVersion': appVersion,
+          'fcmTokens.$.bundleId': bundleId,
+          'fcmTokens.$.platform': platform,
+          'fcmTokens.$.lastActiveAt': now
+        }
+      }
+    );
+
+    if (!updateExisting.matchedCount) {
+      await User.updateOne(
+        { _id: req.user.id },
+        {
+          $push: {
+            fcmTokens: {
+              token: normalizedToken,
+              deviceModel,
+              osVersion,
+              appVersion,
+              bundleId,
+              platform,
+              lastActiveAt: now
+            }
+          }
+        }
+      );
     }
 
-    user.fcmTokens = Array.isArray(user.fcmTokens) ? user.fcmTokens : [];
-
-    const existing = user.fcmTokens.find((d) => d.token === normalizedToken);
-    if (existing) {
-      existing.deviceModel = deviceModel || existing.deviceModel;
-      existing.osVersion = osVersion || existing.osVersion;
-      existing.appVersion = appVersion || existing.appVersion;
-      existing.bundleId = bundleId || existing.bundleId;
-      existing.platform = platform || existing.platform;
-      existing.lastActiveAt = new Date();
-    } else {
-      user.fcmTokens.push({
-        token: normalizedToken,
-        deviceModel,
-        osVersion,
-        appVersion,
-        bundleId,
-        platform,
-        lastActiveAt: new Date()
-      });
-    }
-
-    await user.save();
+    const refreshed = await User.findById(req.user.id).select('fcmTokens');
 
     res.json({
       msg: 'FCM device registered',
-      tokens: user.fcmTokens.map(({ token }) => token)
+      tokens: (refreshed?.fcmTokens || []).map(({ token }) => token)
     });
   } catch (err) {
     console.error(err.message);
