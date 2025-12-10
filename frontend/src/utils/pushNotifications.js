@@ -359,6 +359,14 @@ class PushNotificationService {
 
       this.persistNativeToken(deviceToken);
       console.log('Successfully registered native push token');
+
+       // Ask native bridge to refresh FCM token registration after a user toggles push on.
+       try {
+         window.webkit?.messageHandlers?.['push-token']?.postMessage(null);
+       } catch (err) {
+         console.warn('Could not request FCM token refresh from native bridge', err);
+       }
+
       return { deviceToken };
     } catch (error) {
       console.error('Error subscribing to native push notifications:', error);
