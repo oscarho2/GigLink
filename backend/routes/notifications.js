@@ -7,6 +7,7 @@ const Post = require('../models/Post');
 const auth = require('../middleware/auth');
 const { getVapidPublicKey, sendPushNotificationToUser, shouldSendPushNotification } = require('../utils/pushNotificationService');
 const { sendApnsNotificationToDevices, isApnsConfigured } = require('../utils/apnsService');
+const { sendFcmNotificationToTokens, isFcmConfigured } = require('../utils/fcmService');
 const { sendEmailNotification, shouldSendEmailNotification } = require('../utils/emailService');
 
 // @route   GET api/notifications
@@ -380,6 +381,99 @@ router.post('/apns/unregister', auth, async (req, res) => {
   }
 });
 
+// @route   POST api/notifications/fcm/register
+// @desc    Register an FCM device token
+// @access  Private
+router.post('/fcm/register', auth, async (req, res) => {
+  try {
+    const {
+      deviceToken,
+      deviceModel = '',
+      osVersion = '',
+      appVersion = '',
+      bundleId = '',
+      platform = ''
+    } = req.body || {};
+
+    if (!deviceToken || typeof deviceToken !== 'string') {
+      return res.status(400).json({ msg: 'deviceToken is required' });
+    }
+
+    const normalizedToken = deviceToken.trim();
+    if (normalizedToken.length < 20) {
+      return res.status(400).json({ msg: 'Invalid FCM device token format' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    user.fcmTokens = Array.isArray(user.fcmTokens) ? user.fcmTokens : [];
+
+    const existing = user.fcmTokens.find((d) => d.token === normalizedToken);
+    if (existing) {
+      existing.deviceModel = deviceModel || existing.deviceModel;
+      existing.osVersion = osVersion || existing.osVersion;
+      existing.appVersion = appVersion || existing.appVersion;
+      existing.bundleId = bundleId || existing.bundleId;
+      existing.platform = platform || existing.platform;
+      existing.lastActiveAt = new Date();
+    } else {
+      user.fcmTokens.push({
+        token: normalizedToken,
+        deviceModel,
+        osVersion,
+        appVersion,
+        bundleId,
+        platform,
+        lastActiveAt: new Date()
+      });
+    }
+
+    await user.save();
+
+    res.json({
+      msg: 'FCM device registered',
+      tokens: user.fcmTokens.map(({ token }) => token)
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/notifications/fcm/unregister
+// @desc    Unregister an FCM device token
+// @access  Private
+router.post('/fcm/unregister', auth, async (req, res) => {
+  try {
+    const { deviceToken } = req.body || {};
+    if (!deviceToken || typeof deviceToken !== 'string') {
+      return res.status(400).json({ msg: 'deviceToken is required' });
+    }
+
+    const normalizedToken = deviceToken.trim();
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    const before = Array.isArray(user.fcmTokens) ? user.fcmTokens.length : 0;
+    user.fcmTokens = Array.isArray(user.fcmTokens)
+      ? user.fcmTokens.filter((d) => d.token !== normalizedToken)
+      : [];
+    const removed = before - user.fcmTokens.length;
+
+    await user.save();
+
+    res.json({ msg: 'FCM device unregistered', removed });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
 // @route   POST api/notifications/unsubscribe
 // @desc    Unsubscribe from push notifications
 // @access  Private
@@ -414,7 +508,7 @@ router.post('/unsubscribe', auth, async (req, res) => {
 const sendNotificationToUser = async (recipientId, notificationType, templateData, options = {}) => {
   try {
     const recipient = options.recipient || await User.findById(recipientId)
-      .select('name email notificationPreferences pushSubscriptions apnsDevices');
+      .select('name email notificationPreferences pushSubscriptions apnsDevices fcmTokens');
     if (!recipient) {
       console.error('Recipient not found:', recipientId);
       return { success: false, error: 'Recipient not found' };
@@ -423,7 +517,8 @@ const sendNotificationToUser = async (recipientId, notificationType, templateDat
     const results = {
       email: null,
       push: null,
-      apns: null
+      apns: null,
+      fcm: null
     };
 
     const resolveTemplateData = (channel) => {
@@ -454,6 +549,13 @@ const sendNotificationToUser = async (recipientId, notificationType, templateDat
         notificationType,
         pushData
       );
+      if (recipient.fcmTokens && recipient.fcmTokens.length && isFcmConfigured()) {
+        results.fcm = await sendFcmNotificationToTokens(
+          recipient.fcmTokens.map((d) => d.token),
+          notificationType,
+          pushData
+        );
+      }
       if (recipient.apnsDevices && recipient.apnsDevices.length && isApnsConfigured()) {
         results.apns = await sendApnsNotificationToDevices(
           recipient.apnsDevices,

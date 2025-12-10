@@ -134,6 +134,25 @@ const UserSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  fcmTokens: [{
+    token: {
+      type: String,
+      required: true
+    },
+    deviceModel: String,
+    osVersion: String,
+    appVersion: String,
+    bundleId: String,
+    platform: String,
+    createdAt: {
+      type: Date,
+      default: Date.now
+    },
+    lastActiveAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   isEmailVerified: {
     type: Boolean,
     default: false
