@@ -453,6 +453,13 @@ const Gigs = () => {
     genre: ''
   });
   const [showPastGigs, setShowPastGigs] = useState(false);
+  const [useMyInstrumentsOnly, setUseMyInstrumentsOnly] = useState(false);
+  const userInstrumentList = useMemo(
+    () => (Array.isArray(user?.instruments) ? user.instruments.filter(Boolean) : []),
+    [user?.instruments]
+  );
+  const userInstrumentQuery = useMemo(() => userInstrumentList.join(','), [userInstrumentList]);
+  const hasUserInstruments = userInstrumentList.length > 0;
   
   // Predictive backend-driven location suggestions
   const [locInput, setLocInput] = useState('');
@@ -533,6 +540,12 @@ const Gigs = () => {
     }
   }, [user, setFilters, setLocInput]);
 
+  useEffect(() => {
+    if (!hasUserInstruments && useMyInstrumentsOnly) {
+      setUseMyInstrumentsOnly(false);
+    }
+  }, [hasUserInstruments, useMyInstrumentsOnly]);
+
   const rankLocationOptions = useCallback((options, query) => {
     const trimmed = (query || '').trim().toLowerCase();
     if (!trimmed) return options;
@@ -588,7 +601,12 @@ const Gigs = () => {
         setLoading(true);
         const params = {};
         if (searchTerm.trim()) params.q = searchTerm.trim();
-        if (filters.instrument) params.instruments = filters.instrument;
+        const useProfileInstruments = useMyInstrumentsOnly && hasUserInstruments;
+        if (useProfileInstruments) {
+          params.instruments = userInstrumentQuery;
+        } else if (filters.instrument) {
+          params.instruments = filters.instrument;
+        }
         if (filters.genre) params.genres = filters.genre;
         if (filters.location) {
           const loc = filters.location;
@@ -642,7 +660,7 @@ const Gigs = () => {
       clearTimeout(t);
       controller.abort();
     };
-  }, [searchTerm, filters, showPastGigs, token]);
+  }, [searchTerm, filters, showPastGigs, token, useMyInstrumentsOnly, hasUserInstruments, userInstrumentQuery]);
 
   // Predictive backend-driven location suggestions (Atlas gigs data)
   useEffect(() => {
@@ -883,6 +901,17 @@ const Gigs = () => {
       [name]: value,
     }));
   };
+
+  const handleUseMyInstrumentsToggle = (checked) => {
+    if (checked && !hasUserInstruments) {
+      toast.info('Add instruments to your profile to use this filter');
+      return;
+    }
+    if (checked) {
+      setFilters((prev) => ({ ...prev, instrument: '' }));
+    }
+    setUseMyInstrumentsOnly(checked);
+  };
   
   // Reset filters
   const resetFilters = () => {
@@ -897,6 +926,7 @@ const Gigs = () => {
     });
     setLocInput('');
     setLocOptions([]);
+    setUseMyInstrumentsOnly(false);
   };
 
   const handleGigMenuClick = (event, gig) => {
@@ -1460,20 +1490,43 @@ const Gigs = () => {
             
             {/* Instrument Filter */}
             <Grid item xs={12} sm={6} md={6}>
-                <Autocomplete
-                  options={instrumentOptions}
-                  value={filters.instrument || ''}
-                  onChange={(_e, v) => handleFilterChange('instrument', v || '')}
-                  freeSolo
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Instrument"
-                      placeholder="Any Instrument"
-                      onChange={(e) => handleFilterChange('instrument', e.target.value)}
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, alignItems: { xs: 'flex-start', sm: 'center' } }}>
+                  <Box sx={{ flex: 1, width: '100%' }}>
+                    <Autocomplete
+                      options={instrumentOptions}
+                      value={useMyInstrumentsOnly ? '' : (filters.instrument || '')}
+                      onChange={(_e, v) => handleFilterChange('instrument', v || '')}
+                      freeSolo
+                      disabled={useMyInstrumentsOnly && hasUserInstruments}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Instrument"
+                          placeholder="Any Instrument"
+                          onChange={(e) => handleFilterChange('instrument', e.target.value)}
+                        />
+                      )}
                     />
-                  )}
-                />
+                  </Box>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={useMyInstrumentsOnly}
+                        onChange={(e) => handleUseMyInstrumentsToggle(e.target.checked)}
+                        name="useMyInstrumentsOnly"
+                        disabled={!hasUserInstruments}
+                      />
+                    }
+                    label="Only show your instruments"
+                  />
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                  {useMyInstrumentsOnly && hasUserInstruments
+                    ? `Filtering gigs for: ${userInstrumentList.join(', ')}`
+                    : hasUserInstruments
+                      ? 'Toggle to quickly filter gigs by your profile instruments.'
+                      : 'Add instruments to your profile to enable this filter.'}
+                </Typography>
             </Grid>
             
             {/* Genre Filter */}

@@ -153,6 +153,22 @@ const buildNotificationTemplateData = async ({ type, recipient, sender, message,
         push: [safeSenderName, normalizedTitle]
       };
     }
+    case 'gig_posted': {
+      let gigTitle = '';
+      if (relatedModel === 'Gig' && relatedId) {
+        try {
+          const gig = await Gig.findById(relatedId).select('title');
+          if (gig) gigTitle = gig.title || '';
+        } catch (err) {
+          console.error('Error loading gig for notification:', err.message);
+        }
+      }
+      const normalizedTitle = gigTitle || 'a new gig';
+      return {
+        email: [safeRecipientName, safeSenderName, normalizedTitle],
+        push: [safeSenderName, normalizedTitle, relatedId]
+      };
+    }
     default:
       return null;
   }

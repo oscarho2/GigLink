@@ -44,6 +44,7 @@ const Settings = () => {
     messageNotifications: true,
     gigResponseNotifications: true,
     gigApplicationNotifications: true,
+    gigPostedNotifications: true,
     linkRequestNotifications: true,
     likeNotifications: true
   });
@@ -226,7 +227,11 @@ const Settings = () => {
         const response = await axios.get('/api/settings/notifications', {
           headers: { 'x-auth-token': token }
         });
-        setNotificationPreferences(response.data);
+        const prefs = response.data || {};
+        setNotificationPreferences(prev => ({
+          ...prev,
+          ...prefs
+        }));
       } catch (err) {
         console.error('Error loading notification preferences:', err);
       }
@@ -530,6 +535,44 @@ const Settings = () => {
                       '&:hover': {
                         backgroundColor: 'action.hover'
                       }
+                    }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notificationPreferences.gigPostedNotifications}
+                        onChange={handleNotificationChange('gigPostedNotifications')}
+                        color="primary"
+                      />
+                    }
+                    label="New gig postings"
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={notificationPreferences.gigPostedOnlyMyInstruments}
+                        onChange={handleNotificationChange('gigPostedOnlyMyInstruments')}
+                        color="primary"
+                        disabled={!notificationPreferences.gigPostedNotifications}
+                      />
+                    }
+                    label="Only show gigs posted for your instruments"
+                    sx={{ 
+                      m: 0,
+                      p: 1.5,
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      },
+                      ml: 3
                     }}
                   />
                   <FormControlLabel

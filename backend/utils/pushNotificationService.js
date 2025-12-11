@@ -84,6 +84,18 @@ const pushTemplates = {
       url: '/gigs'
     }
   }),
+
+  gig_posted: (posterName, gigTitle, gigId) => ({
+    title: 'New Gig Posted!',
+    body: `${posterName} posted ${gigTitle ? `"${gigTitle}"` : 'a new gig'}`,
+    icon: '/images/notification-icon.png',
+    badge: '/images/badge-icon.png',
+    tag: 'gig-posted-notification',
+    data: {
+      type: 'gig_posted',
+      url: gigId ? `/gigs/${gigId}` : '/gigs'
+    }
+  }),
   
   linkRequest: (requesterName) => ({
     title: 'New Connection Request!',
@@ -97,6 +109,10 @@ const pushTemplates = {
     }
   })
 };
+
+pushTemplates.gigPosted = pushTemplates.gig_posted;
+pushTemplates.gig_application = pushTemplates.gigApplication;
+pushTemplates.gig_response = pushTemplates.gigResponse;
 
 // Send push notification
 const sendPushNotification = async (subscription, notificationType, templateData) => {
@@ -162,7 +178,11 @@ const shouldSendPushNotification = (userPreferences, notificationType) => {
     comment: 'commentNotifications',
     message: 'messageNotifications',
     gigResponse: 'gigResponseNotifications',
+    gig_response: 'gigResponseNotifications',
     gigApplication: 'gigApplicationNotifications',
+    gig_application: 'gigApplicationNotifications',
+    gig_posted: 'gigPostedNotifications',
+    gigPosted: 'gigPostedNotifications',
     linkRequest: 'linkRequestNotifications'
   };
   

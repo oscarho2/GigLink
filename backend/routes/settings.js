@@ -14,16 +14,23 @@ router.get('/notifications', auth, async (req, res) => {
       return res.status(404).json({ msg: 'User not found' });
     }
     
-    // Return default preferences if none exist
-    const preferences = user.notificationPreferences || {
+    const defaultPreferences = {
       emailNotifications: true,
       pushNotifications: false,
       commentNotifications: true,
       messageNotifications: true,
       gigResponseNotifications: true,
       gigApplicationNotifications: true,
+      gigPostedNotifications: true,
+      gigPostedOnlyMyInstruments: true,
       linkRequestNotifications: true,
       likeNotifications: true
+    };
+
+    // Merge stored preferences with defaults to ensure new keys are present
+    const preferences = {
+      ...defaultPreferences,
+      ...(user.notificationPreferences || {})
     };
     
     res.json(preferences);
@@ -45,6 +52,8 @@ router.put('/notifications', auth, async (req, res) => {
       messageNotifications,
       gigResponseNotifications,
       gigApplicationNotifications,
+      gigPostedNotifications,
+      gigPostedOnlyMyInstruments,
       linkRequestNotifications,
       likeNotifications
     } = req.body;
@@ -63,6 +72,8 @@ router.put('/notifications', auth, async (req, res) => {
       messageNotifications: messageNotifications !== undefined ? messageNotifications : user.notificationPreferences?.messageNotifications || true,
       gigResponseNotifications: gigResponseNotifications !== undefined ? gigResponseNotifications : user.notificationPreferences?.gigResponseNotifications || true,
       gigApplicationNotifications: gigApplicationNotifications !== undefined ? gigApplicationNotifications : user.notificationPreferences?.gigApplicationNotifications || true,
+      gigPostedNotifications: gigPostedNotifications !== undefined ? gigPostedNotifications : user.notificationPreferences?.gigPostedNotifications || true,
+      gigPostedOnlyMyInstruments: gigPostedOnlyMyInstruments !== undefined ? gigPostedOnlyMyInstruments : user.notificationPreferences?.gigPostedOnlyMyInstruments !== undefined ? user.notificationPreferences.gigPostedOnlyMyInstruments : true,
       linkRequestNotifications: linkRequestNotifications !== undefined ? linkRequestNotifications : user.notificationPreferences?.linkRequestNotifications || true,
       likeNotifications: likeNotifications !== undefined ? likeNotifications : user.notificationPreferences?.likeNotifications || true
     };

@@ -107,6 +107,7 @@ const Notifications = () => {
     // Navigate based on notification type
     switch (notification.type) {
       case 'gig_application':
+      case 'gig_posted':
       case 'gig_accepted':
       case 'gig_rejected':
         if (notification.relatedId) {
@@ -158,6 +159,7 @@ const Notifications = () => {
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'gig_application':
+      case 'gig_posted':
         return <WorkIcon />;
       case 'link_request':
         return <LinkIcon />;
@@ -175,6 +177,7 @@ const Notifications = () => {
   const getNotificationColor = (type) => {
     switch (type) {
       case 'gig_application':
+      case 'gig_posted':
         return '#1976d2';
       case 'link_request':
         return '#388e3c';
@@ -193,6 +196,7 @@ const Notifications = () => {
     if (!notifications) return [];
     if (type === 'all') return notifications;
     if (type === 'posts') return notifications.filter(notification => notification.type === 'comment' || notification.type === 'like');
+    if (type === 'gigs') return notifications.filter(notification => ['gig_application', 'gig_posted', 'gig_accepted', 'gig_rejected'].includes(notification.type));
     return notifications.filter(notification => notification.type === type);
   };
 
@@ -389,7 +393,7 @@ const Notifications = () => {
                   <WorkIcon fontSize="small" />
                   <Box sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Gigs</Box>
                   <Chip
-                    label={filterNotifications('gig_application').length}
+                    label={filterNotifications('gigs').length}
                     size="small"
                     sx={{ 
                       bgcolor: '#e3f2fd', 
@@ -493,7 +497,7 @@ const Notifications = () => {
           {renderNotificationList(filterNotifications('all'))}
         </TabPanel>
           <TabPanel value={tabValue} index={1}>
-            {renderNotificationList(filterNotifications('gig_application'))}
+            {renderNotificationList(filterNotifications('gigs'))}
           </TabPanel>
           <TabPanel value={tabValue} index={2}>
             {renderNotificationList(filterNotifications('link_request'))}

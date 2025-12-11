@@ -404,6 +404,81 @@ const normalizeLocationInput = (input) => {
   return null;
 };
 
+const MAX_GIG_POSTED_NOTIFICATIONS = 200;
+
+const notifyMusiciansOfNewGig = async (gig, req) => {
+  try {
+    if (!gig) return;
+    const instruments = Array.isArray(gig.instruments) ? gig.instruments.filter(Boolean) : [];
+    const posterId = gig.user?._id || gig.user;
+    if (!posterId) return;
+
+    const notificationEnabledClause = {
+      $or: [
+        { 'notificationPreferences.gigPostedNotifications': { $ne: false } },
+        { notificationPreferences: { $exists: false } }
+      ]
+    };
+
+    const instrumentPrefClause = {
+      $or: [
+        { 'notificationPreferences.gigPostedOnlyMyInstruments': { $ne: false } },
+        { notificationPreferences: { $exists: false } }
+      ]
+    };
+
+    const instrumentRecipients = instruments.length
+      ? await User.find({
+        _id: { $ne: posterId },
+        isMusician: 'yes',
+        instruments: { $in: instruments },
+        ...notificationEnabledClause,
+        ...instrumentPrefClause
+      })
+        .select('_id')
+        .limit(MAX_GIG_POSTED_NOTIFICATIONS)
+      : [];
+
+    const alreadyIncluded = new Set(instrumentRecipients.map((r) => r._id.toString()));
+    const remainingSlots = Math.max(0, MAX_GIG_POSTED_NOTIFICATIONS - instrumentRecipients.length);
+
+    const generalRecipients = remainingSlots > 0
+      ? await User.find({
+        _id: { $ne: posterId, $nin: Array.from(alreadyIncluded) },
+        isMusician: 'yes',
+        ...notificationEnabledClause,
+        'notificationPreferences.gigPostedOnlyMyInstruments': false
+      })
+        .select('_id')
+        .limit(remainingSlots)
+      : [];
+
+    const recipients = [...instrumentRecipients, ...generalRecipients];
+
+    if (!recipients.length) return;
+
+    const message = `New gig posted: ${gig.title}`;
+
+    await Promise.all(
+      recipients.map((recipient) =>
+        createNotification(
+          recipient._id,
+          posterId,
+          'gig_posted',
+          message,
+          gig._id,
+          'Gig',
+          req
+        ).catch((err) => {
+          console.error(`Failed to create gig_posted notification for user ${recipient._id}:`, err);
+        })
+      )
+    );
+  } catch (err) {
+    console.error('Error notifying musicians of new gig:', err);
+  }
+};
+
 // @route   POST api/gigs
 // @desc    Create a gig
 // @access  Private
@@ -467,7 +542,14 @@ router.post('/', auth, async (req, res) => {
     
     const gig = await newGig.save();
     await gig.populate('user', ['name', 'avatar']);
-    
+
+    // Fire and forget notifications for musicians with matching instruments
+    setImmediate(() => {
+      notifyMusiciansOfNewGig(gig, req).catch((err) => {
+        console.error('Deferred gig_posted notification error:', err);
+      });
+    });
+
     res.json(gig);
   } catch (err) {
     console.error('Error creating gig:', err);

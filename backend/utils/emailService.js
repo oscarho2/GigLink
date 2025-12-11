@@ -165,6 +165,16 @@ const emailTemplates = {
       <p>Review their application and portfolio to make your decision!</p>
     `)
   }),
+
+  gig_posted: (recipientName, posterName, gigTitle) => ({
+    subject: `New gig posted${gigTitle ? `: ${gigTitle}` : ''}`,
+    html: notificationWrapper(`
+      <h2 style="color: #1976d2;">New Gig Posted!</h2>
+      <p>Hi ${recipientName},</p>
+      <p><strong>${posterName}</strong> just posted a new gig${gigTitle ? ` titled "${gigTitle}"` : ''}.</p>
+      <p>Open GigLink to see the details and apply if you're interested.</p>
+    `)
+  }),
   
   linkRequest: (recipientName, requesterName) => ({
     subject: `${requesterName} wants to connect with you`,
@@ -297,7 +307,11 @@ const shouldSendEmailNotification = (userPreferences, notificationType) => {
     comment: 'commentNotifications',
     message: 'messageNotifications',
     gigResponse: 'gigResponseNotifications',
+    gig_response: 'gigResponseNotifications',
     gigApplication: 'gigApplicationNotifications',
+    gig_application: 'gigApplicationNotifications',
+    gig_posted: 'gigPostedNotifications',
+    gigPosted: 'gigPostedNotifications',
     linkRequest: 'linkRequestNotifications'
   };
   

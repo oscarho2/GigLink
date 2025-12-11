@@ -324,6 +324,7 @@ export const NotificationProvider = ({ children }) => {
           comment: 'New comment on your post',
           message: 'New message received',
           gig_application: 'New application for your gig',
+          gig_posted: 'New gig posted',
           link_request: 'New link request'
         };
         

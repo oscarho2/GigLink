@@ -95,6 +95,14 @@ const UserSchema = new mongoose.Schema({
       type: Boolean,
       default: true
     },
+    gigPostedNotifications: {
+      type: Boolean,
+      default: true
+    },
+    gigPostedOnlyMyInstruments: {
+      type: Boolean,
+      default: true
+    },
     linkRequestNotifications: {
       type: Boolean,
       default: true
