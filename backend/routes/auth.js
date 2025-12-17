@@ -379,16 +379,62 @@ router.post('/apple', async (req, res) => {
       return combined || (normalizedEmail ? normalizedEmail.split('@')[0] : 'Apple User');
     })();
 
-    const userLookupConditions = [{ appleId }];
-    if (normalizedEmail) {
-      userLookupConditions.push({ email: normalizedEmail });
+    const [appleUser, emailUser] = await Promise.all([
+      User.findOne({ appleId }),
+      normalizedEmail ? User.findOne({ email: normalizedEmail }) : Promise.resolve(null)
+    ]);
+
+    if (appleUser && emailUser && appleUser.id !== emailUser.id) {
+      return res.status(409).json({
+        type: 'account_conflict',
+        message:
+          'An account already exists for this Apple ID, and a different account exists for this email. Please sign in using your email/password and contact support to merge accounts.'
+      });
     }
 
-    let user = await User.findOne({ $or: userLookupConditions });
-    const generatedPassword = crypto.randomBytes(32).toString('hex');
+    if (!appleUser && emailUser) {
+      if (emailUser.appleId && emailUser.appleId === appleId) {
+        // Already linked; proceed to create session below.
+      } else if (emailUser.appleId && emailUser.appleId !== appleId) {
+        return res.status(409).json({
+          type: 'apple_link_mismatch',
+          message:
+            'This email is already linked to a different Apple account. Please sign in with your original method and contact support if you need help.'
+        });
+      } else {
+        const linkToken = jwt.sign(
+          {
+            appleLink: {
+              appleId,
+              email: normalizedEmail
+            }
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: '10m' }
+        );
+
+        return res.status(409).json({
+          type: 'link_required',
+          message:
+            'An account already exists for this email. Please confirm your email and password to link Sign in with Apple.',
+          email: normalizedEmail,
+          linkToken
+        });
+      }
+    }
+
+    let user = appleUser || emailUser;
 
     if (user) {
       let updated = false;
+
+      if (user.appleId && user.appleId !== appleId) {
+        return res.status(409).json({
+          type: 'apple_link_mismatch',
+          message:
+            'This email is already linked to a different Apple account. Please sign in with your original method and contact support if you need help.'
+        });
+      }
 
       if (!user.appleId) {
         user.appleId = appleId;
@@ -414,7 +460,18 @@ router.post('/apple', async (req, res) => {
       }
 
       if (updated) {
-        await user.save();
+        try {
+          await user.save();
+        } catch (saveError) {
+          if (saveError?.code === 11000) {
+            return res.status(409).json({
+              type: 'apple_already_linked',
+              message:
+                'This Apple account is already linked to another GigLink account. Please sign in using your original method and contact support to merge accounts.'
+            });
+          }
+          throw saveError;
+        }
       }
     } else {
       if (!normalizedEmail) {
@@ -423,6 +480,7 @@ router.post('/apple', async (req, res) => {
         });
       }
 
+      const generatedPassword = crypto.randomBytes(32).toString('hex');
       user = new User({
         name: nameFromApplePayload,
         email: normalizedEmail,
@@ -431,7 +489,18 @@ router.post('/apple', async (req, res) => {
         isEmailVerified: shouldMarkEmailVerified
       });
 
-      await user.save();
+      try {
+        await user.save();
+      } catch (saveError) {
+        if (saveError?.code === 11000) {
+          return res.status(409).json({
+            type: 'email_already_registered',
+            message:
+              'This email is already registered. Please sign in with your email/password first, then link Sign in with Apple.'
+          });
+        }
+        throw saveError;
+      }
     }
 
     if (user.accountStatus === 'suspended') {
@@ -490,6 +559,144 @@ router.post('/apple', async (req, res) => {
     console.error('Apple sign-in error:', error);
     res.status(500).json({
       message: 'Server error during Apple authentication',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
+    });
+  }
+});
+
+// @route   POST api/auth/apple/confirm-link
+// @desc    Confirm ownership of an existing email account and link Apple Sign-In, then create a session
+// @access  Public
+router.post('/apple/confirm-link', async (req, res) => {
+  try {
+    const { linkToken, email, password } = req.body || {};
+
+    if (!linkToken || typeof linkToken !== 'string') {
+      return res.status(400).json({ message: 'linkToken is required' });
+    }
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'email is required' });
+    }
+
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ message: 'password is required' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(linkToken, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(400).json({ type: 'link_token_invalid', message: 'Apple link request has expired. Please try again.' });
+    }
+
+    const appleLink = decoded?.appleLink || {};
+    const appleId = appleLink.appleId;
+    const tokenEmail = (appleLink.email || '').toLowerCase().trim();
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (!appleId) {
+      return res.status(400).json({ type: 'link_token_invalid', message: 'Invalid Apple link request. Please try again.' });
+    }
+
+    if (!tokenEmail || tokenEmail !== normalizedEmail) {
+      return res.status(400).json({
+        type: 'email_mismatch',
+        message: 'Please enter the same email address that is associated with your Apple sign-in.'
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      return res.status(404).json({ type: 'user_not_found', message: 'No account found for that email.' });
+    }
+
+    if (user.accountStatus === 'suspended') {
+      return res.status(403).json({ message: 'Account suspended. Please contact support for assistance.' });
+    }
+
+    const validPassword = await user.comparePassword(password);
+    if (!validPassword) {
+      return res.status(401).json({ type: 'invalid_credentials', message: 'Incorrect password.' });
+    }
+
+    if (user.appleId && user.appleId !== appleId) {
+      return res.status(409).json({
+        type: 'apple_link_mismatch',
+        message:
+          'This email is already linked to a different Apple account. Please sign in with your original method and contact support if you need help.'
+      });
+    }
+
+    const existingOwner = await User.findOne({ appleId });
+    if (existingOwner && existingOwner.id !== user.id) {
+      return res.status(409).json({
+        type: 'apple_already_linked',
+        message:
+          'This Apple account is already linked to another GigLink account. Please sign in using your original method and contact support to merge accounts.'
+      });
+    }
+
+    if (!user.appleId) {
+      user.appleId = appleId;
+      try {
+        await user.save();
+      } catch (saveError) {
+        if (saveError?.code === 11000) {
+          return res.status(409).json({
+            type: 'apple_already_linked',
+            message:
+              'This Apple account is already linked to another GigLink account. Please sign in using your original method and contact support to merge accounts.'
+          });
+        }
+        throw saveError;
+      }
+    }
+
+    let profile = await Profile.findOne({ user: user._id });
+    if (!profile) {
+      try {
+        profile = await Profile.create({ user: user._id, skills: [], videos: [] });
+      } catch (profileError) {
+        console.error('Failed to create default profile for Apple-linked user:', profileError);
+      }
+    }
+    const profileComplete = !!profile;
+
+    const isAdmin = isAdminEmail(user.email);
+    const tokenPayload = {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isEmailVerified: user.isEmailVerified,
+        isAdmin
+      }
+    };
+
+    jwt.sign(tokenPayload, process.env.JWT_SECRET, (err, token) => {
+      if (err) {
+        console.error('Error generating JWT for Apple link confirm:', err);
+        return res.status(500).json({ message: 'Error generating token' });
+      }
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: getPublicUrl(user.avatar),
+          isEmailVerified: user.isEmailVerified,
+          isAdmin,
+          profileComplete
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Apple confirm-link error:', error);
+    res.status(500).json({
+      message: 'Server error during Apple account linking',
       ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }

@@ -5,11 +5,11 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import AuthContext from '../context/AuthContext';
 import appleAuthService from '../utils/appleAuth';
 
-const sanitizePath = (path) => {
+const sanitizePath = (path, fallback = '/login') => {
   if (typeof path !== 'string') {
-    return '/login';
+    return fallback;
   }
-  return path.startsWith('/') ? path : '/login';
+  return path.startsWith('/') ? path : fallback;
 };
 
 const AppleCallback = () => {
@@ -31,6 +31,18 @@ const AppleCallback = () => {
 
       if (result?.returnPath) {
         setFallbackPath(sanitizePath(result.returnPath));
+      }
+
+      if (result?.type === 'link_required' && result.linkToken) {
+        navigate('/apple/link-account', {
+          replace: true,
+          state: {
+            linkToken: result.linkToken,
+            email: result.email || '',
+            returnPath: result.returnPath || ''
+          }
+        });
+        return;
       }
 
       if (result?.success && result.token) {

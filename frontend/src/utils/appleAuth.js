@@ -161,7 +161,8 @@ class AppleAuthService {
     return {
       success: true,
       token: backendResponse.data?.token,
-      user: backendResponse.data?.user
+      user: backendResponse.data?.user,
+      type: backendResponse.data?.type
     };
   }
 
@@ -228,7 +229,13 @@ class AppleAuthService {
       }
 
       if (error?.response?.data?.message) {
-        return { success: false, error: error.response.data.message };
+        return {
+          success: false,
+          error: error.response.data.message,
+          type: error.response.data.type,
+          email: error.response.data.email,
+          linkToken: error.response.data.linkToken
+        };
       }
 
       return { success: false, error: error.message || 'Apple sign-in failed' };
@@ -314,6 +321,9 @@ class AppleAuthService {
         return {
           success: false,
           error: error.response.data.message,
+          type: error.response.data.type,
+          email: error.response.data.email,
+          linkToken: error.response.data.linkToken,
           returnPath: storedReturnPath
         };
       }

@@ -73,6 +73,7 @@ const Settings = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isNativePush, setIsNativePush] = useState(pushNotificationService.isNativeMode());
   const [pushError, setPushError] = useState('');
+
   const normalizePushPermission = useCallback((value) => {
     if (!value) return 'default';
     const lower = value.toLowerCase();
