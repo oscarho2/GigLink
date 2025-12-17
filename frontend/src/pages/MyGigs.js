@@ -216,14 +216,14 @@ const MyGigs = () => {
     const matchesStatus = applicationStatusFilter === 'all' ||
                          (applicationStatusFilter === 'pending' && application.applicationStatus === 'pending') ||
                          (applicationStatusFilter === 'accepted' && application.applicationStatus === 'accepted') ||
-                         (applicationStatusFilter === 'fixed' && application.acceptedByOther);
+                         (applicationStatusFilter === 'fixed' && application.isFilled);
     
     return matchesSearch && matchesStatus;
   });
 
   // Status helper functions
-  const getStatusColor = (status, acceptedByOther) => {
-    if (acceptedByOther && status !== 'accepted') return 'error';
+  const getStatusColor = (status, isFilled) => {
+    if (isFilled && status === 'pending') return 'default';
     switch (status) {
       case 'accepted': return 'success';
       case 'rejected': return 'error';
@@ -231,8 +231,8 @@ const MyGigs = () => {
     }
   };
   
-  const getStatusText = (status, acceptedByOther) => {
-    if (acceptedByOther && status !== 'accepted') return 'Position Fixed';
+  const getStatusText = (status, isFilled) => {
+    if (isFilled && status === 'pending') return 'Fixed';
     switch (status) {
       case 'accepted': return 'Accepted';
       case 'rejected': return 'Rejected';
@@ -708,8 +708,8 @@ const MyGigs = () => {
                           {application.title}
                         </Typography>
                         <Chip
-                          label={getStatusText(application.applicationStatus, application.acceptedByOther)}
-                          color={getStatusColor(application.applicationStatus, application.acceptedByOther)}
+                          label={getStatusText(application.applicationStatus, application.isFilled)}
+                          color={getStatusColor(application.applicationStatus, application.isFilled)}
                           size="small"
                           sx={{ fontWeight: 'bold' }}
                         />

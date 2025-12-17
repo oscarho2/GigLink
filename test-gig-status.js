@@ -70,13 +70,13 @@ async function testGigStatusScenario() {
     const user1Application = user1ApplicationsResponse.data.find(app => app._id === testGig._id);
     if (user1Application) {
       console.log('User 1 application status:', user1Application.applicationStatus);
-      console.log('Accepted by other:', user1Application.acceptedByOther);
+      console.log('Fixed by poster:', user1Application.isFilled);
       console.log('Is filled:', user1Application.isFilled);
       
-      if (user1Application.acceptedByOther) {
-        console.log('✅ SUCCESS: acceptedByOther is true - frontend should show "fixed" status');
+      if (user1Application.isFilled) {
+        console.log('✅ SUCCESS: isFilled is true - frontend should show "fixed" status');
       } else {
-        console.log('❌ ISSUE: acceptedByOther is false - this should be true');
+        console.log('❌ ISSUE: isFilled is false - gig is not marked fixed');
       }
     } else {
       console.log('❌ User 1 application not found');

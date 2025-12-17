@@ -1426,7 +1426,7 @@ const Dashboard = () => {
                    } else if (application.applicationStatus === 'rejected') {
                      displayStatus = 'rejected';
                      chipColor = 'error';
-                   } else if (application.isFilled || application.acceptedByOther) {
+                   } else if (application.isFilled) {
                      // If gig is fixed by someone else, show as 'fixed' instead of 'pending'
                      displayStatus = 'fixed';
                      chipColor = 'default';

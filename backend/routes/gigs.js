@@ -1353,13 +1353,10 @@ router.get('/:id', async (req, res) => {
           : null;
         if (myApp) {
           gigObj.yourApplicationStatus = myApp.status || 'pending';
-          // Check if someone else was accepted (for 'fixed' status display)
-          gigObj.acceptedByOther = gig.applicants.some(
-            app => app.status === 'accepted' && (
-              app.user && app.user._id ? app.user._id.toString() : 
-              (app.user && app.user.toString ? app.user.toString() : app.user)
-            ) !== myId
-          );
+          // "Fixed" should be controlled only by the gig poster toggling isFilled.
+          // Keep a backwards-compatible flag for older clients that used acceptedByOther
+          // to decide whether to display "fixed".
+          gigObj.acceptedByOther = Boolean(gig.isFilled && (gigObj.yourApplicationStatus === 'pending'));
         }
       } catch (err) {
         console.error('DEBUG: Error in status check:', err);
@@ -1550,7 +1547,7 @@ router.post('/:id/apply', auth, async (req, res) => {
 });
 
 // @route   POST api/gigs/:id/accept/:applicantId
-// @desc    Accept an applicant and mark gig as fixed
+// @desc    Accept an applicant
 // @access  Private
 router.post('/:id/accept/:applicantId', auth, async (req, res) => {
   try {
@@ -1576,10 +1573,7 @@ router.post('/:id/accept/:applicantId', auth, async (req, res) => {
     
     // Update applicant status to accepted
     applicant.status = 'accepted';
-    
-    // Mark gig as fixed
-    gig.isFilled = true;
-    
+
     await gig.save();
     
     // Emit socket event to notify about application status change
@@ -1612,7 +1606,7 @@ router.post('/:id/accept/:applicantId', auth, async (req, res) => {
       console.error('Failed to emit application status update:', emitErr);
     }
     
-    res.json({ msg: 'Applicant accepted and gig marked as fixed', gig });
+    res.json({ msg: 'Applicant accepted', gig });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -1646,17 +1640,7 @@ router.post('/:id/undo/:applicantId', auth, async (req, res) => {
     
     // Update applicant status back to pending
     applicant.status = 'pending';
-    
-    // Check if there are any other accepted applicants
-    const hasOtherAcceptedApplicants = gig.applicants.some(
-      app => app.status === 'accepted' && app.user.toString() !== req.params.applicantId
-    );
-    
-    // Only mark gig as not fixed if no other applicants are accepted
-    if (!hasOtherAcceptedApplicants) {
-      gig.isFilled = false;
-    }
-    
+
     await gig.save();
     
     // Emit socket event to notify about application status change
@@ -1827,10 +1811,9 @@ router.get('/user/applications', auth, async (req, res) => {
         applicationStatus: userApplication.status,
         applicationDate: userApplication.date,
         applicationMessage: userApplication.message,
-        // Check if someone else was accepted
-        acceptedByOther: gig.applicants.some(
-          app => app.status === 'accepted' && app.user._id.toString() !== req.user.id
-        )
+        // Backwards-compatible flag for older clients that used acceptedByOther to
+        // decide whether to display "fixed". "Fixed" is controlled by poster via isFilled.
+        acceptedByOther: Boolean(gig.isFilled && (userApplication.status === 'pending'))
       };
     });
 

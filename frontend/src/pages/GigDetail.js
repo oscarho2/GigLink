@@ -27,6 +27,7 @@ const GigDetail = () => {
   const [deleteStatus, setDeleteStatus] = useState('');
   const [hasApplied, setHasApplied] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState(null); // 'pending', 'accepted', 'rejected'
+  const [togglingFixed, setTogglingFixed] = useState(false);
 
   const formatFullLocation = (venue, location) => {
     const locationString = typeof location === 'string'
@@ -57,8 +58,8 @@ const GigDetail = () => {
         // Check if user has applied using the yourApplicationStatus field
         if (res.data.yourApplicationStatus) {
           setHasApplied(true);
-          // Show 'fixed' status if gig is fixed by another applicant
-          if (res.data.acceptedByOther && res.data.yourApplicationStatus === 'pending') {
+          // Show 'fixed' status only when the gig poster has toggled isFilled.
+          if (res.data.isFilled && res.data.yourApplicationStatus === 'pending') {
             setApplicationStatus('fixed');
           } else {
             setApplicationStatus(res.data.yourApplicationStatus);
@@ -238,6 +239,28 @@ const GigDetail = () => {
     } catch (err) {
       console.error(err);
       setError('Failed to process applicant action. Please try again.');
+    }
+  };
+
+  const handleToggleFixed = async () => {
+    const nextIsFilled = !gig?.isFilled;
+    try {
+      setTogglingFixed(true);
+      const config = {
+        headers: {
+          'x-auth-token': token,
+        },
+      };
+
+      await axios.put(`/api/gigs/${id}`, { isFilled: nextIsFilled }, config);
+      const res = await axios.get(`/api/gigs/${id}`, config);
+      setGig(res.data);
+      toast.success(nextIsFilled ? 'Gig marked as fixed' : 'Gig reopened');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update gig status. Please try again.');
+    } finally {
+      setTogglingFixed(false);
     }
   };
 
@@ -918,20 +941,30 @@ const GigDetail = () => {
                 <Button
                   variant="contained"
                   size="large"
-                  disabled
+                  onClick={handleToggleFixed}
+                  disabled={togglingFixed}
                   sx={{
                     py: { xs: 1.25, sm: 1.5 },
                     px: { xs: 3, sm: 4, md: 5 },
                     borderRadius: 2,
                     fontSize: { xs: '1rem', sm: '1.1rem' },
                     fontWeight: 'bold',
-                    bgcolor: '#cccccc',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    bgcolor: gig.isFilled ? '#6b7280' : '#2c5282',
+                    boxShadow: gig.isFilled ? 'none' : '0 4px 12px rgba(0, 0, 0, 0.15)',
                     width: { xs: '100%', sm: 'auto' },
-                    minHeight: { xs: 48, sm: 'auto' }
+                    minHeight: { xs: 48, sm: 'auto' },
+                    '&:hover': {
+                      bgcolor: gig.isFilled ? '#4b5563' : '#1a365d',
+                      boxShadow: gig.isFilled ? 'none' : '0 6px 16px rgba(0, 0, 0, 0.2)',
+                    },
+                    '&.Mui-disabled': {
+                      bgcolor: gig.isFilled ? '#6b7280' : '#2c5282',
+                      color: 'white',
+                      opacity: 0.8
+                    }
                   }}
                 >
-                  You Posted This Gig
+                  {gig.isFilled ? 'Undo Fixed' : 'Mark Fixed'}
                 </Button>
                 <Button
                   variant="contained"
