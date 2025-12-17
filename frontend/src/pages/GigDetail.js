@@ -146,7 +146,9 @@ const GigDetail = () => {
       await axios.post(`/api/gigs/${id}/apply`, body, config);
       
       // Refresh gig data to get updated applicant count
-      const res = await axios.get(`/api/gigs/${id}`);
+      const res = await axios.get(`/api/gigs/${id}`, {
+        headers: { 'x-auth-token': token },
+      });
       setGig(res.data);
       setHasApplied(true);
       setApplicationStatus('pending'); // New applications start as pending
@@ -158,7 +160,9 @@ const GigDetail = () => {
         setApplyStatus('duplicate');
         setHasApplied(true);
         // Try to get the current application status
-        const res = await axios.get(`/api/gigs/${id}`);
+        const res = await axios.get(`/api/gigs/${id}`, {
+          headers: { 'x-auth-token': token },
+        });
         const uid = (user?.id || user?._id)?.toString();
         if (uid && Array.isArray(res.data.applicants)) {
           const userApplication = res.data.applicants.find((applicant) => {
@@ -229,7 +233,7 @@ const GigDetail = () => {
         await axios.post(`/api/gigs/${id}/accept/${applicantId}`, {}, config);
       }
       
-      const res = await axios.get(`/api/gigs/${id}`);
+      const res = await axios.get(`/api/gigs/${id}`, config);
       setGig(res.data);
     } catch (err) {
       console.error(err);
@@ -548,8 +552,7 @@ const GigDetail = () => {
                              size="small"
                              sx={{ fontWeight: 'bold' }}
                            />
-                           {(!gig.isFilled || isAccepted) && (
-                             <Button
+                           <Button
                             variant="contained"
                             color={isAccepted ? 'secondary' : 'primary'}
                             onClick={() => handleAcceptApplicant(applicantUserId)}
@@ -564,7 +567,6 @@ const GigDetail = () => {
                           >
                             {isAccepted ? 'Undo' : 'Accept'}
                           </Button>
-                            )}
                           </Box>
                         </Paper>
                     );
