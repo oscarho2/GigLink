@@ -529,7 +529,10 @@ class GoogleAuthService {
       return {
         success: false,
         error: errorMessage,
-        captchaRequired: isCaptchaError
+        captchaRequired: isCaptchaError,
+        type: error.response?.data?.type,
+        email: error.response?.data?.email,
+        linkToken: error.response?.data?.linkToken
       };
     }
   }
@@ -610,6 +613,9 @@ class GoogleAuthService {
       return {
         success: false,
         error: this.getErrorMessage(error),
+        type: error.response?.data?.type,
+        email: error.response?.data?.email,
+        linkToken: error.response?.data?.linkToken,
         returnPath: storedReturnPath
       };
     }

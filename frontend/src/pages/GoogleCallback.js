@@ -33,6 +33,18 @@ const GoogleCallback = () => {
         setFallbackPath(sanitizePath(result.returnPath));
       }
 
+      if (result?.type === 'link_required' && result.linkToken) {
+        navigate('/google/link-account', {
+          replace: true,
+          state: {
+            linkToken: result.linkToken,
+            email: result.email || '',
+            returnPath: result.returnPath || ''
+          }
+        });
+        return;
+      }
+
       if (result?.success && result.token) {
         const ok = loginWithToken(result.token, result.user);
         if (!ok) {

@@ -185,20 +185,65 @@ router.post('/google', async (req, res) => {
     const normalizedEmail = verifiedEmail.toLowerCase().trim();
 
     console.log('🔍 Checking for existing user...');
-    // Check if user already exists
-    let user = await User.findOne({ 
-      $or: [
-        { email: normalizedEmail },
-        { googleId: googleId }
-      ]
-    });
-    
+    const [googleUser, emailUser] = await Promise.all([
+      User.findOne({ googleId }),
+      User.findOne({ email: normalizedEmail })
+    ]);
+
+    if (googleUser && emailUser && googleUser.id !== emailUser.id) {
+      return res.status(409).json({
+        type: 'account_conflict',
+        message:
+          'An account already exists for this Google account, and a different account exists for this email. Please sign in using your original method and contact support to merge accounts.'
+      });
+    }
+
+    if (!googleUser && emailUser) {
+      if (emailUser.googleId && emailUser.googleId !== googleId) {
+        return res.status(409).json({
+          type: 'google_link_mismatch',
+          message:
+            'This email is already linked to a different Google account. Please sign in with your original method and contact support if you need help.'
+        });
+      }
+
+      if (!emailUser.googleId) {
+        const linkToken = jwt.sign(
+          {
+            googleLink: {
+              googleId,
+              email: normalizedEmail,
+              name: payload?.name || name || '',
+              picture: payload?.picture || imageUrl || ''
+            }
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: '10m' }
+        );
+
+        return res.status(409).json({
+          type: 'link_required',
+          message:
+            'An account already exists for this email. Please confirm your email and password to link Sign in with Google.',
+          email: normalizedEmail,
+          linkToken
+        });
+      }
+    }
+
+    let user = googleUser || emailUser;
+
     console.log('📥 Downloading avatar image...');
     let avatarPath = null;
-    if (imageUrl) {
-      const uploadsDir = path.join(__dirname, '../uploads/images');
-      avatarPath = await downloadImage(imageUrl, uploadsDir);
-      console.log('📸 Avatar download result:', avatarPath ? 'Success' : 'Failed');
+    const resolvedImageUrl = payload?.picture || imageUrl;
+    if (resolvedImageUrl) {
+      try {
+        const uploadsDir = path.join(__dirname, '../uploads/images');
+        avatarPath = await downloadImage(resolvedImageUrl, uploadsDir);
+        console.log('📸 Avatar download result:', avatarPath ? 'Success' : 'Failed');
+      } catch (downloadError) {
+        console.warn('📸 Avatar download failed:', downloadError?.message || downloadError);
+      }
     }
 
     if (user) {
@@ -217,26 +262,52 @@ router.post('/google', async (req, res) => {
         user.isEmailVerified = true;
         needsUpdate = true;
       }
+      if (!user.name && (payload?.name || name)) {
+        user.name = payload?.name || name;
+        needsUpdate = true;
+      }
       
       if (needsUpdate) {
         console.log('💾 Updating existing user...');
-        await user.save();
+        try {
+          await user.save();
+        } catch (saveError) {
+          if (saveError?.code === 11000) {
+            return res.status(409).json({
+              type: 'google_already_linked',
+              message:
+                'This Google account is already linked to another GigLink account. Please sign in using your original method and contact support to merge accounts.'
+            });
+          }
+          throw saveError;
+        }
         console.log('✅ User updated successfully');
       }
     } else {
       console.log('➕ Creating new user...');
       // Create new user - let the pre-save middleware handle password hashing
       user = new User({
-        name: name || verifiedEmail.split('@')[0],
+        name: payload?.name || name || verifiedEmail.split('@')[0],
         email: normalizedEmail,
         googleId: googleId,
         avatar: avatarPath,
         password: 'google_oauth_user', // This will be hashed by the pre-save middleware
-        isEmailVerified: emailVerified || true // Google users are considered verified
+        isEmailVerified: true // Google users are considered verified
       });
       
       // Save the new user normally
-      await user.save();
+      try {
+        await user.save();
+      } catch (saveError) {
+        if (saveError?.code === 11000) {
+          return res.status(409).json({
+            type: 'email_already_registered',
+            message:
+              'This email is already registered. Please sign in with your email/password first, then link Sign in with Google.'
+          });
+        }
+        throw saveError;
+      }
       console.log('✅ New user created:', user._id);
     }
 
@@ -311,6 +382,172 @@ router.post('/google', async (req, res) => {
     
     res.status(500).json({ 
       message: 'Server error during Google authentication',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
+    });
+  }
+});
+
+// @route   POST api/auth/google/confirm-link
+// @desc    Confirm ownership of an existing email account and link Google Sign-In, then create a session
+// @access  Public
+router.post('/google/confirm-link', async (req, res) => {
+  try {
+    const { linkToken, email, password } = req.body || {};
+
+    if (!linkToken || typeof linkToken !== 'string') {
+      return res.status(400).json({ message: 'linkToken is required' });
+    }
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'email is required' });
+    }
+
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ message: 'password is required' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(linkToken, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(400).json({ type: 'link_token_invalid', message: 'Google link request has expired. Please try again.' });
+    }
+
+    const googleLink = decoded?.googleLink || {};
+    const googleId = googleLink.googleId;
+    const tokenEmail = (googleLink.email || '').toLowerCase().trim();
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (!googleId) {
+      return res.status(400).json({ type: 'link_token_invalid', message: 'Invalid Google link request. Please try again.' });
+    }
+
+    if (!tokenEmail || tokenEmail !== normalizedEmail) {
+      return res.status(400).json({
+        type: 'email_mismatch',
+        message: 'Please enter the same email address that is associated with your Google sign-in.'
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      return res.status(404).json({ type: 'user_not_found', message: 'No account found for that email.' });
+    }
+
+    if (user.accountStatus === 'suspended') {
+      return res.status(403).json({ message: 'Account suspended. Please contact support for assistance.' });
+    }
+
+    const validPassword = await user.comparePassword(password);
+    if (!validPassword) {
+      return res.status(401).json({ type: 'invalid_credentials', message: 'Incorrect password.' });
+    }
+
+    if (user.googleId && user.googleId !== googleId) {
+      return res.status(409).json({
+        type: 'google_link_mismatch',
+        message:
+          'This email is already linked to a different Google account. Please sign in with your original method and contact support if you need help.'
+      });
+    }
+
+    const existingOwner = await User.findOne({ googleId });
+    if (existingOwner && existingOwner.id !== user.id) {
+      return res.status(409).json({
+        type: 'google_already_linked',
+        message:
+          'This Google account is already linked to another GigLink account. Please sign in using your original method and contact support to merge accounts.'
+      });
+    }
+
+    let avatarPath = null;
+    const resolvedPicture = typeof googleLink.picture === 'string' ? googleLink.picture.trim() : '';
+    if (resolvedPicture) {
+      try {
+        const uploadsDir = path.join(__dirname, '../uploads/images');
+        avatarPath = await downloadImage(resolvedPicture, uploadsDir);
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    let needsUpdate = false;
+    if (!user.googleId) {
+      user.googleId = googleId;
+      needsUpdate = true;
+    }
+    if (!user.name && typeof googleLink.name === 'string' && googleLink.name.trim()) {
+      user.name = googleLink.name.trim();
+      needsUpdate = true;
+    }
+    if (avatarPath && (!user.avatar || user.avatar !== avatarPath)) {
+      user.avatar = avatarPath;
+      needsUpdate = true;
+    }
+    if (!user.isEmailVerified) {
+      user.isEmailVerified = true;
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      try {
+        await user.save();
+      } catch (saveError) {
+        if (saveError?.code === 11000) {
+          return res.status(409).json({
+            type: 'google_already_linked',
+            message:
+              'This Google account is already linked to another GigLink account. Please sign in using your original method and contact support to merge accounts.'
+          });
+        }
+        throw saveError;
+      }
+    }
+
+    let profile = await Profile.findOne({ user: user._id });
+    if (!profile) {
+      try {
+        profile = await Profile.create({ user: user._id, skills: [], videos: [] });
+      } catch (profileError) {
+        console.error('Failed to create default profile for Google-linked user:', profileError);
+      }
+    }
+    const profileComplete = !!profile;
+
+    const isAdmin = isAdminEmail(user.email);
+    const tokenPayload = {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isEmailVerified: user.isEmailVerified,
+        isAdmin
+      }
+    };
+
+    jwt.sign(tokenPayload, process.env.JWT_SECRET, (err, token) => {
+      if (err) {
+        console.error('Error generating JWT for Google link confirm:', err);
+        return res.status(500).json({ message: 'Error generating token' });
+      }
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: getPublicUrl(user.avatar),
+          isEmailVerified: user.isEmailVerified,
+          isAdmin,
+          profileComplete
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Google confirm-link error:', error);
+    res.status(500).json({
+      message: 'Server error during Google account linking',
       ...(process.env.NODE_ENV === 'development' && { error: error.message })
     });
   }

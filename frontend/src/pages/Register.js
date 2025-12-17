@@ -65,6 +65,11 @@ const Register = () => {
         shouldResetLoading = false;
         return;
       }
+
+      if (result.type === 'link_required' && result.linkToken) {
+        navigate('/google/link-account', { state: { linkToken: result.linkToken, email: result.email || '' } });
+        return;
+      }
       
       if (result.success && result.token) {
         const loginOk = loginWithToken(result.token, result.user);
