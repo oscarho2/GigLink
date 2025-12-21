@@ -146,6 +146,33 @@ const Register = () => {
     }
   }, [isAuthenticated, navigate]);
 
+  useEffect(() => {
+    const resetLoading = () => {
+      setIsGoogleLoading(false);
+      setIsAppleLoading(false);
+    };
+
+    const handlePageShow = () => {
+      resetLoading();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        resetLoading();
+      }
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
   const { name, email, password, password2 } = formData;
 
   const onChange = (e) => {
