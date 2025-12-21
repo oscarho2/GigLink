@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LoadingSpinner from './LoadingSpinner';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading, user, token } = useAuth();
@@ -9,7 +10,7 @@ const PrivateRoute = ({ children }) => {
   
   if (loading) {
     console.log('PrivateRoute - Still loading authentication...');
-    return null;
+    return <LoadingSpinner text="Loading your account..." fullScreen />;
   }
   
   if (!isAuthenticated) {

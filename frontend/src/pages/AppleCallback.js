@@ -22,6 +22,16 @@ const AppleCallback = () => {
 
   useEffect(() => {
     let isMounted = true;
+    let fallbackTimer = null;
+
+    const redirectTo = (path) => {
+      navigate(path, { replace: true });
+      fallbackTimer = window.setTimeout(() => {
+        if (window.location.pathname.endsWith('/apple/callback')) {
+          window.location.replace(path);
+        }
+      }, 600);
+    };
 
     const finalizeSignIn = async () => {
       const result = await appleAuthService.handleRedirectCallback(location.search);
@@ -54,7 +64,7 @@ const AppleCallback = () => {
         }
 
         const destination = result.user?.profileComplete ? '/dashboard' : '/profile-setup';
-        navigate(destination, { replace: true });
+        redirectTo(destination);
         return;
       }
 
@@ -72,6 +82,9 @@ const AppleCallback = () => {
 
     return () => {
       isMounted = false;
+      if (fallbackTimer) {
+        window.clearTimeout(fallbackTimer);
+      }
     };
   }, [location.search, loginWithToken, navigate]);
 

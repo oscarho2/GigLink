@@ -22,6 +22,16 @@ const GoogleCallback = () => {
 
   useEffect(() => {
     let isMounted = true;
+    let fallbackTimer = null;
+
+    const redirectTo = (path) => {
+      navigate(path, { replace: true });
+      fallbackTimer = window.setTimeout(() => {
+        if (window.location.pathname.endsWith('/google/callback')) {
+          window.location.replace(path);
+        }
+      }, 600);
+    };
 
     const finalizeSignIn = async () => {
       const result = await googleAuthService.handleRedirectCallback(location.hash, location.search);
@@ -54,7 +64,7 @@ const GoogleCallback = () => {
         }
 
         const destination = result.user?.profileComplete ? '/dashboard' : '/profile-setup';
-        navigate(destination, { replace: true });
+        redirectTo(destination);
         return;
       }
 
@@ -66,6 +76,9 @@ const GoogleCallback = () => {
 
     return () => {
       isMounted = false;
+      if (fallbackTimer) {
+        window.clearTimeout(fallbackTimer);
+      }
     };
   }, [location.hash, location.search, loginWithToken, navigate]);
 
