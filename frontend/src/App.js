@@ -19,6 +19,8 @@ import LoadingSpinner from './components/LoadingSpinner';
 import PrivateRoute from './components/PrivateRoute';
 import ScrollToTop from './components/ScrollToTop';
 import EmailVerificationBanner from './components/EmailVerificationBanner';
+import AppleCallback from './pages/AppleCallback';
+import GoogleCallback from './pages/GoogleCallback';
 
 // Lazy load pages for better performance
 const Home = lazy(() => import('./pages/Home'));
@@ -28,10 +30,8 @@ const EmailVerification = lazy(() => import('./pages/EmailVerification'));
 const ExpiredVerification = lazy(() => import('./pages/ExpiredVerification'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-const AppleCallback = lazy(() => import('./pages/AppleCallback'));
 const AppleLinkAccount = lazy(() => import('./pages/AppleLinkAccount'));
 const GoogleLinkAccount = lazy(() => import('./pages/GoogleLinkAccount'));
-const GoogleCallback = lazy(() => import('./pages/GoogleCallback'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Profile = lazy(() => import('./pages/Profile'));
 const LinksPage = lazy(() => import('./pages/Links'));
