@@ -42,7 +42,8 @@ export const isIosInAppBrowser = () => {
   const isSafari = /Safari/i.test(userAgent) && !/CriOS|FxiOS|OPiOS|EdgiOS|DuckDuckGo|GSA|YaBrowser/i.test(userAgent);
   const lacksSafariToken = /AppleWebKit/i.test(userAgent) && !/Safari/i.test(userAgent);
   const hasCapacitorBridge = typeof window.Capacitor !== 'undefined';
+  const hasWebkitBridge = typeof window.webkit !== 'undefined' && !!window.webkit?.messageHandlers;
   const mentionsAppWrapper = /GigLink/i.test(userAgent) && /Mobile/i.test(userAgent);
 
-  return Boolean(!isSafari || lacksSafariToken || hasCapacitorBridge || mentionsAppWrapper);
+  return Boolean(!isSafari || lacksSafariToken || hasCapacitorBridge || hasWebkitBridge || mentionsAppWrapper);
 };

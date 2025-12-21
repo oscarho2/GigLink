@@ -4,6 +4,7 @@ import { Alert, Box, Button, Container, Typography } from '@mui/material';
 import LoadingSpinner from '../components/LoadingSpinner';
 import AuthContext from '../context/AuthContext';
 import googleAuthService from '../utils/googleAuth';
+import { isIosInAppBrowser } from '../utils/environment';
 
 const sanitizePath = (path) => {
   if (typeof path !== 'string') {
@@ -17,15 +18,32 @@ const GoogleCallback = () => {
   const [status, setStatus] = useState('processing');
   const [errorMessage, setErrorMessage] = useState('');
   const [fallbackPath, setFallbackPath] = useState('/login');
+  const shouldForceReload = isIosInAppBrowser();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     let isMounted = true;
     let fallbackTimer = null;
+    const reloadGuardKey = 'gl-oauth-force-reload-at';
+
+    const scheduleForceReload = (path) => {
+      if (!shouldForceReload) {
+        return;
+      }
+      const now = Date.now();
+      const lastReload = Number(sessionStorage.getItem(reloadGuardKey) || 0);
+      if (now - lastReload > 3000) {
+        sessionStorage.setItem(reloadGuardKey, String(now));
+        window.setTimeout(() => {
+          window.location.replace(path);
+        }, 700);
+      }
+    };
 
     const redirectTo = (path) => {
       navigate(path, { replace: true });
+      scheduleForceReload(path);
       fallbackTimer = window.setTimeout(() => {
         if (window.location.pathname.endsWith('/google/callback')) {
           window.location.replace(path);
