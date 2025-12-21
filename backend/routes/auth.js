@@ -15,11 +15,46 @@ const { isAdminEmail } = require('../utils/adminAuth');
 const path = require('path');
 const {
   verifyIdToken: verifyAppleIdToken,
-  exchangeAuthorizationCode: exchangeAppleAuthorizationCode
+  exchangeAuthorizationCode: exchangeAppleAuthorizationCode,
+  getClientConfig: getAppleClientConfig
 } = require('../utils/appleAuth');
 
 // Initialize Google OAuth client
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const getGoogleClientIds = () => {
+  const ids = new Set();
+  const addIds = (value) => {
+    if (!value || typeof value !== 'string') {
+      return;
+    }
+    value
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .forEach((id) => ids.add(id));
+  };
+
+  addIds(process.env.GOOGLE_CLIENT_ID);
+  addIds(process.env.GOOGLE_IOS_CLIENT_ID);
+  addIds(process.env.GOOGLE_ANDROID_CLIENT_ID);
+  addIds(process.env.GOOGLE_ADDITIONAL_CLIENT_IDS);
+  addIds(process.env.GOOGLE_CLIENT_IDS);
+
+  return Array.from(ids);
+};
+
+const getGoogleRedirectUri = () => {
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    return process.env.GOOGLE_REDIRECT_URI.trim();
+  }
+
+  const baseUrl = process.env.FRONTEND_URL || process.env.REACT_APP_API_BASE_URL || '';
+  if (!baseUrl) {
+    return '';
+  }
+  return `${baseUrl.replace(/\/$/, '')}/google/callback`;
+};
 
 // @route   GET api/auth/google/client
 // @desc    Provide Google OAuth client ID to frontend
@@ -29,7 +64,19 @@ router.get('/google/client', (req, res) => {
   if (!clientId) {
     return res.status(503).json({ message: 'Google client ID not configured' });
   }
-  res.json({ clientId });
+  res.json({ clientId, redirectURI: getGoogleRedirectUri() });
+});
+
+// @route   GET api/auth/apple/config
+// @desc    Provide Apple Sign-In configuration to frontend
+// @access  Public
+router.get('/apple/config', (req, res) => {
+  try {
+    const config = getAppleClientConfig();
+    return res.json(config);
+  } catch (err) {
+    return res.status(503).json({ message: err.message || 'Apple Sign-In is not configured' });
+  }
 });
 
 // @route   GET api/auth
@@ -163,9 +210,10 @@ router.post('/google', async (req, res) => {
 
     console.log('🔍 Verifying Google ID token...');
     // Verify Google ID token
+    const allowedClientIds = getGoogleClientIds();
     const ticket = await googleClient.verifyIdToken({
       idToken: idToken,
-      audience: process.env.GOOGLE_CLIENT_ID
+      audience: allowedClientIds.length ? allowedClientIds : process.env.GOOGLE_CLIENT_ID
     });
 
     const payload = ticket.getPayload();
@@ -564,7 +612,8 @@ router.post('/apple', async (req, res) => {
       idToken,
       identityToken: identityTokenFromBody,
       email: providedEmail,
-      fullName
+      fullName,
+      redirectURI: redirectURIFromClient
     } = requestBody;
     const rawUserInfo = requestBody.user || {};
 
@@ -572,13 +621,18 @@ router.post('/apple', async (req, res) => {
       return res.status(400).json({ message: 'Apple authorization code or identity token is required' });
     }
 
+    const hasIncomingIdToken = Boolean(idToken || identityTokenFromBody);
     let tokenExchangeResponse = null;
     if (authorizationCode) {
       try {
-        tokenExchangeResponse = await exchangeAppleAuthorizationCode(authorizationCode);
+        tokenExchangeResponse = await exchangeAppleAuthorizationCode(authorizationCode, redirectURIFromClient);
       } catch (exchangeError) {
-        console.error('Apple authorization code exchange failed:', exchangeError?.response?.data || exchangeError.message);
-        return res.status(400).json({ message: 'Invalid or expired Apple authorization code' });
+        const exchangeDetails = exchangeError?.response?.data || exchangeError.message;
+        if (!hasIncomingIdToken) {
+          console.error('Apple authorization code exchange failed:', exchangeDetails);
+          return res.status(400).json({ message: 'Invalid or expired Apple authorization code' });
+        }
+        console.warn('Apple authorization code exchange failed; continuing with provided identity token:', exchangeDetails);
       }
     }
 

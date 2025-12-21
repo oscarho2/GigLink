@@ -13,6 +13,7 @@ class GoogleAuthService {
     this.lastPromptTime = 0;
     this.promptCooldown = 2000; // 2 seconds cooldown between attempts
     this.cachedClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || null;
+    this.cachedRedirectURI = process.env.REACT_APP_GOOGLE_REDIRECT_URI || null;
     this.clientIdPromise = null;
   }
 
@@ -26,6 +27,9 @@ class GoogleAuthService {
   }
 
   getRedirectURI() {
+    if (this.cachedRedirectURI) {
+      return this.cachedRedirectURI;
+    }
     if (process.env.REACT_APP_GOOGLE_REDIRECT_URI) {
       return process.env.REACT_APP_GOOGLE_REDIRECT_URI;
     }
@@ -398,6 +402,10 @@ class GoogleAuthService {
       .get('/api/auth/google/client')
       .then((res) => {
         const clientId = (res.data?.clientId || '').trim();
+        const redirectURI = (res.data?.redirectURI || res.data?.redirectUri || '').trim();
+        if (redirectURI) {
+          this.cachedRedirectURI = redirectURI;
+        }
         if (clientId) {
           this.cachedClientId = clientId;
           console.log('ℹ️ Google client ID resolved from backend configuration');

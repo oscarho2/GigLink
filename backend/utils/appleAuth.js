@@ -14,6 +14,15 @@ const getRequiredEnv = (key) => {
   return value;
 };
 
+const buildDefaultRedirectUri = () => {
+  if (process.env.APPLE_REDIRECT_URI) {
+    return process.env.APPLE_REDIRECT_URI.trim();
+  }
+
+  const baseUrl = process.env.FRONTEND_URL || process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
+  return `${baseUrl.replace(/\/$/, '')}/apple/callback`;
+};
+
 const getApplePrivateKey = () => {
   const rawKey = getRequiredEnv('APPLE_PRIVATE_KEY');
   // Support keys stored with escaped newlines
@@ -107,9 +116,9 @@ const verifyIdToken = async (idToken) => {
   });
 };
 
-const exchangeAuthorizationCode = async (authorizationCode) => {
+const exchangeAuthorizationCode = async (authorizationCode, redirectUri) => {
   const clientId = getRequiredEnv('APPLE_CLIENT_ID');
-  const redirectUri = process.env.APPLE_REDIRECT_URI;
+  const resolvedRedirectUri = (redirectUri && redirectUri.trim()) || buildDefaultRedirectUri();
 
   const body = new URLSearchParams({
     client_id: clientId,
@@ -118,8 +127,8 @@ const exchangeAuthorizationCode = async (authorizationCode) => {
     grant_type: 'authorization_code'
   });
 
-  if (redirectUri && typeof redirectUri === 'string') {
-    body.set('redirect_uri', redirectUri);
+  if (resolvedRedirectUri && typeof resolvedRedirectUri === 'string') {
+    body.set('redirect_uri', resolvedRedirectUri);
   }
 
   const response = await axios.post('https://appleid.apple.com/auth/token', body.toString(), {
@@ -132,8 +141,15 @@ const exchangeAuthorizationCode = async (authorizationCode) => {
   return response.data;
 };
 
+const getClientConfig = () => ({
+  clientId: getRequiredEnv('APPLE_CLIENT_ID'),
+  redirectURI: buildDefaultRedirectUri()
+});
+
 module.exports = {
+  buildDefaultRedirectUri,
   generateClientSecret,
+  getClientConfig,
   verifyIdToken,
   exchangeAuthorizationCode
 };

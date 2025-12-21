@@ -3,10 +3,13 @@ import { isIosDevice, isStandalonePWA, isIosInAppBrowser } from './environment';
 
 const APPLE_STATE_KEY = 'appleAuthState';
 const APPLE_RETURN_PATH_KEY = 'appleAuthReturnPath';
+const APPLE_REDIRECT_URI_KEY = 'appleAuthRedirectURI';
 
 class AppleAuthService {
   constructor() {
     this.scriptPromise = null;
+    this.configPromise = null;
+    this.cachedConfig = null;
   }
 
   loadScript() {
@@ -51,6 +54,19 @@ class AppleAuthService {
     return Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 
+  getDefaultRedirectURI() {
+    if (typeof window === 'undefined') {
+      return (process.env.REACT_APP_APPLE_REDIRECT_URI || '').replace(/\/$/, '') || '';
+    }
+
+    const base = process.env.REACT_APP_APPLE_REDIRECT_URI || window.location.origin || '';
+    if (!base) {
+      return '';
+    }
+
+    return `${base.replace(/\/$/, '')}/apple/callback`;
+  }
+
   shouldUseRedirectFlow() {
     if (!isIosDevice()) {
       return false;
@@ -78,14 +94,58 @@ class AppleAuthService {
       return process.env.REACT_APP_APPLE_REDIRECT_URI;
     }
 
-    if (typeof window === 'undefined') {
-      return '';
-    }
-
-    return `${window.location.origin}/apple/callback`;
+    return this.getDefaultRedirectURI();
   }
 
-  storeRedirectState(state) {
+  buildEnvConfig() {
+    const envClientId = process.env.REACT_APP_APPLE_CLIENT_ID?.trim();
+    if (!envClientId) {
+      return null;
+    }
+
+    const envRedirect = process.env.REACT_APP_APPLE_REDIRECT_URI?.trim();
+    return {
+      clientId: envClientId,
+      redirectURI: envRedirect || this.getDefaultRedirectURI()
+    };
+  }
+
+  async getClientConfig() {
+    if (this.cachedConfig?.clientId) {
+      return this.cachedConfig;
+    }
+
+    if (!this.configPromise) {
+      this.configPromise = axios
+        .get('/api/auth/apple/config')
+        .then((res) => {
+          const clientId = (res.data?.clientId || '').trim();
+          const redirectURI =
+            (res.data?.redirectURI || this.getDefaultRedirectURI()).trim();
+
+          if (!clientId) {
+            this.configPromise = null;
+            throw new Error('Apple Sign-In configuration is missing.');
+          }
+
+          this.cachedConfig = { clientId, redirectURI };
+          return this.cachedConfig;
+        })
+        .catch((err) => {
+          const envConfig = this.buildEnvConfig();
+          if (envConfig) {
+            this.cachedConfig = envConfig;
+            return this.cachedConfig;
+          }
+          this.configPromise = null;
+          throw err;
+        });
+    }
+
+    return this.configPromise;
+  }
+
+  storeRedirectState(state, redirectURI) {
     if (typeof window === 'undefined') {
       return;
     }
@@ -94,6 +154,9 @@ class AppleAuthService {
       sessionStorage.setItem(APPLE_STATE_KEY, state);
       const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       sessionStorage.setItem(APPLE_RETURN_PATH_KEY, returnPath);
+      if (redirectURI) {
+        sessionStorage.setItem(APPLE_REDIRECT_URI_KEY, redirectURI);
+      }
     } catch (err) {
       console.warn('Unable to persist Apple Sign-In state', err);
     }
@@ -123,6 +186,18 @@ class AppleAuthService {
     }
   }
 
+  getStoredRedirectURI() {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      return sessionStorage.getItem(APPLE_REDIRECT_URI_KEY);
+    } catch {
+      return null;
+    }
+  }
+
   clearRedirectState() {
     if (typeof window === 'undefined') {
       return;
@@ -131,6 +206,7 @@ class AppleAuthService {
     try {
       sessionStorage.removeItem(APPLE_STATE_KEY);
       sessionStorage.removeItem(APPLE_RETURN_PATH_KEY);
+      sessionStorage.removeItem(APPLE_REDIRECT_URI_KEY);
     } catch {
       // Ignore storage cleanup errors
     }
@@ -145,7 +221,7 @@ class AppleAuthService {
     return [firstName, middleName, lastName].filter(Boolean).join(' ').trim() || null;
   }
 
-  async sendAuthorizationToBackend({ authorizationCode, idToken, email, fullName, user }) {
+  async sendAuthorizationToBackend({ authorizationCode, idToken, email, fullName, user, redirectURI }) {
     if (!authorizationCode && !idToken) {
       throw new Error('Missing Apple authorization data.');
     }
@@ -155,7 +231,8 @@ class AppleAuthService {
       idToken,
       email,
       fullName,
-      user
+      user,
+      redirectURI
     });
 
     return {
@@ -168,18 +245,14 @@ class AppleAuthService {
 
   async signInWithApple() {
     try {
-      const clientId = process.env.REACT_APP_APPLE_CLIENT_ID;
-      if (!clientId) {
-        throw new Error('Apple Sign-In is not configured. Missing REACT_APP_APPLE_CLIENT_ID.');
-      }
-
-      const redirectURI = this.getRedirectURI();
+      const { clientId, redirectURI: configuredRedirectURI } = await this.getClientConfig();
+      const redirectURI = configuredRedirectURI || this.getDefaultRedirectURI();
       const state = this.generateState();
       const useRedirectFlow = this.shouldUseRedirectFlow();
       const requiresManualRedirect = useRedirectFlow && isIosInAppBrowser();
 
       if (requiresManualRedirect) {
-        this.storeRedirectState(state);
+        this.storeRedirectState(state, redirectURI);
         const authorizeUrl = this.buildAppleAuthorizeUrl({ clientId, redirectURI, state });
         window.location.assign(authorizeUrl);
         return { success: false, redirecting: true };
@@ -200,7 +273,7 @@ class AppleAuthService {
       });
 
       if (useRedirectFlow) {
-        this.storeRedirectState(state);
+        this.storeRedirectState(state, redirectURI);
         window.AppleID.auth.signIn();
         return { success: false, redirecting: true };
       }
@@ -221,7 +294,8 @@ class AppleAuthService {
         idToken: authorization.id_token,
         email,
         fullName,
-        user
+        user,
+        redirectURI
       });
     } catch (error) {
       if (error?.error === 'popup_closed_by_user') {
@@ -250,6 +324,8 @@ class AppleAuthService {
     const queryString = searchString || window.location.search || '';
     const params = new URLSearchParams(queryString);
     const storedReturnPath = this.getStoredReturnPath();
+    const storedRedirectURI = this.getStoredRedirectURI();
+    let resolvedRedirectURI = storedRedirectURI || null;
 
     try {
       const errorParam = params.get('error');
@@ -301,12 +377,22 @@ class AppleAuthService {
       const email = parsedUser?.email || null;
       const fullName = this.extractFullName(parsedUser);
 
+      if (!resolvedRedirectURI) {
+        try {
+          const config = await this.getClientConfig();
+          resolvedRedirectURI = config.redirectURI || this.getDefaultRedirectURI();
+        } catch {
+          resolvedRedirectURI = this.getDefaultRedirectURI();
+        }
+      }
+
       const result = await this.sendAuthorizationToBackend({
         authorizationCode: code,
         idToken,
         email,
         fullName,
-        user: parsedUser || undefined
+        user: parsedUser || undefined,
+        redirectURI: resolvedRedirectURI || undefined
       });
 
       this.clearRedirectState();
