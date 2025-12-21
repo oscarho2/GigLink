@@ -40,6 +40,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event?.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // Handle push notifications
 self.addEventListener('push', (event) => {
   console.log('Push notification received:', event);
@@ -168,6 +174,11 @@ self.addEventListener('fetch', (event) => {
         })
       );
     }
+    return;
+  }
+
+  if (requestUrl.pathname.startsWith('/api') || requestUrl.pathname.startsWith('/socket.io')) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
