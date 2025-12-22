@@ -98,6 +98,9 @@ class AppleAuthService {
   }
 
   buildEnvConfig() {
+    if (isIosInAppBrowser()) {
+      return null;
+    }
     const envClientId = process.env.REACT_APP_APPLE_CLIENT_ID?.trim();
     if (!envClientId) {
       return null;

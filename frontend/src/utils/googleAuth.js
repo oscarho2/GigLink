@@ -12,8 +12,11 @@ class GoogleAuthService {
     this.isSigningIn = false;
     this.lastPromptTime = 0;
     this.promptCooldown = 2000; // 2 seconds cooldown between attempts
-    this.cachedClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || null;
-    this.cachedRedirectURI = process.env.REACT_APP_GOOGLE_REDIRECT_URI || null;
+    const isInApp = isIosInAppBrowser();
+    this.cachedClientId = isInApp ? null : (process.env.REACT_APP_GOOGLE_CLIENT_ID || null);
+    this.cachedRedirectURI = isInApp ? null : (process.env.REACT_APP_GOOGLE_REDIRECT_URI || null);
+    this.clientIdSource = this.cachedClientId ? 'env' : null;
+    this.redirectUriSource = this.cachedRedirectURI ? 'env' : null;
     this.clientIdPromise = null;
   }
 
@@ -391,12 +394,17 @@ class GoogleAuthService {
 
   async getClientId() {
     if (this.cachedClientId) {
-      return this.cachedClientId;
+      if (!isIosInAppBrowser() || this.clientIdSource === 'backend') {
+        return this.cachedClientId;
+      }
     }
 
     if (this.clientIdPromise) {
       return this.clientIdPromise;
     }
+
+    const fallbackEnvClientId = (process.env.REACT_APP_GOOGLE_CLIENT_ID || '').trim();
+    const fallbackEnvRedirectURI = (process.env.REACT_APP_GOOGLE_REDIRECT_URI || '').trim();
 
     this.clientIdPromise = axios
       .get('/api/auth/google/client')
@@ -405,9 +413,11 @@ class GoogleAuthService {
         const redirectURI = (res.data?.redirectURI || res.data?.redirectUri || '').trim();
         if (redirectURI) {
           this.cachedRedirectURI = redirectURI;
+          this.redirectUriSource = 'backend';
         }
         if (clientId) {
           this.cachedClientId = clientId;
+          this.clientIdSource = 'backend';
           console.log('ℹ️ Google client ID resolved from backend configuration');
           return clientId;
         }
@@ -416,6 +426,16 @@ class GoogleAuthService {
       })
       .catch((error) => {
         console.error('Failed to fetch Google client ID from backend:', error?.message || error);
+        if (fallbackEnvClientId) {
+          this.cachedClientId = fallbackEnvClientId;
+          this.clientIdSource = 'env';
+          if (fallbackEnvRedirectURI) {
+            this.cachedRedirectURI = fallbackEnvRedirectURI;
+            this.redirectUriSource = 'env';
+          }
+          this.clientIdPromise = null;
+          return this.cachedClientId;
+        }
         this.clientIdPromise = null;
         throw error;
       });
