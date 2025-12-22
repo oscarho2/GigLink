@@ -56,15 +56,25 @@ class AppleAuthService {
 
   getDefaultRedirectURI() {
     if (typeof window === 'undefined') {
-      return (process.env.REACT_APP_APPLE_REDIRECT_URI || '').replace(/\/$/, '') || '';
+      const envBase = (process.env.REACT_APP_APPLE_REDIRECT_URI || '').replace(/\/$/, '');
+      if (envBase) {
+        return envBase;
+      }
+      const apiBase = (process.env.REACT_APP_API_BASE_URL || '').replace(/\/$/, '');
+      return apiBase ? `${apiBase}/apple/callback` : '';
     }
 
     const base = process.env.REACT_APP_APPLE_REDIRECT_URI || window.location.origin || '';
     if (!base) {
-      return '';
+      const apiBase = (process.env.REACT_APP_API_BASE_URL || '').replace(/\/$/, '');
+      return apiBase ? `${apiBase}/apple/callback` : '';
     }
-
-    return `${base.replace(/\/$/, '')}/apple/callback`;
+    const normalizedBase = base.replace(/\/$/, '');
+    if (normalizedBase.startsWith('http://') || normalizedBase.startsWith('https://')) {
+      return `${normalizedBase}/apple/callback`;
+    }
+    const apiBase = (process.env.REACT_APP_API_BASE_URL || '').replace(/\/$/, '');
+    return apiBase ? `${apiBase}/apple/callback` : `${normalizedBase}/apple/callback`;
   }
 
   shouldUseRedirectFlow() {

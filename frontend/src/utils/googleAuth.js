@@ -37,9 +37,17 @@ class GoogleAuthService {
       return process.env.REACT_APP_GOOGLE_REDIRECT_URI;
     }
     if (typeof window === 'undefined') {
-      return '';
+      return (process.env.REACT_APP_API_BASE_URL || '').replace(/\/$/, '') + '/google/callback';
     }
-    return `${window.location.origin}/google/callback`;
+    const origin = window.location.origin || '';
+    if (origin.startsWith('http://') || origin.startsWith('https://')) {
+      return `${origin}/google/callback`;
+    }
+    const fallbackBase = (process.env.REACT_APP_API_BASE_URL || '').replace(/\/$/, '');
+    if (fallbackBase) {
+      return `${fallbackBase}/google/callback`;
+    }
+    return `${origin}/google/callback`;
   }
 
   storeRedirectState(state, nonce) {

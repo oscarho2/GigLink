@@ -223,10 +223,13 @@ router.post('/google', async (req, res) => {
 
     console.log('✅ Google token verified for:', verifiedEmail);
 
-    // Verify email matches
-    if (verifiedEmail !== email) {
-      console.log('❌ Email verification failed');
-      return res.status(400).json({ message: 'Email verification failed' });
+    // Verify email matches when client provides one
+    if (email) {
+      const normalizedRequestEmail = email.toLowerCase().trim();
+      if (verifiedEmail.toLowerCase().trim() !== normalizedRequestEmail) {
+        console.log('❌ Email verification failed');
+        return res.status(400).json({ message: 'Email verification failed' });
+      }
     }
 
     // Normalize email
