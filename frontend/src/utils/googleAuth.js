@@ -495,9 +495,10 @@ class GoogleAuthService {
   async signInWithGoogle() {
     try {
       console.log('🚀 Starting Google sign-in process...');
+      const shouldAllowRedirect = this.shouldUseRedirectFallback();
 
-      if (this.shouldUseRedirectFallback()) {
-        console.log('📲 Using redirect-based Google flow for iOS webview');
+      const startRedirectFlow = async () => {
+        console.log('📲 Falling back to redirect-based Google flow');
         const clientId = await this.getClientId();
         if (!clientId) {
           throw new Error('missing_client_id');
@@ -509,42 +510,62 @@ class GoogleAuthService {
         const authorizeUrl = this.buildAuthorizeUrl({ clientId, redirectURI, state, nonce });
         window.location.assign(authorizeUrl);
         return { success: false, redirecting: true };
+      };
+
+      try {
+        // Clear any previous One Tap state to avoid cooldown issues
+        this.clearGoogleOneTapState();
+        console.log('🧹 Cleared Google One Tap state');
+        
+        console.log('🔑 Attempting to get ID token from Google...');
+        const idToken = await this.getIdToken();
+        console.log('✅ Received ID token from Google');
+        
+        const decoded = this.decodeIdToken(idToken) || {};
+        const fullName = decoded.name || [decoded.given_name, decoded.family_name].filter(Boolean).join(' ').trim() || undefined;
+
+        const payload = {
+          idToken,
+          email: decoded.email,
+          name: fullName,
+          imageUrl: decoded.picture
+        };
+
+        console.log('📤 Sending payload to backend:', { 
+          ...payload, 
+          idToken: 'ID_TOKEN_PRESENT',
+          hasToken: !!idToken,
+          email: payload.email,
+          name: payload.name 
+        });
+        
+        const res = await axios.post('/api/auth/google', payload);
+        console.log('📨 Backend response received:', res.status);
+
+        return {
+          success: true,
+          token: res.data?.token,
+          user: res.data?.user
+        };
+      } catch (error) {
+        if (shouldAllowRedirect) {
+          const message = (error?.message || '').toLowerCase();
+          const isUserCancel = message.includes('popup_closed_by_user') || message.includes('user_cancel');
+          const shouldRedirect =
+            !isUserCancel &&
+            (message.includes('not available') ||
+              message.includes('prompt_not_displayed') ||
+              message.includes('origin_mismatch') ||
+              message.includes('credential_unavailable') ||
+              message.includes('no credential') ||
+              message.includes('unable to create sign-in button'));
+
+          if (shouldRedirect) {
+            return await startRedirectFlow();
+          }
+        }
+        throw error;
       }
-      
-      // Clear any previous One Tap state to avoid cooldown issues
-      this.clearGoogleOneTapState();
-      console.log('🧹 Cleared Google One Tap state');
-      
-      console.log('🔑 Attempting to get ID token from Google...');
-      const idToken = await this.getIdToken();
-      console.log('✅ Received ID token from Google');
-      
-      const decoded = this.decodeIdToken(idToken) || {};
-      const fullName = decoded.name || [decoded.given_name, decoded.family_name].filter(Boolean).join(' ').trim() || undefined;
-
-      const payload = {
-        idToken,
-        email: decoded.email,
-        name: fullName,
-        imageUrl: decoded.picture
-      };
-
-      console.log('📤 Sending payload to backend:', { 
-        ...payload, 
-        idToken: 'ID_TOKEN_PRESENT',
-        hasToken: !!idToken,
-        email: payload.email,
-        name: payload.name 
-      });
-      
-      const res = await axios.post('/api/auth/google', payload);
-      console.log('📨 Backend response received:', res.status);
-
-      return {
-        success: true,
-        token: res.data?.token,
-        user: res.data?.user
-      };
     } catch (error) {
       console.error('❌ Google OAuth failed at stage:', error.message);
       console.error('📍 Full error:', error);

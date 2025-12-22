@@ -72,9 +72,8 @@ class AppleAuthService {
       return false;
     }
 
-    // Installed PWAs and iOS webviews (App Store wrapper, in-app browsers, etc.)
-    // cannot open the Apple popup reliably, so force the redirect-based flow.
-    return isStandalonePWA() || isIosInAppBrowser();
+    // Installed PWAs cannot open the Apple popup reliably, so force redirect.
+    return isStandalonePWA();
   }
 
   buildAppleAuthorizeUrl({ clientId, redirectURI, state }) {
@@ -252,7 +251,8 @@ class AppleAuthService {
       const redirectURI = configuredRedirectURI || this.getDefaultRedirectURI();
       const state = this.generateState();
       const useRedirectFlow = this.shouldUseRedirectFlow();
-      const requiresManualRedirect = useRedirectFlow && isIosInAppBrowser();
+      const inAppBrowser = isIosInAppBrowser();
+      const requiresManualRedirect = useRedirectFlow && inAppBrowser;
 
       if (requiresManualRedirect) {
         this.storeRedirectState(state, redirectURI);
@@ -281,7 +281,22 @@ class AppleAuthService {
         return { success: false, redirecting: true };
       }
 
-      const response = await window.AppleID.auth.signIn();
+      let response;
+      try {
+        response = await window.AppleID.auth.signIn();
+      } catch (error) {
+        if (error?.error === 'popup_closed_by_user') {
+          return { success: false, cancelled: true };
+        }
+        if (inAppBrowser) {
+          this.storeRedirectState(state, redirectURI);
+          const authorizeUrl = this.buildAppleAuthorizeUrl({ clientId, redirectURI, state });
+          window.location.assign(authorizeUrl);
+          return { success: false, redirecting: true };
+        }
+        throw error;
+      }
+
       const authorization = response?.authorization || {};
       const user = response?.user || {};
 
