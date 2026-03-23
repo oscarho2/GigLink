@@ -10,17 +10,29 @@ const { sendApnsNotificationToDevices, isApnsConfigured } = require('../utils/ap
 const { sendFcmNotificationToTokens, isFcmConfigured } = require('../utils/fcmService');
 const { sendEmailNotification, shouldSendEmailNotification } = require('../utils/emailService');
 
+const MAX_RECENT_READ_NOTIFICATIONS = 50;
+
 // @route   GET api/notifications
 // @desc    Get all notifications for the authenticated user
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
-    const notifications = await Notification.find({ recipient: req.user.id })
+    const unreadNotifications = await Notification.find({
+      recipient: req.user.id,
+      read: false
+    })
+      .populate('sender', 'name avatar')
+      .sort({ createdAt: -1 });
+
+    const readNotifications = await Notification.find({
+      recipient: req.user.id,
+      read: true
+    })
       .populate('sender', 'name avatar')
       .sort({ createdAt: -1 })
-      .limit(50);
-    
-    res.json(notifications);
+      .limit(MAX_RECENT_READ_NOTIFICATIONS);
+
+    res.json([...unreadNotifications, ...readNotifications]);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

@@ -66,11 +66,25 @@ function a11yProps(index) {
 
 const Notifications = () => {
   const { user } = useContext(AuthContext);
-  const { notifications, markAsRead, deleteNotification, markAllAsRead, loading } = useNotifications();
+  const {
+    notifications,
+    unreadCounts,
+    markAsRead,
+    deleteNotification,
+    markAllAsRead,
+    fetchNotifications,
+    fetchUnreadCounts,
+    loading
+  } = useNotifications();
   const [tabValue, setTabValue] = useState(0);
   const navigate = useNavigate();
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuForId, setMenuForId] = useState(null);
+
+  useEffect(() => {
+    fetchNotifications();
+    fetchUnreadCounts();
+  }, [fetchNotifications, fetchUnreadCounts]);
 
   const openMenu = (e, id) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); setMenuForId(id); };
   const closeMenu = () => { setMenuAnchor(null); setMenuForId(null); };
@@ -309,7 +323,7 @@ const Notifications = () => {
     }
   };
 
-  const hasUnreadNotifications = notifications && notifications.some(notification => !notification.read);
+  const hasUnreadNotifications = (unreadCounts?.notifications || 0) > 0;
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
