@@ -7,6 +7,7 @@ const {
   getStorageConfig,
   uploadBufferToR2
 } = require('../utils/r2Config');
+const requireAdmin = require('../middleware/requireAdmin');
 const path = require('path');
 const router = express.Router();
 
@@ -56,8 +57,8 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
 
 // @route   DELETE /api/upload/:key
 // @desc    Delete a file from R2
-// @access  Private
-router.delete('/:key(*)', auth, async (req, res) => {
+// @access  Admin
+router.delete('/:key(*)', auth, requireAdmin, async (req, res) => {
   try {
     const fileKey = req.params.key;
     

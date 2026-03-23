@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
@@ -12,7 +12,6 @@ import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import AuthContext from '../context/AuthContext';
 
 const ResetPassword = () => {
   const [password, setPassword] = useState('');
@@ -23,30 +22,6 @@ const ResetPassword = () => {
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useContext(AuthContext);
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const token = new URLSearchParams(location.search).get('token');
-      if (user && token) {
-        try {
-          const res = await fetch(`/api/auth/user-from-token/${token}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.email !== user.email) {
-              logout(window.location.pathname + window.location.search);
-              setError(
-                'You have been logged out because you are trying to reset the password for a different account.'
-              );
-            }
-          }
-        } catch (err) {
-          console.error('Failed to fetch user from token', err);
-        }
-      }
-    };
-    checkUser();
-  }, [user, location.search, logout]);
 
   const validatePassword = (password) => {
     const minLength = password.length >= 8;

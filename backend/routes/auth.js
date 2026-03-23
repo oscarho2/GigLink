@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
 const { check, validationResult } = require('express-validator');
+const rateLimit = require('express-rate-limit');
 const { OAuth2Client } = require('google-auth-library');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
@@ -18,6 +18,11 @@ const {
   exchangeAuthorizationCode: exchangeAppleAuthorizationCode,
   getClientConfig: getAppleClientConfig
 } = require('../utils/appleAuth');
+const {
+  generateOpaqueToken,
+  hashOpaqueToken,
+  signSessionToken
+} = require('../utils/authTokens');
 
 // Initialize Google OAuth client
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -56,6 +61,36 @@ const getGoogleRedirectUri = () => {
   return `${baseUrl.replace(/\/$/, '')}/google/callback`;
 };
 
+const authAttemptRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: 'Too many authentication attempts. Please try again later.'
+  }
+});
+
+const passwordResetRequestRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: 'Too many password reset requests. Please try again later.'
+  }
+});
+
+const passwordResetConfirmRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: 'Too many password reset attempts. Please try again later.'
+  }
+});
+
 // @route   GET api/auth/google/client
 // @desc    Provide Google OAuth client ID to frontend
 // @access  Public
@@ -91,6 +126,13 @@ router.get('/', auth, async (req, res) => {
     }
 
     const userObj = user.toObject();
+    delete userObj.passwordResetToken;
+    delete userObj.passwordResetExpires;
+    delete userObj.emailVerificationToken;
+    delete userObj.emailVerificationExpires;
+    delete userObj.pushSubscriptions;
+    delete userObj.apnsDevices;
+    delete userObj.fcmTokens;
     userObj.avatar = getPublicUrl(userObj.avatar);
     userObj.isAdmin = isAdminEmail(user.email);
     
@@ -106,6 +148,7 @@ router.get('/', auth, async (req, res) => {
 // @access  Public
 router.post(
   '/',
+  authAttemptRateLimit,
   [
     checkTurnstile, // Add turnstile check
     check('email', 'Please include a valid email')
@@ -167,9 +210,8 @@ router.post(
         }
       };
 
-      jwt.sign(
+      signSessionToken(
         payload,
-        process.env.JWT_SECRET,
         (err, token) => {
           if (err) {
             console.error('JWT signing error:', err);
@@ -201,7 +243,7 @@ router.post(
 router.post('/google', async (req, res) => {
   try {
     console.log('🔵 Google OAuth request started');
-    const { idToken, email, name, imageUrl } = req.body;
+    const { idToken, email, name } = req.body;
 
     if (!idToken) {
       console.log('❌ No ID token provided');
@@ -265,7 +307,7 @@ router.post('/google', async (req, res) => {
               googleId,
               email: normalizedEmail,
               name: payload?.name || name || '',
-              picture: payload?.picture || imageUrl || ''
+              picture: payload?.picture || ''
             }
           },
           process.env.JWT_SECRET,
@@ -286,7 +328,7 @@ router.post('/google', async (req, res) => {
 
     console.log('📥 Downloading avatar image...');
     let avatarPath = null;
-    const resolvedImageUrl = payload?.picture || imageUrl;
+    const resolvedImageUrl = payload?.picture;
     if (resolvedImageUrl) {
       try {
         const uploadsDir = path.join(__dirname, '../uploads/images');
@@ -398,9 +440,8 @@ router.post('/google', async (req, res) => {
       }
     };
 
-    jwt.sign(
+    signSessionToken(
       jwtPayload,
-      process.env.JWT_SECRET,
       (err, token) => {
         if (err) {
           console.error('❌ JWT signing error:', err);
@@ -576,7 +617,7 @@ router.post('/google/confirm-link', async (req, res) => {
       }
     };
 
-    jwt.sign(tokenPayload, process.env.JWT_SECRET, (err, token) => {
+    signSessionToken(tokenPayload, (err, token) => {
       if (err) {
         console.error('Error generating JWT for Google link confirm:', err);
         return res.status(500).json({ message: 'Error generating token' });
@@ -774,7 +815,7 @@ router.post('/apple', async (req, res) => {
         });
       }
 
-      const generatedPassword = crypto.randomBytes(32).toString('hex');
+      const generatedPassword = generateOpaqueToken();
       user = new User({
         name: nameFromApplePayload,
         email: normalizedEmail,
@@ -826,9 +867,8 @@ router.post('/apple', async (req, res) => {
       }
     };
 
-    jwt.sign(
+    signSessionToken(
       tokenPayload,
-      process.env.JWT_SECRET,
       (err, token) => {
         if (err) {
           console.error('Error generating JWT for Apple sign-in:', err);
@@ -968,7 +1008,7 @@ router.post('/apple/confirm-link', async (req, res) => {
       }
     };
 
-    jwt.sign(tokenPayload, process.env.JWT_SECRET, (err, token) => {
+    signSessionToken(tokenPayload, (err, token) => {
       if (err) {
         console.error('Error generating JWT for Apple link confirm:', err);
         return res.status(500).json({ message: 'Error generating token' });
@@ -1010,17 +1050,18 @@ router.get('/verify-email/:token', async (req, res) => {
       });
     }
 
+    const hashedToken = hashOpaqueToken(token);
+
     // Find user with this verification token
+    const tokenQuery = { $or: [{ emailVerificationToken: hashedToken }, { emailVerificationToken: token }] };
     const user = await User.findOne({
-      emailVerificationToken: token,
+      ...tokenQuery,
       emailVerificationExpires: { $gt: Date.now() }
     });
 
     if (!user) {
       // Check if token exists but is expired (to differentiate from invalid token)
-      const expiredUser = await User.findOne({
-        emailVerificationToken: token
-      });
+      const expiredUser = await User.findOne(tokenQuery);
       
       if (expiredUser) {
         // Token exists but has expired
@@ -1085,6 +1126,7 @@ router.get('/verify-email/:token', async (req, res) => {
 // @access  Public
 router.post(
   '/forgot-password',
+  passwordResetRequestRateLimit,
   [
     check('email', 'Please include a valid email')
       .isEmail()
@@ -1103,18 +1145,18 @@ router.post(
       const user = await User.findOne({ email: normalizedEmail });
 
       if (!user) {
-        return res.status(404).json({ 
-          success: false,
-          message: 'User not found' 
+        return res.json({
+          success: true,
+          message: 'If an account with that email exists, a password reset link has been sent.'
         });
       }
 
       // Generate password reset token
-      const passwordResetToken = crypto.randomBytes(32).toString('hex');
+      const passwordResetToken = generateOpaqueToken();
       const passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
       // Save reset token to user
-      user.passwordResetToken = passwordResetToken;
+      user.passwordResetToken = hashOpaqueToken(passwordResetToken);
       user.passwordResetExpires = passwordResetExpires;
       await user.save();
 
@@ -1124,13 +1166,13 @@ router.post(
         
         res.json({ 
           success: true,
-          message: 'A password reset link has been sent to your email.' 
+          message: 'If an account with that email exists, a password reset link has been sent.'
         });
       } catch (emailErr) {
         console.error('Error sending password reset email:', emailErr);
-        res.status(500).json({ 
-          success: false,
-          message: 'Error sending password reset email. Please try again later.' 
+        res.json({
+          success: true,
+          message: 'If an account with that email exists, a password reset link has been sent.'
         });
       }
     } catch (err) {
@@ -1148,6 +1190,7 @@ router.post(
 // @access  Public
 router.post(
   '/reset-password',
+  passwordResetConfirmRateLimit,
   [
     check('token', 'Reset token is required')
       .not().isEmpty(),
@@ -1165,9 +1208,12 @@ router.post(
     const { token, password } = req.body;
 
     try {
+      const hashedToken = hashOpaqueToken(token);
+
       // Find user with valid reset token
+      const tokenQuery = { $or: [{ passwordResetToken: hashedToken }, { passwordResetToken: token }] };
       const user = await User.findOne({
-        passwordResetToken: token,
+        ...tokenQuery,
         passwordResetExpires: { $gt: Date.now() }
       });
 
@@ -1199,20 +1245,22 @@ router.post(
 );
 
 // @route   GET api/auth/user-from-token/:token
-// @desc    Get user email from password reset token
+// @desc    Check whether a password reset token is still valid
 // @access  Public
 router.get('/user-from-token/:token', async (req, res) => {
   try {
+    const hashedToken = hashOpaqueToken(req.params.token);
+    const rawToken = req.params.token;
     const user = await User.findOne({
-      passwordResetToken: req.params.token,
+      $or: [{ passwordResetToken: hashedToken }, { passwordResetToken: rawToken }],
       passwordResetExpires: { $gt: Date.now() },
     });
 
     if (!user) {
-      return res.status(404).json({ msg: 'User not found or token expired' });
+      return res.status(404).json({ valid: false });
     }
 
-    res.json({ email: user.email });
+    res.json({ valid: true });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

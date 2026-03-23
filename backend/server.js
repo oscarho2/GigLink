@@ -90,7 +90,14 @@ app.use(cors({
     return callback(new Error(`Origin ${origin} not allowed by CORS`));
   }
 }));
-app.use(express.json());
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+app.use(express.json({ limit: '1mb' }));
 // Serve static uploads (public)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -228,7 +235,10 @@ function scheduleR2Maintenance() {
 // Socket.IO authentication middleware
 io.use((socket, next) => {
   try {
-    const token = socket.handshake.auth.token;
+    const token = socket.handshake.auth?.token;
+    if (!token) {
+      return next(new Error('Authentication error'));
+    }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.user.id;
     next();

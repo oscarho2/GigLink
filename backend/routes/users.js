@@ -1,30 +1,63 @@
 const express = require('express');
 const router = express.Router();
 const { check, validationResult } = require('express-validator');
-const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
-const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
 const { sendVerificationEmail } = require('../utils/emailService');
 const { checkTurnstile } = require('../middleware/turnstile');
 const requireAdmin = require('../middleware/requireAdmin');
 const { isAdminEmail } = require('../utils/adminAuth');
+const {
+  generateOpaqueToken,
+  hashOpaqueToken,
+  signSessionToken
+} = require('../utils/authTokens');
+
+const PUBLIC_USER_SELECT = 'name avatar bio location locationData instruments genres isMusician website socialLinks';
+
+const registrationRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: 'Too many registration attempts. Please try again later.'
+  }
+});
+
+const verificationRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: 'Too many verification email requests. Please try again later.'
+  }
+});
 
 const sanitizeUser = (userDoc) => {
   if (!userDoc) return null;
   const obj = typeof userDoc.toObject === 'function' ? userDoc.toObject() : { ...userDoc };
   delete obj.password;
+  delete obj.emailVerificationToken;
+  delete obj.emailVerificationExpires;
+  delete obj.passwordResetToken;
+  delete obj.passwordResetExpires;
+  delete obj.pushSubscriptions;
+  delete obj.apnsDevices;
+  delete obj.fcmTokens;
   obj.isAdmin = isAdminEmail(obj.email);
   return obj;
 };
 
 // @route   GET api/users
 // @desc    Get all users
-// @access  Public
-router.get('/', async (req, res) => {
+// @access  Private
+router.get('/', auth, async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const users = await User.find().select(PUBLIC_USER_SELECT);
     res.json(users);
   } catch (err) {
     console.error(err.message);
@@ -32,10 +65,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/all', async (req, res) => {
+router.get('/all', auth, requireAdmin, async (req, res) => {
   try {
     const users = await User.find().select('-password');
-    res.json(users);
+    res.json(users.map(sanitizeUser));
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -47,7 +80,7 @@ router.get('/all', async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id).select(PUBLIC_USER_SELECT);
     
     if (!user) {
       return res.status(404).json({ msg: 'User not found' });
@@ -68,6 +101,7 @@ router.get('/:id', async (req, res) => {
 // @access  Public
 router.post(
   '/',
+  registrationRateLimit,
   [
     checkTurnstile, // Add turnstile check
     check('name', 'Name is required')
@@ -106,7 +140,7 @@ router.post(
       }
 
       // Generate email verification token
-      const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+      const emailVerificationToken = generateOpaqueToken();
       const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
       // Create new user with verification fields (login not blocked if pending)
@@ -116,7 +150,7 @@ router.post(
         password,
         isMusician: isMusician === 'yes' ? 'yes' : 'no',
         isEmailVerified: false,
-        emailVerificationToken,
+        emailVerificationToken: hashOpaqueToken(emailVerificationToken),
         emailVerificationExpires
       });
       await user.save();
@@ -155,9 +189,8 @@ router.post(
         }
       };
 
-      jwt.sign(
+      signSessionToken(
         payload,
-        process.env.JWT_SECRET,
         (err, token) => {
           if (err) {
             console.error('JWT signing error:', err);
@@ -315,7 +348,7 @@ router.put('/:id/unsuspend', auth, requireAdmin, async (req, res) => {
 // @route   POST api/users/resend-verification
 // @desc    Resend verification email for current user
 // @access  Private
-router.post('/resend-verification', auth, async (req, res) => {
+router.post('/resend-verification', auth, verificationRateLimit, async (req, res) => {
   try {
     // Find the logged-in user
     const user = await User.findById(req.user.id);
@@ -330,11 +363,11 @@ router.post('/resend-verification', auth, async (req, res) => {
     }
 
     // Generate a new verification token and expiry
-    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    const emailVerificationToken = generateOpaqueToken();
     const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Update user with new verification token
-    user.emailVerificationToken = emailVerificationToken;
+    user.emailVerificationToken = hashOpaqueToken(emailVerificationToken);
     user.emailVerificationExpires = emailVerificationExpires;
     await user.save();
 
