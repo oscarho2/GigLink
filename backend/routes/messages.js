@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
@@ -14,52 +15,76 @@ const { assertCleanContent } = require('../utils/moderation');
 router.get('/conversations', auth, async (req, res) => {
   try {
     const userId = req.user.id;
+    const userObjectId = new mongoose.Types.ObjectId(userId);
     console.log('GET /conversations called for user:', userId);
-    
-    // Get all messages where user is sender or recipient
-    const messages = await Message.find({
-      $or: [{ sender: userId }, { recipient: userId }]
-    })
-    .populate('sender', 'name email avatar')
-    .populate('recipient', 'name email avatar')
-    .sort({ createdAt: -1 });
-    
-    console.log('Found messages:', messages.length);
-    
-    // Group messages by conversation and get latest message for each
-    const conversationsMap = new Map();
-    
-    messages.forEach(message => {
-      if (!message.sender || !message.recipient) {
-        console.warn(`Skipping message ${message._id} due to missing sender or recipient.`);
-        return;
-      }
-      const conversationId = message.conversationId;
-      if (!conversationsMap.has(conversationId)) {
-        const otherUser = message.sender._id.toString() === userId ? message.recipient : message.sender;
-        conversationsMap.set(conversationId, {
-          conversationId,
-          otherUser,
-          lastMessage: message,
-          unreadCount: 0
-        });
-      } else {
-        // Update with more recent message if this one is newer
-        const existingConversation = conversationsMap.get(conversationId);
-        if (new Date(message.createdAt) > new Date(existingConversation.lastMessage.createdAt)) {
-          existingConversation.lastMessage = message;
+
+    const conversationSummaries = await Message.aggregate([
+      {
+        $match: {
+          $or: [{ sender: userObjectId }, { recipient: userObjectId }]
         }
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: '$conversationId',
+          lastMessageId: { $first: '$_id' },
+          lastMessageCreatedAt: { $first: '$createdAt' },
+          unreadCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$recipient', userObjectId] },
+                    { $eq: ['$read', false] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      },
+      { $sort: { lastMessageCreatedAt: -1 } }
+    ]);
+
+    console.log('Found conversation summaries:', conversationSummaries.length);
+
+    if (!conversationSummaries.length) {
+      return res.json([]);
+    }
+
+    const lastMessageIds = conversationSummaries.map((summary) => summary.lastMessageId);
+    const lastMessages = await Message.find({ _id: { $in: lastMessageIds } })
+      .populate('sender', 'name email avatar')
+      .populate('recipient', 'name email avatar')
+      .lean();
+
+    const lastMessageMap = new Map(lastMessages.map((message) => [String(message._id), message]));
+    const conversations = conversationSummaries.reduce((acc, summary) => {
+      const lastMessage = lastMessageMap.get(String(summary.lastMessageId));
+      if (!lastMessage?.sender || !lastMessage?.recipient) {
+        return acc;
       }
-      
-      // Count unread messages for this user
-      if (message.recipient._id.toString() === userId && !message.read) {
-        conversationsMap.get(conversationId).unreadCount++;
+
+      const otherUser = String(lastMessage.sender._id) === userId
+        ? lastMessage.recipient
+        : lastMessage.sender;
+
+      if (!otherUser) {
+        return acc;
       }
-    });
-    
-    // Sort conversations by last message timestamp (most recent first)
-    const conversations = Array.from(conversationsMap.values())
-      .sort((a, b) => new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt));
+
+      acc.push({
+        conversationId: summary._id,
+        otherUser,
+        lastMessage,
+        unreadCount: summary.unreadCount
+      });
+      return acc;
+    }, []);
+
     console.log('Returning conversations:', conversations.length);
     res.json(conversations);
   } catch (error) {

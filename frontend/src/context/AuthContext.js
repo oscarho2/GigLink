@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import api, { withTurnstile } from '../utils/api';
 import { isValidJWT, clearInvalidToken } from '../utils/tokenValidator';
 
@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }) => {
   }, [token, isAuthenticated]);
 
   // Register user
-  const register = async (formData) => {
+  const register = useCallback(async (formData) => {
     return withTurnstile(async (turnstileToken) => {
       try {
         const body = { ...formData, turnstileToken };
@@ -99,10 +99,10 @@ export const AuthProvider = ({ children }) => {
         };
       }
     });
-  };
+  }, []);
 
   // Login user
-  const login = async (formData, redirectPath = null) => {
+  const login = useCallback(async (formData, redirectPath = null) => {
     return withTurnstile(async (turnstileToken) => {
       try {
         const body = { ...formData, turnstileToken };
@@ -128,10 +128,10 @@ export const AuthProvider = ({ children }) => {
         };
       }
     });
-  };
+  }, []);
 
   // Login with provider-issued JWT (e.g., Google)
-  const loginWithToken = (newToken, newUser = null) => {
+  const loginWithToken = useCallback((newToken, newUser = null) => {
     try {
       localStorage.removeItem('hasLoggedOut'); // Clear logout flag on provider login
       setHasLoggedOut(false);
@@ -146,10 +146,10 @@ export const AuthProvider = ({ children }) => {
       console.error('loginWithToken error:', err);
       return false;
     }
-  };
+  }, []);
 
   // Logout user
-  const logout = (redirectPath = '/') => {
+  const logout = useCallback((redirectPath = '/') => {
     localStorage.removeItem('token'); // This will remove token from localStorage and axios headers
     localStorage.removeItem('redirectPath'); // Clear any stored redirect path
     localStorage.setItem('hasLoggedOut', 'true'); // Mark that user has manually logged out
@@ -158,31 +158,44 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setIsAuthenticated(false);
     window.location.href = redirectPath; // Redirect to specified path or home page
-  };
+  }, []);
 
   // Update avatar in context so UI updates immediately
-  const updateAvatar = (avatarUrl) => {
+  const updateAvatar = useCallback((avatarUrl) => {
     setUser(prev => prev ? { ...prev, avatar: avatarUrl } : prev);
-  };
+  }, []);
 
-  const updateUser = (newUserData) => {
+  const updateUser = useCallback((newUserData) => {
     setUser(prev => prev ? { ...prev, ...newUserData } : prev);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    token,
+    isAuthenticated,
+    loading,
+    user,
+    register,
+    login,
+    loginWithToken,
+    logout,
+    updateAvatar,
+    updateUser
+  }), [
+    token,
+    isAuthenticated,
+    loading,
+    user,
+    register,
+    login,
+    loginWithToken,
+    logout,
+    updateAvatar,
+    updateUser
+  ]);
 
   return (
     <AuthContext.Provider
-      value={{
-        token,
-        isAuthenticated,
-        loading,
-        user,
-        register,
-        login,
-        loginWithToken,
-        logout,
-        updateAvatar,
-        updateUser
-      }}
+      value={value}
     >
       {children}
     </AuthContext.Provider>

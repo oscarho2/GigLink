@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { useSocket } from './SocketContext';
 import { toast } from 'react-toastify';
@@ -14,8 +14,9 @@ export const useNotifications = () => {
 };
 
 export const NotificationProvider = ({ children }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, token } = useAuth();
   const { socket } = useSocket();
+  const userId = user?._id || user?.id || null;
   const [unreadCounts, setUnreadCounts] = useState({
     messages: 0,
     linkRequests: 0,
@@ -26,15 +27,13 @@ export const NotificationProvider = ({ children }) => {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
 
   // Fetch unread notification counts
-  const fetchUnreadCounts = async () => {
-    if (!isAuthenticated || !user) {
+  const fetchUnreadCounts = useCallback(async () => {
+    if (!isAuthenticated || !userId || !token) {
       setUnreadCounts({ messages: 0, linkRequests: 0, notifications: 0, total: 0 });
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
-      
       // Fetch unread messages count
       const messagesResponse = await fetch('/api/messages/unread-count', {
         headers: {
@@ -90,11 +89,11 @@ export const NotificationProvider = ({ children }) => {
       console.error('Error fetching unread counts:', error);
       setUnreadCounts({ messages: 0, linkRequests: 0, notifications: 0, total: 0 });
     }
-  };
+  }, [isAuthenticated, token, userId]);
 
   // Fetch all notifications
-  const fetchNotifications = async () => {
-    if (!isAuthenticated || !user) {
+  const fetchNotifications = useCallback(async () => {
+    if (!isAuthenticated || !userId || !token) {
       setNotifications([]);
       setNotificationsLoading(false);
       return;
@@ -102,7 +101,6 @@ export const NotificationProvider = ({ children }) => {
 
     setNotificationsLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('/api/notifications', {
         headers: {
           'x-auth-token': token,
@@ -119,21 +117,20 @@ export const NotificationProvider = ({ children }) => {
     } finally {
       setNotificationsLoading(false);
     }
-  };
+  }, [isAuthenticated, token, userId]);
 
   // Update specific notification count
-  const updateCount = (type, count) => {
+  const updateCount = useCallback((type, count) => {
     setUnreadCounts(prev => {
       const newCounts = { ...prev, [type]: count };
       newCounts.total = newCounts.messages + newCounts.linkRequests + newCounts.notifications;
       return newCounts;
     });
-  };
+  }, []);
 
   // Mark notification as read
-  const markAsRead = async (notificationId) => {
+  const markAsRead = useCallback(async (notificationId) => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`/api/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: {
@@ -159,12 +156,11 @@ export const NotificationProvider = ({ children }) => {
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
-  };
+  }, [token]);
 
   // Delete notification
-  const deleteNotification = async (notificationId) => {
+  const deleteNotification = useCallback(async (notificationId) => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`/api/notifications/${notificationId}`, {
         method: 'DELETE',
         headers: {
@@ -194,12 +190,11 @@ export const NotificationProvider = ({ children }) => {
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
-  };
+  }, [token]);
 
   // Mark all notifications as read
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('/api/notifications/read-all', {
         method: 'PUT',
         headers: {
@@ -223,20 +218,37 @@ export const NotificationProvider = ({ children }) => {
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
-  };
+  }, [token]);
 
   // Increment notification count
-  const incrementCount = (type, count = 1) => {
+  const incrementCount = useCallback((type, count = 1) => {
     setUnreadCounts(prev => {
       const newCounts = { ...prev, [type]: prev[type] + count };
       newCounts.total = newCounts.messages + newCounts.linkRequests + newCounts.notifications;
       return newCounts;
     });
-  };
+  }, []);
+
+  // Show notification function
+  const showNotification = useCallback((message, type = 'info') => {
+    switch (type) {
+      case 'success':
+        toast.success(message);
+        break;
+      case 'error':
+        toast.error(message);
+        break;
+      case 'warning':
+        toast.warning(message);
+        break;
+      default:
+        toast.info(message);
+    }
+  }, []);
 
   // Fetch counts and notifications when user authentication changes
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && userId) {
       fetchUnreadCounts();
       fetchNotifications();
     } else {
@@ -245,7 +257,7 @@ export const NotificationProvider = ({ children }) => {
       setUnreadCounts({ messages: 0, linkRequests: 0, notifications: 0, total: 0 });
       setNotificationsLoading(false);
     }
-  }, [isAuthenticated, user?.id]); // Only depend on user ID to prevent unnecessary re-renders
+  }, [fetchNotifications, fetchUnreadCounts, isAuthenticated, userId]);
 
   // Refresh counts periodically (every 60 seconds instead of 30 to reduce visual updates)
   useEffect(() => {
@@ -258,16 +270,16 @@ export const NotificationProvider = ({ children }) => {
       }
     }, 60000);
     return () => clearInterval(interval);
-  }, [isAuthenticated]);
+  }, [fetchUnreadCounts, isAuthenticated]);
 
   // Socket event listeners for real-time updates
   useEffect(() => {
-    if (!socket || !isAuthenticated || !user) return;
+    if (!socket || !isAuthenticated || !userId) return;
 
     // Listen for new messages to increment unread count
     const handleNewMessage = (message) => {
       // Only increment if message is not from current user
-      if (message.sender._id !== user.id) {
+      if (message.sender._id !== userId) {
         incrementCount('messages', 1);
       }
     };
@@ -299,7 +311,7 @@ export const NotificationProvider = ({ children }) => {
     // Listen for new notifications
     const handleNewNotification = (notification) => {
       console.log('Received newNotification event:', notification);
-      if (notification.recipient === user._id) {
+      if (String(notification.recipient) === String(userId)) {
         console.log('Processing notification for current user');
         // Check if notification already exists to prevent duplicates
         setNotifications(prev => {
@@ -346,26 +358,9 @@ export const NotificationProvider = ({ children }) => {
       socket.off('message_status_update', handleMessageStatusUpdate);
       socket.off('newNotification', handleNewNotification);
     };
-  }, [socket, isAuthenticated, user, incrementCount, fetchUnreadCounts]);
+  }, [socket, isAuthenticated, userId, incrementCount, showNotification]);
 
-  // Show notification function
-  const showNotification = (message, type = 'info') => {
-    switch (type) {
-      case 'success':
-        toast.success(message);
-        break;
-      case 'error':
-        toast.error(message);
-        break;
-      case 'warning':
-        toast.warning(message);
-        break;
-      default:
-        toast.info(message);
-    }
-  };
-
-  const value = {
+  const value = useMemo(() => ({
     unreadCounts,
     totalUnreadCount: unreadCounts.total,
     notifications,
@@ -378,7 +373,19 @@ export const NotificationProvider = ({ children }) => {
     deleteNotification,
     incrementCount,
     showNotification
-  };
+  }), [
+    unreadCounts,
+    notifications,
+    notificationsLoading,
+    fetchUnreadCounts,
+    fetchNotifications,
+    updateCount,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    incrementCount,
+    showNotification
+  ]);
 
   return (
     <NotificationContext.Provider value={value}>

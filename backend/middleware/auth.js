@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { isAdminEmail } = require('../utils/adminAuth');
+const { getCachedAuthUser, setCachedAuthUser } = require('../utils/authUserCache');
 
 module.exports = async function auth(req, res, next) {
   const token = req.header('x-auth-token');
@@ -15,7 +16,19 @@ module.exports = async function auth(req, res, next) {
       return res.status(401).json({ msg: 'Token payload missing user id' });
     }
 
-    const user = await User.findById(payloadUser.id).select('email accountStatus');
+    let user = getCachedAuthUser(payloadUser.id);
+    if (!user) {
+      const freshUser = await User.findById(payloadUser.id).select('email accountStatus');
+      if (freshUser) {
+        user = {
+          id: freshUser._id.toString(),
+          email: freshUser.email,
+          accountStatus: freshUser.accountStatus
+        };
+        setCachedAuthUser(payloadUser.id, user);
+      }
+    }
+
     if (!user) {
       return res.status(401).json({ msg: 'User no longer exists' });
     }
@@ -26,7 +39,7 @@ module.exports = async function auth(req, res, next) {
 
     req.user = {
       ...payloadUser,
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       isAdmin: isAdminEmail(user.email)
     };

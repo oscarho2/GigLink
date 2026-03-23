@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
@@ -17,9 +17,10 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState(new Map());
   const { token, user } = useAuth();
+  const userId = user?._id || user?.id || null;
 
   useEffect(() => {
-    if (token && user) {
+    if (token && userId) {
       // Initialize socket connection
       const socketUrl = process.env.REACT_APP_API_BASE_URL || 
                        (window.location.origin.includes('localhost') ? 'http://localhost:5001' : 'https://www.giglinksocial.com');
@@ -33,7 +34,7 @@ export const SocketProvider = ({ children }) => {
       });
 
       newSocket.on('connect', () => {
-        console.log('Connected to server with user ID:', user._id);
+        console.log('Connected to server with user ID:', userId);
         console.log('Socket ID:', newSocket.id);
         setIsConnected(true);
       });
@@ -72,45 +73,45 @@ export const SocketProvider = ({ children }) => {
         newSocket.close();
       };
     }
-  }, [token, user]);
+  }, [token, userId]);
 
-  const joinConversation = (conversationId) => {
+  const joinConversation = useCallback((conversationId) => {
     if (socket) {
       socket.emit('join_conversation', conversationId);
     }
-  };
+  }, [socket]);
 
-  const leaveConversation = (conversationId) => {
+  const leaveConversation = useCallback((conversationId) => {
     if (socket) {
       socket.emit('leave_conversation', conversationId);
     }
-  };
+  }, [socket]);
 
-  const startTyping = (conversationId, recipientId) => {
+  const startTyping = useCallback((conversationId, recipientId) => {
     if (socket) {
       socket.emit('typing_start', { conversationId, recipientId });
     }
-  };
+  }, [socket]);
 
-  const stopTyping = (conversationId, recipientId) => {
+  const stopTyping = useCallback((conversationId, recipientId) => {
     if (socket) {
       socket.emit('typing_stop', { conversationId, recipientId });
     }
-  };
+  }, [socket]);
 
-  const markMessageDelivered = (messageId, conversationId) => {
+  const markMessageDelivered = useCallback((messageId, conversationId) => {
     if (socket) {
       socket.emit('message_delivered', { messageId, conversationId });
     }
-  };
+  }, [socket]);
 
-  const markMessageRead = (messageId, conversationId) => {
+  const markMessageRead = useCallback((messageId, conversationId) => {
     if (socket) {
       socket.emit('message_read', { messageId, conversationId });
     }
-  };
+  }, [socket]);
 
-  const value = {
+  const value = useMemo(() => ({
     socket,
     isConnected,
     typingUsers,
@@ -120,7 +121,17 @@ export const SocketProvider = ({ children }) => {
     stopTyping,
     markMessageDelivered,
     markMessageRead
-  };
+  }), [
+    socket,
+    isConnected,
+    typingUsers,
+    joinConversation,
+    leaveConversation,
+    startTyping,
+    stopTyping,
+    markMessageDelivered,
+    markMessageRead
+  ]);
 
   return (
     <SocketContext.Provider value={value}>

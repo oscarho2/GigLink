@@ -21,53 +21,47 @@ const {
   uploadBufferToR2
 } = require('../utils/r2Config');
 
+const getLikeUserId = (like) => {
+  if (!like || !like.user) return null;
+  if (typeof like.user === 'string') return like.user;
+  return like.user._id?.toString() || like.user.toString();
+};
+
+const normalizeAvatarUser = (user) => {
+  if (!user) return user;
+  return {
+    ...user,
+    avatar: getPublicUrl(user.avatar)
+  };
+};
+
 // Helper function to add like status and counts to a post object
 const addPostLikeStatus = (post, userId) => {
-  const postObj = post.toObject();
-  postObj.isLikedByUser = post.likes.some(like => like.user._id.toString() === userId);
-  postObj.likesCount = post.likes.length;
-  postObj.commentsCount = post.comments.length;
-
-  if (postObj.author) {
-    postObj.author.avatar = getPublicUrl(postObj.author.avatar);
+  if (!post) {
+    return null;
   }
-  
-  // Add like status for each comment
-  postObj.comments = postObj.comments.map(comment => {
-    const commentObj = {
-      ...comment,
-      isLikedByUser: comment.likes.some(like => like.user._id.toString() === userId),
-      likesCount: comment.likes.length
-    };
 
-    if (commentObj.user) {
-      commentObj.user.avatar = getPublicUrl(commentObj.user.avatar);
-    }
+  const postObj = typeof post.toObject === 'function' ? post.toObject() : { ...post };
+  const normalizedUserId = String(userId);
 
-    if (commentObj.user) {
-      commentObj.user.avatar = getPublicUrl(commentObj.user.avatar);
-    }
-    
-    // Add like status for each reply
-    if (comment.replies) {
-      commentObj.replies = comment.replies.map(reply => {
-        const replyObj = {
-          ...reply,
-          isLikedByUser: reply.likes.some(like => like.user._id.toString() === userId),
-          likesCount: reply.likes.length
-        };
+  postObj.isLikedByUser = (postObj.likes || []).some((like) => getLikeUserId(like) === normalizedUserId);
+  postObj.likesCount = postObj.likes?.length || 0;
+  postObj.commentsCount = postObj.comments?.length || 0;
+  postObj.author = normalizeAvatarUser(postObj.author);
 
-        if (replyObj.user) {
-          replyObj.user.avatar = getPublicUrl(replyObj.user.avatar);
-        }
+  postObj.comments = (postObj.comments || []).map((comment) => ({
+    ...comment,
+    user: normalizeAvatarUser(comment.user),
+    isLikedByUser: (comment.likes || []).some((like) => getLikeUserId(like) === normalizedUserId),
+    likesCount: comment.likes?.length || 0,
+    replies: (comment.replies || []).map((reply) => ({
+      ...reply,
+      user: normalizeAvatarUser(reply.user),
+      isLikedByUser: (reply.likes || []).some((like) => getLikeUserId(like) === normalizedUserId),
+      likesCount: reply.likes?.length || 0
+    }))
+  }));
 
-        return replyObj;
-      });
-    }
-    
-    return commentObj;
-  });
-  
   return postObj;
 };
 
@@ -79,7 +73,8 @@ const getPopulatedPostWithLikeStatus = async (postId, userId) => {
     .populate('comments.replies.user', 'name avatar')
     .populate('comments.replies.likes.user', 'name')
     .populate('comments.likes.user', 'name')
-    .populate('likes.user', 'name');
+    .populate('likes.user', 'name')
+    .lean();
   
   return addPostLikeStatus(post, userId);
 };
@@ -205,7 +200,8 @@ router.get('/', auth, async (req, res) => {
       .populate('likes.user', 'name')
       .sort({ pinned: -1, pinnedAt: -1, createdAt: -1 })
       .limit(limit)
-      .skip(skip);
+      .skip(skip)
+      .lean();
     
     // Add like status for current user
     const postsWithLikeStatus = posts.map(post => addPostLikeStatus(post, req.user.id));
@@ -267,24 +263,11 @@ router.get('/user/:userId', auth, async (req, res) => {
       .populate('likes.user', 'name')
       .sort({ pinned: -1, pinnedAt: -1, createdAt: -1 })
       .limit(limit)
-      .skip(skip);
+      .skip(skip)
+      .lean();
 
     // Add like status for current user
-    const postsWithLikeStatus = posts.map(post => {
-      const postObj = post.toObject();
-      postObj.isLikedByUser = post.likes.some(like => like.user._id.toString() === req.user.id);
-      postObj.likesCount = post.likes.length;
-      postObj.commentsCount = post.comments.length;
-      
-      // Add like status for each comment
-      postObj.comments = postObj.comments.map(comment => ({
-        ...comment,
-        isLikedByUser: comment.likes.some(like => like.user._id.toString() === req.user.id),
-        likesCount: comment.likes.length
-      }));
-      
-      return postObj;
-    });
+    const postsWithLikeStatus = posts.map(post => addPostLikeStatus(post, req.user.id));
 
     res.json(postsWithLikeStatus);
   } catch (error) {

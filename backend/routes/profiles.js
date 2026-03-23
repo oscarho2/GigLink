@@ -13,6 +13,7 @@ const {
 } = require('../utils/r2Config');
 const { normalizeLocation } = require('../utils/location');
 const { parseLocation } = require('../utils/locationParser');
+const { invalidateCachedAuthUser } = require('../utils/authUserCache');
 const path = require('path');
 const fs = require('fs');
 
@@ -660,6 +661,7 @@ router.delete('/me', auth, async (req, res) => {
     // 7. Finally, delete the user account
     const user = await User.findByIdAndDelete(userId);
     console.log('User account deleted:', user ? 'Yes' : 'No user found');
+    invalidateCachedAuthUser(userId);
     
     if (!user) {
       return res.status(400).json({ msg: 'User account not found' });

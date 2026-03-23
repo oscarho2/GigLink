@@ -106,5 +106,9 @@ const GigSchema = new mongoose.Schema({
 });
 
 GigSchema.index({ moderationStatus: 1, date: 1 });
+GigSchema.index({ user: 1, date: 1, createdAt: -1 });
+GigSchema.index({ instruments: 1, moderationStatus: 1, date: 1 });
+GigSchema.index({ genres: 1, moderationStatus: 1, date: 1 });
+GigSchema.index({ 'location.country': 1, 'location.region': 1, 'location.city': 1, date: 1 });
 
 module.exports = mongoose.model('Gig', GigSchema);

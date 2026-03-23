@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 // Loading action types
@@ -129,7 +129,7 @@ export const LoadingProvider = ({ children }) => {
     }
   }, [startLoading, stopLoading]);
 
-  const value = {
+  const value = useMemo(() => ({
     // State
     globalLoading: state.globalLoading,
     loadingStates: state.loadingStates,
@@ -143,7 +143,18 @@ export const LoadingProvider = ({ children }) => {
     isLoading,
     getLoadingMessage,
     withLoading
-  };
+  }), [
+    state.globalLoading,
+    state.loadingStates,
+    isAnyLoading,
+    startLoading,
+    stopLoading,
+    setGlobalLoading,
+    clearAllLoading,
+    isLoading,
+    getLoadingMessage,
+    withLoading
+  ]);
 
   return (
     <LoadingContext.Provider value={value}>

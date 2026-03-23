@@ -14,6 +14,7 @@ const {
   hashOpaqueToken,
   signSessionToken
 } = require('../utils/authTokens');
+const { invalidateCachedAuthUser } = require('../utils/authUserCache');
 
 const PUBLIC_USER_SELECT = 'name avatar bio location locationData instruments genres isMusician website socialLinks';
 
@@ -303,6 +304,7 @@ router.put('/:id/suspend', auth, requireAdmin, async (req, res) => {
     user.accountStatus = 'suspended';
     user.suspendedAt = new Date();
     await user.save();
+    invalidateCachedAuthUser(id);
 
     res.json({
       message: 'User suspended successfully',
@@ -334,6 +336,7 @@ router.put('/:id/unsuspend', auth, requireAdmin, async (req, res) => {
     user.accountStatus = 'active';
     user.suspendedAt = null;
     await user.save();
+    invalidateCachedAuthUser(id);
 
     res.json({
       message: 'User reinstated successfully',
