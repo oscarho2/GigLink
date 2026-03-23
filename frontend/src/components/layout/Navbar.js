@@ -17,12 +17,12 @@ import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AuthContext from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import NotificationBadge from '../NotificationBadge';
 import UserAvatar from '../UserAvatar';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useContext(AuthContext);
-  const { totalUnreadCount } = useNotifications();
+  const { unreadCounts } = useNotifications();
+  const unreadNotificationCount = unreadCounts?.notifications || 0;
   const navigate = useNavigate();
   const location = useLocation();
   const [anchorElNav, setAnchorElNav] = useState(null);
@@ -339,7 +339,7 @@ const Navbar = () => {
                     '&:hover': {
                       bgcolor: 'rgba(255, 255, 255, 0.1)'
                     },
-                    '&::after': totalUnreadCount > 0 ? {
+                    '&::after': unreadNotificationCount > 0 ? {
                       content: '""',
                       position: 'absolute',
                       top: 4,
@@ -450,7 +450,7 @@ const Navbar = () => {
                     '&:hover': {
                       bgcolor: 'rgba(255, 255, 255, 0.1)'
                     },
-                    '&::after': totalUnreadCount > 0 ? {
+                    '&::after': unreadNotificationCount > 0 ? {
                       content: '""',
                       position: 'absolute',
                       top: 4,
