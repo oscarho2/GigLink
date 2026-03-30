@@ -31,6 +31,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 const Home = () => {
+  const androidDownloadUrl = '/downloads/GigLink.apk';
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showError, setShowError] = useState(false);
@@ -240,8 +241,7 @@ const Home = () => {
 
   const handleAndroidInstall = async () => {
     if (!deferredInstallPrompt) {
-      setError('Install is not available in this browser yet. Try Chrome on Android to add GigLink to your phone.');
-      setShowError(true);
+      window.location.href = androidDownloadUrl;
       return;
     }
 
@@ -532,7 +532,7 @@ const Home = () => {
                     </Typography>
                     {mobilePlatform === 'android' && !isInstallAvailable && (
                       <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
-                        If the install prompt does not appear, open this page in Chrome on Android and try again.
+                        If your browser does not offer direct PWA install, the button will download the Android app package instead.
                       </Typography>
                     )}
                   </Box>
@@ -556,7 +556,7 @@ const Home = () => {
                       }
                     }}
                   >
-                    {mobilePlatform === 'ios' ? 'Download on iPhone' : 'Download now'}
+                    {mobilePlatform === 'ios' ? 'Download on iPhone' : (isInstallAvailable ? 'Install on Android' : 'Download for Android')}
                   </Button>
                 </Box>
               </CardContent>
