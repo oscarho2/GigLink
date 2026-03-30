@@ -186,12 +186,8 @@ const Messages = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState(null);
   const [emojiMenuAnchor, setEmojiMenuAnchor] = useState(null);
-  const [selectedMessageForReaction, setSelectedMessageForReaction] =
-    useState(null);
-  const [messageMenuAnchor, setMessageMenuAnchor] = useState(null);
   const [showMediaDialog, setShowMediaDialog] = useState(false);
   const [headerMenuAnchor, setHeaderMenuAnchor] = useState(null);
-  const [selectedMessageForMenu, setSelectedMessageForMenu] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -250,7 +246,6 @@ const Messages = () => {
   const [showMobileConversation, setShowMobileConversation] = useState(false);
   const [replyToMessage, setReplyToMessage] = useState(null);
   const [hoveredMessage, setHoveredMessage] = useState(null);
-  const [longPressTimer, setLongPressTimer] = useState(null);
   const [showReactionPicker, setShowReactionPicker] = useState(null);
   const [acceptedApplicants, setAcceptedApplicants] = useState(new Set());
   const [currentPage, setCurrentPage] = useState(1);
@@ -259,17 +254,6 @@ const Messages = () => {
   const [totalMessages, setTotalMessages] = useState(0);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
-
-  const handleMessageContextMenu = (event, message) => {
-    if (event && typeof event.preventDefault === 'function') {
-      event.preventDefault();
-    }
-    setSelectedMessageForMenu(message);
-    const anchor = event && event.currentTarget
-      ? event.currentTarget
-      : (message?._id ? document.getElementById(`message-${message._id}`) : null);
-    setMessageMenuAnchor(anchor);
-  };
 
   // Debug: Log replyToMessage changes
   useEffect(() => {
@@ -1686,7 +1670,6 @@ const Messages = () => {
         }
       );
       setEmojiMenuAnchor(null);
-      setSelectedMessageForReaction(null);
       setShowReactionPicker(null);
     } catch (err) {
       console.error("Error adding reaction:", err);
@@ -1751,21 +1734,6 @@ const Messages = () => {
 
   const handleMessageLeave = () => {
     setHoveredMessage(null);
-  };
-
-  // Handle long press (mobile)
-  const handleTouchStart = (event, message) => {
-    const timer = setTimeout(() => {
-      handleMessageContextMenu(event, message);
-    }, 500); // 500ms long press
-    setLongPressTimer(timer);
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      setLongPressTimer(null);
-    }
   };
 
   // Handle reply to message
@@ -2693,6 +2661,7 @@ const Messages = () => {
                           <Box
                             onMouseEnter={() => handleMessageHover(message._id)}
                             onMouseLeave={handleMessageLeave}
+                            onContextMenu={(event) => event.preventDefault()}
                             sx={{
                               display: "flex",
                               justifyContent: isOwn ? "flex-end" : "flex-start",
@@ -2723,13 +2692,6 @@ const Messages = () => {
                                     setHoveredMessage(null);
                                   }
                                 }}
-                                onTouchStart={(e) =>
-                                  handleTouchStart(e, message)
-                                }
-                                onTouchEnd={handleTouchEnd}
-                                onContextMenu={(e) =>
-                                  handleMessageContextMenu(e, message)
-                                }
                                 sx={{
                                   p: 1.5,
                                   bgcolor: isOwn ? "#e6f3ff" : "white",
@@ -3864,10 +3826,7 @@ const Messages = () => {
                       <IconButton
                         size="small"
                         sx={{ color: "#666", width: 36, height: 36 }}
-                        onClick={(e) => {
-                          setEmojiMenuAnchor(e.currentTarget);
-                          setSelectedMessageForReaction(null);
-                        }}
+                        onClick={(e) => setEmojiMenuAnchor(e.currentTarget)}
                       >
                         <EmojiIcon />
                       </IconButton>
@@ -4070,37 +4029,6 @@ const Messages = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Message Context Menu */}
-      <Menu
-        anchorEl={messageMenuAnchor}
-        open={Boolean(messageMenuAnchor)}
-        onClose={() => {
-          setMessageMenuAnchor(null);
-          setSelectedMessageForMenu(null);
-        }}
-        transformOrigin={{ horizontal: "right", vertical: "top" }}
-        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-      >
-        <MenuItem
-          onClick={() => {
-            setSelectedMessageForReaction(selectedMessageForMenu);
-            setEmojiMenuAnchor(messageMenuAnchor);
-            setMessageMenuAnchor(null);
-          }}
-        >
-          <EmojiIcon sx={{ mr: 1 }} /> React
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            handleReplyToMessage(selectedMessageForMenu);
-            setMessageMenuAnchor(null);
-            setSelectedMessageForMenu(null);
-          }}
-        >
-          <ReplyIcon sx={{ mr: 1 }} /> Reply
-        </MenuItem>
-      </Menu>
-
       {/* Header Menu */}
       <Menu
         anchorEl={headerMenuAnchor}
@@ -4130,10 +4058,7 @@ const Messages = () => {
       <Menu
         anchorEl={emojiMenuAnchor}
         open={Boolean(emojiMenuAnchor)}
-        onClose={() => {
-          setEmojiMenuAnchor(null);
-          setSelectedMessageForReaction(null);
-        }}
+        onClose={() => setEmojiMenuAnchor(null)}
         transformOrigin={{ horizontal: "center", vertical: "top" }}
         anchorOrigin={{ horizontal: "center", vertical: "bottom" }}
       >
@@ -4141,12 +4066,8 @@ const Messages = () => {
           <MenuItem
             key={emoji}
             onClick={() => {
-              if (selectedMessageForReaction) {
-                handleEmojiReaction(selectedMessageForReaction._id, emoji);
-              } else {
-                setNewMessage((prev) => prev + emoji);
-                setEmojiMenuAnchor(null);
-              }
+              setNewMessage((prev) => prev + emoji);
+              setEmojiMenuAnchor(null);
             }}
             sx={{ minWidth: "auto", px: 1 }}
           >
