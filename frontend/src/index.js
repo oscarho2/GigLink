@@ -12,7 +12,13 @@ root.render(
   </React.StrictMode>
 );
 
-if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+const canRegisterServiceWorker =
+  'serviceWorker' in navigator &&
+  (window.isSecureContext ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1');
+
+if (canRegisterServiceWorker) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')

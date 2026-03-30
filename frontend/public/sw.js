@@ -1,6 +1,6 @@
 // Service Worker for PWA capabilities: offline caching + push notifications
-const STATIC_CACHE = 'giglink-static-v1';
-const RUNTIME_CACHE = 'giglink-runtime-v1';
+const STATIC_CACHE = 'giglink-static-v2';
+const RUNTIME_CACHE = 'giglink-runtime-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -8,6 +8,9 @@ const STATIC_ASSETS = [
   '/offline.html',
   '/favicon.png',
   '/favicon.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png',
   '/images/notification-icon.png',
   '/images/badge-icon.png',
   '/images/view-icon.png',
