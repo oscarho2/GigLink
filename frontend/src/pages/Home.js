@@ -22,6 +22,12 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import googleAuthService from '../utils/googleAuth';
 import appleAuthService from '../utils/appleAuth';
 import { isAndroidDevice, isIosDevice, isPhoneDevice, isStandalonePWA } from '../utils/environment';
+import {
+  clearDeferredInstallPrompt,
+  getDeferredInstallPrompt,
+  PWA_INSTALL_AVAILABLE_EVENT,
+  PWA_INSTALLED_EVENT
+} from '../utils/pwaInstall';
 import { useAuth } from '../context/AuthContext';
 
 const Home = () => {
@@ -93,11 +99,10 @@ const Home = () => {
     }
 
     setMobilePlatform('android');
-
-    const handleBeforeInstallPrompt = (event) => {
-      event.preventDefault();
-      setDeferredInstallPrompt(event);
-      setIsInstallAvailable(true);
+    const syncInstallPrompt = () => {
+      const promptEvent = getDeferredInstallPrompt();
+      setDeferredInstallPrompt(promptEvent);
+      setIsInstallAvailable(Boolean(promptEvent));
     };
 
     const handleAppInstalled = () => {
@@ -106,12 +111,14 @@ const Home = () => {
       setIsInstalled(true);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
+    syncInstallPrompt();
+
+    window.addEventListener(PWA_INSTALL_AVAILABLE_EVENT, syncInstallPrompt);
+    window.addEventListener(PWA_INSTALLED_EVENT, handleAppInstalled);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener(PWA_INSTALL_AVAILABLE_EVENT, syncInstallPrompt);
+      window.removeEventListener(PWA_INSTALLED_EVENT, handleAppInstalled);
     };
   }, []);
 
@@ -246,6 +253,7 @@ const Home = () => {
       setError('Unable to open the install prompt right now. Please try again.');
       setShowError(true);
     } finally {
+      clearDeferredInstallPrompt();
       setDeferredInstallPrompt(null);
       setIsInstallAvailable(false);
     }
@@ -515,7 +523,7 @@ const Home = () => {
                       }}
                     />
                     <Typography variant="h4" component="h2" gutterBottom>
-                      Take GigLink with you
+                      Download GigLink
                     </Typography>
                     <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 560 }}>
                       {mobilePlatform === 'ios'
