@@ -10,19 +10,28 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
+import Chip from '@mui/material/Chip';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import WorkIcon from '@mui/icons-material/Work';
 import GroupIcon from '@mui/icons-material/Group';
 import AppleIcon from '@mui/icons-material/Apple';
+import DownloadIcon from '@mui/icons-material/Download';
+import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
+import AndroidIcon from '@mui/icons-material/Android';
 import LoadingSpinner from '../components/LoadingSpinner';
 import googleAuthService from '../utils/googleAuth';
 import appleAuthService from '../utils/appleAuth';
+import { isAndroidDevice, isIosDevice, isPhoneDevice, isStandalonePWA } from '../utils/environment';
 import { useAuth } from '../context/AuthContext';
 
 const Home = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showError, setShowError] = useState(false);
+  const [mobilePlatform, setMobilePlatform] = useState(null);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [isInstallAvailable, setIsInstallAvailable] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
   const navigate = useNavigate();
   const { loginWithToken, isAuthenticated, loading } = useAuth();
 
@@ -57,6 +66,52 @@ const Home = () => {
       window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('focus', handleVisibility);
       document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    const standalone = isStandalonePWA();
+    setIsInstalled(standalone);
+
+    if (!isPhoneDevice() || standalone) {
+      setMobilePlatform(null);
+      setDeferredInstallPrompt(null);
+      setIsInstallAvailable(false);
+      return undefined;
+    }
+
+    if (isIosDevice()) {
+      setMobilePlatform('ios');
+      setIsInstallAvailable(true);
+      return undefined;
+    }
+
+    if (!isAndroidDevice()) {
+      setMobilePlatform(null);
+      setIsInstallAvailable(false);
+      return undefined;
+    }
+
+    setMobilePlatform('android');
+
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setDeferredInstallPrompt(event);
+      setIsInstallAvailable(true);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredInstallPrompt(null);
+      setIsInstallAvailable(false);
+      setIsInstalled(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
@@ -175,6 +230,28 @@ const Home = () => {
   const handleCloseError = () => {
     setShowError(false);
   };
+
+  const handleAndroidInstall = async () => {
+    if (!deferredInstallPrompt) {
+      setError('Install is not available in this browser yet. Try Chrome on Android to add GigLink to your phone.');
+      setShowError(true);
+      return;
+    }
+
+    try {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+    } catch (installError) {
+      console.error('Android install prompt failed:', installError);
+      setError('Unable to open the install prompt right now. Please try again.');
+      setShowError(true);
+    } finally {
+      setDeferredInstallPrompt(null);
+      setIsInstallAvailable(false);
+    }
+  };
+
+  const showMobileDownloadSection = Boolean(mobilePlatform) && !isInstalled;
 
   return (
     <Box>
@@ -404,6 +481,81 @@ const Home = () => {
           </Box>
         </Container>
       </Box>
+
+      {showMobileDownloadSection && (
+        <Box sx={{ bgcolor: '#e2e8f0', py: { xs: 5, md: 6 } }}>
+          <Container maxWidth="md">
+            <Card
+              elevation={0}
+              sx={{
+                borderRadius: 4,
+                border: '1px solid rgba(71, 85, 105, 0.16)',
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)'
+              }}
+            >
+              <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    justifyContent: 'space-between',
+                    gap: 3
+                  }}
+                >
+                  <Box>
+                    <Chip
+                      icon={<DownloadIcon />}
+                      label="Available for download"
+                      sx={{
+                        mb: 2,
+                        bgcolor: 'rgba(71, 85, 105, 0.08)',
+                        color: 'primary.main',
+                        fontWeight: 700
+                      }}
+                    />
+                    <Typography variant="h4" component="h2" gutterBottom>
+                      Take GigLink with you
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 560 }}>
+                      {mobilePlatform === 'ios'
+                        ? 'Download the iPhone app for faster access to gigs, messages, and your musician network.'
+                        : 'Install GigLink on Android and open it like an app right from your home screen.'}
+                    </Typography>
+                    {mobilePlatform === 'android' && !isInstallAvailable && (
+                      <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
+                        If the install prompt does not appear, open this page in Chrome on Android and try again.
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Button
+                    variant="contained"
+                    size="large"
+                    href={mobilePlatform === 'ios' ? 'https://apps.apple.com/ca/app/giglink/id6754845873' : undefined}
+                    target={mobilePlatform === 'ios' ? '_blank' : undefined}
+                    rel={mobilePlatform === 'ios' ? 'noopener noreferrer' : undefined}
+                    onClick={mobilePlatform === 'android' ? handleAndroidInstall : undefined}
+                    startIcon={mobilePlatform === 'ios' ? <PhoneIphoneIcon /> : <AndroidIcon />}
+                    sx={{
+                      minWidth: { xs: '100%', sm: 220 },
+                      px: 3.5,
+                      py: 1.5,
+                      borderRadius: 999,
+                      bgcolor: mobilePlatform === 'ios' ? '#111827' : '#166534',
+                      '&:hover': {
+                        bgcolor: mobilePlatform === 'ios' ? '#000' : '#14532d'
+                      }
+                    }}
+                  >
+                    {mobilePlatform === 'ios' ? 'Download on iPhone' : 'Download now'}
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Container>
+        </Box>
+      )}
 
       {/* Features Section */}
       <Container maxWidth="lg" sx={{ py: 8 }}>

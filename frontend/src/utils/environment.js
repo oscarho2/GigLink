@@ -17,6 +17,30 @@ export const isIosDevice = () => {
   return /iPad|iPhone|iPod/.test(platform) || /iPad|iPhone|iPod/.test(userAgent) || isTouchMac;
 };
 
+export const isAndroidDevice = () => {
+  const nav = getNavigator();
+  if (!nav) {
+    return false;
+  }
+
+  const userAgent = nav.userAgent || '';
+  return /Android/i.test(userAgent);
+};
+
+export const isPhoneDevice = () => {
+  const nav = getNavigator();
+  if (!nav) {
+    return false;
+  }
+
+  const userAgent = nav.userAgent || '';
+  if (isIosDevice()) {
+    return /iPhone|iPod/.test(userAgent) || (/iPhone|iPod/.test(nav.platform || ''));
+  }
+
+  return /Android/i.test(userAgent) && /Mobile/i.test(userAgent);
+};
+
 export const isStandalonePWA = () => {
   if (typeof window === 'undefined') {
     return false;
