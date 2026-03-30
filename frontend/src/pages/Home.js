@@ -21,7 +21,7 @@ import AndroidIcon from '@mui/icons-material/Android';
 import LoadingSpinner from '../components/LoadingSpinner';
 import googleAuthService from '../utils/googleAuth';
 import appleAuthService from '../utils/appleAuth';
-import { isAndroidDevice, isIosDevice, isPhoneDevice, isStandalonePWA } from '../utils/environment';
+import { isAndroidDevice, isIosDevice, isStandalonePWA } from '../utils/environment';
 import {
   clearDeferredInstallPrompt,
   getDeferredInstallPrompt,
@@ -78,9 +78,10 @@ const Home = () => {
 
   useEffect(() => {
     const standalone = isStandalonePWA();
+    const shouldShowDownloadSection = isIosDevice() || isAndroidDevice();
     setIsInstalled(standalone);
 
-    if (!isPhoneDevice() || standalone) {
+    if (!shouldShowDownloadSection || standalone) {
       setMobilePlatform(null);
       setDeferredInstallPrompt(null);
       setIsInstallAvailable(false);
@@ -527,7 +528,7 @@ const Home = () => {
                     </Typography>
                     <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 560 }}>
                       {mobilePlatform === 'ios'
-                        ? 'Download the iPhone app for faster access to gigs, messages, and your musician network.'
+                        ? 'Download the iPhone or iPad app for faster access to gigs, messages, and your musician network.'
                         : 'Install GigLink on Android and open it like an app right from your home screen.'}
                     </Typography>
                     {mobilePlatform === 'android' && !isInstallAvailable && (
@@ -556,7 +557,7 @@ const Home = () => {
                       }
                     }}
                   >
-                    {mobilePlatform === 'ios' ? 'Download on iPhone' : (isInstallAvailable ? 'Install on Android' : 'Download for Android')}
+                    {mobilePlatform === 'ios' ? 'Download on iPhone or iPad' : (isInstallAvailable ? 'Install on Android' : 'Download for Android')}
                   </Button>
                 </Box>
               </CardContent>
