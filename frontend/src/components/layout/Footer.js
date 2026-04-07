@@ -27,6 +27,11 @@ const Footer = () => {
             </Link>
           </Grid>
           <Grid item>
+            <Link component={RouterLink} to="/blog" color="inherit" sx={{ '&:hover': { textDecoration: 'underline' } }}>
+              Blog
+            </Link>
+          </Grid>
+          <Grid item>
             <Link component={RouterLink} to="/terms-of-service" color="inherit" sx={{ '&:hover': { textDecoration: 'underline' } }}>
               Terms of Service
             </Link>
