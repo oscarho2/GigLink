@@ -118,6 +118,22 @@ const MainContent = styled(Box, {
   }
 }));
 
+const GoogleAnalyticsTracker = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window.gtag !== 'function') {
+      return;
+    }
+
+    window.gtag('config', 'G-6D6W1FRXPS', {
+      page_path: `${location.pathname}${location.search}`,
+    });
+  }, [location.pathname, location.search]);
+
+  return null;
+};
+
 // Component to handle conditional footer rendering
 const AppContent = () => {
   const location = useLocation();
@@ -223,6 +239,7 @@ function App() {
                 })}
               />
               <Router>
+                <GoogleAnalyticsTracker />
                 <ScrollToTop />
                 <AppContent />
               </Router>
