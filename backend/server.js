@@ -102,6 +102,21 @@ app.use(express.json({ limit: '1mb' }));
 // Serve static uploads (public)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+const adsTxtCandidates = [
+  path.join(__dirname, '..', 'frontend', 'build', 'ads.txt'),
+  path.join(__dirname, '..', 'frontend', 'public', 'ads.txt')
+];
+
+app.get('/ads.txt', (req, res) => {
+  const adsTxtPath = adsTxtCandidates.find((candidate) => fs.existsSync(candidate));
+
+  if (!adsTxtPath) {
+    return res.status(404).type('text/plain').send('ads.txt not found');
+  }
+
+  return res.type('text/plain').sendFile(adsTxtPath);
+});
+
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);

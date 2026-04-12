@@ -40,6 +40,7 @@ const EditProfile = lazy(() => import('./pages/EditProfile'));
 const ProfileSetup = lazy(() => import('./pages/ProfileSetup'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Discover = lazy(() => import('./pages/Discover'));
+const DiscoverMusiciansBands = lazy(() => import('./pages/DiscoverMusiciansBands'));
 const Gigs = lazy(() => import('./pages/Gigs'));
 const GigDetail = lazy(() => import('./pages/GigDetail'));
 const CreateGig = lazy(() => import('./pages/CreateGig'));
@@ -173,6 +174,7 @@ const AppContent = () => {
             <Route path="/profile-setup" element={<PrivateRoute><ProfileSetup /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
             <Route path="/discover" element={<Discover />} />
+            <Route path="/discover-musicians-bands" element={<DiscoverMusiciansBands />} />
             <Route path="/gigs" element={<Gigs />} />
             <Route path="/gigs/:id" element={<GigDetail />} />
             <Route path="/gigs/:id/edit" element={<PrivateRoute><EditGig /></PrivateRoute>} />

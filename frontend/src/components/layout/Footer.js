@@ -32,6 +32,11 @@ const Footer = () => {
             </Link>
           </Grid>
           <Grid item>
+            <Link component={RouterLink} to="/discover-musicians-bands" color="inherit" sx={{ '&:hover': { textDecoration: 'underline' } }}>
+              Discover Musicians & Bands
+            </Link>
+          </Grid>
+          <Grid item>
             <Link component={RouterLink} to="/terms-of-service" color="inherit" sx={{ '&:hover': { textDecoration: 'underline' } }}>
               Terms of Service
             </Link>
